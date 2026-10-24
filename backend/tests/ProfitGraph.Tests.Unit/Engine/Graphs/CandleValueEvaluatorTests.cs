@@ -149,7 +149,7 @@ public sealed class CandleValueEvaluatorTests
                         "parameter",
                         "Parameter",
                         new Dictionary<string, ParamValue>
-                            { ["name"] = Text(""), ["value"] = new FixedParamValue(new NumberParamLiteral(7d)) })
+                            { ["name"] = Text(""), ["value"] = new FixedParamValue(new DecimalParamLiteral(7m)) })
                 ],
                 []));
         var evaluator = new CandleValueEvaluator(graph);

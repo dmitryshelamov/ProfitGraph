@@ -31,8 +31,6 @@ public interface INodeDefinition
 
     bool IsAction => false;
 
-    bool SupportsPhase1 => true;
-
     IReadOnlyList<ActionEvaluationMode> AllowedEvaluationModes => Array.Empty<ActionEvaluationMode>();
 
     TradingNodeBehavior? TradingBehavior => null;
@@ -89,10 +87,4 @@ public interface INodeDefinition
     {
         throw new InvalidOperationException("Unsupported state projection behavior.");
     }
-
-    // Ключ в словаре — PortSpec.Key соответствующего выхода.
-    IReadOnlyDictionary<string, NodeOutput> Evaluate(
-        NodeContext context,
-        IReadOnlyDictionary<string, NodeOutput> inputs,
-        ResolvedParams parameters);
 }

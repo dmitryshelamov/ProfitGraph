@@ -11,7 +11,6 @@ public sealed class CompositeNodeDefinition : IExpandableNodeDefinition
     public string TypeKey { get; }
     public NodeCategory Category => NodeCategory.Composite;
     public int SchemaVersion { get; }
-    public bool SupportsPhase1 => false;
     public IReadOnlyList<PortSpec> Inputs { get; }
     public IReadOnlyList<PortSpec> Outputs { get; }
     public IReadOnlyList<ParamSpec> Params { get; }
@@ -40,10 +39,5 @@ public sealed class CompositeNodeDefinition : IExpandableNodeDefinition
         InputMappings = inputMappings;
         OutputMappings = outputMappings;
         ParameterMappings = parameterMappings;
-    }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        throw new InvalidOperationException("Composite nodes must be expanded before evaluation.");
     }
 }

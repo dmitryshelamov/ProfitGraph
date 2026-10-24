@@ -68,13 +68,6 @@ public sealed class ProductionTradingNodeTests
         new TradingGraphCompiler().Compile(graph, Catalog).Graph.ShouldBeNull();
     }
 
-    [Test]
-    public void UnsupportedProductionStateRefusesPhase1WithDiagnostic()
-    {
-        var graph = new StrategyGraph([TradingNode("balance", "Balance")], []);
-        new GraphCompiler().Compile(graph, Catalog).Validation.Diagnostics.ShouldContain(diagnostic => diagnostic.Code == GraphDiagnosticCode.UnsupportedPhase1Graph);
-    }
-
     [TestCase("Buy")]
     [TestCase("Sell")]
     public void ListenerFiltersUseClosedChoices(string side)

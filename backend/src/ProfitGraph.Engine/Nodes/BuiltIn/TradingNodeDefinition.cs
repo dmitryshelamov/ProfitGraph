@@ -12,7 +12,6 @@ public sealed class TradingNodeDefinition : INodeDefinition
     private readonly INodeDefinition _definition;
 
     public string TypeKey => _definition.TypeKey;
-    public bool SupportsPhase1 => _definition.SupportsPhase1;
     public bool IsAction => _definition.IsAction;
     public TradingNodeBehavior? TradingBehavior => _definition.TradingBehavior;
     public IReadOnlyList<EventFieldSpec> EventFields => _definition.EventFields;
@@ -68,10 +67,5 @@ public sealed class TradingNodeDefinition : INodeDefinition
     public void EvaluateTrading(NodeTradingEvaluationContext context)
     {
         _definition.EvaluateTrading(context);
-    }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return _definition.Evaluate(context, inputs, parameters);
     }
 }

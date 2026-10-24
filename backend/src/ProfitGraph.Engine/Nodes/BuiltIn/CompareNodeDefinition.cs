@@ -49,27 +49,4 @@ public sealed class CompareNodeDefinition : INodeDefinition
 
         return null;
     }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return new Dictionary<string, NodeOutput> { ["out"] = EvaluateValue(context, inputs, parameters) };
-    }
-
-    private static NodeOutput EvaluateValue(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        double a = inputs["a"].SeriesValue;
-        double b = inputs["b"].SeriesValue;
-
-        return NodeOutput.Condition(
-            parameters.GetString("op") switch
-            {
-                "<" => a < b,
-                "<=" => a <= b,
-                "=" => a == b,
-                "!=" => a != b,
-                ">=" => a >= b,
-                ">" => a > b,
-                _ => throw new InvalidOperationException("Unknown comparison.")
-            });
-    }
 }

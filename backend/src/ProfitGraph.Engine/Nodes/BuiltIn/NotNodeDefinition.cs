@@ -32,14 +32,4 @@ public sealed class NotNodeDefinition : INodeDefinition
     {
         return EngineValue.FromBoolean(!context.Inputs["in"].Boolean);
     }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return new Dictionary<string, NodeOutput> { ["out"] = EvaluateValue(context, inputs, parameters) };
-    }
-
-    private static NodeOutput EvaluateValue(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return NodeOutput.Condition(!inputs["in"].ConditionValue);
-    }
 }

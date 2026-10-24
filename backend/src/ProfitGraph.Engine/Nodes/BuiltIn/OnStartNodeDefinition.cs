@@ -33,14 +33,4 @@ public sealed class OnStartNodeDefinition : INodeDefinition
     {
         return context.Occurrence?.Kind == EventKind.Start ? EngineValue.FromEvent(context.Occurrence) : EngineValue.Unavailable(ValueType.Event);
     }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return new Dictionary<string, NodeOutput> { ["out"] = EvaluateValue(context, inputs, parameters) };
-    }
-
-    private static NodeOutput EvaluateValue(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return NodeOutput.Event(context.BarIndex == 0);
-    }
 }

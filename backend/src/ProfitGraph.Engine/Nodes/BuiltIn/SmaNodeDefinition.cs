@@ -1,12 +1,11 @@
 using ProfitGraph.Engine.Evaluation;
 using ProfitGraph.Engine.Graphs;
 using ProfitGraph.Engine.Graphs.Validation;
-using ProfitGraph.Engine.Market;
 
 namespace ProfitGraph.Engine.Nodes.BuiltIn;
 
 /// <summary>
-///     Простой индикатор Phase 0 с одним Series-входом, одним выходом и числовым параметром period.
+///     Простой индикатор с одним Series-входом, одним выходом и числовым параметром period.
 ///     Вычисляет среднее цен закрытия за заданное окно, демонстрируя контракт ноды и работу с историей.
 /// </summary>
 /// <remarks>В графе усредняет историю подключённого ряда; при отдельном вызове без входов использует Close.</remarks>
@@ -68,28 +67,5 @@ public sealed class SmaNodeDefinition : INodeDefinition
         }
 
         return sample == ValueType.Integer ? ValueType.Scalar : sample;
-    }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(
-        NodeContext context,
-        IReadOnlyDictionary<string, NodeOutput> inputs,
-        ResolvedParams parameters)
-    {
-        int period = parameters.GetInt("period");
-
-        if (inputs.ContainsKey("in"))
-        {
-            NodeOutput[] window = context.InputHistory("in").TakeLast(period).ToArray();
-            NodeOutput result = window.Length == period && window.All(value => value.IsAvailable)
-                ? NodeOutput.Series(window.Average(value => value.SeriesValue))
-                : NodeOutput.Unavailable(PortKind.Series);
-
-            return new Dictionary<string, NodeOutput> { ["out"] = result };
-        }
-
-        IReadOnlyList<Candle> history = context.LookBack(period);
-        double average = history.Average(candle => (double)candle.Close);
-
-        return new Dictionary<string, NodeOutput> { ["out"] = NodeOutput.Series(average) };
     }
 }

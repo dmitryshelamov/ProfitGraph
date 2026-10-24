@@ -37,8 +37,6 @@ public sealed class WarmUpCalculator
             {
                 FixedParamValue fixedValue when EngineLiteralResolver.Resolve(fixedValue.Value, ValueType.Integer) is { } number => (number.Number, number.Number),
                 DecimalOptimizeParamValue range => (range.Min, range.Max),
-                OptimizeParamValue range when EngineLiteralResolver.Resolve(new NumberParamLiteral(range.Min), ValueType.Integer) is { } min &&
-                    EngineLiteralResolver.Resolve(new NumberParamLiteral(range.Max), ValueType.Integer) is { } max => (min.Number, max.Number),
                 WiredParamValue wired => bounds.GetValueOrDefault(wired.Source.NodeId),
                 _ => null
             };
@@ -78,7 +76,7 @@ public sealed class WarmUpCalculator
                 if (definition.WarmupPeriodKey is { Length: > 0 } periodKey)
                 {
                     ParamValue period = node.Parameters.GetValueOrDefault(periodKey) ?? new FixedParamValue(
-                        new NumberParamLiteral(Convert.ToDouble(definition.Params.Single(spec => spec.Key == periodKey).DefaultValue, CultureInfo.InvariantCulture)));
+                        new DecimalParamLiteral(Convert.ToDecimal(definition.Params.Single(spec => spec.Key == periodKey).DefaultValue, CultureInfo.InvariantCulture)));
                     GraphConnection? periodConnection = connections.SingleOrDefault(edge => edge.Target.PortKey == periodKey);
                     (decimal Min, decimal Max)? range = periodConnection is null ? Bound(period) : bounds.GetValueOrDefault(periodConnection.Source.NodeId);
                     ParamSpec spec = definition.Params.Single(parameter => parameter.Key == periodKey);

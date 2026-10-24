@@ -11,7 +11,6 @@ namespace ProfitGraph.Engine.Nodes.BuiltIn;
 public sealed class OrderSizePreviewNodeDefinition : INodeDefinition
 {
     public string TypeKey => nameof(TradingNodeBehavior.OrderSizePreview);
-    public bool SupportsPhase1 => false;
     public bool IsAction => false;
     public TradingNodeBehavior? TradingBehavior => TradingNodeBehavior.OrderSizePreview;
     public NodeClock? EngineClock => NodeClock.Dispatch;
@@ -128,11 +127,6 @@ public sealed class OrderSizePreviewNodeDefinition : INodeDefinition
         {
             context.Values["reason"] = EngineValue.FromRejectionReason(sizing.Reason.Value);
         }
-    }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        throw new InvalidOperationException("A production trading node requires the causal dispatcher.");
     }
 
     private static OrderSide ParseSide(string side)

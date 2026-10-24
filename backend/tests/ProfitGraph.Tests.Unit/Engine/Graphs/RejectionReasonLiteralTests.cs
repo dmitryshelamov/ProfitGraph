@@ -35,7 +35,6 @@ public sealed class RejectionReasonLiteralTests
         new GraphValidator().ValidateStrict(graph, Catalog).Diagnostics.ShouldBeEmpty();
         CompiledTradingGraph compiled = new TradingGraphCompiler().Compile(graph, Catalog).Graph.ShouldNotBeNull();
         new CandleValueEvaluator(compiled).ReadStaticValues()[new PortReference("compare", "out")].Boolean.ShouldBeTrue();
-        new GraphCompiler().Compile(graph, Catalog).Validation.Diagnostics.ShouldContain(diagnostic => diagnostic.Code == GraphDiagnosticCode.UnsupportedPhase1Graph);
     }
 
     [Test]

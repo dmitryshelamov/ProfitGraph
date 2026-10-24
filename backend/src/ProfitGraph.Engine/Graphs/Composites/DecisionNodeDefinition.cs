@@ -31,7 +31,6 @@ public sealed class DecisionNodeDefinition : IExpandableNodeDefinition
     public string TypeKey => NodeTypeKeys.Decision;
     public NodeCategory Category => NodeCategory.Signal;
     public int SchemaVersion => 1;
-    public bool SupportsPhase1 => false;
 
     public IReadOnlyList<PortSpec> Inputs { get; } =
     [
@@ -46,14 +45,6 @@ public sealed class DecisionNodeDefinition : IExpandableNodeDefinition
     ];
 
     public IReadOnlyList<ParamSpec> Params { get; } = [];
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(
-        NodeContext context,
-        IReadOnlyDictionary<string, NodeOutput> inputs,
-        ResolvedParams parameters)
-    {
-        throw new InvalidOperationException("Decision nodes must be expanded before evaluation.");
-    }
 
     private static StrategyGraph CreateGraph()
     {

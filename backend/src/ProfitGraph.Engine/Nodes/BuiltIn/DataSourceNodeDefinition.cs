@@ -6,10 +6,9 @@ namespace ProfitGraph.Engine.Nodes.BuiltIn;
 
 /// <summary>
 ///     Исходная нода графа без входов: выдаёт цену закрытия текущей свечи через единственный Series-выход.
-///     Даёт Phase 0 начальную точку для проверки каталога и вычислений нод.
 /// </summary>
 /// <remarks>
-///     Свеча берётся из NodeContext; параметры источника описывают настройки и сами не загружают рыночные данные.
+///     Свеча берётся из контекста вычисления движка; параметры источника описывают настройки и сами не загружают рыночные данные.
 ///     Площадка не является параметром графа: её выбирает прогон или бот (ADR 0009).
 /// </remarks>
 public sealed class DataSourceNodeDefinition : INodeDefinition
@@ -46,16 +45,5 @@ public sealed class DataSourceNodeDefinition : INodeDefinition
     public ValueType? ResolveOutputType(GraphNode node, Func<string, ValueType?> input, List<GraphDiagnostic> diagnostics)
     {
         return ValueType.Price;
-    }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(
-        NodeContext context,
-        IReadOnlyDictionary<string, NodeOutput> inputs,
-        ResolvedParams parameters)
-    {
-        return new Dictionary<string, NodeOutput>
-        {
-            ["out"] = NodeOutput.Series((double)context.CurrentCandle.Close)
-        };
     }
 }

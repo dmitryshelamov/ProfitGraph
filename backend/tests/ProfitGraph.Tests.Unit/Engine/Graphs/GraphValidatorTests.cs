@@ -1,5 +1,5 @@
-using ProfitGraph.Engine.Compilation;
 using ProfitGraph.Engine.Graphs;
+using ProfitGraph.Engine.Graphs.Dependencies;
 using ProfitGraph.Engine.Graphs.Validation;
 using ProfitGraph.Engine.Nodes;
 using ProfitGraph.Engine.Nodes.BuiltIn;
@@ -89,7 +89,6 @@ public sealed class GraphValidatorTests
             ],
             []);
         AssertCode(graph, GraphDiagnosticCode.Cycle);
-        new GraphCompiler().Compile(graph, GraphNodeGenerator.Definitions).Graph.ShouldBeNull();
     }
 
     [Test]
@@ -106,7 +105,7 @@ public sealed class GraphValidatorTests
     [TestCase(arg1: 0, arg2: 4, arg3: 1)]
     [TestCase(arg1: 1, arg2: 201, arg3: 1)]
     [TestCase(arg1: 1, arg2: 4, arg3: 0.5)]
-    public void OptimizeRangeAndStepMustFitSchema(double min, double max, double step)
+    public void OptimizeRangeAndStepMustFitSchema(decimal min, decimal max, decimal step)
     {
         var graph = new StrategyGraph(
             [
@@ -115,7 +114,7 @@ public sealed class GraphValidatorTests
                     "SMA",
                     new Dictionary<string, ParamValue>
                     {
-                        ["period"] = new OptimizeParamValue(min, max, step)
+                        ["period"] = new DecimalOptimizeParamValue(min, max, step)
                     })
             ],
             []);
@@ -154,10 +153,8 @@ public sealed class GraphValidatorTests
                 GraphNodeGenerator.Create("b")
             ],
             []);
-        GraphCompilationResult result = new GraphCompiler().Compile(graph, GraphNodeGenerator.Definitions);
-        result.ShouldSatisfyAllConditions(
-            () => result.Validation.IsValid.ShouldBeTrue(),
-            () => result.Graph!.Nodes.Select(node => node.Node.Id).ShouldBe(new[] { "b", "z", "a" }));
+        new GraphValidator().Validate(graph, GraphNodeGenerator.Definitions).IsValid.ShouldBeTrue();
+        new GraphTopology().Sort(graph, GraphNodeGenerator.Definitions).ShouldBe(new[] { "b", "z", "a" });
     }
 
     [Test]

@@ -23,7 +23,7 @@ public sealed class ParameterNodeDefinition : INodeDefinition
     public IReadOnlyList<ParamSpec> Params { get; } =
     [
         new ParamSpec("name", "Name", ParamValueKind.Text, "parameter"),
-        new ParamSpec("value", "Value", ParamValueKind.Number, DefaultValue: 0d)
+        new ParamSpec("value", "Value", ParamValueKind.Number, DefaultValue: 0m)
     ];
 
     public bool IsPureComputation => true;
@@ -54,15 +54,5 @@ public sealed class ParameterNodeDefinition : INodeDefinition
         Func<string, (decimal Min, decimal Max)?> inputBound)
     {
         return node.Parameters.TryGetValue("value", out ParamValue? value) ? bound(value) : (0m, 0m);
-    }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return new Dictionary<string, NodeOutput> { ["out"] = EvaluateValue(context, inputs, parameters) };
-    }
-
-    private static NodeOutput EvaluateValue(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return NodeOutput.Series(parameters.GetNumber("value"));
     }
 }

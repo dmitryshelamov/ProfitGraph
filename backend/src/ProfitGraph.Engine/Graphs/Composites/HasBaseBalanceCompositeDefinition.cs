@@ -24,7 +24,7 @@ internal static class HasBaseBalanceCompositeDefinition
             graph.Build(),
             [],
             [new PortSpec("out", PortKind.Condition, "Условие", ValueType.Boolean)],
-            [new ParamSpec("minQuantity", "Минимальное количество актива", ParamValueKind.Number, DefaultValue: 0d)],
+            [new ParamSpec("minQuantity", "Минимальное количество актива", ParamValueKind.Number, DefaultValue: 0m)],
             [
                 new EngineInputSpec(
                     "minQuantity",

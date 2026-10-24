@@ -8,7 +8,7 @@ using ProfitGraph.Engine.Nodes;
 namespace ProfitGraph.Engine.Compilation;
 
 /// <summary>
-///     An immutable strict trading plan separate from the Phase 1 interpreter plan.
+///     An immutable strict trading plan.
 /// </summary>
 public sealed class CompiledTradingGraph
 {

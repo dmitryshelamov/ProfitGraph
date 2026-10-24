@@ -56,16 +56,4 @@ public sealed class PreviousCandleValueNodeDefinition : INodeDefinition
 
         return sample;
     }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return new Dictionary<string, NodeOutput> { ["out"] = EvaluateValue(context, inputs, parameters) };
-    }
-
-    private static NodeOutput EvaluateValue(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        IReadOnlyList<NodeOutput> history = context.InputHistory("in");
-
-        return history.Count >= 2 ? history[^2] : NodeOutput.Unavailable(PortKind.Series);
-    }
 }

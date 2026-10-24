@@ -10,7 +10,6 @@ namespace ProfitGraph.Engine.Nodes.BuiltIn;
 public sealed class EventFieldsNodeDefinition : INodeDefinition
 {
     public string TypeKey => nameof(TradingNodeBehavior.EventFields);
-    public bool SupportsPhase1 => false;
     public bool IsAction => false;
     public TradingNodeBehavior? TradingBehavior => TradingNodeBehavior.EventFields;
     public NodeClock? EngineClock => NodeClock.Event;
@@ -62,10 +61,5 @@ public sealed class EventFieldsNodeDefinition : INodeDefinition
         EngineValue value = context.Inputs["event"];
 
         return value.IsAvailable ? EventFieldCatalog.Extract(context.Node.EventField!, value.Event) : EngineValue.Unavailable(context.Node.EventField!.ValueType);
-    }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        throw new InvalidOperationException("A production trading node requires the causal dispatcher.");
     }
 }
