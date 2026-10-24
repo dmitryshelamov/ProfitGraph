@@ -23,9 +23,9 @@ internal sealed class HttpExceptionHandler(IProblemDetailsService problemDetails
         (int status, string title, string code) = exception switch
         {
             ApplicationValidationException => (400, "Invalid request", "validation_failed"),
-            ResourceNotFoundException => (404, "Resource not found", "resource_not_found"),
-            StateConflictException => (409, "State conflict", "state_conflict"),
-            DomainException => (422, "Domain rule violation", "domain_rule_violation"),
+            ResourceNotFoundException notFound => (404, "Resource not found", notFound.Code),
+            StateConflictException conflict => (409, "State conflict", conflict.Code),
+            DomainException domain => (422, "Domain rule violation", domain.Code),
             EngineException => (422, "Domain rule violation", "domain_rule_violation"),
             BadHttpRequestException badRequest => (badRequest.StatusCode, "Invalid request", "invalid_request"),
             _ => (500, "Server error", "unexpected_error")

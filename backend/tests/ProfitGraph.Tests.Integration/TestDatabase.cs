@@ -1,6 +1,6 @@
 using Npgsql;
 
-namespace ProfitGraph.Tests.Integration.Common;
+namespace ProfitGraph.Tests.Integration;
 
 /// <summary>
 ///     Creates one disposable database per test run on the test PostgreSQL and drops it afterwards, so concurrent runs
@@ -11,9 +11,9 @@ public sealed class TestDatabase
 {
     private const string DefaultServer = "Host=localhost;Port=5436;Username=postgres;Password=postgres;Database=postgres";
 
-    private static string? _connectionString;
+    private static string? CreatedConnectionString;
 
-    public static string ConnectionString => _connectionString ?? throw new InvalidOperationException("The test database is not created yet.");
+    public static string ConnectionString => CreatedConnectionString ?? throw new InvalidOperationException("The test database is not created yet.");
 
     [OneTimeSetUp]
     public async Task CreateDatabase()
@@ -31,21 +31,21 @@ public sealed class TestDatabase
         await using NpgsqlCommand command = connection.CreateCommand();
         command.CommandText = $"CREATE DATABASE {name}";
         await command.ExecuteNonQueryAsync();
-        _connectionString = new NpgsqlConnectionStringBuilder(server.ConnectionString) { Database = name }.ConnectionString;
+        CreatedConnectionString = new NpgsqlConnectionStringBuilder(server.ConnectionString) { Database = name }.ConnectionString;
     }
 
     [OneTimeTearDown]
     public async Task DropDatabase()
     {
-        if (_connectionString is null)
+        if (CreatedConnectionString is null)
         {
             return;
         }
 
-        var database = new NpgsqlConnectionStringBuilder(_connectionString);
+        var database = new NpgsqlConnectionStringBuilder(CreatedConnectionString);
         string name = database.Database!;
         NpgsqlConnection.ClearAllPools();
-        await using var connection = new NpgsqlConnection(new NpgsqlConnectionStringBuilder(_connectionString) { Database = "postgres" }.ConnectionString);
+        await using var connection = new NpgsqlConnection(new NpgsqlConnectionStringBuilder(CreatedConnectionString) { Database = "postgres" }.ConnectionString);
         await connection.OpenAsync();
         await using NpgsqlCommand command = connection.CreateCommand();
         command.CommandText = $"DROP DATABASE IF EXISTS {name} WITH (FORCE)";

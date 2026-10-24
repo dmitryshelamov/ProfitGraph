@@ -1,6 +1,10 @@
 using System.Net;
 using System.Text.Json;
 
+using ProfitGraph.Application.Accounts;
+using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Tests.Integration.Accounts;
+
 namespace ProfitGraph.Tests.Integration.Common;
 
 public sealed class HealthEndpointTests
@@ -42,10 +46,13 @@ public sealed class HealthEndpointTests
     }
 
     [Test]
-    public async Task UnknownRouteReturnsProblemDetails()
+    public async Task UnknownRouteRequiresSignInAndThenReturnsProblemDetails()
     {
-        using HttpClient client = _factory.CreateClient();
+        using HttpClient anonymous = _factory.CreateClient();
+        UserContract user = await AccountClient.CreateAccount(_factory, UserRole.User);
+        using HttpClient client = await AccountClient.SignedIn(_factory, user.Login);
 
+        (await anonymous.GetAsync("/api/missing")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         HttpResponseMessage response = await client.GetAsync("/api/missing");
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);

@@ -32,6 +32,17 @@ dotnet run --project backend/src/ProfitGraph.Api --launch-profile http
 
 Проверка: `curl http://localhost:5291/api/health` возвращает `Healthy`.
 
+Все остальные endpoint требуют входа. Первый Owner создаётся из приватной конфигурации, пока в базе нет ни одного
+аккаунта. Для разработки задайте его через user-secrets (пароль не короче 12 символов, в репозиторий не попадает):
+
+```bash
+dotnet user-secrets --project backend/src/ProfitGraph.Api set "Auth:BootstrapOwner:Login" "owner"
+```
+
+```bash
+dotnet user-secrets --project backend/src/ProfitGraph.Api set "Auth:BootstrapOwner:Password" "<пароль>"
+```
+
 Фронтенд (Node `^22.22.2 || ^24.15.0 || >=26`):
 
 ```bash

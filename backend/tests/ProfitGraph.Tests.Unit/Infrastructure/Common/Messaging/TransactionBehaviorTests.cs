@@ -1,6 +1,5 @@
 using NSubstitute;
 
-using ProfitGraph.Application.Common.Messaging;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Infrastructure.Common.Messaging;
 
@@ -15,7 +14,7 @@ public sealed class TransactionBehaviorTests
         executor.ExecuteAsync(Arg.Any<Func<Task<string>>>(), Arg.Any<CancellationToken>()).Returns(call => call.Arg<Func<Task<string>>>()!());
         var behavior = new TransactionBehavior<RenameCommand, string>(executor);
 
-        string result = await behavior.Handle(new RenameCommand(), _ => Task.FromResult("renamed"), CancellationToken.None);
+        string result = await behavior.Handle(new RenameCommand("strategy"), _ => Task.FromResult("renamed"), CancellationToken.None);
 
         result.ShouldBe("renamed");
         await executor.Received(1).ExecuteAsync(Arg.Any<Func<Task<string>>>(), Arg.Any<CancellationToken>());
@@ -30,7 +29,7 @@ public sealed class TransactionBehaviorTests
         string result = await behavior.Handle(new NameQuery(), _ => Task.FromResult("name"), CancellationToken.None);
 
         result.ShouldBe("name");
-        await executor.DidNotReceiveWithAnyArgs().ExecuteAsync<string>(default!, cancellationToken: default);
+        await executor.DidNotReceiveWithAnyArgs().ExecuteAsync<string>(null!, CancellationToken.None);
     }
 
     [Test]
@@ -42,12 +41,6 @@ public sealed class TransactionBehaviorTests
         string result = await behavior.Handle(new DownloadCommand(), _ => Task.FromResult("downloaded"), CancellationToken.None);
 
         result.ShouldBe("downloaded");
-        await executor.DidNotReceiveWithAnyArgs().ExecuteAsync<string>(default!, cancellationToken: default);
+        await executor.DidNotReceiveWithAnyArgs().ExecuteAsync<string>(null!, CancellationToken.None);
     }
-
-    internal sealed record RenameCommand : ICommand<string>;
-
-    internal sealed record NameQuery : IQuery<string>;
-
-    internal sealed record DownloadCommand : ICommand<string>, INonTransactionalCommand;
 }

@@ -1,7 +1,4 @@
-using FluentValidation;
-
 using ProfitGraph.Application.Common.Exceptions;
-using ProfitGraph.Application.Common.Messaging;
 using ProfitGraph.Infrastructure.Common.Messaging;
 
 namespace ProfitGraph.Tests.Unit.Infrastructure.Common.Messaging;
@@ -37,15 +34,5 @@ public sealed class ValidationBehaviorTests
         string result = await behavior.Handle(new RenameCommand("Ladder"), _ => Task.FromResult("renamed"), CancellationToken.None);
 
         result.ShouldBe("renamed");
-    }
-
-    private sealed record RenameCommand(string Name) : ICommand<string>;
-
-    private sealed class RenameCommandValidator : AbstractValidator<RenameCommand>
-    {
-        public RenameCommandValidator()
-        {
-            RuleFor(command => command.Name).NotEmpty();
-        }
     }
 }

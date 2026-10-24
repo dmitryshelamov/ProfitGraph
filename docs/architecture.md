@@ -22,7 +22,8 @@ Api, Worker -> Infrastructure, Venues.* -> Application -> Domain -> Engine
 | `Api`, `Worker`  | Composition roots: HTTP boundary and live runtime host.                                                | Contain domain rules or direct persistence access.              |
 
 Architecture tests in `ProfitGraph.Tests.Unit/Architecture` enforce project references, allowed packages of the
-inner projects, venue neutrality and the folder conventions below. A new project must be added to those tests and
+inner projects, venue neutrality, the folder conventions below, one type per file, and migration and repository
+naming. A new project must be added to those tests and
 to this table.
 
 ## Folder Conventions
@@ -47,7 +48,13 @@ Application/
     StrategyConverter.cs      Domain <-> contract mapping
 Infrastructure/
   Common/                     Postgres, Messaging (behaviors, outbox), BackgroundJobs, Security
-  Strategies/                 StrategyRepository.cs, StrategyQueries.cs, CreateStrategiesTable.cs (migration)
+  Accounts/
+    Migrations/               202610240001_create_user_table.cs (class CreateUserTableMigration)
+    Repositories/             UserRepository.cs
+      Contracts/              UserDb.cs (row model: class with init properties)
+      Converters/             UserDbConverter.cs (ToDomain / ToDb extensions)
+      Queries/                UserQueries.cs (SQL text)
+    Security/                 IdentityPasswordHasher.cs
 Api/
   Common/                     Errors, Authentication, Realtime
   Strategies/                 StrategiesController.cs, CreateStrategyRequest.cs, StrategyResponse.cs, StrategyHttpConverter.cs
@@ -63,7 +70,12 @@ Venues.Bybit/
   handler and its validator; nothing else.
 - **Naming:** `*Command`, `*CommandHandler`, `*CommandValidator`, `*Query`, `*QueryHandler`, `*Contract` for
   Application boundary types, `*Converter` for mapping, `*Request` / `*Response` for HTTP types, `*Repository` for
-  aggregate persistence, `*Queries` for SQL text. Domain events are past-tense facts without a suffix (`BotDegraded`).
+  aggregate persistence, `*Db` for repository row models, `*DbConverter` for row mapping, `*Queries` for SQL text,
+  `*Migration` for migrations. Domain events are past-tense facts without a suffix (`BotDegraded`).
+- **One type per file**, named after the type, with no nested types. Generic and non-generic variants of one name
+  are separate files (`ICommand.cs`, `ICommandOfTResponse.cs`).
+- **Migrations** live in `<Feature>/Migrations/` as `{version}_{snake_case}.cs`, for example
+  `202610240001_create_user_table.cs` with class `CreateUserTableMigration`.
 - **Forbidden top-level folders** in Domain, Application, Infrastructure and Api: `Commands`, `Queries`, `Contracts`,
   `Converters`, `Validators`, `Services`, `Entities`, `ValueObjects`, `Repositories`, `Exceptions`, `Events`,
   `Controllers`, `Handlers`, `Models`.
@@ -87,7 +99,14 @@ Venues.Bybit/
   `--migrate-only` for deployments. See [ADR 0006](adr/0006-persistence-and-migrations.md).
 - **Health.** `/api/health` is liveness and runs no dependency checks; `/api/health/ready` runs the checks tagged
   `ready`, including PostgreSQL.
-- **HTTP errors.** Problem Details with a stable `code` and `traceId`; validation failures add `errors`.
+- **HTTP errors.** Problem Details with a stable `code` and `traceId`; validation failures add `errors`. Domain
+  and application exceptions carry their own `code` (`DomainException.Code`, `ApplicationExceptionBase.Code`).
+- **Authentication.** Invite-only accounts with cookie sessions (`profitgraph.session`, HttpOnly, SameSite=Strict, Secure
+  outside Development and Testing, 7 days sliding). Every endpoint requires a signed-in active account unless it opts
+  out with `AllowAnonymous`, including unknown routes; each request re-checks that the account is still active, so
+  blocking ends existing sessions. Sign-in is limited to 20 attempts per minute per client address and 10 per login,
+  and an unknown or blocked login costs the same password verification as a wrong password. The first Owner comes
+  from `Auth:BootstrapOwner` only while no account exists. Account management requires the Owner role.
 - **Logging.** Serilog JSON to the console. Never log secrets, credentials, signatures or authentication headers.
 
 ## Numbers and Time
