@@ -28,6 +28,17 @@ See [ADR 0003](docs/adr/0003-venue-modules.md).
 A feature a venue module supports, expressed by the presence of the corresponding port, such as public history or
 order execution. A missing capability is a missing port, never a flag with a default implementation.
 
+### Venue Descriptor
+
+What a venue module registers about itself: its `VenueId`, display name, supported timeframes and the rule that
+turns typed input into the venue's instrument symbol (`btc/usdt` → `BTCUSDT` on Bybit). An unknown venue is an
+error, never a default. See [ADR 0010](docs/adr/0010-venues-and-market-data.md).
+
+### Candle Series
+
+The stored history of one instrument of one venue on one timeframe. Stored candles are a cache of public market
+data shared by all users; only the Owner can change it by CSV import, and downloads only add missing candles.
+
 ### Venue Bot Settings
 
 A typed, versioned settings object owned by a venue module for venue-specific bot configuration, such as trading

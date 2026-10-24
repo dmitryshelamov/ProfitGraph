@@ -5,6 +5,7 @@
         <PackageReference Include="FluentValidation.DependencyInjectionExtensions"/>
         <PackageReference Include="Npgsql"/>
         <PackageReference Include="Dapper"/>
+        <PackageReference Include="CsvHelper"/>
         <PackageReference Include="FluentMigrator.Runner"/>
         <PackageReference Include="FluentMigrator.Extensions.Postgres"/>
         <InternalsVisibleTo Include="ProfitGraph.Tests.Unit"/>

@@ -13,6 +13,7 @@ using ProfitGraph.Infrastructure.Accounts.Security;
 using ProfitGraph.Infrastructure.Common.Messaging;
 using ProfitGraph.Infrastructure.Common.NodeTypes;
 using ProfitGraph.Infrastructure.Common.Postgres;
+using ProfitGraph.Infrastructure.MarketData;
 using ProfitGraph.Infrastructure.Strategies.Repositories;
 using ProfitGraph.Infrastructure.Strategies.Repositories.Converters;
 
@@ -39,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<IStrategyVersionReader, StrategyVersionReader>();
         services.AddSingleton<StrategySnapshotDbConverter>();
         services.AddNodeTypes();
+        services.AddMarketData(configuration);
 
         return services;
     }

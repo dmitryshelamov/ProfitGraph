@@ -4,9 +4,11 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 using ProfitGraph.Api.Common.Authentication;
 using ProfitGraph.Api.Common.Errors;
+using ProfitGraph.Api.MarketData;
 using ProfitGraph.Infrastructure;
 using ProfitGraph.Infrastructure.Common;
 using ProfitGraph.Infrastructure.Common.Postgres;
+using ProfitGraph.Venues.Bybit;
 
 using Serilog;
 using Serilog.Formatting.Json;
@@ -47,6 +49,8 @@ public class Program
         builder.Services.AddHealthChecks();
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddProfitGraphInfrastructure(builder.Configuration);
+        builder.Services.AddBybitVenue();
+        builder.Services.AddScoped<CsvImportLimitsFilter>();
         builder.AddProfitGraphAuthentication();
 
         WebApplication app = builder.Build();
