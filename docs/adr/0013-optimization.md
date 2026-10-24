@@ -43,3 +43,23 @@ walk-forward). This ADR records the search core; later stage 4 pull requests ame
   Worker lane in later pull requests reuse it unchanged.
 - Coarse-to-fine, TPE v1, walk-forward, trials, storage, progress and pause are recorded by amendments to this ADR and
   by ADR 0014.
+
+## Amendment: trials (stage 4.2)
+
+- **Metrics-only trials** (S4-4). `OptimizationTrialRunner` replays each trial on the in-sample slice of one shared
+  prepared history with one shared compiled graph, a fresh metrics observer per trial and no retained ledger. The
+  holdout is never replayed during selection.
+- **Prefilter.** Candidates are checked against the template rules in canonical order before they are replayed. A
+  rejected candidate is delivered as `RejectedByTemplate` and does not consume the budget. When the candidate limit is
+  examined without enough valid trials in a grid larger than that limit, the search fails with
+  `candidate_limit_exceeded` after delivering the rejected prefix.
+- **Parallelism.** At most `Optimization:MaxWorkers` trials (default 8) replay at once. Results go through a bounded
+  channel (`Optimization:ChannelCapacity`, default 256) to one serial receiver, which also gets an idle flush at least
+  once a second for timed batch commits. The ranking does not depend on the worker count or completion order.
+- **Failures and cancellation.** A failed replay keeps its engine diagnostic code; an unexpected exception becomes
+  `trial_exception`; the other trials continue. Cancellation stops new trials, and every result already produced is
+  delivered before the run returns as cancelled. A receiver failure cancels the workers and is rethrown.
+- **Throughput.** The explicit `OptimizationPerformanceTests` (Release, Server GC, 24 trials per sample) extrapolate
+  1000 trials of 8760 hourly candles at eight workers to about 4 s for SMA and 48 s for Ladder on the reference host
+  (2026-10-25), within the archive targets of 30 s and 10 minutes (archive: 8.5 s and 399 s). The estimate excludes
+  persistence and finalists.
