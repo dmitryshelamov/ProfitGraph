@@ -12,6 +12,8 @@ using ProfitGraph.Application.Jobs.Contracts;
 using ProfitGraph.Application.Optimization.GetOptimizationRun;
 using ProfitGraph.Application.Optimization.GetOptimizationTrials;
 using ProfitGraph.Application.Optimization.GetStrategyOptimizations;
+using ProfitGraph.Application.Optimization.PauseOptimization;
+using ProfitGraph.Application.Optimization.ResumeOptimization;
 
 namespace ProfitGraph.Api.Optimization;
 
@@ -27,6 +29,29 @@ public sealed class OptimizationsController(ISender sender) : ControllerBase
     public async Task<ActionResult<BackgroundJobResponse>> Start(StartOptimizationRequest request, CancellationToken cancellationToken)
     {
         BackgroundJobInternal job = await sender.Send(request.ToCommand(UserId()), cancellationToken);
+
+        return AcceptedAtAction(nameof(JobsController.Get), "Jobs", new { id = job.Id }, job.ToResponse());
+    }
+
+    /// <summary>
+    ///     Pauses a queued optimization at once, or stops a running one after it stores its trials; <c>409</c> when it is
+    ///     finished, paused or already stopping.
+    /// </summary>
+    [HttpPost("{id:guid}/pause")]
+    public async Task<ActionResult<BackgroundJobResponse>> Pause(Guid id, CancellationToken cancellationToken)
+    {
+        BackgroundJobInternal job = await sender.Send(new PauseOptimizationCommand(UserId(), id), cancellationToken);
+
+        return AcceptedAtAction(nameof(JobsController.Get), "Jobs", new { id = job.Id }, job.ToResponse());
+    }
+
+    /// <summary>
+    ///     Queues a paused optimization again; it continues from its stored trials. <c>409</c> when it is not paused.
+    /// </summary>
+    [HttpPost("{id:guid}/resume")]
+    public async Task<ActionResult<BackgroundJobResponse>> Resume(Guid id, CancellationToken cancellationToken)
+    {
+        BackgroundJobInternal job = await sender.Send(new ResumeOptimizationCommand(UserId(), id), cancellationToken);
 
         return AcceptedAtAction(nameof(JobsController.Get), "Jobs", new { id = job.Id }, job.ToResponse());
     }

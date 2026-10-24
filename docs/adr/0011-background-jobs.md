@@ -51,3 +51,15 @@ not the process that runs the job. Jobs also gain an owner, like strategies.
   (downloads, backtests) and `optimization` (optimizations, stage 4 plan S4-10), so a long search never
   delays a backtest. A lane claims only its own kinds, and on startup fails only its own interrupted jobs. Both lanes
   share the process's CPU; `Optimization:MaxWorkers` bounds the trials an optimization replays at once.
+
+## Amendment: pause and resumable jobs (stage 4.5)
+
+- **Pause** (Profit Fox Designer ADR 0044). `Paused` is a status that is not finished. A queued job pauses at once.
+  A running job takes a pause request, which the runner watches like a cancellation request. Once the work stops,
+  the runner records `Paused`; a job with both requests is cancelled. Resume queues the same job again from `Paused`.
+  A paused job can be cancelled at once. Only features whose work can continue offer pause; optimizations do.
+- **Resumable kinds.** A kind registered as resumable is queued again when a Worker restart or shutdown interrupts
+  it, and its handler continues from the work it stored. Each attempt starts its progress over. The handler records
+  stored work (for an optimization, every committed trial batch). After three interruptions in a row whose attempts
+  stored nothing, the job fails with `background_job_interrupted`. Other kinds keep failing on an interruption.
+- **Signals.** Every status change notifies `background_job_status` with the job's identifier.

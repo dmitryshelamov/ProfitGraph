@@ -3,14 +3,16 @@ namespace ProfitGraph.Infrastructure.Jobs.Repositories.Queries;
 internal static class BackgroundJobQueries
 {
     /// <summary>
-    ///     Notified with the job's identifier whenever a job finishes, so readers that follow a job learn its outcome.
+    ///     Notified with the job's identifier whenever a job's status changes, so readers that follow a job learn when it
+    ///     pauses, resumes or ends.
     /// </summary>
-    public const string FinishedChannel = "background_job_finished";
+    public const string StatusChannel = "background_job_status";
 
     private const string Columns =
         """
         id AS Id, kind AS Kind, owner_id AS OwnerId, status AS Status, request::text AS Request, result::text AS Result,
         failure::text AS Failure, completed AS Completed, total AS Total, cancel_requested AS CancelRequested,
+        pause_requested AS PauseRequested, interruptions AS Interruptions, advanced AS Advanced,
         created_at AS CreatedAt, started_at AS StartedAt, finished_at AS FinishedAt, updated_at AS UpdatedAt
         """;
 
@@ -27,9 +29,12 @@ internal static class BackgroundJobQueries
     public const string LockNextQueued =
         $"SELECT {Columns} FROM background_jobs WHERE status = 'Queued' AND kind = ANY(@Kinds) ORDER BY created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED;";
 
+    public const string ListRunning = $"SELECT {Columns} FROM background_jobs WHERE status = 'Running' AND kind = ANY(@Kinds) ORDER BY created_at, id;";
+
     /// <summary>
-    ///     Applies a transition only from the expected status. Progress written by the runner is never lowered, a
-    ///     cancellation request is never withdrawn, and only one request can set it.
+    ///     Applies a transition only from the expected status. Progress written by the runner is never lowered except by a
+    ///     claim, which starts an attempt with its own progress and no stored work yet; a cancellation or pause request is
+    ///     never withdrawn while the job runs, and only one request can set each.
     /// </summary>
     public const string Update =
         """
@@ -37,15 +42,18 @@ internal static class BackgroundJobQueries
         SET status = @Status,
             result = CAST(@Result AS jsonb),
             failure = CAST(@Failure AS jsonb),
-            completed = CASE WHEN @Completed >= completed THEN @Completed ELSE completed END,
-            total = CASE WHEN @Completed >= completed THEN @Total ELSE total END,
+            completed = CASE WHEN @ExpectedStatus = 'Queued' OR @Completed >= completed THEN @Completed ELSE completed END,
+            total = CASE WHEN @ExpectedStatus = 'Queued' OR @Completed >= completed THEN @Total ELSE total END,
             cancel_requested = cancel_requested OR @CancelRequested,
+            pause_requested = CASE WHEN @Status = 'Running' THEN pause_requested OR @PauseRequested ELSE false END,
+            interruptions = @Interruptions,
+            advanced = CASE WHEN @ExpectedStatus = 'Queued' THEN false ELSE advanced END,
             started_at = @StartedAt,
             finished_at = @FinishedAt,
             updated_at = @UpdatedAt
-        WHERE id = @Id AND status = @ExpectedStatus AND NOT (@SetsCancelRequest AND cancel_requested);
+        WHERE id = @Id AND status = @ExpectedStatus AND NOT (@SetsCancelRequest AND cancel_requested) AND NOT (@SetsPauseRequest AND pause_requested);
 
-        SELECT pg_notify('background_job_finished', @Id::text) WHERE @FinishedAt::timestamp with time zone IS NOT NULL;
+        SELECT pg_notify('background_job_status', @Id::text) WHERE @Status <> @ExpectedStatus;
         """;
 
     public const string ReportProgress =
@@ -60,21 +68,10 @@ internal static class BackgroundJobQueries
         WHERE id = @Id AND status = 'Running';
         """;
 
-    public const string IsCancelRequested = "SELECT cancel_requested FROM background_jobs WHERE id = @Id AND status = 'Running';";
+    public const string RecordStoredWork = "UPDATE background_jobs SET advanced = true WHERE id = @Id AND status = 'Running';";
 
-    /// <summary>
-    ///     Returns the identifiers of the interrupted jobs, each notified as finished.
-    /// </summary>
-    public const string InterruptRunning =
-        """
-        WITH interrupted AS (
-            UPDATE background_jobs
-            SET status = 'Failed', failure = CAST(@Failure AS jsonb), finished_at = @Now, updated_at = @Now
-            WHERE status = 'Running' AND (@Id::uuid IS NULL OR id = @Id) AND (@Kinds::text[] IS NULL OR kind = ANY(@Kinds))
-            RETURNING id
-        )
-        SELECT i.id FROM interrupted i CROSS JOIN LATERAL (SELECT pg_notify('background_job_finished', i.id::text)) n;
-        """;
+    public const string StopRequest =
+        "SELECT cancel_requested AS CancelRequested, pause_requested AS PauseRequested FROM background_jobs WHERE id = @Id AND status = 'Running';";
 
     public const string Beat =
         """

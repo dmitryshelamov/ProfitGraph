@@ -5,8 +5,9 @@ namespace ProfitGraph.Domain.Jobs;
 
 /// <summary>
 ///     A durable unit of background work (ADR 0011): lifecycle and progress only, never the work's parameters or result.
-///     Queued → Running → Completed | Failed | Cancelled, and Queued → Cancelled. A running job is cancelled by request:
-///     the runner sees the request and records the outcome.
+///     Queued → Running → Completed | Failed | Cancelled, and Queued → Cancelled. A running job is cancelled or paused by
+///     request: the runner sees the request and records the outcome. A paused job keeps its stored work and is queued
+///     again on resume; a resumable job interrupted by a Worker restart is queued again too.
 /// </summary>
 public sealed class BackgroundJob : AggregateRoot
 {
@@ -16,6 +17,18 @@ public sealed class BackgroundJob : AggregateRoot
     public BackgroundJobStatus Status { get; private set; }
     public BackgroundJobProgress Progress { get; private set; }
     public bool CancelRequested { get; private set; }
+    public bool PauseRequested { get; private set; }
+
+    /// <summary>
+    ///     Consecutive interruptions of a resumable job in which it stored no work.
+    /// </summary>
+    public int Interruptions { get; private set; }
+
+    /// <summary>
+    ///     Whether the current attempt stored work that a later attempt does not redo; a new attempt starts without.
+    /// </summary>
+    public bool Advanced { get; private set; }
+
     public DateTimeOffset CreatedAt { get; }
     public DateTimeOffset? StartedAt { get; private set; }
     public DateTimeOffset? FinishedAt { get; private set; }
@@ -33,9 +46,15 @@ public sealed class BackgroundJob : AggregateRoot
         DateTimeOffset createdAt,
         DateTimeOffset? startedAt,
         DateTimeOffset? finishedAt,
-        DateTimeOffset updatedAt)
+        DateTimeOffset updatedAt,
+        bool pauseRequested,
+        int interruptions,
+        bool advanced)
     {
         Id = id;
+        PauseRequested = pauseRequested;
+        Interruptions = interruptions;
+        Advanced = advanced;
         Kind = kind;
         OwnerId = ownerId;
         Status = status;
@@ -59,7 +78,10 @@ public sealed class BackgroundJob : AggregateRoot
             now,
             startedAt: null,
             finishedAt: null,
-            now);
+            now,
+            pauseRequested: false,
+            interruptions: 0,
+            advanced: false);
     }
 
     public static BackgroundJob Restore(
@@ -72,14 +94,30 @@ public sealed class BackgroundJob : AggregateRoot
         DateTimeOffset createdAt,
         DateTimeOffset? startedAt,
         DateTimeOffset? finishedAt,
-        DateTimeOffset updatedAt)
+        DateTimeOffset updatedAt,
+        bool pauseRequested = false,
+        int interruptions = 0,
+        bool advanced = false)
     {
-        if (!Enum.IsDefined(status))
+        if (!Enum.IsDefined(status) || interruptions < 0 || (pauseRequested && status != BackgroundJobStatus.Running))
         {
-            throw new ArgumentException("Invalid stored job status.", nameof(status));
+            throw new ArgumentException("Invalid stored job status, interruptions or pause request.", nameof(status));
         }
 
-        return new BackgroundJob(id, kind, ownerId, status, progress, cancelRequested, createdAt, startedAt, finishedAt, updatedAt);
+        return new BackgroundJob(
+            id,
+            kind,
+            ownerId,
+            status,
+            progress,
+            cancelRequested,
+            createdAt,
+            startedAt,
+            finishedAt,
+            updatedAt,
+            pauseRequested,
+            interruptions,
+            advanced);
     }
 
     public bool IsOwnedBy(UserId userId)
@@ -91,6 +129,10 @@ public sealed class BackgroundJob : AggregateRoot
     {
         EnsureStatus(BackgroundJobStatus.Queued);
         Status = BackgroundJobStatus.Running;
+        Advanced = false;
+
+        // Each attempt counts its progress from the start; a resumed job restarts it from the work it stored.
+        Progress = BackgroundJobProgress.None;
         StartedAt = now;
         UpdatedAt = now;
     }
@@ -141,7 +183,7 @@ public sealed class BackgroundJob : AggregateRoot
     {
         EnsureNotFinished();
 
-        if (Status == BackgroundJobStatus.Queued)
+        if (Status is BackgroundJobStatus.Queued or BackgroundJobStatus.Paused)
         {
             Finish(BackgroundJobStatus.Cancelled, now);
 
@@ -155,6 +197,94 @@ public sealed class BackgroundJob : AggregateRoot
 
         CancelRequested = true;
         UpdatedAt = now;
+    }
+
+    /// <summary>
+    ///     Records that the current attempt stored work that a later attempt does not redo, which resets the count of
+    ///     interruptions without progress.
+    /// </summary>
+    public void RecordStoredWork(DateTimeOffset now)
+    {
+        EnsureStatus(BackgroundJobStatus.Running);
+        Advanced = true;
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    ///     Pauses a queued job at once; a running job only takes the request and is paused when its work stops. A job with
+    ///     a cancellation request is not paused.
+    /// </summary>
+    public void RequestPause(DateTimeOffset now)
+    {
+        EnsureNotFinished();
+
+        if (Status == BackgroundJobStatus.Queued)
+        {
+            Status = BackgroundJobStatus.Paused;
+            UpdatedAt = now;
+
+            return;
+        }
+
+        if (Status == BackgroundJobStatus.Paused || PauseRequested || CancelRequested)
+        {
+            throw new BackgroundJobRuleException(BackgroundJobRuleException.PauseAlreadyRequested, "The job is already paused or stopping.");
+        }
+
+        PauseRequested = true;
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    ///     Records that running work stopped because a pause was requested; the work it stored is kept.
+    /// </summary>
+    public void ConfirmPaused(DateTimeOffset now)
+    {
+        EnsureStatus(BackgroundJobStatus.Running);
+
+        if (!PauseRequested)
+        {
+            throw new BackgroundJobRuleException(BackgroundJobRuleException.InvalidTransition, "A running job is paused only after a pause request.");
+        }
+
+        Status = BackgroundJobStatus.Paused;
+        PauseRequested = false;
+        UpdatedAt = now;
+    }
+
+    public void Resume(DateTimeOffset now)
+    {
+        if (Status != BackgroundJobStatus.Paused)
+        {
+            throw new BackgroundJobRuleException(BackgroundJobRuleException.NotPaused, $"Only a paused job is resumed; this one is {Status}.");
+        }
+
+        Status = BackgroundJobStatus.Queued;
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    ///     Queues a resumable job that a Worker restart or shutdown interrupted. After <paramref name="limit" /> consecutive
+    ///     interruptions in which it stored no work it fails instead; returns whether it was queued.
+    /// </summary>
+    public bool Interrupt(int limit, DateTimeOffset now)
+    {
+        EnsureStatus(BackgroundJobStatus.Running);
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, other: 1);
+        Interruptions = Advanced ? 0 : Interruptions + 1;
+        PauseRequested = false;
+
+        if (Interruptions >= limit)
+        {
+            Finish(BackgroundJobStatus.Failed, now);
+
+            return false;
+        }
+
+        Status = BackgroundJobStatus.Queued;
+        UpdatedAt = now;
+
+        return true;
     }
 
     /// <summary>

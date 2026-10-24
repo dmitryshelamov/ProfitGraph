@@ -13,6 +13,7 @@ public sealed record BackgroundJobResponse(
     long Completed,
     long? Total,
     bool CancelRequested,
+    bool PauseRequested,
     DateTimeOffset CreatedAt,
     DateTimeOffset? StartedAt,
     DateTimeOffset? FinishedAt,

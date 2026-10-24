@@ -19,4 +19,14 @@ public static class OptimizationErrorCodes
     ///     A trial threw an unexpected exception; the other trials continue.
     /// </summary>
     public const string TrialException = "trial_exception";
+
+    /// <summary>
+    ///     A stored trial does not match the candidate the frozen search enumerates at its index.
+    /// </summary>
+    public const string PersistedTrialMismatch = "persisted_trial_mismatch";
+
+    /// <summary>
+    ///     History prepared again on resume no longer matches the history the optimization attached.
+    /// </summary>
+    public const string HistoryMismatch = "optimization_history_mismatch";
 }

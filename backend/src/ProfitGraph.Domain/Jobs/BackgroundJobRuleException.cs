@@ -11,4 +11,6 @@ public sealed class BackgroundJobRuleException(string code, string message) : Do
     public const string InvalidProgress = "invalid_job_progress";
     public const string Finished = "job_finished";
     public const string CancelAlreadyRequested = "job_cancel_requested";
+    public const string PauseAlreadyRequested = "job_pause_requested";
+    public const string NotPaused = "job_not_paused";
 }

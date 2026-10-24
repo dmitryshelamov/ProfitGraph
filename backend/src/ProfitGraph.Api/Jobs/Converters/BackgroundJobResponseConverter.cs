@@ -18,6 +18,7 @@ public static class BackgroundJobResponseConverter
             job.Completed,
             job.Total,
             job.CancelRequested,
+            job.PauseRequested,
             job.CreatedAt,
             job.StartedAt,
             job.FinishedAt,

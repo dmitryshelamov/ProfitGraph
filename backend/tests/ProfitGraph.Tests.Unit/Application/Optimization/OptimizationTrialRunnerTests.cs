@@ -260,6 +260,88 @@ public sealed class OptimizationTrialRunnerTests
         parallel.Ranking.Select(ResultKey).ShouldBe(sequential.Ranking.Select(ResultKey));
     }
 
+    [TestCase(OptimizationSearchMethod.Grid, arg2: 1)]
+    [TestCase(OptimizationSearchMethod.Grid, arg2: 8)]
+    [TestCase(OptimizationSearchMethod.Random, arg2: 1)]
+    [TestCase(OptimizationSearchMethod.Random, arg2: 8)]
+    public async Task ResumedSearchRestoresStoredTrialsAndRanksExactlyAsAnUninterruptedOne(OptimizationSearchMethod method, int workers)
+    {
+        OptimizationRunInputInternal input = OptimizationRunnerFixture.Sma(maxFast: 8, maxSlow: 12) with { Budget = 30, Seed = 7, Method = method };
+        var delivered = new List<OptimizationTrialResult>();
+        OptimizationRunResultInternal uninterrupted = await Runner(workers)
+            .RunAsync(
+                input,
+                trial =>
+                {
+                    delivered.Add(trial);
+
+                    return ValueTask.CompletedTask;
+                });
+        OptimizationTrialInternal[] stored = [.. delivered.Where(trial => trial.Trial.Index % 3 != 1).Select((trial, index) => Persisted(index + 1, trial))];
+        var resumedDelivery = new List<OptimizationTrialResult>();
+        OptimizationRunResultInternal resumed = await Runner(workers)
+            .RunAsync(
+                input,
+                trial =>
+                {
+                    resumedDelivery.Add(trial);
+
+                    return ValueTask.CompletedTask;
+                },
+                persistedTrials: stored);
+
+        // A restored trial keeps only the stored metrics, so the ranking is compared by what ranks it.
+        resumed.Ranking.Select(RankKey).ShouldBe(uninterrupted.Ranking.Select(RankKey));
+        resumed.CompletedTrials.ShouldBe(uninterrupted.CompletedTrials);
+        resumed.RejectedByTemplate.ShouldBe(uninterrupted.RejectedByTemplate);
+        resumedDelivery.Select(trial => trial.Trial.Index)
+            .Order()
+            .ShouldBe(delivered.Where(trial => trial.Trial.Index % 3 == 1).Select(trial => trial.Trial.Index).Order());
+    }
+
+    [Test]
+    public async Task StoredTrialThatDoesNotMatchItsCandidateFailsTheSearch()
+    {
+        OptimizationRunInputInternal input = OptimizationRunnerFixture.Sma();
+        var delivered = new List<OptimizationTrialResult>();
+        await Runner(workers: 2)
+            .RunAsync(
+                input,
+                trial =>
+                {
+                    delivered.Add(trial);
+
+                    return ValueTask.CompletedTask;
+                });
+        OptimizationTrialInternal stored = Persisted(sequence: 1, delivered.First(trial => trial.Status == OptimizationTrialStatus.Completed));
+        OptimizationTrialInternal changed = stored with { Parameters = stored.Parameters.ToDictionary(pair => pair.Key, pair => pair.Value + 100m) };
+
+        var failure = await Should.ThrowAsync<OptimizationException>(() => Runner(workers: 2).RunAsync(input, _ => ValueTask.CompletedTask, persistedTrials: [changed]));
+
+        failure.Code.ShouldBe(OptimizationErrorCodes.PersistedTrialMismatch);
+    }
+
+    private static (int Index, OptimizationTrialStatus Status, decimal? Objective, string? Failure) RankKey(OptimizationTrialResult result)
+    {
+        return (result.Trial.Index, result.Status, result.ObjectiveValue, result.FailureCode);
+    }
+
+    private static OptimizationTrialInternal Persisted(long sequence, OptimizationTrialResult trial)
+    {
+        return new OptimizationTrialInternal(
+            sequence,
+            trial.Trial.Index,
+            trial.Trial.Selections.OptimizedValues.ToDictionary(pair => pair.Key.NodeId, pair => pair.Value),
+            OptimizationNames.TrialStatus(trial.Status),
+            trial.FailureCode,
+            trial.ObjectiveValue,
+            trial.Metrics?.ReturnPercent,
+            trial.Metrics?.TotalPnl,
+            trial.Metrics?.MaxDrawdownPercent,
+            trial.Metrics?.Executions ?? 0,
+            trial.ElapsedMs);
+    }
+
     private static OptimizationTrialRunner Runner(int workers)
     {
         return new OptimizationTrialRunner(new OptimizationTrialRunnerOptions { MaxWorkers = workers, ChannelCapacity = 1 }, TimeProvider.System);

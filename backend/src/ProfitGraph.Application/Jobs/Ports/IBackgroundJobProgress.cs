@@ -12,4 +12,9 @@ public interface IBackgroundJobProgress
     ///     Starts counting the next stage of the work, such as replay after history preparation.
     /// </summary>
     Task Restart(long completed, long total, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Records that the work committed something a resumed attempt does not redo, such as a batch of trials.
+    /// </summary>
+    Task RecordStoredWork(CancellationToken cancellationToken);
 }

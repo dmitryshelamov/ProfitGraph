@@ -29,7 +29,7 @@ internal static class OptimizationRegistration
         services.AddScoped<IOptimizationTrialStore, OptimizationTrialStore>();
         services.AddScoped<IOptimizationReader, OptimizationReader>();
         services.AddSingleton<IOptimizationProgressNotifications, OptimizationProgressNotifications>();
-        services.AddBackgroundJob<RunOptimizationCommand, OptimizationCompletedInternal>(BackgroundJobLanes.Optimization);
+        services.AddBackgroundJob<RunOptimizationCommand, OptimizationCompletedInternal>(BackgroundJobLanes.Optimization, resumable: true);
 
         return services;
     }
