@@ -55,6 +55,8 @@ docker compose -f docker-compose.test.yml down
 Key invariants:
 
 - Project dependencies: `Api, Worker -> Infrastructure, Venues.* -> Application -> Domain -> Engine`.
+- Folders are features first, then use cases; namespaces follow folders. Follow the template in
+  `docs/architecture.md#folder-conventions` and never add top-level `Commands/`, `Entities/` or similar type folders.
 - Only `ProfitGraph.Venues.*` projects name concrete venues (ADR 0003).
 - Aggregates change state only through their methods; repositories contain no business rules (ADR 0004).
 - Use cases are MediatR commands and queries; MediatR stays on 12.5.0 (ADR 0005).

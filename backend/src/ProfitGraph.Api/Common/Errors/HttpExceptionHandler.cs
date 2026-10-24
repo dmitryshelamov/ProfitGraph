@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Domain.Common;
 
-namespace ProfitGraph.Api.Errors;
+namespace ProfitGraph.Api.Common.Errors;
 
 /// <summary>
 ///     Maps exceptions to Problem Details. Feature-specific mappings are added next to their features;

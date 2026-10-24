@@ -22,10 +22,52 @@ Api, Worker -> Infrastructure, Venues.* -> Application -> Domain -> Engine
 | `Api`, `Worker`  | Composition roots: HTTP boundary and live runtime host.                                                | Contain domain rules or direct persistence access.              |
 
 Architecture tests in `ProfitGraph.Tests.Unit/Architecture` enforce project references, allowed packages of the
-inner projects and venue neutrality. A new project must be added to those tests and to this table.
+inner projects, venue neutrality and the folder conventions below. A new project must be added to those tests and
+to this table.
 
-Inside each project, code is organized by feature (`Strategies/`, `Backtesting/`, `Optimization/`, `MarketData/`,
-`Bots/`, `Accounts/`), not by technical type. Shared base types live in `Common/`.
+## Folder Conventions
+
+Inside a project, the first folder level is a **feature**, never a technical type. Everything one feature needs in a
+layer lives in that feature's folder. Shared base types and cross-cutting mechanisms live in `Common/`.
+
+Features: `Strategies`, `Backtesting`, `Optimization`, `MarketData`, `Bots`, `Accounts`. Add a new feature folder only
+for a new product area, and list it here.
+
+```text
+Domain/
+  Common/                     AggregateRoot, IDomainEvent, DomainException
+  Strategies/                 Strategy.cs, StrategyVersion.cs, IStrategyRepository.cs,
+                              StrategyCreated.cs (event), StrategyNameTakenException.cs
+Application/
+  Common/                     Messaging (ICommand, IQuery), Exceptions, shared ports
+  Strategies/
+    CreateStrategy/           CreateStrategyCommand.cs, CreateStrategyCommandHandler.cs, CreateStrategyCommandValidator.cs
+    GetStrategy/              GetStrategyQuery.cs, GetStrategyQueryHandler.cs
+    StrategyContract.cs       contracts shared by the feature's use cases
+    StrategyConverter.cs      Domain <-> contract mapping
+Infrastructure/
+  Common/                     Postgres, Messaging (behaviors, outbox), BackgroundJobs, Security
+  Strategies/                 StrategyRepository.cs, StrategyQueries.cs, CreateStrategiesTable.cs (migration)
+Api/
+  Common/                     Errors, Authentication, Realtime
+  Strategies/                 StrategiesController.cs, CreateStrategyRequest.cs, StrategyResponse.cs, StrategyHttpConverter.cs
+Venues.Bybit/
+  MarketData/, Trading/, BybitVenueModule.cs
+```
+
+- **Engine** is organized by engine subsystem instead of product feature: `Graphs/`, `Blocks/`, `Lowering/`,
+  `Compilation/`, `Evaluation/`, `Dispatch/`, `Accounting/`, `Replay/`, `Metrics/`, `Templates/`.
+- **Use cases** get their own folder named after the use case (`CreateStrategy/`). It holds the command or query, its
+  handler and its validator; nothing else.
+- **Naming:** `*Command`, `*CommandHandler`, `*CommandValidator`, `*Query`, `*QueryHandler`, `*Contract` for
+  Application boundary types, `*Converter` for mapping, `*Request` / `*Response` for HTTP types, `*Repository` for
+  aggregate persistence, `*Queries` for SQL text. Domain events are past-tense facts without a suffix (`BotDegraded`).
+- **Forbidden top-level folders** in Domain, Application, Infrastructure and Api: `Commands`, `Queries`, `Contracts`,
+  `Converters`, `Validators`, `Services`, `Entities`, `ValueObjects`, `Repositories`, `Exceptions`, `Events`,
+  `Controllers`, `Handlers`, `Models`.
+- **Tests** mirror the source: `ProfitGraph.Tests.Unit/<Project>/<Feature>/...`, for example
+  `Tests.Unit/Domain/Bots/BotTransitionsTests.cs`. Architecture tests live in `Tests.Unit/Architecture`.
+- A namespace equals the folder path: `ProfitGraph.Application.Strategies.CreateStrategy`.
 
 ## Backend Mechanisms
 

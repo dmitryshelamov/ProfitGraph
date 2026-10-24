@@ -11,8 +11,8 @@ public sealed partial class VenueNeutralityTests
     [Test]
     public void CoreSourcesDoNotNameConcreteVenues()
     {
-        string[] offenders = Directory.GetFiles(RepositoryLayout.SourceDirectory, "*.cs", SearchOption.AllDirectories)
-            .Where(path => !IsGenerated(path) && !IsVenueModule(path))
+        string[] offenders = RepositoryLayout.SourceFiles()
+            .Where(path => !IsVenueModule(path))
             .Where(path => VenueName().IsMatch(File.ReadAllText(path)))
             .Select(path => Path.GetRelativePath(RepositoryLayout.SourceDirectory, path))
             .ToArray();
@@ -22,14 +22,6 @@ public sealed partial class VenueNeutralityTests
 
     [GeneratedRegex(@"\b(bybit|t-?invest|tinkoff|steam)\b", RegexOptions.IgnoreCase)]
     private static partial Regex VenueName();
-
-    private static bool IsGenerated(string path)
-    {
-        var separator = Path.DirectorySeparatorChar.ToString();
-
-        return path.Contains($"{separator}obj{separator}", StringComparison.Ordinal) ||
-            path.Contains($"{separator}bin{separator}", StringComparison.Ordinal);
-    }
 
     private static bool IsVenueModule(string path)
     {

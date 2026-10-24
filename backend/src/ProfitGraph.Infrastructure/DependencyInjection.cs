@@ -3,7 +3,7 @@ using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
 using ProfitGraph.Application;
-using ProfitGraph.Infrastructure.Messaging;
+using ProfitGraph.Infrastructure.Common.Messaging;
 
 namespace ProfitGraph.Infrastructure;
 

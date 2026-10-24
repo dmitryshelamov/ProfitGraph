@@ -2,9 +2,9 @@ using FluentValidation;
 
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Common.Messaging;
-using ProfitGraph.Infrastructure.Messaging;
+using ProfitGraph.Infrastructure.Common.Messaging;
 
-namespace ProfitGraph.Tests.Unit.Infrastructure.Messaging;
+namespace ProfitGraph.Tests.Unit.Infrastructure.Common.Messaging;
 
 public sealed class ValidationBehaviorTests
 {

@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 using ProfitGraph.Api;
 
-namespace ProfitGraph.Tests.Integration.Api;
+namespace ProfitGraph.Tests.Integration.Api.Common;
 
 public sealed class HealthEndpointTests
 {

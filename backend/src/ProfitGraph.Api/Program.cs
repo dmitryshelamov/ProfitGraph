@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-using ProfitGraph.Api.Errors;
+using ProfitGraph.Api.Common.Errors;
 using ProfitGraph.Infrastructure;
 
 using Serilog;

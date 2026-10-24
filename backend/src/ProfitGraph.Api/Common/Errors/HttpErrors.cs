@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 
 using ProfitGraph.Application.Common.Exceptions;
 
-namespace ProfitGraph.Api.Errors;
+namespace ProfitGraph.Api.Common.Errors;
 
 internal static class HttpErrors
 {

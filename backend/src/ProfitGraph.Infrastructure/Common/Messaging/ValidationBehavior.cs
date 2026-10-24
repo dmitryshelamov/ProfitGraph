@@ -5,7 +5,7 @@ using MediatR;
 
 using ProfitGraph.Application.Common.Exceptions;
 
-namespace ProfitGraph.Infrastructure.Messaging;
+namespace ProfitGraph.Infrastructure.Common.Messaging;
 
 internal sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidator<TRequest>> validators)
     : IPipelineBehavior<TRequest, TResponse> where TRequest : notnull
