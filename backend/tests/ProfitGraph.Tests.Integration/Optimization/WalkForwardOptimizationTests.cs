@@ -71,8 +71,8 @@ public sealed class WalkForwardOptimizationTests
     public async Task AWalkForwardSearchInterruptedByAWorkerRestartResumes_AndEndsLikeAnUninterruptedOne()
     {
         Guid strategyId = await BacktestScenario.CreateStrategy(_application, _userId);
-        Guid expected = await Start(strategyId, "10", "11", "20");
-        Guid interrupted = await Start(strategyId, "10", "11", "20");
+        Guid expected = await Start(strategyId, "10", "11", "30");
+        Guid interrupted = await Start(strategyId, "10", "11", "30");
         IHost first = await StartWorker();
         await JobScenario.WaitFor(_client, expected, BacktestScenario.Finished);
         await WaitFor(interrupted, async () => (await WindowsOf(interrupted)).Length > 0);
