@@ -28,7 +28,7 @@ export function CreateFromTemplate() {
     onSuccess: async (strategy) => {
       queryClient.setQueryData(strategyKeys.detail(strategy.id), strategy);
       await queryClient.invalidateQueries({ queryKey: strategyKeys.all, exact: true });
-      await navigate({ to: '/strategies/$strategyId', params: { strategyId: strategy.id } });
+      await navigate({ to: '/strategies/$strategyId/edit', params: { strategyId: strategy.id } });
     },
   });
 
@@ -40,7 +40,7 @@ export function CreateFromTemplate() {
           Не удалось загрузить шаблоны: {templates.error.message}
         </p>
       )}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <section aria-label="Шаблоны" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {templates.data?.map((item) => (
           <button
             key={item.kind}
@@ -57,7 +57,7 @@ export function CreateFromTemplate() {
             <span className="text-sm text-muted">{item.description}</span>
           </button>
         ))}
-      </div>
+      </section>
       {template && (
         <form
           className="mt-4 flex flex-wrap items-end gap-3"

@@ -1,4 +1,4 @@
-import { fractionToPercent, isDecimalString } from './decimal';
+import { fractionToPercent, isBackendDecimal, isDecimalString, percentToFraction } from './decimal';
 
 describe('decimal strings', () => {
   it('accepts canonical decimals only', () => {
@@ -21,5 +21,21 @@ describe('decimal strings', () => {
 
   it('rejects a value that is not a decimal string', () => {
     expect(fractionToPercent('abc')).toBeNull();
+  });
+
+  it('converts typed percent to a stored fraction exactly', () => {
+    expect(percentToFraction('0.1')).toBe('0.001');
+    expect(percentToFraction('20')).toBe('0.2');
+    expect(percentToFraction(' 1.5 ')).toBe('0.015');
+    expect(percentToFraction('-0.5')).toBe('-0.005');
+    expect(percentToFraction('0')).toBe('0');
+    expect(percentToFraction('1,5')).toBeNull();
+  });
+
+  it('accepts only values the API decimal can hold', () => {
+    expect(isBackendDecimal('79228162514264337593543950335.0')).toBe(true);
+    expect(isBackendDecimal('79228162514264337593543950336')).toBe(false);
+    expect(isBackendDecimal('7922816251426433759354395033.6')).toBe(false);
+    expect(isBackendDecimal('abc')).toBe(false);
   });
 });

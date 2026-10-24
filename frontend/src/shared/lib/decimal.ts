@@ -8,6 +8,47 @@ export function isDecimalString(value: string): boolean {
   return decimalPattern.test(value);
 }
 
+/** The largest coefficient of .NET decimal; a longer value cannot be stored exactly by the API. */
+const maxCoefficient = 79228162514264337593543950335n;
+
+/** Converts a percent typed in a form to a stored fraction without floating point: "0.1" → "0.001", "20" → "0.2". */
+export function percentToFraction(percent: string): string | null {
+  const text = percent.trim();
+
+  if (!isDecimalString(text)) {
+    return null;
+  }
+
+  const negative = text.startsWith('-');
+  const [integer = '0', fraction = ''] = text.replace('-', '').split('.');
+  const digits = (integer + fraction).replace(/^0+/, '') || '0';
+  const scale = fraction.length + 2;
+  const padded = digits.padStart(scale + 1, '0');
+  const raw = `${padded.slice(0, padded.length - scale)}.${padded.slice(padded.length - scale)}`;
+  const normalized = raw.replace(/^0+(?=\d)/, '').replace(/\.?0+$/, '') || '0';
+
+  return negative && normalized !== '0' ? `-${normalized}` : normalized;
+}
+
+/** Whether the API's decimal type can hold the value exactly. */
+export function isBackendDecimal(value: string): boolean {
+  const parsed = parts(value);
+
+  if (!parsed) {
+    return false;
+  }
+
+  let coefficient = parsed.coefficient < 0n ? -parsed.coefficient : parsed.coefficient;
+  let scale = parsed.scale;
+
+  while (scale > 0 && coefficient % 10n === 0n) {
+    coefficient /= 10n;
+    scale--;
+  }
+
+  return coefficient <= maxCoefficient;
+}
+
 function parts(value: string): { coefficient: bigint; scale: number } | null {
   if (!isDecimalString(value)) {
     return null;
