@@ -43,22 +43,23 @@ public static class OptimizationResponseConverter
 
     public static OptimizationTrialPageResponse ToResponse(this OptimizationTrialPageInternal page)
     {
-        return new OptimizationTrialPageResponse(
-            [
-                .. page.Items.Select(trial => new OptimizationTrialResponse(
-                    trial.Sequence,
-                    trial.TrialIndex,
-                    trial.Parameters.ToDictionary(pair => pair.Key, pair => Text(pair.Value), StringComparer.Ordinal),
-                    trial.Status,
-                    trial.FailureCode,
-                    Text(trial.Objective),
-                    Text(trial.ReturnPercent),
-                    Text(trial.TotalPnl),
-                    Text(trial.MaxDrawdownPercent),
-                    trial.Executions,
-                    trial.ElapsedMs))
-            ],
-            page.Next);
+        return new OptimizationTrialPageResponse([.. page.Items.Select(trial => trial.ToResponse())], page.Next);
+    }
+
+    public static OptimizationTrialResponse ToResponse(this OptimizationTrialInternal trial)
+    {
+        return new OptimizationTrialResponse(
+            trial.Sequence,
+            trial.TrialIndex,
+            trial.Parameters.ToDictionary(pair => pair.Key, pair => Text(pair.Value), StringComparer.Ordinal),
+            trial.Status,
+            trial.FailureCode,
+            Text(trial.Objective),
+            Text(trial.ReturnPercent),
+            Text(trial.TotalPnl),
+            Text(trial.MaxDrawdownPercent),
+            trial.Executions,
+            trial.ElapsedMs);
     }
 
     public static OptimizationSummaryPageResponse ToResponse(this OptimizationSummaryPageInternal page)

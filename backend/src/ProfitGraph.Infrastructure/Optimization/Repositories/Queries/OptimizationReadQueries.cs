@@ -6,6 +6,13 @@ internal static class OptimizationReadQueries
 
     public const string Status = "SELECT status FROM background_jobs WHERE id = @Id;";
 
+    public const string Cursor =
+        """
+        SELECT coalesce((SELECT max(t.sequence) FROM optimization_trials t WHERE t.optimization_id = j.id), 0) AS LastSequence, j.status AS Status
+        FROM background_jobs j
+        WHERE j.id = @Id;
+        """;
+
     public const string Finalists = "SELECT id FROM backtest_runs WHERE optimization_id = @Id ORDER BY created_at, id;";
 
     public const string ForStrategy =

@@ -89,3 +89,16 @@ walk-forward). This ADR records the search core; later stage 4 pull requests ame
 - **HTTP.** `GET /api/optimizations/{id}` returns the configuration, stage, history, counters, best trial, job
   status and finalist runs. `/trials` pages by delivery sequence (at most 500). `GET /api/strategies/{id}/optimizations`
   lists a strategy's optimizations, newest first.
+
+## Amendment: progress (stage 4.4)
+
+- **Signals** (S4-12). Every committed save of an optimization — a trial batch with its counters, or a stage —
+  notifies `optimization_progress` with its identifier. Every job that finishes, including one cancelled while queued
+  or failed by a Worker restart, notifies `background_job_finished`. The API listens on both channels on a connection
+  of its own (`LISTEN/NOTIFY`, shared with backtest progress).
+- **Hub.** `/ws/optimizations` is a separate hub from `/ws/backtests`, so each feature owns its messages; the stage 4
+  plan named the backtest hub. `Subscribe(id)` checks ownership, joins the optimization's group, then returns the
+  cursor: the last stored trial sequence and the job's status. Joining before reading leaves no gap. For each signal
+  the API sends `OptimizationProgress` with every trial stored after the last one sent, in delivery order, then
+  `OptimizationFinished` with the job's status once it has ended. A client that reconnects reads the trials after its
+  cursor from `/api/optimizations/{id}/trials` and drops the sequences it already has.

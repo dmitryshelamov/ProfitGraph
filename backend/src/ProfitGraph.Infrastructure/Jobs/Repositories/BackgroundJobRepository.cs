@@ -112,7 +112,7 @@ internal sealed class BackgroundJobRepository(
     /// <summary>
     ///     Fails running jobs left by a stopped Worker: every running job of the given kinds, or only the given one.
     /// </summary>
-    internal Task<int> InterruptRunning(
+    internal async Task<int> InterruptRunning(
         BackgroundJobFailureInternal failure,
         DateTimeOffset now,
         CancellationToken cancellationToken,
@@ -121,7 +121,7 @@ internal sealed class BackgroundJobRepository(
     {
         var parameters = new { Failure = BackgroundJobPayloadSerializer.SerializeFailure(failure), Now = now, Id = id?.Value, Kinds = kinds?.ToArray() };
 
-        return connection.ExecuteAsync(Command(BackgroundJobQueries.InterruptRunning, parameters, cancellationToken));
+        return (await connection.QueryAsync<Guid>(Command(BackgroundJobQueries.InterruptRunning, parameters, cancellationToken))).Count();
     }
 
     internal Task Beat(string name, DateTimeOffset now, CancellationToken cancellationToken)
