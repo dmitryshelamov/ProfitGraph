@@ -1,0 +1,93 @@
+{
+  "typeKey": "HasBaseBalance",
+  "schemaVersion": 1,
+  "inputs": [],
+  "outputs": [
+    {
+      "Key": "out",
+      "kind": "Condition",
+      "valueType": "Boolean",
+      "Label": "Условие"
+    }
+  ],
+  "parameters": [
+    {
+      "Key": "minQuantity",
+      "valueKind": "Number",
+      "defaultValue": "0",
+      "Label": "Минимальное количество актива"
+    }
+  ],
+  "engineInputs": [
+    {
+      "Key": "minQuantity",
+      "valueType": "BaseAmount",
+      "Required": false,
+      "SupportsInline": true,
+      "defaultValue": "0"
+    }
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "Id": "balance",
+        "TypeKey": "Balance",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "positiveBase",
+        "TypeKey": "Compare",
+        "SchemaVersion": 2,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "op",
+            "value": "text:>"
+          }
+        ]
+      },
+      {
+        "Id": "zeroBase",
+        "TypeKey": "Constant",
+        "SchemaVersion": 2,
+        "declaredValueType": "BaseAmount",
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "value",
+            "value": "decimal:0"
+          }
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "source": "balance.baseAvailable",
+        "target": "positiveBase.a"
+      },
+      {
+        "source": "zeroBase.out",
+        "target": "positiveBase.b"
+      }
+    ]
+  },
+  "inputMappings": [],
+  "outputMappings": [
+    {
+      "key": "out",
+      "source": "positiveBase.out"
+    }
+  ],
+  "parameterMappings": [
+    {
+      "key": "minQuantity",
+      "targets": [
+        "zeroBase.value"
+      ]
+    }
+  ]
+}

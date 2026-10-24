@@ -6,6 +6,8 @@
 
     <ItemGroup>
         <!-- MediatR stays on 12.5.0, the last Apache-2.0 release; 13.x+ requires a commercial license (ADR 0005). -->
+        <!-- Pure-computation indicator library used by the engine replay adapter (ADR 0009). -->
+        <PackageVersion Include="FacioQuo.Stock.Indicators" Version="3.0.3" />
         <PackageVersion Include="MediatR" Version="12.5.0" />
         <PackageVersion Include="MediatR.Contracts" Version="2.0.1" />
         <PackageVersion Include="FluentValidation" Version="12.1.1" />

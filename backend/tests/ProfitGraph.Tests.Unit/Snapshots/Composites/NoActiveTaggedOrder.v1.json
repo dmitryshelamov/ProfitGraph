@@ -1,0 +1,78 @@
+{
+  "typeKey": "NoActiveTaggedOrder",
+  "schemaVersion": 1,
+  "inputs": [],
+  "outputs": [
+    {
+      "Key": "exists",
+      "kind": "Condition",
+      "valueType": "Boolean",
+      "Label": "Ордер существует"
+    },
+    {
+      "Key": "out",
+      "kind": "Condition",
+      "valueType": "Boolean",
+      "Label": "Условие"
+    }
+  ],
+  "parameters": [
+    {
+      "Key": "tag",
+      "valueKind": "Text",
+      "defaultValue": "ladder.entry",
+      "Label": "Метка ордера"
+    }
+  ],
+  "engineInputs": [],
+  "graph": {
+    "nodes": [
+      {
+        "Id": "activeentry",
+        "TypeKey": "ActiveOrder",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "tag",
+            "value": "text:ladder.entry"
+          }
+        ]
+      },
+      {
+        "Id": "noentry",
+        "TypeKey": "Not",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      }
+    ],
+    "connections": [
+      {
+        "source": "activeentry.exists",
+        "target": "noentry.in"
+      }
+    ]
+  },
+  "inputMappings": [],
+  "outputMappings": [
+    {
+      "key": "exists",
+      "source": "activeentry.exists"
+    },
+    {
+      "key": "out",
+      "source": "noentry.out"
+    }
+  ],
+  "parameterMappings": [
+    {
+      "key": "tag",
+      "targets": [
+        "activeentry.tag"
+      ]
+    }
+  ]
+}
