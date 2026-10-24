@@ -202,7 +202,8 @@ public static class BacktestResponseConverter
             summary.Outcome,
             summary.QuoteAsset,
             Text(summary.TotalPnl),
-            Text(summary.ReturnPercent));
+            Text(summary.ReturnPercent),
+            Text(summary.MaxDrawdownPercent));
     }
 
     public static BacktestSummaryPageResponse ToResponse(this BacktestSummaryPageInternal page)

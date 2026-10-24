@@ -24,6 +24,7 @@ vi.mock('lightweight-charts', () => {
     ColorType: { Solid: 'solid' },
     createChart: () => ({
       addSeries: series,
+      removeSeries: vi.fn(),
       remove: vi.fn(),
       timeScale: () => ({ fitContent: vi.fn() }),
     }),

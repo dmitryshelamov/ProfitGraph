@@ -39,6 +39,14 @@ internal sealed class OptimizationReader(NpgsqlConnection connection, PostgresTr
         return new OptimizationCursorInternal(row.LastSequence, row.Status);
     }
 
+    public async Task<OptimizationTrialInternal?> Trial(OptimizationId id, int windowIndex, int trialIndex, CancellationToken cancellationToken)
+    {
+        var row = await connection.QuerySingleOrDefaultAsync<OptimizationTrialDb>(
+            Command(OptimizationTrialQueries.One, new { OptimizationId = id.Value, WindowIndex = windowIndex, TrialIndex = trialIndex }, cancellationToken));
+
+        return row?.ToInternal();
+    }
+
     public async Task<OptimizationTrialPageInternal> Trials(OptimizationId id, long afterSequence, int limit, CancellationToken cancellationToken)
     {
         OptimizationTrialDb[] rows =

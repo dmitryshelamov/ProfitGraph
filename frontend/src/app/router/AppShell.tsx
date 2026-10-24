@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, Outlet, useNavigate } from '@tanstack/react-router';
 
 import { signOut, useCurrentUser } from '@/modules/accounts';
+import { ComparisonBar } from '@/modules/comparison';
 import { Button } from '@/shared/ui/Button';
 
 export function AppShell() {
@@ -60,6 +61,7 @@ export function AppShell() {
       <main className="flex-1 px-6 py-8">
         <Outlet />
       </main>
+      <ComparisonBar />
     </div>
   );
 }

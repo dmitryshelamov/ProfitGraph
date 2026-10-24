@@ -15,6 +15,7 @@ internal sealed class GetBacktestRankingQueryValidator : AbstractValidator<GetBa
             .When(query => query.Timeframe is not null)
             .WithErrorCode("unsupported_timeframe")
             .WithMessage("The timeframe is not supported.");
+        RuleFor(query => query.Sort).IsInEnum();
         RuleFor(query => query.Limit).InclusiveBetween(from: 1, GetBacktestRankingQuery.MaxLimit);
     }
 

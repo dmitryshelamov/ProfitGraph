@@ -1,6 +1,7 @@
 export {
   optimizationKeys,
   optimizationQuery,
+  optimizationTrialQuery,
   optimizationWindowsQuery,
   startOptimization,
   strategyOptimizationsQuery,

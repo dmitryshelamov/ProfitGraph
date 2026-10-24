@@ -76,7 +76,7 @@ internal static class BacktestReadQueries
         SELECT r.id AS Id, r.strategy_id AS StrategyId, s.name AS StrategyName, r.strategy_version AS StrategyVersion,
             r.configuration ->> 'venue' AS Venue, r.configuration ->> 'symbol' AS Symbol, r.configuration ->> 'timeframe' AS Timeframe,
             r.created_at AS CreatedAt, j.status AS Status, r.outcome AS Outcome, r.quote_asset AS QuoteAsset, r.total_pnl AS TotalPnl,
-            r.return_percent AS ReturnPercent
+            r.return_percent AS ReturnPercent, r.max_drawdown_percent AS MaxDrawdownPercent
         FROM backtest_runs r
         JOIN background_jobs j ON j.id = r.id
         JOIN strategies s ON s.id = r.strategy_id
@@ -91,18 +91,6 @@ internal static class BacktestReadQueries
          LIMIT @Take;
          """;
 
-    public const string Ranking =
-        $"""
-         {Summary}
-         WHERE r.owner_id = @OwnerId AND r.quote_asset = @Quote AND r.return_percent IS NOT NULL
-             AND (@Symbol::text IS NULL OR r.configuration ->> 'symbol' = @Symbol::text)
-             AND (@Timeframe::text IS NULL OR r.configuration ->> 'timeframe' = @Timeframe::text)
-             AND (@After::uuid IS NULL OR (r.return_percent, r.created_at, r.id) <
-                 (SELECT return_percent, created_at, id FROM backtest_runs WHERE id = @After::uuid))
-         ORDER BY r.return_percent DESC, r.created_at DESC, r.id DESC
-         LIMIT @Take;
-         """;
-
     public const string Latest =
         $"""
          SELECT DISTINCT ON (StrategyId) * FROM (
@@ -111,4 +99,25 @@ internal static class BacktestReadQueries
          ) runs
          ORDER BY StrategyId, CreatedAt DESC, Id DESC;
          """;
+
+    /// <summary>
+    ///     The ranking ordered by one whitelisted column, with start time and identifier breaking ties in the same direction
+    ///     so that the cursor row compares as a tuple.
+    /// </summary>
+    public static string Ranking(string column, bool ascending)
+    {
+        string direction = ascending ? "ASC" : "DESC";
+        string compare = ascending ? ">" : "<";
+
+        return $"""
+                {Summary}
+                WHERE r.owner_id = @OwnerId AND r.quote_asset = @Quote AND r.return_percent IS NOT NULL AND {column} IS NOT NULL
+                    AND (@Symbol::text IS NULL OR r.configuration ->> 'symbol' = @Symbol::text)
+                    AND (@Timeframe::text IS NULL OR r.configuration ->> 'timeframe' = @Timeframe::text)
+                    AND (@After::uuid IS NULL OR ({column}, r.created_at, r.id) {compare}
+                        (SELECT {column.Replace("r.", "c.")}, c.created_at, c.id FROM backtest_runs c WHERE c.id = @After::uuid))
+                ORDER BY {column} {direction}, r.created_at {direction}, r.id {direction}
+                LIMIT @Take;
+                """;
+    }
 }

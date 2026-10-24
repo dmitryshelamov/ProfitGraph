@@ -93,6 +93,10 @@ public sealed class OptimizationRunTests
         first["configuration"]!["from"]!.GetValue<DateTimeOffset>().ShouldBe(BacktestScenario.From);
         first["history"]!["replayCount"]!.GetValue<int>().ShouldBe(240);
 
+        var single = (await _client.GetFromJsonAsync<JsonNode>($"/api/optimizations/{id}/trials/{best["trialIndex"]}?window=0"))!;
+        single.ToJsonString().ShouldBe(best.ToJsonString());
+        (await _client.GetAsync($"/api/optimizations/{id}/trials/99")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
         var list = (await _client.GetFromJsonAsync<JsonNode>($"/api/strategies/{strategyId}/optimizations"))!;
         JsonNode summary = list["items"]!.AsArray().Single()!;
         summary["id"]!.GetValue<Guid>().ShouldBe(id);

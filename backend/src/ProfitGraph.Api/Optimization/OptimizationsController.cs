@@ -11,6 +11,7 @@ using ProfitGraph.Api.Optimization.Converters;
 using ProfitGraph.Application.Jobs.Contracts;
 using ProfitGraph.Application.Optimization.Contracts;
 using ProfitGraph.Application.Optimization.GetOptimizationRun;
+using ProfitGraph.Application.Optimization.GetOptimizationTrial;
 using ProfitGraph.Application.Optimization.GetOptimizationTrials;
 using ProfitGraph.Application.Optimization.GetOptimizationWindows;
 using ProfitGraph.Application.Optimization.GetStrategyOptimizations;
@@ -84,6 +85,15 @@ public sealed class OptimizationsController(ISender sender) : ControllerBase
         OptimizationWindowsInternal windows = await sender.Send(new GetOptimizationWindowsQuery(UserId(), id), cancellationToken);
 
         return windows.Windows.Select(window => window.ToResponse()).ToArray();
+    }
+
+    /// <summary>
+    ///     One stored trial by its index in the search; <paramref name="window" /> picks the walk-forward window.
+    /// </summary>
+    [HttpGet("{id:guid}/trials/{trialIndex:int}")]
+    public async Task<ActionResult<OptimizationTrialResponse>> Trial(Guid id, int trialIndex, CancellationToken cancellationToken, [FromQuery] int window = 0)
+    {
+        return (await sender.Send(new GetOptimizationTrialQuery(UserId(), id, window, trialIndex), cancellationToken)).ToResponse();
     }
 
     /// <summary>

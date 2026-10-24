@@ -85,7 +85,8 @@ internal static class BacktestReadDbConverter
             row.Outcome,
             row.QuoteAsset,
             row.TotalPnl,
-            row.ReturnPercent);
+            row.ReturnPercent,
+            row.MaxDrawdownPercent);
     }
 
     public static BacktestRunStateInternal ToInternal(this BacktestRunStateDb row)

@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
+import { CompareToggle } from '@/modules/comparison';
 import { isJobFinished, JobProgress, jobQuery } from '@/modules/jobs';
 import { timeframeLabel } from '@/modules/market-data';
 import {
@@ -122,6 +123,17 @@ export function OptimizationPage() {
                 optimizationId={optimizationId}
                 showWindow={walkForward}
                 showStage={staged}
+                action={(trial) => (
+                  <CompareToggle
+                    item={{
+                      kind: 'trial',
+                      optimizationId,
+                      windowIndex: trial.windowIndex,
+                      trialIndex: trial.trialIndex,
+                    }}
+                    label={`Сравнить испытание ${trial.trialIndex + 1}`}
+                  />
+                )}
               />
             </Card>
           )}

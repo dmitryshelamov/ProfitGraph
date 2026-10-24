@@ -577,6 +577,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/optimizations/{id}/trials/{trialIndex}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    window?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                    trialIndex: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["OptimizationTrialResponse"];
+                        "application/json": components["schemas"]["OptimizationTrialResponse"];
+                        "text/json": components["schemas"]["OptimizationTrialResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/optimizations/{id}/trials": {
         parameters: {
             query?: never;
@@ -923,6 +965,8 @@ export interface paths {
                     timeframe?: string;
                     after?: string;
                     limit?: number;
+                    sort?: string;
+                    order?: string;
                 };
                 header?: never;
                 path?: never;
@@ -1720,6 +1764,7 @@ export interface components {
             quoteAsset: null | string;
             totalPnl: null | string;
             returnPercent: null | string;
+            maxDrawdownPercent: null | string;
         };
         BlockCatalogEntryResponse: {
             key: string;

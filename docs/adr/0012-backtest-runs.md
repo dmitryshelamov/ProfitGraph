@@ -68,3 +68,20 @@ ProfitGraph keeps the frozen inputs and the bounded replay pipeline, stores resu
   `Subscribe(runId)` checks ownership and returns the run's last stored observation and outcome. A client buffers
   messages, reads observations after its cursor over HTTP to fill gaps (for example after a reconnect) and keeps each
   sequence once; a lost signal is caught up by the next one, and the job status remains the final word.
+
+## Amendment: ranking order and comparison (stage 4.9)
+
+- **Ranking order** (stage 4 plan, S4-11). `GET /api/backtests` takes `sort` and `order`:
+  - `sort` is `return` (the default), `pnl`, `drawdown` or `created`; `order` is `desc` (the default) or `asc`.
+  - Start time and identifier break ties in the same direction, so the `after` cursor stays a single keyset tuple.
+  - Completed runs store their full-period maximum drawdown in `backtest_runs.max_drawdown_percent`, next to the
+    return. A migration fills it for existing runs from their stored metrics.
+  - Ranking rows carry the drawdown too.
+- **Comparison.** The frontend shows selected runs and optimization trials side by side, up to six:
+  - parameter values;
+  - full, in-sample and holdout metrics;
+  - the runs' equity on one chart.
+
+  `GET /api/optimizations/{id}/trials/{trialIndex}?window=` returns one stored trial for it. A trial has only its
+  in-sample metrics and no equity; its finalist run is the way to see the whole period. The comparison lives in its
+  address (`/compare?runs=…&trials=optimization:window:index`), so it can be shared and reopened.

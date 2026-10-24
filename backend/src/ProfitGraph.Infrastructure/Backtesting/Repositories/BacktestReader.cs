@@ -2,6 +2,7 @@ using Dapper;
 
 using Npgsql;
 
+using ProfitGraph.Application.Backtesting;
 using ProfitGraph.Application.Backtesting.Contracts;
 using ProfitGraph.Application.Backtesting.Ports;
 using ProfitGraph.Domain.Accounts;
@@ -120,8 +121,17 @@ internal sealed class BacktestReader(NpgsqlConnection connection, PostgresTransa
         string? timeframe,
         Guid? after,
         int limit,
+        BacktestRankingSort sort,
+        bool ascending,
         CancellationToken cancellationToken)
     {
+        string column = sort switch
+        {
+            BacktestRankingSort.TotalPnl => "r.total_pnl",
+            BacktestRankingSort.MaxDrawdownPercent => "r.max_drawdown_percent",
+            BacktestRankingSort.CreatedAt => "r.created_at",
+            _ => "r.return_percent"
+        };
         var parameters = new
         {
             OwnerId = ownerId.Value,
@@ -132,7 +142,7 @@ internal sealed class BacktestReader(NpgsqlConnection connection, PostgresTransa
             Take = limit + 1
         };
 
-        return Summaries(BacktestReadQueries.Ranking, parameters, limit, cancellationToken);
+        return Summaries(BacktestReadQueries.Ranking(column, ascending), parameters, limit, cancellationToken);
     }
 
     public async Task<IReadOnlyDictionary<Guid, BacktestSummaryInternal>> Latest(IReadOnlyCollection<Guid> strategyIds, CancellationToken cancellationToken)

@@ -156,6 +156,29 @@ public sealed class BacktestResultTests
         (await Get($"/api/backtests?quote=USDT&symbol={_symbol}&timeframe=4h"))["items"]!.AsArray().ShouldBeEmpty();
     }
 
+    [TestCase("pnl", "asc", "totalPnl")]
+    [TestCase("pnl", "desc", "totalPnl")]
+    [TestCase("drawdown", "asc", "maxDrawdownPercent")]
+    [TestCase("return", "asc", "returnPercent")]
+    public async Task TheRankingSortsByTheChosenColumnAcrossPages(string sort, string order, string field)
+    {
+        Guid strategyId = await BacktestScenario.CreateStrategy(_application, _userId);
+
+        foreach (string amount in new[] { "50", "300", "150" })
+        {
+            await CompletedRun(BacktestScenario.Request(strategyId, _symbol, parameters: new Dictionary<string, string> { ["buyAmount"] = amount }));
+        }
+
+        JsonNode[] ranking = await ReadAllRuns($"/api/backtests?quote=USDT&symbol={_symbol}&sort={sort}&order={order}", limit: 1);
+
+        ranking.Length.ShouldBe(3);
+        ranking.Select(item => decimal.Parse(item[field]!.GetValue<string>(), CultureInfo.InvariantCulture))
+            .ShouldBeInOrder(order == "asc" ? SortDirection.Ascending : SortDirection.Descending);
+        ranking.ShouldAllBe(item => item["maxDrawdownPercent"] != null);
+    }
+
+    [TestCase("/api/backtests?quote=USDT&sort=sharpe", "invalid_sort")]
+    [TestCase("/api/backtests?quote=USDT&order=up", "invalid_order")]
     [TestCase("/api/backtests?quote=usdt", "invalid_quote")]
     [TestCase("/api/backtests?quote=USDT&timeframe=7m", "unsupported_timeframe")]
     [TestCase("/api/backtests?quote=USDT&limit=101", "InclusiveBetweenValidator")]

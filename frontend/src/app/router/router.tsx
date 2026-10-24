@@ -126,6 +126,16 @@ const optimizationRoute = createRoute({
   ),
 });
 
+const compareRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/compare',
+  validateSearch: (search: Record<string, unknown>): { runs?: string; trials?: string } => ({
+    ...(typeof search.runs === 'string' ? { runs: search.runs } : {}),
+    ...(typeof search.trials === 'string' ? { trials: search.trials } : {}),
+  }),
+  component: lazyRouteComponent(() => import('@/pages/compare/ComparePage'), 'ComparePage'),
+});
+
 const historicalDataRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/historical-data',
@@ -156,6 +166,7 @@ const routeTree = rootRoute.addChildren([
       backtestRoute,
       optimizationSetupRoute,
       optimizationRoute,
+      compareRoute,
       historicalDataRoute,
     ]),
     strategyEditorRoute,
