@@ -336,6 +336,653 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/historical-data/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        Venue?: string;
+                        Symbol?: string;
+                        Timeframe?: string;
+                        File?: components["schemas"]["IFormFile"];
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["CandleImportResponse"];
+                        "application/json": components["schemas"]["CandleImportResponse"];
+                        "text/json": components["schemas"]["CandleImportResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/historical-data/downloads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DownloadCandlesRequest"];
+                    "text/json": components["schemas"]["DownloadCandlesRequest"];
+                    "application/*+json": components["schemas"]["DownloadCandlesRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BackgroundJobResponse"];
+                        "application/json": components["schemas"]["BackgroundJobResponse"];
+                        "text/json": components["schemas"]["BackgroundJobResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/historical-data/candles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    venue?: string;
+                    symbol?: string;
+                    timeframe?: string;
+                    from?: string;
+                    to?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["CandleResponse"][];
+                        "application/json": components["schemas"]["CandleResponse"][];
+                        "text/json": components["schemas"]["CandleResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/market-data/venues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["VenueResponse"][];
+                        "application/json": components["schemas"]["VenueResponse"][];
+                        "text/json": components["schemas"]["VenueResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/market-data/instruments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    venue?: string;
+                    query?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["InstrumentResponse"][];
+                        "application/json": components["schemas"]["InstrumentResponse"][];
+                        "text/json": components["schemas"]["InstrumentResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BackgroundJobResponse"];
+                        "application/json": components["schemas"]["BackgroundJobResponse"];
+                        "text/json": components["schemas"]["BackgroundJobResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BackgroundJobResponse"];
+                        "application/json": components["schemas"]["BackgroundJobResponse"];
+                        "text/json": components["schemas"]["BackgroundJobResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backtests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    quote?: string;
+                    symbol?: string;
+                    timeframe?: string;
+                    after?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BacktestSummaryPageResponse"];
+                        "application/json": components["schemas"]["BacktestSummaryPageResponse"];
+                        "text/json": components["schemas"]["BacktestSummaryPageResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StartBacktestRequest"];
+                    "text/json": components["schemas"]["StartBacktestRequest"];
+                    "application/*+json": components["schemas"]["StartBacktestRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BackgroundJobResponse"];
+                        "application/json": components["schemas"]["BackgroundJobResponse"];
+                        "text/json": components["schemas"]["BackgroundJobResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/strategies/{strategyId}/backtests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    after?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    strategyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BacktestSummaryPageResponse"];
+                        "application/json": components["schemas"]["BacktestSummaryPageResponse"];
+                        "text/json": components["schemas"]["BacktestSummaryPageResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backtests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BacktestRunResponse"];
+                        "application/json": components["schemas"]["BacktestRunResponse"];
+                        "text/json": components["schemas"]["BacktestRunResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backtests/{id}/observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    after?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BacktestPageResponseOfBacktestObservationResponse"];
+                        "application/json": components["schemas"]["BacktestPageResponseOfBacktestObservationResponse"];
+                        "text/json": components["schemas"]["BacktestPageResponseOfBacktestObservationResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backtests/{id}/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    after?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BacktestPageResponseOfBacktestLedgerEntryResponse"];
+                        "application/json": components["schemas"]["BacktestPageResponseOfBacktestLedgerEntryResponse"];
+                        "text/json": components["schemas"]["BacktestPageResponseOfBacktestLedgerEntryResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backtests/{id}/fills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    after?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BacktestPageResponseOfBacktestLedgerEntryResponse"];
+                        "application/json": components["schemas"]["BacktestPageResponseOfBacktestLedgerEntryResponse"];
+                        "text/json": components["schemas"]["BacktestPageResponseOfBacktestLedgerEntryResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backtests/{id}/diagnostics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    after?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BacktestPageResponseOfBacktestDiagnosticResponse"];
+                        "application/json": components["schemas"]["BacktestPageResponseOfBacktestDiagnosticResponse"];
+                        "text/json": components["schemas"]["BacktestPageResponseOfBacktestDiagnosticResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backtests/{id}/chart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BacktestChartResponse"];
+                        "application/json": components["schemas"]["BacktestChartResponse"];
+                        "text/json": components["schemas"]["BacktestChartResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/login": {
         parameters: {
             query?: never;
@@ -531,6 +1178,265 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        BackgroundJobFailureResponse: {
+            code: string;
+            message: string;
+        };
+        BackgroundJobResponse: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            status: string;
+            /** Format: int64 */
+            completed: number;
+            /** Format: int64 */
+            total: null | number;
+            cancelRequested: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            startedAt: null | string;
+            /** Format: date-time */
+            finishedAt: null | string;
+            result: null | components["schemas"]["JsonElement"];
+            failure: null | components["schemas"]["BackgroundJobFailureResponse"];
+        };
+        BacktestChartPointResponse: {
+            /** Format: int64 */
+            firstSequence: number;
+            /** Format: int64 */
+            lastSequence: number;
+            /** Format: date-time */
+            firstOpenTime: string;
+            /** Format: date-time */
+            lastOpenTime: string;
+            open: string;
+            high: string;
+            low: string;
+            close: string;
+            volume: string;
+            equity: string;
+            minEquity: string;
+            maxEquity: string;
+            totalPnl: string;
+            /** Format: int32 */
+            buyFills: number;
+            /** Format: int32 */
+            sellFills: number;
+        };
+        BacktestChartResponse: {
+            /** Format: int32 */
+            bucketSize: number;
+            points: components["schemas"]["BacktestChartPointResponse"][];
+        };
+        BacktestConfigurationResponse: {
+            venue: string;
+            symbol: string;
+            timeframe: string;
+            /** Format: date-time */
+            from: null | string;
+            /** Format: date-time */
+            to: null | string;
+            /** Format: date-time */
+            observedAt: string;
+            parameters: {
+                [key: string]: string;
+            };
+            startingCapital: string;
+            slippage: string;
+            limitFeeRate: string;
+            marketFeeRate: string;
+            outOfSampleFraction: string;
+            /** Format: int32 */
+            warmupCandles: number;
+        };
+        BacktestDiagnosticResponse: {
+            /** Format: int64 */
+            sequence: number;
+            code: string;
+            message: string;
+            nodeId: null | string;
+            /** Format: int32 */
+            candleIndex: null | number;
+            tag: null | string;
+            rejectionReason: null | string;
+        };
+        BacktestFillResponse: {
+            /** Format: int64 */
+            orderId: number;
+            tag: null | string;
+            side: string;
+            type: string;
+            price: string;
+            grossBase: string;
+            baseChange: string;
+            quoteChange: string;
+            fee: string;
+            feeAsset: string;
+            realizedPnl: string;
+        };
+        BacktestHistoryResponse: {
+            identity: string;
+            /** Format: date-time */
+            historyFrom: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** Format: int32 */
+            warmupCount: number;
+            /** Format: int32 */
+            replayCount: number;
+            /** Format: uuid */
+            rulesSnapshotId: string;
+            baseAsset: string;
+            quoteAsset: string;
+            rules: components["schemas"]["InstrumentRulesResponse"];
+        };
+        BacktestLedgerEntryResponse: {
+            /** Format: int64 */
+            sequence: number;
+            kind: string;
+            /** Format: int32 */
+            candleIndex: number;
+            /** Format: date-time */
+            candleOpenTime: string;
+            phase: string;
+            marketPrice: string;
+            order: null | components["schemas"]["BacktestOrderResponse"];
+            fill: null | components["schemas"]["BacktestFillResponse"];
+            rejection: null | components["schemas"]["BacktestRejectionResponse"];
+        };
+        BacktestMetricsResponse: {
+            full: components["schemas"]["SampleMetricsResponse"];
+            inSample: components["schemas"]["SampleMetricsResponse"];
+            outOfSample: null | components["schemas"]["SampleMetricsResponse"];
+        };
+        BacktestObservationResponse: {
+            /** Format: int64 */
+            sequence: number;
+            /** Format: date-time */
+            openTime: string;
+            /** Format: int32 */
+            candleIndex: number;
+            phase: string;
+            marketPrice: string;
+            open: string;
+            high: string;
+            low: string;
+            close: string;
+            volume: string;
+            equity: string;
+            unrealizedPnl: string;
+            totalPnl: string;
+            realizedPnl: string;
+            quoteTotal: string;
+            quoteReserved: string;
+            baseTotal: string;
+            baseReserved: string;
+            costBasis: string;
+            feesBase: string;
+            feesQuote: string;
+            lastBuyPrice: null | string;
+            /** Format: int32 */
+            activeOrders: number;
+            ledger: components["schemas"]["BacktestLedgerEntryResponse"][];
+            diagnostics: components["schemas"]["BacktestDiagnosticResponse"][];
+        };
+        BacktestOrderResponse: {
+            /** Format: int64 */
+            id: number;
+            tag: null | string;
+            side: string;
+            type: string;
+            quantity: null | string;
+            limitPrice: null | string;
+            quoteBudget: null | string;
+            reservation: string;
+            status: string;
+            originNodeId: string;
+        };
+        BacktestPageResponseOfBacktestDiagnosticResponse: {
+            items: components["schemas"]["BacktestDiagnosticResponse"][];
+            /** Format: int64 */
+            next: null | number;
+        };
+        BacktestPageResponseOfBacktestLedgerEntryResponse: {
+            items: components["schemas"]["BacktestLedgerEntryResponse"][];
+            /** Format: int64 */
+            next: null | number;
+        };
+        BacktestPageResponseOfBacktestObservationResponse: {
+            items: components["schemas"]["BacktestObservationResponse"][];
+            /** Format: int64 */
+            next: null | number;
+        };
+        BacktestRejectionResponse: {
+            reason: string;
+            message: string;
+            side: string;
+            type: string;
+            tag: null | string;
+            /** Format: int64 */
+            orderId: null | number;
+        };
+        BacktestResultResponse: {
+            outcome: string;
+            /** Format: int32 */
+            processedCandles: number;
+            equity: null | string;
+            totalPnl: null | string;
+            failureCode: null | string;
+            failureMessage: null | string;
+            metrics: null | components["schemas"]["BacktestMetricsResponse"];
+        };
+        BacktestRunResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            strategyId: string;
+            /** Format: int32 */
+            strategyVersion: number;
+            status: string;
+            /** Format: date-time */
+            createdAt: string;
+            configuration: components["schemas"]["BacktestConfigurationResponse"];
+            stage: null | string;
+            history: null | components["schemas"]["BacktestHistoryResponse"];
+            result: null | components["schemas"]["BacktestResultResponse"];
+            /** Format: int64 */
+            ledgerCount: number;
+            /** Format: int64 */
+            candleCount: number;
+            /** Format: int64 */
+            diagnosticCount: number;
+            /** Format: int32 */
+            chartBucketSize: null | number;
+        };
+        BacktestSummaryPageResponse: {
+            items: components["schemas"]["BacktestSummaryResponse"][];
+            /** Format: uuid */
+            next: null | string;
+        };
+        BacktestSummaryResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            strategyId: string;
+            strategyName: string;
+            /** Format: int32 */
+            strategyVersion: number;
+            venue: string;
+            symbol: string;
+            timeframe: string;
+            /** Format: date-time */
+            createdAt: string;
+            status: string;
+            outcome: null | string;
+            quoteAsset: null | string;
+            totalPnl: null | string;
+            returnPercent: null | string;
+        };
         BlockCatalogEntryResponse: {
             key: string;
             label: string;
@@ -556,6 +1462,26 @@ export interface components {
             orderKinds: components["schemas"]["BlockCatalogEntryResponse"][];
             valueSources: components["schemas"]["BlockCatalogEntryResponse"][];
         };
+        CandleImportResponse: {
+            venue: string;
+            symbol: string;
+            timeframe: string;
+            /** Format: int32 */
+            accepted: number;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+        };
+        CandleResponse: {
+            /** Format: date-time */
+            openTime: string;
+            open: string;
+            high: string;
+            low: string;
+            close: string;
+            volume: string;
+        };
         CreateStrategyRequest: {
             name: string;
             definition: components["schemas"]["StrategyDefinitionRequest"];
@@ -565,6 +1491,15 @@ export interface components {
             login: null | string;
             password: null | string;
             role: components["schemas"]["UserRole"];
+        };
+        DownloadCandlesRequest: {
+            venue: null | string;
+            symbol: null | string;
+            timeframe: null | string;
+            /** Format: date-time */
+            from: null | string;
+            /** Format: date-time */
+            to: null | string;
         };
         GraphLayoutRequest: {
             positions: {
@@ -576,6 +1511,25 @@ export interface components {
                 [key: string]: components["schemas"]["NodePositionResponse"];
             };
         };
+        /** Format: binary */
+        IFormFile: string;
+        InstrumentResponse: {
+            venue: string;
+            symbol: string;
+            baseAsset: string;
+            quoteAsset: string;
+        };
+        InstrumentRulesResponse: {
+            quantityStep: string;
+            priceTick: string;
+            minQuantity: string;
+            minNotional: string;
+            /** Format: int32 */
+            basePrecision: number;
+            /** Format: int32 */
+            quotePrecision: number;
+        };
+        JsonElement: unknown;
         NodePositionRequest: {
             /** Format: double */
             x: number;
@@ -588,6 +1542,25 @@ export interface components {
             /** Format: double */
             y: number;
         };
+        SampleMetricsResponse: {
+            /** Format: int32 */
+            startIndex: number;
+            /** Format: int32 */
+            endExclusive: number;
+            /** Format: int32 */
+            observedCandles: number;
+            boundaryEquity: null | string;
+            endEquity: null | string;
+            totalPnl: null | string;
+            realizedPnl: null | string;
+            unrealizedPnl: null | string;
+            returnPercent: null | string;
+            feesBase: null | string;
+            feesQuote: null | string;
+            maxDrawdownPercent: null | string;
+            /** Format: int64 */
+            executions: number;
+        };
         SaveStrategyRequest: {
             /** Format: int32 */
             expectedVersion: number;
@@ -598,6 +1571,27 @@ export interface components {
         SignInRequest: {
             login: null | string;
             password: null | string;
+        };
+        StartBacktestRequest: {
+            /** Format: uuid */
+            strategyId: string;
+            /** Format: int32 */
+            version: null | number;
+            venue: null | string;
+            symbol: null | string;
+            timeframe: null | string;
+            /** Format: date-time */
+            from: null | string;
+            /** Format: date-time */
+            to: null | string;
+            parameters: null | {
+                [key: string]: string;
+            };
+            startingCapital: null | string;
+            slippage: null | string;
+            limitFeeRate: null | string;
+            marketFeeRate: null | string;
+            outOfSampleFraction: null | string;
         };
         StrategyBlockRequest: {
             id: string;
@@ -721,6 +1715,7 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             templateKind: null | string;
+            latestRun: null | components["schemas"]["BacktestSummaryResponse"];
         };
         StrategyTemplateResponse: {
             kind: string;
@@ -808,6 +1803,11 @@ export interface components {
             arguments?: null | {
                 [key: string]: components["schemas"]["ValueExpressionResponse"];
             };
+        };
+        VenueResponse: {
+            id: string;
+            name: string;
+            timeframes: string[];
         };
     };
     responses: never;

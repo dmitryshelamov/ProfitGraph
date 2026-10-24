@@ -15,6 +15,8 @@ const api = [
   'Postgres__RunMigrationsOnStartup=true',
   'Auth__BootstrapOwner__Login=e2e-owner',
   `Auth__BootstrapOwner__Password="$PROFITGRAPH_E2E_PASSWORD"`,
+  // Tests never reach Bybit: a closed local port makes pair search answer "venue unavailable".
+  'Venues__Bybit__BaseAddress=http://127.0.0.1:9/',
   `dotnet run --no-launch-profile --project ../backend/src/ProfitGraph.Api --urls http://127.0.0.1:${apiPort}`,
 ].join(' ');
 

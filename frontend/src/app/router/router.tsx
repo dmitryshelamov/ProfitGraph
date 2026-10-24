@@ -84,6 +84,24 @@ const strategyRoute = createRoute({
   component: lazyRouteComponent(() => import('@/pages/strategy/StrategyPage'), 'StrategyPage'),
 });
 
+const backtestSetupRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/strategies/$strategyId/backtest',
+  component: lazyRouteComponent(
+    () => import('@/pages/backtest-setup/BacktestSetupPage'),
+    'BacktestSetupPage',
+  ),
+});
+
+const historicalDataRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/historical-data',
+  component: lazyRouteComponent(
+    () => import('@/pages/historical-data/HistoricalDataPage'),
+    'HistoricalDataPage',
+  ),
+});
+
 const strategyEditorRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/strategies/$strategyId/edit',
@@ -96,7 +114,13 @@ const strategyEditorRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   signInRoute,
   authenticatedRoute.addChildren([
-    shellRoute.addChildren([homeRoute, strategiesRoute, strategyRoute]),
+    shellRoute.addChildren([
+      homeRoute,
+      strategiesRoute,
+      strategyRoute,
+      backtestSetupRoute,
+      historicalDataRoute,
+    ]),
     strategyEditorRoute,
   ]),
 ]);

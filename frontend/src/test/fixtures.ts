@@ -38,6 +38,7 @@ export const summary: Schemas['StrategySummaryResponse'] = {
   currentVersion: 2,
   updatedAt: strategy.updatedAt,
   templateKind: 'LadderSma',
+  latestRun: null,
 };
 
 export const template: Schemas['StrategyTemplateResponse'] = {
