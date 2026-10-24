@@ -30,6 +30,7 @@
         <None Include="Snapshots\Composites\*.json" CopyToOutputDirectory="PreserveNewest"/>
         <None Include="Fixtures\MarketData\*.csv" CopyToOutputDirectory="PreserveNewest"/>
         <None Include="Fixtures\Golden\*.txt" CopyToOutputDirectory="PreserveNewest"/>
+        <None Include="Fixtures\Strategies\*.json" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
 
 </Project>

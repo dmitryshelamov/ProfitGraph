@@ -4,6 +4,7 @@
         <PackageReference Include="MediatR"/>
         <PackageReference Include="FluentValidation"/>
         <InternalsVisibleTo Include="ProfitGraph.Tests.Unit"/>
+        <InternalsVisibleTo Include="ProfitGraph.Tests.Integration"/>
     </ItemGroup>
 
     <ItemGroup>

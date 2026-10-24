@@ -37,8 +37,7 @@ for a new product area, and list it here.
 ```text
 Domain/
   Common/                     AggregateRoot, IDomainEvent, DomainException
-  Strategies/                 Strategy.cs, StrategyVersion.cs, IStrategyRepository.cs,
-                              StrategyCreated.cs (event), StrategyNameTakenException.cs
+  Strategies/                 Strategy.cs, StrategyVersion.cs, IStrategyRepository.cs, StrategyRuleException.cs
 Application/
   Common/                     Messaging (ICommand, IQuery), Exceptions, Transactions
   Strategies/
@@ -50,6 +49,11 @@ Infrastructure/
   Common/
     Postgres/Migrations/      every migration, e.g. 202610240001_create_user_table.cs (class CreateUserTableMigration)
     Postgres/, Messaging/     connection, transactions, behaviors
+  Strategies/
+    Repositories/             StrategyRepository.cs, StrategyVersionReader.cs
+      Contracts/              StrategyDb.cs, StrategyVersionDb.cs, StrategySnapshotDb.cs (jsonb snapshot)
+      Converters/             StrategyDbConverter.cs, StrategySnapshotDbConverter.cs (versioned JSON)
+      Queries/                StrategyQueries.cs, StrategyVersionQueries.cs
   Accounts/
     Repositories/             UserRepository.cs
       Contracts/              UserDb.cs (row model: class with init properties)

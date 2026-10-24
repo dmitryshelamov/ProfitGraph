@@ -63,6 +63,10 @@ A user-authored strategy definition containing blocks, wires, named parameters a
 edited on the canvas, returned by strategy/template APIs, and stored in immutable strategy versions. Layout is
 stored alongside the definition and never affects execution. See Profit Fox Designer ADR 0042.
 
+A strategy belongs to the user who created it: other users neither see it in their list nor open, save or validate
+it, and the API answers them as if the strategy did not exist. Saving creates the next version and requires the
+version the editor started from, so a concurrent save is rejected instead of overwritten.
+
 ### Block
 
 A visible element of a strategy definition with a stable ID, an optional display name and its settings. The four
