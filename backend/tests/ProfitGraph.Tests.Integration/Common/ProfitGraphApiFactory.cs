@@ -4,11 +4,13 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 
 using ProfitGraph.Api;
+using ProfitGraph.Tests.Integration.Jobs;
 
 namespace ProfitGraph.Tests.Integration.Common;
 
 /// <summary>
 ///     Hosts the API in the Testing environment against this run's disposable database, applying migrations on startup.
+///     The test kind of background work is registered, so tests can queue it and read its result.
 /// </summary>
 public sealed class ProfitGraphApiFactory(IReadOnlyDictionary<string, string>? settings = null, TimeProvider? clock = null) : WebApplicationFactory<Program>
 {
@@ -28,9 +30,14 @@ public sealed class ProfitGraphApiFactory(IReadOnlyDictionary<string, string>? s
             builder.UseSetting(key, value);
         }
 
-        if (clock is not null)
+        builder.ConfigureTestServices(services =>
         {
-            builder.ConfigureTestServices(services => services.AddSingleton(clock));
-        }
+            services.AddTestJob();
+
+            if (clock is not null)
+            {
+                services.AddSingleton(clock);
+            }
+        });
     }
 }

@@ -39,6 +39,13 @@ error, never a default. See [ADR 0010](docs/adr/0010-venues-and-market-data.md).
 The stored history of one instrument of one venue on one timeframe. Stored candles are a cache of public market
 data shared by all users; only the Owner can change it by CSV import, and downloads only add missing candles.
 
+### Background Job
+
+Durable work that runs in the Worker after the request that started it has returned, such as a history download
+or a backtest: queued, running, then completed, failed or cancelled, with progress. A job belongs to the user who
+started it; cancelling a running job is a request that the Worker honours. See
+[ADR 0011](docs/adr/0011-background-jobs.md).
+
 ### Venue Bot Settings
 
 A typed, versioned settings object owned by a venue module for venue-specific bot configuration, such as trading
