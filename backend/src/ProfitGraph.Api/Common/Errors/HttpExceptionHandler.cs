@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
 using ProfitGraph.Application.Accounts;
+using ProfitGraph.Application.Bots;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.MarketData;
+using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Common;
 using ProfitGraph.Engine.Common;
 
@@ -28,6 +30,9 @@ internal sealed class HttpExceptionHandler(IProblemDetailsService problemDetails
             ResourceNotFoundException notFound => (404, "Resource not found", notFound.Code),
             StateConflictException conflict => (409, "State conflict", conflict.Code),
             CredentialsUnavailableException unavailable => (503, "Credentials unavailable", unavailable.Code),
+            VenueFeeRatesUnavailableException fees => (503, "Venue unavailable", fees.Code),
+            BotRuleException { Code: BotRuleException.MustBeStopped or BotRuleException.TradingHalted or BotRuleException.NotRunning } bot =>
+                (409, "State conflict", bot.Code),
             DomainException domain => (422, "Domain rule violation", domain.Code),
             EngineException => (422, "Domain rule violation", "domain_rule_violation"),
             InstrumentRulesException { Code: InstrumentRulesErrorCodes.InvalidRequest } instrument => (422, "Instrument unavailable", instrument.Code),

@@ -75,3 +75,22 @@ gateway amend it in later stage 5 pull requests.
   so each event takes effect once. Failed deliveries wait 1, 2, 4, ... seconds up to five minutes; a message of an
   unknown type is kept with `unknown_event_type`. Several dispatchers may run (`SKIP LOCKED`). Side effects outside
   the database, such as Telegram, get their own delivery queue fed by a handler.
+
+## Amendment: bot API (stage 5.4)
+
+- **Endpoints.** `POST /api/bots` creates a stopped bot; `GET /api/bots` and `GET /api/bots/{id}` read the caller's
+  bots; `POST /api/bots/{id}/start` and `/stop` change the desired state; `PUT /api/bots/{id}/parameters`,
+  `/risk-limits` and `/foreign-orders` change settings. Another user's bot, strategy or credential answers 404.
+  Decimals are exact invariant strings.
+- **Creation** takes the venue from the credential, resolves the series through the venue descriptor, checks the
+  instrument's rules, requires a value for every parameter of the latest strategy version (whole numbers for integer
+  parameters, `parameters_mismatch`), compiles that version with them and reads the venue's maker and taker rates with
+  the credential through the venue port `IVenueFeeRateReader` (maker for limit, taker for market orders). A venue
+  without that port answers `503 fee_rates_unavailable`. Creation runs outside a transaction because of that read.
+- **Start** compiles the latest version with the bot's values when no run exists, refuses a bot whose run exists but
+  whose checkpoint is missing (`missing_checkpoint`) and forgets a stopped run that never created an order. A halt
+  answers `409 trading_halted`.
+- **Settings.** Parameters and allocation change only on a stopped bot (`409 bot_must_be_stopped`); with a stored run
+  the cap must cover cost basis plus reserved quote (`allocation_below_committed`) and the edited graph must compile
+  (`409 parameters_incompatible`). Risk limits change at any time; the foreign-orders policy only while stopped.
+- A credential that a bot uses cannot be deleted (`409 exchange_credential_in_use`).

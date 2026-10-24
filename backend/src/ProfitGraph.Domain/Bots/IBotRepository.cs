@@ -22,6 +22,11 @@ public interface IBotRepository
 
     Task<IReadOnlyList<BotId>> ListDesiredRunning(CancellationToken cancellationToken);
 
+    /// <summary>
+    ///     Whether any bot trades through the credential, which then cannot be deleted.
+    /// </summary>
+    Task<bool> AnyUsesCredential(ExchangeCredentialId credentialId, CancellationToken cancellationToken);
+
     Task Add(Bot bot, CancellationToken cancellationToken);
 
     /// <summary>
