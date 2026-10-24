@@ -12,7 +12,7 @@ namespace ProfitGraph.Tests.Integration.Bots;
 /// </summary>
 internal static class BotTestHost
 {
-    internal static IHost Create(Action<IServiceCollection>? configure = null, TimeProvider? clock = null)
+    internal static IHost Create(Action<IServiceCollection>? configure = null, TimeProvider? clock = null, IReadOnlyDictionary<string, string?>? settings = null)
     {
         HostApplicationBuilder builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { EnvironmentName = "Testing" });
         builder.Configuration.AddInMemoryCollection(
@@ -21,6 +21,12 @@ internal static class BotTestHost
                 ["ConnectionStrings:Postgres"] = TestDatabase.ConnectionString,
                 ["Outbox:PollingInterval"] = TimeSpan.FromMilliseconds(50).ToString()
             });
+
+        if (settings is not null)
+        {
+            builder.Configuration.AddInMemoryCollection(settings);
+        }
+
         builder.Services.AddSingleton(clock ?? TimeProvider.System);
         builder.Services.AddProfitGraphInfrastructure(builder.Configuration);
         configure?.Invoke(builder.Services);

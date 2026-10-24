@@ -105,3 +105,24 @@ gateway amend it in later stage 5 pull requests.
   gap from REST history and reports itself healthy at the next candle. A REST fill with a gap is an error.
 - **Stale feed.** The venue module sends `MarkFeedStaleCommand`, which sets or clears `StaleFeed` on the bots that should
   run on the series.
+
+## Amendment: running bots in the Worker (stage 5.5)
+
+- **Host.** The `live` role runs `BotRuntimeHost`. Every `Bots:Runtime:PollingInterval` (2 s) it beats the `live`
+  heartbeat, stops the runners of bots that should no longer run and takes the leases of bots that should
+  (`AcquireBotLeaseCommand`; 30 s leases renewed every 10 s). A failure of one bot does not hold up the others. The API's
+  readiness reports Degraded when bots should run but the `live` heartbeat is older than three polling intervals.
+- **No gateway.** `IOrderGateway` is a venue port that exists only where trading is enabled; it owns the venue's client
+  order ID format and streams the bot's order updates. A leased bot whose venue has no gateway in the process degrades
+  with `NoGateway`, its lease is released, and it waits for the owner. Nothing is sent.
+- **Runner.** One runner per leased bot reports `Starting`, opens its engine, reports `Running` and processes live
+  candles and venue updates through one sequential queue. A stop ends it after the current root and reports `Stopped`;
+  a lost lease ends it without writing; any other failure reports a runtime failure (automatic restart with backoff).
+  The lease is released at the end. Every report is fenced by the lease (`ReportBotRuntimeCommand`).
+- **Engine session.** A first run compiles the strategy version with the bot's values, warms on public closed history
+  and starts at its last candle, emitting `Start` once. A stored run restores the checkpoint with `RestoreWithoutResume`
+  on the history ending at its last candle, warms on the candles missed since without `CandleClosed`, and drains one
+  `Resume(Restart)`; it never starts again. A live candle is an open, a close and, once indicators are ready, a
+  `CandleClosed` root. Each root is committed with a submit intent for every new pending order and a cancel intent for
+  every order that turned pending-cancel. A root after a live candle resets the restart streak.
+- **Released leases** expire at the moment of release, so another runtime may take the bot at once.
