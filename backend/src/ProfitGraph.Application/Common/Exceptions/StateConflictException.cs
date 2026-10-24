@@ -1,3 +1,3 @@
 namespace ProfitGraph.Application.Common.Exceptions;
 
-public sealed class StateConflictException(string message) : ApplicationExceptionBase("state_conflict", message);
+public sealed class StateConflictException(string message, string code = "state_conflict") : ApplicationExceptionBase(code, message);

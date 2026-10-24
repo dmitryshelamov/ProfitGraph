@@ -87,7 +87,14 @@ Venues.Bybit/
   `--migrate-only` for deployments. See [ADR 0006](adr/0006-persistence-and-migrations.md).
 - **Health.** `/api/health` is liveness and runs no dependency checks; `/api/health/ready` runs the checks tagged
   `ready`, including PostgreSQL.
-- **HTTP errors.** Problem Details with a stable `code` and `traceId`; validation failures add `errors`.
+- **HTTP errors.** Problem Details with a stable `code` and `traceId`; validation failures add `errors`. Domain
+  and application exceptions carry their own `code` (`DomainException.Code`, `ApplicationExceptionBase.Code`).
+- **Authentication.** Invite-only accounts with cookie sessions (`profitgraph.session`, HttpOnly, SameSite=Strict, Secure
+  outside Development and Testing, 7 days sliding). Every endpoint requires a signed-in active account unless it opts
+  out with `AllowAnonymous`, including unknown routes; each request re-checks that the account is still active, so
+  blocking ends existing sessions. Sign-in is limited to 20 attempts per minute per client address and 10 per login,
+  and an unknown or blocked login costs the same password verification as a wrong password. The first Owner comes
+  from `Auth:BootstrapOwner` only while no account exists. Account management requires the Owner role.
 - **Logging.** Serilog JSON to the console. Never log secrets, credentials, signatures or authentication headers.
 
 ## Numbers and Time

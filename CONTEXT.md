@@ -33,6 +33,17 @@ order execution. A missing capability is a missing port, never a flag with a def
 A typed, versioned settings object owned by a venue module for venue-specific bot configuration, such as trading
 sessions. The bot aggregate stores it without interpreting its fields.
 
+### User
+
+An invite-only account with a login that is unique ignoring case, a password hash, a role and an active or blocked
+status. Only an active account can sign in; blocking ends its existing sessions. Strategies belong to the user who
+created them; templates are shared.
+
+### Owner
+
+A user with authority to create and block accounts. An account cannot block itself, and the last active Owner cannot
+be blocked. The first Owner is created from private startup configuration while no account exists.
+
 ### Composition Root
 
 A host project that wires the application together: `ProfitGraph.Api` for HTTP and `ProfitGraph.Worker` for the

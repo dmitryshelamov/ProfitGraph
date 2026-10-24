@@ -1,0 +1,59 @@
+using Dapper;
+
+using Npgsql;
+
+using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Infrastructure.Common.Postgres;
+
+namespace ProfitGraph.Infrastructure.Accounts;
+
+internal sealed class UserRepository(NpgsqlConnection connection, PostgresTransactionAccessor transactions) : IUserRepository
+{
+    public async Task<User?> GetById(Guid id, CancellationToken cancellationToken)
+    {
+        var row = await connection.QuerySingleOrDefaultAsync<UserRow>(Command(UserQueries.GetById, new { id }, cancellationToken));
+
+        return row?.ToDomain();
+    }
+
+    public async Task<User?> GetByLogin(string login, CancellationToken cancellationToken)
+    {
+        var row = await connection.QuerySingleOrDefaultAsync<UserRow>(Command(UserQueries.GetByLogin, new { login }, cancellationToken));
+
+        return row?.ToDomain();
+    }
+
+    public async Task<int> CountActiveOwnersForUpdate(CancellationToken cancellationToken)
+    {
+        IEnumerable<Guid> owners = await connection.QueryAsync<Guid>(Command(UserQueries.LockActiveOwners, parameters: null, cancellationToken));
+
+        return owners.Count();
+    }
+
+    public async Task<bool> TryAdd(User user, CancellationToken cancellationToken)
+    {
+        int inserted = await connection.ExecuteAsync(Command(UserQueries.Insert, UserRow.From(user), cancellationToken));
+        transactions.RegisterDomainEventClear(user);
+
+        return inserted == 1;
+    }
+
+    public async Task<bool> TryAddFirst(User user, CancellationToken cancellationToken)
+    {
+        int inserted = await connection.ExecuteAsync(Command(UserQueries.InsertFirst, UserRow.From(user), cancellationToken));
+        transactions.RegisterDomainEventClear(user);
+
+        return inserted == 1;
+    }
+
+    public async Task Update(User user, CancellationToken cancellationToken)
+    {
+        await connection.ExecuteAsync(Command(UserQueries.Update, UserRow.From(user), cancellationToken));
+        transactions.RegisterDomainEventClear(user);
+    }
+
+    private CommandDefinition Command(string sql, object? parameters, CancellationToken cancellationToken)
+    {
+        return new CommandDefinition(sql, parameters, transactions.Current, cancellationToken: cancellationToken);
+    }
+}

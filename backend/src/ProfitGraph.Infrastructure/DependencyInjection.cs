@@ -4,6 +4,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 using ProfitGraph.Application;
+using ProfitGraph.Application.Accounts;
+using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Infrastructure.Accounts;
 using ProfitGraph.Infrastructure.Common.Messaging;
 using ProfitGraph.Infrastructure.Common.Postgres;
 
@@ -24,6 +27,8 @@ public static class DependencyInjection
         });
         services.AddValidatorsFromAssembly(typeof(ApplicationAssembly).Assembly, includeInternalTypes: true);
         services.AddPostgres(configuration);
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
 
         return services;
     }

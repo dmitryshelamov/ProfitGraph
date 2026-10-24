@@ -1,6 +1,6 @@
 using Npgsql;
 
-namespace ProfitGraph.Tests.Integration.Common;
+namespace ProfitGraph.Tests.Integration;
 
 /// <summary>
 ///     Creates one disposable database per test run on the test PostgreSQL and drops it afterwards, so concurrent runs
