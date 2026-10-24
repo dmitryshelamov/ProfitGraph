@@ -31,5 +31,7 @@ internal static class OptimizationRunQueries
             quote_asset = @QuoteAsset, planned_trials = @PlannedTrials, completed = @Completed, rejected_by_constraint = @RejectedByConstraint,
             rejected_by_template = @RejectedByTemplate, failed = @Failed, best_trial_index = @BestTrialIndex, best_objective = @BestObjective
         WHERE id = @Id;
+
+        SELECT pg_notify('optimization_progress', @Id::text);
         """;
 }

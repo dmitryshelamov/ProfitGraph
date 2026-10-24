@@ -2,6 +2,11 @@ namespace ProfitGraph.Infrastructure.Jobs.Repositories.Queries;
 
 internal static class BackgroundJobQueries
 {
+    /// <summary>
+    ///     Notified with the job's identifier whenever a job finishes, so readers that follow a job learn its outcome.
+    /// </summary>
+    public const string FinishedChannel = "background_job_finished";
+
     private const string Columns =
         """
         id AS Id, kind AS Kind, owner_id AS OwnerId, status AS Status, request::text AS Request, result::text AS Result,
@@ -39,6 +44,8 @@ internal static class BackgroundJobQueries
             finished_at = @FinishedAt,
             updated_at = @UpdatedAt
         WHERE id = @Id AND status = @ExpectedStatus AND NOT (@SetsCancelRequest AND cancel_requested);
+
+        SELECT pg_notify('background_job_finished', @Id::text) WHERE @FinishedAt::timestamp with time zone IS NOT NULL;
         """;
 
     public const string ReportProgress =
@@ -55,11 +62,18 @@ internal static class BackgroundJobQueries
 
     public const string IsCancelRequested = "SELECT cancel_requested FROM background_jobs WHERE id = @Id AND status = 'Running';";
 
+    /// <summary>
+    ///     Returns the identifiers of the interrupted jobs, each notified as finished.
+    /// </summary>
     public const string InterruptRunning =
         """
-        UPDATE background_jobs
-        SET status = 'Failed', failure = CAST(@Failure AS jsonb), finished_at = @Now, updated_at = @Now
-        WHERE status = 'Running' AND (@Id::uuid IS NULL OR id = @Id) AND (@Kinds::text[] IS NULL OR kind = ANY(@Kinds));
+        WITH interrupted AS (
+            UPDATE background_jobs
+            SET status = 'Failed', failure = CAST(@Failure AS jsonb), finished_at = @Now, updated_at = @Now
+            WHERE status = 'Running' AND (@Id::uuid IS NULL OR id = @Id) AND (@Kinds::text[] IS NULL OR kind = ANY(@Kinds))
+            RETURNING id
+        )
+        SELECT i.id FROM interrupted i CROSS JOIN LATERAL (SELECT pg_notify('background_job_finished', i.id::text)) n;
         """;
 
     public const string Beat =

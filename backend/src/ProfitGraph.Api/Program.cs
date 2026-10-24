@@ -6,6 +6,7 @@ using ProfitGraph.Api.Backtesting.Realtime;
 using ProfitGraph.Api.Common.Authentication;
 using ProfitGraph.Api.Common.Errors;
 using ProfitGraph.Api.MarketData;
+using ProfitGraph.Api.Optimization.Realtime;
 using ProfitGraph.Infrastructure;
 using ProfitGraph.Infrastructure.Common;
 using ProfitGraph.Infrastructure.Common.Postgres;
@@ -55,6 +56,8 @@ public class Program
         builder.Services.AddSignalR();
         builder.Services.AddSingleton<BacktestProgressSubscriptions>();
         builder.Services.AddHostedService<BacktestProgressPublisher>();
+        builder.Services.AddSingleton<OptimizationProgressSubscriptions>();
+        builder.Services.AddHostedService<OptimizationProgressPublisher>();
         builder.AddProfitGraphAuthentication();
 
         WebApplication app = builder.Build();
@@ -85,6 +88,7 @@ public class Program
 
         app.MapControllers();
         app.MapHub<BacktestHub>(BacktestHub.Path);
+        app.MapHub<OptimizationHub>(OptimizationHub.Path);
         app.MapHealthChecks("/api/health", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
         app.MapHealthChecks("/api/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains(HealthTags.Ready) }).AllowAnonymous();
 
