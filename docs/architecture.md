@@ -40,16 +40,17 @@ Domain/
   Strategies/                 Strategy.cs, StrategyVersion.cs, IStrategyRepository.cs,
                               StrategyCreated.cs (event), StrategyNameTakenException.cs
 Application/
-  Common/                     Messaging (ICommand, IQuery), Exceptions, shared ports
+  Common/                     Messaging (ICommand, IQuery), Exceptions, Transactions
   Strategies/
     CreateStrategy/           CreateStrategyCommand.cs, CreateStrategyCommandHandler.cs, CreateStrategyCommandValidator.cs
     GetStrategy/              GetStrategyQuery.cs, GetStrategyQueryHandler.cs
-    StrategyContract.cs       contracts shared by the feature's use cases
-    StrategyConverter.cs      Domain <-> contract mapping
+    Contracts/                StrategyInternal.cs (types returned by and passed to use cases)
+    Converters/               StrategyInternalConverter.cs (ToInternal / ToDomain extensions)
 Infrastructure/
-  Common/                     Postgres, Messaging (behaviors, outbox), BackgroundJobs, Security
+  Common/
+    Postgres/Migrations/      every migration, e.g. 202610240001_create_user_table.cs (class CreateUserTableMigration)
+    Postgres/, Messaging/     connection, transactions, behaviors
   Accounts/
-    Migrations/               202610240001_create_user_table.cs (class CreateUserTableMigration)
     Repositories/             UserRepository.cs
       Contracts/              UserDb.cs (row model: class with init properties)
       Converters/             UserDbConverter.cs (ToDomain / ToDb extensions)
@@ -57,7 +58,9 @@ Infrastructure/
     Security/                 IdentityPasswordHasher.cs
 Api/
   Common/                     Errors, Authentication, Realtime
-  Strategies/                 StrategiesController.cs, CreateStrategyRequest.cs, StrategyResponse.cs, StrategyHttpConverter.cs
+  Strategies/                 StrategiesController.cs
+    Contracts/                CreateStrategyRequest.cs, StrategyResponse.cs
+    Converters/               StrategyResponseConverter.cs (ToResponse extensions)
 Venues.Bybit/
   MarketData/, Trading/, BybitVenueModule.cs
 ```
@@ -68,14 +71,16 @@ Venues.Bybit/
   Engine exceptions derive from `Common/EngineException`.
 - **Use cases** get their own folder named after the use case (`CreateStrategy/`). It holds the command or query, its
   handler and its validator; nothing else.
-- **Naming:** `*Command`, `*CommandHandler`, `*CommandValidator`, `*Query`, `*QueryHandler`, `*Contract` for
-  Application boundary types, `*Converter` for mapping, `*Request` / `*Response` for HTTP types, `*Repository` for
+- **Naming:** `*Command`, `*CommandHandler`, `*CommandValidator`, `*Query`, `*QueryHandler`, `*Internal` for
+  Application contracts, `*InternalConverter` / `*ResponseConverter` / `*DbConverter` for mapping, `*Request` / `*Response` for HTTP types, `*Repository` for
   aggregate persistence, `*Db` for repository row models, `*DbConverter` for row mapping, `*Queries` for SQL text,
   `*Migration` for migrations. Domain events are past-tense facts without a suffix (`BotDegraded`).
 - **One type per file**, named after the type, with no nested types. Generic and non-generic variants of one name
   are separate files (`ICommand.cs`, `ICommandOfTResponse.cs`).
-- **Migrations** live in `<Feature>/Migrations/` as `{version}_{snake_case}.cs`, for example
+- **Migrations** all live in `Infrastructure/Common/Postgres/Migrations/` as `{version}_{snake_case}.cs`, for example
   `202610240001_create_user_table.cs` with class `CreateUserTableMigration`.
+- **Contracts and converters** sit in `Contracts/` and `Converters/` subfolders of the feature (Application, Api) or of
+  `Repositories/` (Infrastructure); architecture tests enforce `*Internal`, `*Request`/`*Response`, `*Db` and `*Converter`.
 - **Forbidden top-level folders** in Domain, Application, Infrastructure and Api: `Commands`, `Queries`, `Contracts`,
   `Converters`, `Validators`, `Services`, `Entities`, `ValueObjects`, `Repositories`, `Exceptions`, `Events`,
   `Controllers`, `Handlers`, `Models`.

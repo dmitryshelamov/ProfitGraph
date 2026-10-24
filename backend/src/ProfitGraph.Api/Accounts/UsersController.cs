@@ -3,9 +3,11 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
+using ProfitGraph.Api.Accounts.Contracts;
+using ProfitGraph.Api.Accounts.Converters;
 using ProfitGraph.Api.Common.Authentication;
-using ProfitGraph.Application.Accounts;
 using ProfitGraph.Application.Accounts.BlockUser;
+using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.CreateUser;
 
 namespace ProfitGraph.Api.Accounts;
@@ -18,9 +20,9 @@ public sealed class UsersController(ISender sender) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<UserResponse>> Create(CreateUserRequest request, CancellationToken cancellationToken)
     {
-        UserContract user = await sender.Send(new CreateUserCommand(request.Login ?? string.Empty, request.Password ?? string.Empty, request.Role), cancellationToken);
+        UserInternal user = await sender.Send(new CreateUserCommand(request.Login ?? string.Empty, request.Password ?? string.Empty, request.Role), cancellationToken);
 
-        return StatusCode(StatusCodes.Status201Created, UserResponse.From(user));
+        return StatusCode(StatusCodes.Status201Created, user.ToResponse());
     }
 
     [HttpPost("{id:guid}/block")]

@@ -1,6 +1,7 @@
 using NSubstitute;
 
 using ProfitGraph.Application.Accounts;
+using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.SignIn;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Tests.Unit.Common;
@@ -23,7 +24,7 @@ public sealed class SignInCommandHandlerTests
     [Test]
     public async Task UnknownLoginFailsAfterADummyVerification()
     {
-        UserContract? result = await Handler().Handle(new SignInCommand("ghost", "password-123456"), CancellationToken.None);
+        UserInternal? result = await Handler().Handle(new SignInCommand("ghost", "password-123456"), CancellationToken.None);
 
         result.ShouldBeNull();
         _passwords.Received(1).VerifyDummy("password-123456");
@@ -36,7 +37,7 @@ public sealed class SignInCommandHandlerTests
         user.Block(Guid.NewGuid(), activeOwnerCount: 1, _clock.GetUtcNow());
         _users.GetByLogin("alice", Arg.Any<CancellationToken>()).Returns(user);
 
-        UserContract? result = await Handler().Handle(new SignInCommand("alice", "password-123456"), CancellationToken.None);
+        UserInternal? result = await Handler().Handle(new SignInCommand("alice", "password-123456"), CancellationToken.None);
 
         result.ShouldBeNull();
         _passwords.Received(1).VerifyDummy("password-123456");
@@ -50,7 +51,7 @@ public sealed class SignInCommandHandlerTests
         _users.GetByLogin("alice", Arg.Any<CancellationToken>()).Returns(user);
         _passwords.Verify(user, "wrong").Returns(PasswordCheck.Failed);
 
-        UserContract? result = await Handler().Handle(new SignInCommand(" alice ", "wrong"), CancellationToken.None);
+        UserInternal? result = await Handler().Handle(new SignInCommand(" alice ", "wrong"), CancellationToken.None);
 
         result.ShouldBeNull();
     }
@@ -62,7 +63,7 @@ public sealed class SignInCommandHandlerTests
         _users.GetByLogin("alice", Arg.Any<CancellationToken>()).Returns(user);
         _passwords.Verify(user, "password-123456").Returns(PasswordCheck.Valid);
 
-        UserContract? result = await Handler().Handle(new SignInCommand("alice", "password-123456"), CancellationToken.None);
+        UserInternal? result = await Handler().Handle(new SignInCommand("alice", "password-123456"), CancellationToken.None);
 
         result.ShouldNotBeNull().Id.ShouldBe(user.Id);
         await _users.DidNotReceiveWithAnyArgs().Update(null!, CancellationToken.None);

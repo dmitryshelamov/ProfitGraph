@@ -1,12 +1,14 @@
 using MediatR;
 
+using ProfitGraph.Application.Accounts.Contracts;
+using ProfitGraph.Application.Accounts.Converters;
 using ProfitGraph.Domain.Accounts;
 
 namespace ProfitGraph.Application.Accounts.SignIn;
 
-internal sealed class SignInCommandHandler(IUserRepository users, IPasswordHasher passwords, TimeProvider clock) : IRequestHandler<SignInCommand, UserContract?>
+internal sealed class SignInCommandHandler(IUserRepository users, IPasswordHasher passwords, TimeProvider clock) : IRequestHandler<SignInCommand, UserInternal?>
 {
-    public async Task<UserContract?> Handle(SignInCommand command, CancellationToken cancellationToken)
+    public async Task<UserInternal?> Handle(SignInCommand command, CancellationToken cancellationToken)
     {
         string login = command.Login.Trim();
         User? user = login.Length is > 0 and <= User.MaxLoginLength ? await users.GetByLogin(login, cancellationToken) : null;
@@ -33,6 +35,6 @@ internal sealed class SignInCommandHandler(IUserRepository users, IPasswordHashe
                 throw new InvalidOperationException("Unknown password check result.");
         }
 
-        return UserContract.From(user);
+        return user.ToInternal();
     }
 }

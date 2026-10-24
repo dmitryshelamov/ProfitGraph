@@ -13,8 +13,8 @@ date-based migration versions.
 - Until the first ProfitGraph production deployment, each feature has one initial migration that is edited in
   place; afterwards, schema changes are new incremental migrations.
 - Migration versions use `yyyyMMddNNNN`. An architecture test fails the build on duplicate versions.
-- A migration lives in `<Feature>/Migrations/` as `{version}_{snake_case}.cs` with a `*Migration` class, as in
-  Profit Fox Designer; repositories keep their row models (`*Db`), converters and SQL text in `Repositories/Contracts`,
+- All migrations live in `Infrastructure/Common/Postgres/Migrations/` as `{version}_{snake_case}.cs` with a
+  `*Migration` class, as in Profit Fox Designer; repositories keep their row models (`*Db`), converters and SQL text in `Repositories/Contracts`,
   `Repositories/Converters` and `Repositories/Queries`.
 - Large backtest and optimization results use the compact storage formats proven in the MVP from the start.
 - Development PostgreSQL runs on port 5435 (persistent); tests use a disposable tmpfs PostgreSQL on port 5436.

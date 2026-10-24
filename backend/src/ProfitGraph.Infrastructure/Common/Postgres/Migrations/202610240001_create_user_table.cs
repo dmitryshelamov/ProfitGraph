@@ -1,6 +1,6 @@
 using FluentMigrator;
 
-namespace ProfitGraph.Infrastructure.Accounts.Migrations;
+namespace ProfitGraph.Infrastructure.Common.Postgres.Migrations;
 
 [Migration(202610240001)]
 public sealed class CreateUserTableMigration : Migration

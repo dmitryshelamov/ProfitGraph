@@ -6,7 +6,7 @@ using Dapper;
 
 using Npgsql;
 
-using ProfitGraph.Application.Accounts;
+using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Tests.Integration.Common;
 
@@ -15,7 +15,7 @@ namespace ProfitGraph.Tests.Integration.Accounts;
 public sealed class AccountEndpointTests
 {
     private ProfitGraphApiFactory _factory = null!;
-    private UserContract _owner = null!;
+    private UserInternal _owner = null!;
     private HttpClient _ownerClient = null!;
 
     [OneTimeSetUp]
@@ -95,7 +95,7 @@ public sealed class AccountEndpointTests
     [Test]
     public async Task OrdinaryUserCannotManageAccounts()
     {
-        UserContract user = await AccountClient.CreateAccount(_factory, UserRole.User);
+        UserInternal user = await AccountClient.CreateAccount(_factory, UserRole.User);
         using HttpClient client = await AccountClient.SignedIn(_factory, user.Login);
 
         HttpResponseMessage response = await client.PostAsJsonAsync(
@@ -108,7 +108,7 @@ public sealed class AccountEndpointTests
     [Test]
     public async Task BlockingEndsTheExistingSessionAndPreventsSignIn()
     {
-        UserContract user = await AccountClient.CreateAccount(_factory, UserRole.User);
+        UserInternal user = await AccountClient.CreateAccount(_factory, UserRole.User);
         using HttpClient client = await AccountClient.SignedIn(_factory, user.Login);
 
         (await _ownerClient.PostAsync($"/api/users/{user.Id}/block", content: null)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -134,8 +134,8 @@ public sealed class AccountEndpointTests
     [Test]
     public async Task TwoOwnersBlockingEachOtherAtOnceLeaveOneActiveOwner()
     {
-        UserContract first = await AccountClient.CreateAccount(_factory, UserRole.Owner);
-        UserContract second = await AccountClient.CreateAccount(_factory, UserRole.Owner);
+        UserInternal first = await AccountClient.CreateAccount(_factory, UserRole.Owner);
+        UserInternal second = await AccountClient.CreateAccount(_factory, UserRole.Owner);
         using HttpClient firstClient = await AccountClient.SignedIn(_factory, first.Login);
         using HttpClient secondClient = await AccountClient.SignedIn(_factory, second.Login);
         await BlockAllOwnersExcept(first.Id, second.Id);

@@ -10,8 +10,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 
-using ProfitGraph.Application.Accounts;
 using ProfitGraph.Application.Accounts.BootstrapOwner;
+using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.GetUser;
 using ProfitGraph.Domain.Accounts;
 
@@ -102,7 +102,7 @@ internal static class AuthenticationSetup
         }
     }
 
-    internal static ClaimsPrincipal Principal(UserContract user)
+    internal static ClaimsPrincipal Principal(UserInternal user)
     {
         Claim[] claims =
         [
@@ -120,7 +120,7 @@ internal static class AuthenticationSetup
     private static async Task RejectInactiveAccounts(CookieValidatePrincipalContext context)
     {
         Guid? id = context.Principal is null ? null : UserId(context.Principal);
-        UserContract? user = id is null
+        UserInternal? user = id is null
             ? null
             : await context.HttpContext.RequestServices.GetRequiredService<ISender>().Send(new GetUserQuery(id.Value), context.HttpContext.RequestAborted);
 
