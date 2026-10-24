@@ -23,6 +23,11 @@ public sealed class BybitOptions
     public TimeSpan CircuitSamplingDuration { get; init; } = TimeSpan.FromSeconds(30);
     public TimeSpan CircuitBreakDuration { get; init; } = TimeSpan.FromSeconds(5);
 
+    /// <summary>
+    ///     How long the list of tradable pairs is reused before it is read again.
+    /// </summary>
+    public TimeSpan InstrumentListLifetime { get; init; } = TimeSpan.FromHours(1);
+
     public bool IsValid()
     {
         return IsValidBaseAddress(BaseAddress) &&
@@ -30,7 +35,8 @@ public sealed class BybitOptions
             RetryBaseDelay > TimeSpan.Zero && RetryBaseDelay <= TotalTimeout &&
             AttemptTimeout > TimeSpan.Zero && TotalTimeout >= AttemptTimeout && TotalTimeout <= TimeSpan.FromDays(1) &&
             CircuitFailureRatio is > 0 and <= 1 && CircuitMinimumThroughput >= 2 &&
-            CircuitSamplingDuration >= TimeSpan.FromMilliseconds(500) && CircuitBreakDuration >= TimeSpan.FromMilliseconds(500);
+            CircuitSamplingDuration >= TimeSpan.FromMilliseconds(500) && CircuitBreakDuration >= TimeSpan.FromMilliseconds(500) &&
+            InstrumentListLifetime >= TimeSpan.FromSeconds(1) && InstrumentListLifetime <= TimeSpan.FromDays(1);
     }
 
     /// <summary>

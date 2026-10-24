@@ -2,10 +2,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
+using ProfitGraph.Application.Backtesting.History;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Application.MarketData.DownloadCandles;
 using ProfitGraph.Application.MarketData.ImportCandles;
+using ProfitGraph.Application.MarketData.Instruments;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Infrastructure.Jobs;
 using ProfitGraph.Infrastructure.MarketData.Csv;
@@ -17,7 +19,7 @@ internal static class MarketDataRegistration
 {
     /// <summary>
     ///     Registers the candle store, CSV import, history downloads and the venue registry; venue modules add their
-    ///     descriptors and history sources.
+    ///     descriptors, history sources, instrument catalogs and rules sources.
     /// </summary>
     internal static IServiceCollection AddMarketData(this IServiceCollection services, IConfiguration configuration)
     {
@@ -36,9 +38,12 @@ internal static class MarketDataRegistration
             .Validate(options => options.IsValid(), "HistoricalDownload:MaxCandlesPerChunk must be between 1 and 100000.")
             .ValidateOnStart();
         services.AddScoped(provider => provider.GetRequiredService<IOptionsMonitor<HistoryDownloadOptions>>().CurrentValue);
-        services.AddScoped<HistorySources>();
+        services.AddScoped(typeof(VenuePorts<>));
         services.AddScoped<CandleDownloadService>();
         services.AddBackgroundJob<DownloadCandlesCommand, HistoricalDownloadInternal>();
+        services.AddScoped<IInstrumentRulesRepository, InstrumentRulesRepository>();
+        services.AddScoped<InstrumentRulesCaptureService>();
+        services.AddScoped<HistoryPreparationService>();
 
         return services;
     }

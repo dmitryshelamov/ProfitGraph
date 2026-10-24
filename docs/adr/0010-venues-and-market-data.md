@@ -62,3 +62,28 @@ every venue, and CSV import could be called by anyone sharing the workspace.
   use the system clock, never the application's. The MVP's general request limiter is not ported: for public
   history the SDK's own waiting and the reset times are enough; per-account limits return with orders (stage 5).
 
+## Amendment: instruments and history preparation (stage 3.4)
+
+- **Venue ports.** Every venue port names its venue (`IVenuePort`), and `VenuePorts<TPort>` finds the one registered
+  for a venue. Besides history, a venue may offer `IInstrumentCatalog` (tradable pairs for picking one) and
+  `IInstrumentRulesSource` (current trading rules of one instrument).
+- **Pairs.** `GET /api/market-data/instruments?venue&query&limit` (limit 1–100, default 20) searches a venue's pairs
+  by symbol or asset. A venue without a catalog is a validation error (`instrument_rules_invalid_request`). Bybit reads
+  all trading Spot pairs with one public request and reuses the list for `Venues:Bybit:InstrumentListLifetime`
+  (default one hour); a failed refresh keeps the previous list. Venue failures answer `502`
+  (`instrument_rules_invalid_provider_data`) or `503` (`instrument_rules_provider_unavailable`).
+- **Rules snapshots** (Profit Fox Designer ADR 0021). Capturing rules reads them from the venue outside any
+  transaction and inserts an immutable row into `instrument_rules`, which is never updated. A snapshot records the
+  rules as the venue reported them at capture time, not the rules that applied in the past. Bybit maps the base
+  precision to the quantity step, the tick size to the price tick and the minimum order value to the minimum
+  notional; precision increments must be exact powers of ten, and a guard rejects inexact decimals before the SDK.
+- **Prepared history.** A run's history is resolved against one clock reading like a download, extended by as much
+  warm-up as exists (up to the requested count, at most 100 000): a warm-up complete in the cache needs no venue,
+  otherwise it is clipped to the venue's first candle. The whole range is brought into the cache and copied out,
+  checked to be complete and contiguous. Missing candles are fetched only when the cache lacks them, so a venue
+  without downloads can be prepared from imported history.
+- **Identities.** The history identity is SHA-256 over length-prefixed UTF-8 parts (version `profitgraph-history/v1`,
+  venue, symbol, timeframe, partition bounds as UTC ticks, warm-up count, every candle as exact decimal text). The
+  compilation fingerprint is SHA-256 of a canonical JSON description of the compiled graph under the engine's
+  execution policy; labels, display names and display units are left out, and decimals are exact text. Neither
+  reproduces the MVP's values: ProfitGraph has no runs from the MVP to compare against.

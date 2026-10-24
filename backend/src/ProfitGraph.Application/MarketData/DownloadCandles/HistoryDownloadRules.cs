@@ -1,6 +1,7 @@
 using FluentValidation;
 using FluentValidation.Results;
 
+using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.MarketData;
 
 namespace ProfitGraph.Application.MarketData.DownloadCandles;
@@ -14,7 +15,7 @@ internal static class HistoryDownloadRules
     internal static void ValidDownload<T>(
         this AbstractValidator<T> validator,
         VenueRegistry venues,
-        HistorySources sources,
+        VenuePorts<IHistoricalCandleSource> sources,
         Func<T, string?> venue,
         Func<T, string?> symbol,
         Func<T, string?> timeframe,
