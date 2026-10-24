@@ -31,6 +31,22 @@ internal sealed class BackgroundJobProgressReporter(BackgroundJobRepository repo
         }
     }
 
+    public async Task Restart(long completed, long total, CancellationToken cancellationToken)
+    {
+        if (_job is null)
+        {
+            return;
+        }
+
+        DateTimeOffset now = clock.GetUtcNow();
+        _job.RestartProgress(completed, total, now);
+
+        if (!await repository.RestartProgress(_job.Id, completed, total, now, cancellationToken))
+        {
+            logger.LogWarning("Job progress was not saved because the job is no longer running.");
+        }
+    }
+
     internal void Attach(BackgroundJob job)
     {
         _job = job;

@@ -97,6 +97,12 @@ internal sealed class BackgroundJobRepository(
             Command(BackgroundJobQueries.ReportProgress, new { Id = id.Value, Completed = completed, Total = total, Now = now }, cancellationToken)) == 1;
     }
 
+    internal async Task<bool> RestartProgress(BackgroundJobId id, long completed, long total, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        return await connection.ExecuteAsync(
+            Command(BackgroundJobQueries.RestartProgress, new { Id = id.Value, Completed = completed, Total = total, Now = now }, cancellationToken)) == 1;
+    }
+
     internal async Task<bool> IsCancelRequested(BackgroundJobId id, CancellationToken cancellationToken)
     {
         return await connection.QuerySingleOrDefaultAsync<bool>(Command(BackgroundJobQueries.IsCancelRequested, new { Id = id.Value }, cancellationToken));

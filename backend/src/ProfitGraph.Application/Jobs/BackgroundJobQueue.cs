@@ -11,10 +11,19 @@ namespace ProfitGraph.Application.Jobs;
 /// </summary>
 public sealed class BackgroundJobQueue(IBackgroundJobRepository repository, TimeProvider clock)
 {
-    public async Task<BackgroundJobInternal> Enqueue<TRequest>(UserId ownerId, TRequest request, CancellationToken cancellationToken)
+    public Task<BackgroundJobInternal> Enqueue<TRequest>(UserId ownerId, TRequest request, CancellationToken cancellationToken)
         where TRequest : IBackgroundJobRequest
     {
-        BackgroundJob job = BackgroundJob.Queue(BackgroundJobId.New(), TRequest.Kind, ownerId, clock.GetUtcNow());
+        return Enqueue(BackgroundJobId.New(), ownerId, request, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Queues work under an identifier chosen beforehand, for work that a record with the same identifier describes.
+    /// </summary>
+    public async Task<BackgroundJobInternal> Enqueue<TRequest>(BackgroundJobId id, UserId ownerId, TRequest request, CancellationToken cancellationToken)
+        where TRequest : IBackgroundJobRequest
+    {
+        BackgroundJob job = BackgroundJob.Queue(id, TRequest.Kind, ownerId, clock.GetUtcNow());
         await repository.Add(job, request, cancellationToken);
 
         return job.ToInternal();

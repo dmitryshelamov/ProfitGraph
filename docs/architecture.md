@@ -111,8 +111,12 @@ Venues.Bybit/
   test rejects raw `Guid` properties on Domain types.
 - **Background jobs.** Long work (downloads, backtests) is a job request (`IBackgroundJobRequest<TResult>`, always
   non-transactional) queued by a command and run by the Worker; the API never runs it. Progress goes through
-  `IBackgroundJobProgress`; cancelling a running job sets a flag the Worker polls. See
+  `IBackgroundJobProgress` (`Restart` begins the next stage); cancelling a running job sets a flag the Worker polls.
+  Work that a record describes, such as a backtest run, is queued under the record's identifier. See
   [ADR 0011](adr/0011-background-jobs.md).
+- **Backtest execution.** The engine replays on its own thread and reports facts to `BacktestReplaySession`, which
+  commits them in bounded batches, each in its own transaction, while the replay waits on a full channel. See
+  [ADR 0012](adr/0012-backtest-runs.md).
 - **Persistence.** PostgreSQL with Dapper and FluentMigrator. Repositories load and save aggregates; they contain no
   business rules and use the scoped connection and the active transaction from `PostgresTransactionAccessor`.
   The API applies migrations on startup when `Postgres:RunMigrationsOnStartup` is set (Development) and supports
