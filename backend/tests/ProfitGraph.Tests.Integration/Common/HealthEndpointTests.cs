@@ -1,21 +1,16 @@
 using System.Net;
 using System.Text.Json;
 
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
-
-using ProfitGraph.Api;
-
-namespace ProfitGraph.Tests.Integration.Api.Common;
+namespace ProfitGraph.Tests.Integration.Common;
 
 public sealed class HealthEndpointTests
 {
-    private WebApplicationFactory<Program> _factory = null!;
+    private ProfitGraphApiFactory _factory = null!;
 
     [OneTimeSetUp]
     public void StartApi()
     {
-        _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.UseEnvironment("Testing"));
+        _factory = new ProfitGraphApiFactory();
     }
 
     [OneTimeTearDown]
@@ -25,11 +20,22 @@ public sealed class HealthEndpointTests
     }
 
     [Test]
-    public async Task HealthEndpointReportsHealthy()
+    public async Task LivenessReportsHealthyWithoutDependencies()
     {
         using HttpClient client = _factory.CreateClient();
 
         HttpResponseMessage response = await client.GetAsync("/api/health");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await response.Content.ReadAsStringAsync()).ShouldBe("Healthy");
+    }
+
+    [Test]
+    public async Task ReadinessChecksTheDatabase()
+    {
+        using HttpClient client = _factory.CreateClient();
+
+        HttpResponseMessage response = await client.GetAsync("/api/health/ready");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         (await response.Content.ReadAsStringAsync()).ShouldBe("Healthy");

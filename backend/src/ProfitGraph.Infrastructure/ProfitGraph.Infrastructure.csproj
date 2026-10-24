@@ -1,7 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App"/>
         <PackageReference Include="FluentValidation.DependencyInjectionExtensions"/>
+        <PackageReference Include="Npgsql"/>
+        <PackageReference Include="Dapper"/>
+        <PackageReference Include="FluentMigrator.Runner"/>
+        <PackageReference Include="FluentMigrator.Extensions.Postgres"/>
         <InternalsVisibleTo Include="ProfitGraph.Tests.Unit"/>
         <InternalsVisibleTo Include="ProfitGraph.Tests.Integration"/>
     </ItemGroup>

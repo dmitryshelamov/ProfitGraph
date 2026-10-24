@@ -1,25 +1,29 @@
 using FluentValidation;
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 using ProfitGraph.Application;
 using ProfitGraph.Infrastructure.Common.Messaging;
+using ProfitGraph.Infrastructure.Common.Postgres;
 
 namespace ProfitGraph.Infrastructure;
 
 public static class DependencyInjection
 {
     /// <summary>
-    ///     Registers the Application pipeline: handlers, validators and MediatR behaviors in execution order.
+    ///     Registers the Application pipeline (validation outside the transaction, then the transaction) and PostgreSQL.
     /// </summary>
-    public static IServiceCollection AddProfitGraphInfrastructure(this IServiceCollection services)
+    public static IServiceCollection AddProfitGraphInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddMediatR(configuration =>
+        services.AddMediatR(mediatr =>
         {
-            configuration.RegisterServicesFromAssembly(typeof(ApplicationAssembly).Assembly);
-            configuration.AddOpenBehavior(typeof(ValidationBehavior<,>));
+            mediatr.RegisterServicesFromAssembly(typeof(ApplicationAssembly).Assembly);
+            mediatr.AddOpenBehavior(typeof(ValidationBehavior<,>));
+            mediatr.AddOpenBehavior(typeof(TransactionBehavior<,>));
         });
         services.AddValidatorsFromAssembly(typeof(ApplicationAssembly).Assembly, includeInternalTypes: true);
+        services.AddPostgres(configuration);
 
         return services;
     }
