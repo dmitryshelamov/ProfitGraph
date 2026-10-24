@@ -10,7 +10,11 @@ namespace ProfitGraph.Infrastructure.Accounts.Security;
 /// </summary>
 internal sealed class IdentityPasswordHasher : IPasswordHasher
 {
-    private static readonly User DummyUser = User.Create(Guid.Parse("00000000-0000-0000-0000-000000000001"), "dummy", UserRole.User, DateTimeOffset.UnixEpoch);
+    private static readonly User DummyUser = User.Create(
+        new UserId(Guid.Parse("00000000-0000-0000-0000-000000000001")),
+        new UserLogin("dummy"),
+        UserRole.User,
+        DateTimeOffset.UnixEpoch);
 
     private readonly PasswordHasher<User> _hasher = new PasswordHasher<User>();
     private readonly Lazy<string> _dummyHash;

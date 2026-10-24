@@ -1,0 +1,1056 @@
+{
+  "wires": [
+    {
+      "to": "restartEvent",
+      "from": {
+        "exit": "completed",
+        "block": "cancelAverage"
+      }
+    },
+    {
+      "to": "residualEvent",
+      "from": {
+        "exit": "completed",
+        "block": "cancelAverage"
+      }
+    },
+    {
+      "to": "entryConditions",
+      "from": {
+        "exit": "out",
+        "block": "start"
+      }
+    },
+    {
+      "to": "entryConditions",
+      "from": {
+        "exit": "yes",
+        "block": "restartEvent"
+      }
+    },
+    {
+      "to": "entry",
+      "from": {
+        "exit": "yes",
+        "block": "entryConditions"
+      }
+    },
+    {
+      "to": "cancelExit",
+      "from": {
+        "exit": "filled",
+        "block": "entry"
+      }
+    },
+    {
+      "to": "cancelExit",
+      "from": {
+        "exit": "filled",
+        "block": "average"
+      }
+    },
+    {
+      "to": "exitConditions",
+      "from": {
+        "exit": "completed",
+        "block": "cancelExit"
+      }
+    },
+    {
+      "to": "exit",
+      "from": {
+        "exit": "yes",
+        "block": "exitConditions"
+      }
+    },
+    {
+      "to": "averageConditions",
+      "from": {
+        "exit": "submitted",
+        "block": "exit"
+      }
+    },
+    {
+      "to": "average",
+      "from": {
+        "exit": "yes",
+        "block": "averageConditions"
+      }
+    },
+    {
+      "to": "cancelAverage",
+      "from": {
+        "exit": "filled",
+        "block": "exit"
+      }
+    },
+    {
+      "to": "cancelAverage",
+      "from": {
+        "exit": "filled",
+        "block": "residual"
+      }
+    },
+    {
+      "to": "residual",
+      "from": {
+        "exit": "yes",
+        "block": "residualEvent"
+      }
+    },
+    {
+      "to": "protectiveCancel",
+      "from": {
+        "exit": "rejected",
+        "block": "exit"
+      }
+    },
+    {
+      "to": "protectiveCancel",
+      "from": {
+        "exit": "rejected",
+        "block": "residual"
+      }
+    },
+    {
+      "to": "averageConditions",
+      "from": {
+        "exit": "out",
+        "block": "clock"
+      }
+    }
+  ],
+  "blocks": [
+    {
+      "id": "start",
+      "tag": null,
+      "join": null,
+      "kind": "event",
+      "side": null,
+      "price": null,
+      "amount": null,
+      "checks": [],
+      "source": "OnStart",
+      "quantity": null,
+      "sizeMode": null,
+      "orderKind": null,
+      "displayName": "Начало прогона"
+    },
+    {
+      "id": "clock",
+      "tag": null,
+      "join": null,
+      "kind": "event",
+      "side": null,
+      "price": null,
+      "amount": null,
+      "checks": [],
+      "source": "OnCandleClosed",
+      "quantity": null,
+      "sizeMode": null,
+      "orderKind": null,
+      "displayName": "Закрытие свечи"
+    },
+    {
+      "id": "restartEvent",
+      "tag": null,
+      "join": "all",
+      "kind": "condition",
+      "side": null,
+      "price": null,
+      "amount": null,
+      "checks": [
+        {
+          "tag": null,
+          "side": null,
+          "type": "PositionFlatPreview",
+          "operands": {
+            "quantity": {
+              "kind": "balance",
+              "name": null,
+              "text": null,
+              "field": "baseAvailable",
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            }
+          },
+          "sizeMode": null,
+          "operation": null,
+          "orderKind": null
+        }
+      ],
+      "source": null,
+      "quantity": null,
+      "sizeMode": null,
+      "orderKind": null,
+      "displayName": "Позиция закрыта?"
+    },
+    {
+      "id": "residualEvent",
+      "tag": null,
+      "join": "all",
+      "kind": "condition",
+      "side": null,
+      "price": null,
+      "amount": null,
+      "checks": [
+        {
+          "tag": null,
+          "side": "Sell",
+          "type": "OrderSizePreviewValid",
+          "operands": {
+            "quantity": {
+              "kind": "balance",
+              "name": null,
+              "text": null,
+              "field": "baseAvailable",
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            }
+          },
+          "sizeMode": null,
+          "operation": null,
+          "orderKind": "Market"
+        }
+      ],
+      "source": null,
+      "quantity": null,
+      "sizeMode": null,
+      "orderKind": null,
+      "displayName": "Остаток можно продать?"
+    },
+    {
+      "id": "entryConditions",
+      "tag": null,
+      "join": "all",
+      "kind": "condition",
+      "side": null,
+      "price": null,
+      "amount": null,
+      "checks": [
+        {
+          "tag": {
+            "kind": "constant",
+            "name": null,
+            "text": "ladder.entry",
+            "field": null,
+            "number": null,
+            "arguments": {},
+            "operation": null,
+            "valueType": 7
+          },
+          "side": null,
+          "type": "NoActiveTaggedOrder",
+          "operands": {},
+          "sizeMode": null,
+          "operation": null,
+          "orderKind": null
+        },
+        {
+          "tag": {
+            "kind": "constant",
+            "name": null,
+            "text": "ladder.average",
+            "field": null,
+            "number": null,
+            "arguments": {},
+            "operation": null,
+            "valueType": 7
+          },
+          "side": null,
+          "type": "NoActiveTaggedOrder",
+          "operands": {},
+          "sizeMode": null,
+          "operation": null,
+          "orderKind": null
+        },
+        {
+          "tag": {
+            "kind": "constant",
+            "name": null,
+            "text": "ladder.exit",
+            "field": null,
+            "number": null,
+            "arguments": {},
+            "operation": null,
+            "valueType": 7
+          },
+          "side": null,
+          "type": "NoActiveTaggedOrder",
+          "operands": {},
+          "sizeMode": null,
+          "operation": null,
+          "orderKind": null
+        },
+        {
+          "tag": null,
+          "side": null,
+          "type": "PositionFlatPreview",
+          "operands": {
+            "quantity": {
+              "kind": "position",
+              "name": null,
+              "text": null,
+              "field": "quantity",
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            }
+          },
+          "sizeMode": null,
+          "operation": null,
+          "orderKind": null
+        },
+        {
+          "tag": null,
+          "side": null,
+          "type": "Compare",
+          "operands": {
+            "a": {
+              "kind": "value",
+              "name": "remaining",
+              "text": null,
+              "field": null,
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            },
+            "b": {
+              "kind": "parameter",
+              "name": "buyAmount",
+              "text": null,
+              "field": null,
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            }
+          },
+          "sizeMode": null,
+          "operation": ">=",
+          "orderKind": null
+        },
+        {
+          "tag": null,
+          "side": null,
+          "type": "Compare",
+          "operands": {
+            "a": {
+              "kind": "balance",
+              "name": null,
+              "text": null,
+              "field": "quoteAvailable",
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            },
+            "b": {
+              "kind": "parameter",
+              "name": "buyAmount",
+              "text": null,
+              "field": null,
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            }
+          },
+          "sizeMode": null,
+          "operation": ">=",
+          "orderKind": null
+        }
+      ],
+      "source": null,
+      "quantity": null,
+      "sizeMode": null,
+      "orderKind": null,
+      "displayName": "Можно войти?"
+    },
+    {
+      "id": "averageConditions",
+      "tag": null,
+      "join": "all",
+      "kind": "condition",
+      "side": null,
+      "price": null,
+      "amount": null,
+      "checks": [
+        {
+          "tag": {
+            "kind": "constant",
+            "name": null,
+            "text": "ladder.average",
+            "field": null,
+            "number": null,
+            "arguments": {},
+            "operation": null,
+            "valueType": 7
+          },
+          "side": null,
+          "type": "NoActiveTaggedOrder",
+          "operands": {},
+          "sizeMode": null,
+          "operation": null,
+          "orderKind": null
+        },
+        {
+          "tag": {
+            "kind": "constant",
+            "name": null,
+            "text": "ladder.entry",
+            "field": null,
+            "number": null,
+            "arguments": {},
+            "operation": null,
+            "valueType": 7
+          },
+          "side": null,
+          "type": "NoActiveTaggedOrder",
+          "operands": {},
+          "sizeMode": null,
+          "operation": null,
+          "orderKind": null
+        },
+        {
+          "tag": {
+            "kind": "constant",
+            "name": null,
+            "text": "ladder.exit",
+            "field": null,
+            "number": null,
+            "arguments": {},
+            "operation": null,
+            "valueType": 7
+          },
+          "side": null,
+          "type": "NoActiveTaggedOrder",
+          "operands": {},
+          "sizeMode": null,
+          "operation": "exists",
+          "orderKind": null
+        },
+        {
+          "tag": null,
+          "side": null,
+          "type": "Compare",
+          "operands": {
+            "a": {
+              "kind": "value",
+              "name": "remaining",
+              "text": null,
+              "field": null,
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            },
+            "b": {
+              "kind": "parameter",
+              "name": "buyAmount",
+              "text": null,
+              "field": null,
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            }
+          },
+          "sizeMode": null,
+          "operation": ">=",
+          "orderKind": null
+        },
+        {
+          "tag": null,
+          "side": null,
+          "type": "Compare",
+          "operands": {
+            "a": {
+              "kind": "balance",
+              "name": null,
+              "text": null,
+              "field": "quoteAvailable",
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            },
+            "b": {
+              "kind": "parameter",
+              "name": "buyAmount",
+              "text": null,
+              "field": null,
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            }
+          },
+          "sizeMode": null,
+          "operation": ">=",
+          "orderKind": null
+        },
+        {
+          "tag": null,
+          "side": null,
+          "type": "Compare",
+          "operands": {
+            "a": {
+              "kind": "value",
+              "name": "nextPrice",
+              "text": null,
+              "field": null,
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            },
+            "b": {
+              "kind": "position",
+              "name": null,
+              "text": null,
+              "field": "lastBuyPrice",
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            }
+          },
+          "sizeMode": null,
+          "operation": "<",
+          "orderKind": null
+        },
+        {
+          "tag": null,
+          "side": "Buy",
+          "type": "OrderSizePreviewValid",
+          "operands": {
+            "price": {
+              "kind": "value",
+              "name": "nextPrice",
+              "text": null,
+              "field": null,
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            },
+            "amount": {
+              "kind": "parameter",
+              "name": "buyAmount",
+              "text": null,
+              "field": null,
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            }
+          },
+          "sizeMode": null,
+          "operation": null,
+          "orderKind": "Limit"
+        }
+      ],
+      "source": null,
+      "quantity": null,
+      "sizeMode": null,
+      "orderKind": null,
+      "displayName": "Можно докупить?"
+    },
+    {
+      "id": "exitConditions",
+      "tag": null,
+      "join": "all",
+      "kind": "condition",
+      "side": null,
+      "price": null,
+      "amount": null,
+      "checks": [
+        {
+          "tag": null,
+          "side": "Sell",
+          "type": "OrderSizePreviewValid",
+          "operands": {
+            "price": {
+              "kind": "value",
+              "name": "exitPrice",
+              "text": null,
+              "field": null,
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            },
+            "quantity": {
+              "kind": "balance",
+              "name": null,
+              "text": null,
+              "field": "baseAvailable",
+              "number": null,
+              "arguments": {},
+              "operation": null,
+              "valueType": null
+            }
+          },
+          "sizeMode": null,
+          "operation": null,
+          "orderKind": "Limit"
+        }
+      ],
+      "source": null,
+      "quantity": null,
+      "sizeMode": null,
+      "orderKind": null,
+      "displayName": "Выход можно выставить?"
+    },
+    {
+      "id": "entry",
+      "tag": {
+        "kind": "constant",
+        "name": null,
+        "text": "ladder.entry",
+        "field": null,
+        "number": null,
+        "arguments": {},
+        "operation": null,
+        "valueType": 7
+      },
+      "join": null,
+      "kind": "order",
+      "side": "Buy",
+      "price": null,
+      "amount": {
+        "kind": "parameter",
+        "name": "buyAmount",
+        "text": null,
+        "field": null,
+        "number": null,
+        "arguments": {},
+        "operation": null,
+        "valueType": null
+      },
+      "checks": [],
+      "source": null,
+      "quantity": null,
+      "sizeMode": null,
+      "orderKind": "Market",
+      "displayName": "Покупка по рынку"
+    },
+    {
+      "id": "average",
+      "tag": {
+        "kind": "constant",
+        "name": null,
+        "text": "ladder.average",
+        "field": null,
+        "number": null,
+        "arguments": {},
+        "operation": null,
+        "valueType": 7
+      },
+      "join": null,
+      "kind": "order",
+      "side": "Buy",
+      "price": {
+        "kind": "value",
+        "name": "nextPrice",
+        "text": null,
+        "field": null,
+        "number": null,
+        "arguments": {},
+        "operation": null,
+        "valueType": null
+      },
+      "amount": {
+        "kind": "parameter",
+        "name": "buyAmount",
+        "text": null,
+        "field": null,
+        "number": null,
+        "arguments": {},
+        "operation": null,
+        "valueType": null
+      },
+      "checks": [],
+      "source": null,
+      "quantity": null,
+      "sizeMode": null,
+      "orderKind": "Limit",
+      "displayName": "Лимитная покупка"
+    },
+    {
+      "id": "exit",
+      "tag": {
+        "kind": "constant",
+        "name": null,
+        "text": "ladder.exit",
+        "field": null,
+        "number": null,
+        "arguments": {},
+        "operation": null,
+        "valueType": 7
+      },
+      "join": null,
+      "kind": "order",
+      "side": "Sell",
+      "price": {
+        "kind": "value",
+        "name": "exitPrice",
+        "text": null,
+        "field": null,
+        "number": null,
+        "arguments": {},
+        "operation": null,
+        "valueType": null
+      },
+      "amount": null,
+      "checks": [],
+      "source": null,
+      "quantity": {
+        "kind": "balance",
+        "name": null,
+        "text": null,
+        "field": "baseAvailable",
+        "number": null,
+        "arguments": {},
+        "operation": null,
+        "valueType": null
+      },
+      "sizeMode": null,
+      "orderKind": "Limit",
+      "displayName": "Лимитная продажа"
+    },
+    {
+      "id": "residual",
+      "tag": {
+        "kind": "constant",
+        "name": null,
+        "text": "ladder.exit",
+        "field": null,
+        "number": null,
+        "arguments": {},
+        "operation": null,
+        "valueType": 7
+      },
+      "join": null,
+      "kind": "order",
+      "side": "Sell",
+      "price": null,
+      "amount": null,
+      "checks": [],
+      "source": null,
+      "quantity": {
+        "kind": "balance",
+        "name": null,
+        "text": null,
+        "field": "baseAvailable",
+        "number": null,
+        "arguments": {},
+        "operation": null,
+        "valueType": null
+      },
+      "sizeMode": null,
+      "orderKind": "Market",
+      "displayName": "Продажа по рынку"
+    },
+    {
+      "id": "cancelExit",
+      "tag": {
+        "kind": "constant",
+        "name": null,
+        "text": "ladder.exit",
+        "field": null,
+        "number": null,
+        "arguments": {},
+        "operation": null,
+        "valueType": 7
+      },
+      "join": null,
+      "kind": "cancel",
+      "side": null,
+      "price": null,
+      "amount": null,
+      "checks": [],
+      "source": null,
+      "quantity": null,
+      "sizeMode": null,
+      "orderKind": null,
+      "displayName": "Отмена ордера"
+    },
+    {
+      "id": "cancelAverage",
+      "tag": {
+        "kind": "constant",
+        "name": null,
+        "text": "ladder.average",
+        "field": null,
+        "number": null,
+        "arguments": {},
+        "operation": null,
+        "valueType": 7
+      },
+      "join": null,
+      "kind": "cancel",
+      "side": null,
+      "price": null,
+      "amount": null,
+      "checks": [],
+      "source": null,
+      "quantity": null,
+      "sizeMode": null,
+      "orderKind": null,
+      "displayName": "Отмена ордера"
+    },
+    {
+      "id": "protectiveCancel",
+      "tag": {
+        "kind": "constant",
+        "name": null,
+        "text": "ladder.average",
+        "field": null,
+        "number": null,
+        "arguments": {},
+        "operation": null,
+        "valueType": 7
+      },
+      "join": null,
+      "kind": "cancel",
+      "side": null,
+      "price": null,
+      "amount": null,
+      "checks": [],
+      "source": null,
+      "quantity": null,
+      "sizeMode": null,
+      "orderKind": null,
+      "displayName": "Отмена ордера"
+    }
+  ],
+  "values": [
+    {
+      "name": "close",
+      "expression": {
+        "kind": "candle",
+        "name": null,
+        "text": null,
+        "field": "Close",
+        "number": null,
+        "arguments": {},
+        "operation": null,
+        "valueType": null
+      }
+    },
+    {
+      "name": "sma",
+      "expression": {
+        "kind": "SMA",
+        "name": null,
+        "text": null,
+        "field": null,
+        "number": null,
+        "arguments": {
+          "in": {
+            "kind": "value",
+            "name": "close",
+            "text": null,
+            "field": null,
+            "number": null,
+            "arguments": {},
+            "operation": null,
+            "valueType": null
+          },
+          "period": {
+            "kind": "parameter",
+            "name": "smaPeriod",
+            "text": null,
+            "field": null,
+            "number": null,
+            "arguments": {},
+            "operation": null,
+            "valueType": null
+          }
+        },
+        "operation": null,
+        "valueType": null
+      }
+    },
+    {
+      "name": "nextPrice",
+      "expression": {
+        "kind": "arithmetic",
+        "name": null,
+        "text": null,
+        "field": null,
+        "number": null,
+        "arguments": {
+          "a": {
+            "kind": "value",
+            "name": "sma",
+            "text": null,
+            "field": null,
+            "number": null,
+            "arguments": {},
+            "operation": null,
+            "valueType": null
+          },
+          "b": {
+            "kind": "arithmetic",
+            "name": null,
+            "text": null,
+            "field": null,
+            "number": null,
+            "arguments": {
+              "a": {
+                "kind": "constant",
+                "name": null,
+                "text": null,
+                "field": null,
+                "number": 1,
+                "arguments": {},
+                "operation": null,
+                "valueType": 2
+              },
+              "b": {
+                "kind": "parameter",
+                "name": "drop",
+                "text": null,
+                "field": null,
+                "number": null,
+                "arguments": {},
+                "operation": null,
+                "valueType": null
+              }
+            },
+            "operation": "Subtract",
+            "valueType": null
+          }
+        },
+        "operation": "Multiply",
+        "valueType": null
+      }
+    },
+    {
+      "name": "exitPrice",
+      "expression": {
+        "kind": "arithmetic",
+        "name": null,
+        "text": null,
+        "field": null,
+        "number": null,
+        "arguments": {
+          "a": {
+            "kind": "position",
+            "name": null,
+            "text": null,
+            "field": "averageCost",
+            "number": null,
+            "arguments": {},
+            "operation": null,
+            "valueType": null
+          },
+          "b": {
+            "kind": "arithmetic",
+            "name": null,
+            "text": null,
+            "field": null,
+            "number": null,
+            "arguments": {
+              "a": {
+                "kind": "constant",
+                "name": null,
+                "text": null,
+                "field": null,
+                "number": 1,
+                "arguments": {},
+                "operation": null,
+                "valueType": 2
+              },
+              "b": {
+                "kind": "parameter",
+                "name": "rise",
+                "text": null,
+                "field": null,
+                "number": null,
+                "arguments": {},
+                "operation": null,
+                "valueType": null
+              }
+            },
+            "operation": "Add",
+            "valueType": null
+          }
+        },
+        "operation": "Multiply",
+        "valueType": null
+      }
+    },
+    {
+      "name": "remaining",
+      "expression": {
+        "kind": "arithmetic",
+        "name": null,
+        "text": null,
+        "field": null,
+        "number": null,
+        "arguments": {
+          "a": {
+            "kind": "parameter",
+            "name": "allocationCap",
+            "text": null,
+            "field": null,
+            "number": null,
+            "arguments": {},
+            "operation": null,
+            "valueType": null
+          },
+          "b": {
+            "kind": "position",
+            "name": null,
+            "text": null,
+            "field": "costBasis",
+            "number": null,
+            "arguments": {},
+            "operation": null,
+            "valueType": null
+          }
+        },
+        "operation": "Subtract",
+        "valueType": null
+      }
+    }
+  ],
+  "parameters": [
+    {
+      "name": "buyAmount",
+      "valueType": 5,
+      "defaultValue": 100
+    },
+    {
+      "name": "allocationCap",
+      "valueType": 5,
+      "defaultValue": 300
+    },
+    {
+      "name": "drop",
+      "valueType": 2,
+      "defaultValue": 0.1
+    },
+    {
+      "name": "rise",
+      "valueType": 2,
+      "defaultValue": 0.1
+    },
+    {
+      "name": "smaPeriod",
+      "valueType": 1,
+      "defaultValue": 50
+    }
+  ],
+  "templateKind": "Ladder"
+}

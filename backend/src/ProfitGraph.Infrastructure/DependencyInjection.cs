@@ -5,11 +5,16 @@ using Microsoft.Extensions.DependencyInjection;
 
 using ProfitGraph.Application;
 using ProfitGraph.Application.Accounts;
+using ProfitGraph.Application.Strategies.Ports;
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Infrastructure.Accounts.Repositories;
 using ProfitGraph.Infrastructure.Accounts.Security;
 using ProfitGraph.Infrastructure.Common.Messaging;
+using ProfitGraph.Infrastructure.Common.NodeTypes;
 using ProfitGraph.Infrastructure.Common.Postgres;
+using ProfitGraph.Infrastructure.Strategies.Repositories;
+using ProfitGraph.Infrastructure.Strategies.Repositories.Converters;
 
 namespace ProfitGraph.Infrastructure;
 
@@ -30,6 +35,10 @@ public static class DependencyInjection
         services.AddPostgres(configuration);
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
+        services.AddScoped<IStrategyRepository, StrategyRepository>();
+        services.AddScoped<IStrategyVersionReader, StrategyVersionReader>();
+        services.AddSingleton<StrategySnapshotDbConverter>();
+        services.AddNodeTypes();
 
         return services;
     }

@@ -3,13 +3,15 @@ using System.Text.RegularExpressions;
 namespace ProfitGraph.Tests.Unit.Architecture;
 
 /// <summary>
-///     Enforces the persistence layout from docs/architecture.md: migrations live in &lt;Feature&gt;/Migrations as
-///     {version}_{snake_case}.cs with a *Migration class, and repository row models in Repositories/Contracts end with Db.
+///     Enforces the persistence layout from docs/architecture.md: all migrations live in Infrastructure/Common/Postgres/Migrations
+///     as {version}_{snake_case}.cs with a *Migration class, and repository row models in Repositories/Contracts end with Db.
 /// </summary>
 public sealed partial class PersistenceConventionTests
 {
+    private const string MigrationFolder = "ProfitGraph.Infrastructure/Common/Postgres/Migrations";
+
     [Test]
-    public void MigrationsAreNamedByVersionAndLiveInMigrationsFolders()
+    public void MigrationsAreNamedByVersionAndLiveInOneFolder()
     {
         string[] offenders =
         [
@@ -20,7 +22,7 @@ public sealed partial class PersistenceConventionTests
                 .Select(file => Path.GetRelativePath(RepositoryLayout.SourceDirectory, file.Path))
         ];
 
-        offenders.ShouldBeEmpty("Name migrations {version}_{snake_case}.cs with a *Migration class in <Feature>/Migrations.");
+        offenders.ShouldBeEmpty($"Name migrations {{version}}_{{snake_case}}.cs with a *Migration class in {MigrationFolder}.");
     }
 
     [Test]
@@ -41,10 +43,10 @@ public sealed partial class PersistenceConventionTests
     private static bool IsConventionalMigration(string path, string version)
     {
         string file = Path.GetFileNameWithoutExtension(path);
-        string folder = Path.GetFileName(Path.GetDirectoryName(path)!);
+        string folder = Path.GetRelativePath(RepositoryLayout.SourceDirectory, Path.GetDirectoryName(path)!).Replace(Path.DirectorySeparatorChar, newChar: '/');
         string source = File.ReadAllText(path);
 
-        return folder == "Migrations" && MigrationFileName().IsMatch(file) && file.StartsWith(version + "_", StringComparison.Ordinal) &&
+        return folder == MigrationFolder && MigrationFileName().IsMatch(file) && file.StartsWith(version + "_", StringComparison.Ordinal) &&
             MigrationClass().IsMatch(source);
     }
 

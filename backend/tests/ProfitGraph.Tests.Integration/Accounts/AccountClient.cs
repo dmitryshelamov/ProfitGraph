@@ -5,7 +5,7 @@ using MediatR;
 
 using Microsoft.Extensions.DependencyInjection;
 
-using ProfitGraph.Application.Accounts;
+using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.CreateUser;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Tests.Integration.Common;
@@ -19,7 +19,7 @@ internal static class AccountClient
 {
     internal const string Password = "correct-horse-battery";
 
-    internal static async Task<UserContract> CreateAccount(ProfitGraphApiFactory factory, UserRole role, string? login = null)
+    internal static async Task<UserInternal> CreateAccount(ProfitGraphApiFactory factory, UserRole role, string? login = null)
     {
         using IServiceScope scope = factory.Services.CreateScope();
 

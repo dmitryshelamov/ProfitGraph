@@ -9,7 +9,7 @@ internal sealed class BootstrapOwnerCommandHandler(IUserRepository users, IPassw
     public Task<bool> Handle(BootstrapOwnerCommand command, CancellationToken cancellationToken)
     {
         DateTimeOffset now = clock.GetUtcNow();
-        var owner = User.Create(Guid.NewGuid(), command.Login, UserRole.Owner, now);
+        var owner = User.Create(UserId.New(), new UserLogin(command.Login), UserRole.Owner, now);
         owner.SetPasswordHash(passwords.Hash(owner, command.Password), now);
 
         return users.TryAddFirst(owner, cancellationToken);

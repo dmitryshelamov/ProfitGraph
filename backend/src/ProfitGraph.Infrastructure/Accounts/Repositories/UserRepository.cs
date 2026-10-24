@@ -12,16 +12,16 @@ namespace ProfitGraph.Infrastructure.Accounts.Repositories;
 
 internal sealed class UserRepository(NpgsqlConnection connection, PostgresTransactionAccessor transactions) : IUserRepository
 {
-    public async Task<User?> GetById(Guid id, CancellationToken cancellationToken)
+    public async Task<User?> GetById(UserId id, CancellationToken cancellationToken)
     {
-        var row = await connection.QuerySingleOrDefaultAsync<UserDb>(Command(UserQueries.GetById, new { id }, cancellationToken));
+        var row = await connection.QuerySingleOrDefaultAsync<UserDb>(Command(UserQueries.GetById, new { id = id.Value }, cancellationToken));
 
         return row?.ToDomain();
     }
 
-    public async Task<User?> GetByLogin(string login, CancellationToken cancellationToken)
+    public async Task<User?> GetByLogin(UserLogin login, CancellationToken cancellationToken)
     {
-        var row = await connection.QuerySingleOrDefaultAsync<UserDb>(Command(UserQueries.GetByLogin, new { login }, cancellationToken));
+        var row = await connection.QuerySingleOrDefaultAsync<UserDb>(Command(UserQueries.GetByLogin, new { login = login.Value }, cancellationToken));
 
         return row?.ToDomain();
     }

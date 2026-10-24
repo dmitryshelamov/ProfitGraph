@@ -1,15 +1,17 @@
 using MediatR;
 
+using ProfitGraph.Application.Accounts.Contracts;
+using ProfitGraph.Application.Accounts.Converters;
 using ProfitGraph.Domain.Accounts;
 
 namespace ProfitGraph.Application.Accounts.GetUser;
 
-internal sealed class GetUserQueryHandler(IUserRepository users) : IRequestHandler<GetUserQuery, UserContract?>
+internal sealed class GetUserQueryHandler(IUserRepository users) : IRequestHandler<GetUserQuery, UserInternal?>
 {
-    public async Task<UserContract?> Handle(GetUserQuery query, CancellationToken cancellationToken)
+    public async Task<UserInternal?> Handle(GetUserQuery query, CancellationToken cancellationToken)
     {
-        User? user = await users.GetById(query.Id, cancellationToken);
+        User? user = await users.GetById(new UserId(query.Id), cancellationToken);
 
-        return user is null ? null : UserContract.From(user);
+        return user?.ToInternal();
     }
 }

@@ -8,8 +8,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
+using ProfitGraph.Api.Accounts.Contracts;
+using ProfitGraph.Api.Accounts.Converters;
 using ProfitGraph.Api.Common.Authentication;
-using ProfitGraph.Application.Accounts;
+using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.GetUser;
 using ProfitGraph.Application.Accounts.SignIn;
 
@@ -32,7 +34,7 @@ public sealed class AuthController(ISender sender, SignInLoginLimiter loginLimit
             return Problem(statusCode: StatusCodes.Status429TooManyRequests, title: "Too many sign-in attempts");
         }
 
-        UserContract? user = await sender.Send(new SignInCommand(login, request.Password ?? string.Empty), cancellationToken);
+        UserInternal? user = await sender.Send(new SignInCommand(login, request.Password ?? string.Empty), cancellationToken);
 
         if (user is null)
         {
@@ -44,7 +46,7 @@ public sealed class AuthController(ISender sender, SignInLoginLimiter loginLimit
 
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, AuthenticationSetup.Principal(user));
 
-        return UserResponse.From(user);
+        return user.ToResponse();
     }
 
     [HttpPost("logout")]
@@ -59,8 +61,8 @@ public sealed class AuthController(ISender sender, SignInLoginLimiter loginLimit
     [HttpGet("me")]
     public async Task<ActionResult<UserResponse>> Me(CancellationToken cancellationToken)
     {
-        UserContract? user = AuthenticationSetup.UserId(User) is { } id ? await sender.Send(new GetUserQuery(id), cancellationToken) : null;
+        UserInternal? user = AuthenticationSetup.UserId(User) is { } id ? await sender.Send(new GetUserQuery(id), cancellationToken) : null;
 
-        return user is null ? Unauthorized() : UserResponse.From(user);
+        return user is null ? Unauthorized() : user.ToResponse();
     }
 }
