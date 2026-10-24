@@ -21,9 +21,12 @@ the engine, and backtest code knew which exchange it simulated.
 - When wave 2 or 3 needs one of them, it returns as a neutral engine policy with its own tests, for example a fee
   model abstraction, a settlement-hold policy or a trading schedule, introduced by its own ADR.
 - Engine exceptions derive from `EngineException`; the API maps them like domain rule violations.
-- Engine code is organized by subsystem (`Market/`, `Accounting/`, `Replay/`, ...). Venue-neutral hooks used by the
-  live account (pending submit and cancel states, pending fee reserve) stay in the shared accounting types; the live
-  account itself and its checkpoints arrive with stage 5.
+- Engine code is organized by subsystem (`Market/`, `Accounting/`, `Replay/`, ...).
+- The externally executed account, its checkpoints and graph change are pure, venue-neutral engine state machines
+  shared with replay through causal dispatch (Profit Fox Designer ADRs 0049–0051). They live in the engine; the
+  live runtime that feeds them exchange updates arrives with stage 5.
+- History preparation evidence specific to one venue (trading-session classification, verified market closures,
+  reference-instrument evidence) is not part of the engine; replay requires contiguous candles on the timeframe grid.
 
 ## Consequences
 

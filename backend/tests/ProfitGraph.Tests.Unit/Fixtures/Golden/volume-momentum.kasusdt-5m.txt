@@ -1,0 +1,4 @@
+outcome=Completed processed=1816 equity=1000.00000 unrealized=0.00000 total=0.00000
+account quoteTotal=1000 quoteReserved=0 baseTotal=0 baseReserved=0 costBasis=0 realized=0 feesBase=0 feesQuote=0 lastBuy=
+terminalDiagnostic=
+counts ledger=0 fills=0 orders=0
