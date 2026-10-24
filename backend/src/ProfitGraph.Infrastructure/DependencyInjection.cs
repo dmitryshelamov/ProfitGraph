@@ -11,8 +11,10 @@ using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Infrastructure.Accounts.Repositories;
 using ProfitGraph.Infrastructure.Accounts.Security;
 using ProfitGraph.Infrastructure.Backtesting;
+using ProfitGraph.Infrastructure.Bots;
 using ProfitGraph.Infrastructure.Common.Messaging;
 using ProfitGraph.Infrastructure.Common.NodeTypes;
+using ProfitGraph.Infrastructure.Common.Outbox;
 using ProfitGraph.Infrastructure.Common.Postgres;
 using ProfitGraph.Infrastructure.Jobs;
 using ProfitGraph.Infrastructure.MarketData;
@@ -37,6 +39,7 @@ public static class DependencyInjection
         });
         services.AddValidatorsFromAssembly(typeof(ApplicationAssembly).Assembly, includeInternalTypes: true);
         services.AddPostgres(configuration);
+        services.AddOutbox(configuration);
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
         services.AddScoped<IExchangeCredentialRepository, ExchangeCredentialRepository>();
@@ -50,6 +53,7 @@ public static class DependencyInjection
         services.AddBackgroundJobs(configuration);
         services.AddBacktesting(configuration);
         services.AddOptimization(configuration);
+        services.AddBots();
 
         return services;
     }

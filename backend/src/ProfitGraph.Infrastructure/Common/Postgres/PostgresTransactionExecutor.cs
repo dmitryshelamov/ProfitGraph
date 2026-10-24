@@ -4,10 +4,12 @@ using System.Transactions;
 using Npgsql;
 
 using ProfitGraph.Application.Common.Transactions;
+using ProfitGraph.Infrastructure.Common.Outbox;
 
 namespace ProfitGraph.Infrastructure.Common.Postgres;
 
-internal sealed class PostgresTransactionExecutor(NpgsqlConnection connection, PostgresTransactionAccessor transactionAccessor) : ITransactionExecutor
+internal sealed class PostgresTransactionExecutor(NpgsqlConnection connection, PostgresTransactionAccessor transactionAccessor, OutboxWriter outbox)
+    : ITransactionExecutor
 {
     public void EnsureNoTransaction()
     {
@@ -39,6 +41,7 @@ internal sealed class PostgresTransactionExecutor(NpgsqlConnection connection, P
             try
             {
                 TResult result = await action();
+                await outbox.Write(transactionAccessor.RegisteredAggregates, transaction, cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
                 transactionAccessor.ClearRegisteredDomainEvents();
 

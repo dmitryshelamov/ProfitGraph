@@ -168,9 +168,12 @@ public sealed class ExchangeCredentialEndpointTests
         TextWriter original = Console.Out;
         await using var captured = new StringWriter();
 
+        // Hosts of other fixtures may still write while this one reads, so every access goes through one lock.
+        TextWriter synchronized = TextWriter.Synchronized(captured);
+
         try
         {
-            Console.SetOut(captured);
+            Console.SetOut(synchronized);
             await using ProfitGraphApiFactory factory = WithMasterKey(verboseLogs: true);
             using HttpClient client = await factory.CreateSignedInClient();
             (await client.PostAsJsonAsync(Path, Request())).StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -182,7 +185,13 @@ public sealed class ExchangeCredentialEndpointTests
             Console.SetOut(original);
         }
 
-        var log = captured.ToString();
+        string log;
+
+        lock (synchronized)
+        {
+            log = captured.ToString();
+        }
+
         log.ShouldContain("ExchangeCredentialsController");
         log.Contains(ApiKey, StringComparison.Ordinal).ShouldBeFalse();
         log.Contains(ApiSecret, StringComparison.Ordinal).ShouldBeFalse();
