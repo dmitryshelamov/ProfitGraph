@@ -1,5 +1,6 @@
 using ProfitGraph.Infrastructure;
 using ProfitGraph.Infrastructure.Backtesting;
+using ProfitGraph.Infrastructure.Bots.Runtime;
 using ProfitGraph.Infrastructure.Common;
 using ProfitGraph.Infrastructure.Common.Outbox;
 using ProfitGraph.Infrastructure.Jobs;
@@ -39,6 +40,7 @@ public static class Program
         if (roles.Contains(WorkerRoles.Live))
         {
             builder.Services.AddOutboxDispatcher();
+            builder.Services.AddBotRuntime();
         }
 
         builder.Services.AddBybitVenue(builder.Configuration);

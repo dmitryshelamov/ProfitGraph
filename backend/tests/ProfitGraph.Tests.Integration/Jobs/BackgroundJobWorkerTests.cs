@@ -149,6 +149,9 @@ public sealed class BackgroundJobWorkerTests
         using IHost worker = WorkerHost.Create();
         await worker.StartAsync();
         await WaitForHeartbeat();
+
+        // This host runs only the jobs role, while bots of other tests should run: a full Worker would beat the live role too.
+        await Execute("INSERT INTO worker_heartbeats (name, beat_at) VALUES ('live', now()) ON CONFLICT (name) DO UPDATE SET beat_at = now()", parameters: null);
         using HttpResponseMessage beating = await anonymous.GetAsync("/api/health/ready");
         await worker.StopAsync();
 

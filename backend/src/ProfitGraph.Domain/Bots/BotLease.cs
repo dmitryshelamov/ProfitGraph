@@ -91,16 +91,16 @@ public sealed class BotLease : AggregateRoot
     }
 
     /// <summary>
-    ///     Gives the lease up so another runtime may take it at once. Only its holder can release it.
+    ///     Gives the lease up so another runtime may take it at once: it expires now. Only its holder can release it.
     /// </summary>
-    public bool Release(LeaseHolderId holderId, long epoch)
+    public bool Release(LeaseHolderId holderId, long epoch, DateTimeOffset now)
     {
         if (HolderId != holderId || Epoch != epoch)
         {
             return false;
         }
 
-        ExpiresAt = DateTimeOffset.MinValue;
+        ExpiresAt = ExpiresAt < now ? ExpiresAt : now;
         SubmissionsReady = false;
 
         return true;

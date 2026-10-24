@@ -1,15 +1,23 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 using ProfitGraph.Application.Bots;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Infrastructure.Bots.Repositories;
+using ProfitGraph.Infrastructure.Bots.Runtime;
+using ProfitGraph.Infrastructure.Common;
 
 namespace ProfitGraph.Infrastructure.Bots;
 
 internal static class BotsRegistration
 {
-    internal static IServiceCollection AddBots(this IServiceCollection services)
+    internal static IServiceCollection AddBots(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddOptions<BotRuntimeOptions>()
+            .Bind(configuration.GetSection(BotRuntimeOptions.SectionName))
+            .Validate(options => options.IsValid(), "Bots:Runtime needs positive intervals and a lease longer than two renewals.")
+            .ValidateOnStart();
+        services.AddHealthChecks().AddCheck<LiveRuntimeHealthCheck>(LiveRuntimeHealthCheck.Name, tags: [HealthTags.Ready]);
         services.AddScoped<IBotRepository, BotRepository>();
         services.AddScoped<IBotLeaseRepository, BotLeaseRepository>();
         services.AddScoped<IBotCheckpointRepository, BotCheckpointRepository>();

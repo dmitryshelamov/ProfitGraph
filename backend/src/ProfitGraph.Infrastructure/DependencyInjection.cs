@@ -53,7 +53,7 @@ public static class DependencyInjection
         services.AddBackgroundJobs(configuration);
         services.AddBacktesting(configuration);
         services.AddOptimization(configuration);
-        services.AddBots();
+        services.AddBots(configuration);
 
         return services;
     }

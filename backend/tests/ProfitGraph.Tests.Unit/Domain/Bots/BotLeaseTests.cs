@@ -86,7 +86,7 @@ public sealed class BotLeaseTests
     {
         BotLease lease = Ready();
 
-        lease.Release(First, epoch: 1).ShouldBeTrue();
+        lease.Release(First, epoch: 1, Now).ShouldBeTrue();
 
         lease.IsExpired(Now).ShouldBeTrue();
         lease.SubmissionsReady.ShouldBeFalse();
@@ -98,7 +98,7 @@ public sealed class BotLeaseTests
     {
         BotLease lease = Ready();
 
-        lease.Release(Second, epoch: 1).ShouldBeFalse();
+        lease.Release(Second, epoch: 1, Now).ShouldBeFalse();
 
         lease.IsHeldBy(First, epoch: 1, Now).ShouldBeTrue();
     }
