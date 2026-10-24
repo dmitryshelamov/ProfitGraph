@@ -18,7 +18,7 @@ public class Program
     public static void Main(string[] args)
     {
         bool migrateOnly = args.Contains("--migrate-only", StringComparer.Ordinal);
-        WebApplicationBuilder builder = WebApplication.CreateBuilder(args.Where(argument => argument != "--migrate-only").ToArray());
+        WebApplicationBuilder builder = WebApplication.CreateBuilder([.. args.Where(argument => argument != "--migrate-only")]);
 
         builder.Services.AddSerilog(
             (_, configuration) => configuration

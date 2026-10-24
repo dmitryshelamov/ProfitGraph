@@ -149,13 +149,10 @@ public sealed class AccountEndpointTests
         refused.StatusCode.ShouldBeOneOf(HttpStatusCode.UnprocessableEntity, HttpStatusCode.Unauthorized);
     }
 
-    private async Task BlockAllOwnersExcept(params Guid[] keep)
+    private static async Task BlockAllOwnersExcept(params Guid[] keep)
     {
         await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
-        await SqlMapper.ExecuteAsync(
-            connection,
-            "UPDATE users SET status = 'Blocked' WHERE role = 'Owner' AND NOT (id = ANY(@keep))",
-            new { keep });
+        await connection.ExecuteAsync("UPDATE users SET status = 'Blocked' WHERE role = 'Owner' AND NOT (id = ANY(@keep))", new { keep });
     }
 
     private static async Task<string?> Code(HttpResponseMessage response)

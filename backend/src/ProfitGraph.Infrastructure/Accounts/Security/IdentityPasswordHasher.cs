@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using ProfitGraph.Application.Accounts;
 using ProfitGraph.Domain.Accounts;
 
-namespace ProfitGraph.Infrastructure.Accounts;
+namespace ProfitGraph.Infrastructure.Accounts.Security;
 
 /// <summary>
 ///     ASP.NET Core Identity password hashing (PBKDF2 with a per-password salt and versioned format).

@@ -22,7 +22,8 @@ Api, Worker -> Infrastructure, Venues.* -> Application -> Domain -> Engine
 | `Api`, `Worker`  | Composition roots: HTTP boundary and live runtime host.                                                | Contain domain rules or direct persistence access.              |
 
 Architecture tests in `ProfitGraph.Tests.Unit/Architecture` enforce project references, allowed packages of the
-inner projects, venue neutrality and the folder conventions below. A new project must be added to those tests and
+inner projects, venue neutrality, the folder conventions below, one type per file, and migration and repository
+naming. A new project must be added to those tests and
 to this table.
 
 ## Folder Conventions
@@ -47,7 +48,13 @@ Application/
     StrategyConverter.cs      Domain <-> contract mapping
 Infrastructure/
   Common/                     Postgres, Messaging (behaviors, outbox), BackgroundJobs, Security
-  Strategies/                 StrategyRepository.cs, StrategyQueries.cs, CreateStrategiesTable.cs (migration)
+  Accounts/
+    Migrations/               202610240001_create_user_table.cs (class CreateUserTableMigration)
+    Repositories/             UserRepository.cs
+      Contracts/              UserDb.cs (row model: class with init properties)
+      Converters/             UserDbConverter.cs (ToDomain / ToDb extensions)
+      Queries/                UserQueries.cs (SQL text)
+    Security/                 IdentityPasswordHasher.cs
 Api/
   Common/                     Errors, Authentication, Realtime
   Strategies/                 StrategiesController.cs, CreateStrategyRequest.cs, StrategyResponse.cs, StrategyHttpConverter.cs
@@ -63,7 +70,12 @@ Venues.Bybit/
   handler and its validator; nothing else.
 - **Naming:** `*Command`, `*CommandHandler`, `*CommandValidator`, `*Query`, `*QueryHandler`, `*Contract` for
   Application boundary types, `*Converter` for mapping, `*Request` / `*Response` for HTTP types, `*Repository` for
-  aggregate persistence, `*Queries` for SQL text. Domain events are past-tense facts without a suffix (`BotDegraded`).
+  aggregate persistence, `*Db` for repository row models, `*DbConverter` for row mapping, `*Queries` for SQL text,
+  `*Migration` for migrations. Domain events are past-tense facts without a suffix (`BotDegraded`).
+- **One type per file**, named after the type, with no nested types. Generic and non-generic variants of one name
+  are separate files (`ICommand.cs`, `ICommandOfTResponse.cs`).
+- **Migrations** live in `<Feature>/Migrations/` as `{version}_{snake_case}.cs`, for example
+  `202610240001_create_user_table.cs` with class `CreateUserTableMigration`.
 - **Forbidden top-level folders** in Domain, Application, Infrastructure and Api: `Commands`, `Queries`, `Contracts`,
   `Converters`, `Validators`, `Services`, `Entities`, `ValueObjects`, `Repositories`, `Exceptions`, `Events`,
   `Controllers`, `Handlers`, `Models`.

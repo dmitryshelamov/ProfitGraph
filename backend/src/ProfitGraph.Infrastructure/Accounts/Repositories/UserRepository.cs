@@ -3,22 +3,25 @@ using Dapper;
 using Npgsql;
 
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Infrastructure.Accounts.Repositories.Contracts;
+using ProfitGraph.Infrastructure.Accounts.Repositories.Converters;
+using ProfitGraph.Infrastructure.Accounts.Repositories.Queries;
 using ProfitGraph.Infrastructure.Common.Postgres;
 
-namespace ProfitGraph.Infrastructure.Accounts;
+namespace ProfitGraph.Infrastructure.Accounts.Repositories;
 
 internal sealed class UserRepository(NpgsqlConnection connection, PostgresTransactionAccessor transactions) : IUserRepository
 {
     public async Task<User?> GetById(Guid id, CancellationToken cancellationToken)
     {
-        var row = await connection.QuerySingleOrDefaultAsync<UserRow>(Command(UserQueries.GetById, new { id }, cancellationToken));
+        var row = await connection.QuerySingleOrDefaultAsync<UserDb>(Command(UserQueries.GetById, new { id }, cancellationToken));
 
         return row?.ToDomain();
     }
 
     public async Task<User?> GetByLogin(string login, CancellationToken cancellationToken)
     {
-        var row = await connection.QuerySingleOrDefaultAsync<UserRow>(Command(UserQueries.GetByLogin, new { login }, cancellationToken));
+        var row = await connection.QuerySingleOrDefaultAsync<UserDb>(Command(UserQueries.GetByLogin, new { login }, cancellationToken));
 
         return row?.ToDomain();
     }
@@ -32,7 +35,7 @@ internal sealed class UserRepository(NpgsqlConnection connection, PostgresTransa
 
     public async Task<bool> TryAdd(User user, CancellationToken cancellationToken)
     {
-        int inserted = await connection.ExecuteAsync(Command(UserQueries.Insert, UserRow.From(user), cancellationToken));
+        int inserted = await connection.ExecuteAsync(Command(UserQueries.Insert, user.ToDb(), cancellationToken));
         transactions.RegisterDomainEventClear(user);
 
         return inserted == 1;
@@ -40,7 +43,7 @@ internal sealed class UserRepository(NpgsqlConnection connection, PostgresTransa
 
     public async Task<bool> TryAddFirst(User user, CancellationToken cancellationToken)
     {
-        int inserted = await connection.ExecuteAsync(Command(UserQueries.InsertFirst, UserRow.From(user), cancellationToken));
+        int inserted = await connection.ExecuteAsync(Command(UserQueries.InsertFirst, user.ToDb(), cancellationToken));
         transactions.RegisterDomainEventClear(user);
 
         return inserted == 1;
@@ -48,7 +51,7 @@ internal sealed class UserRepository(NpgsqlConnection connection, PostgresTransa
 
     public async Task Update(User user, CancellationToken cancellationToken)
     {
-        await connection.ExecuteAsync(Command(UserQueries.Update, UserRow.From(user), cancellationToken));
+        await connection.ExecuteAsync(Command(UserQueries.Update, user.ToDb(), cancellationToken));
         transactions.RegisterDomainEventClear(user);
     }
 

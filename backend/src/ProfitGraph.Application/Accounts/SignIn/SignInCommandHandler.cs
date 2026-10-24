@@ -18,17 +18,19 @@ internal sealed class SignInCommandHandler(IUserRepository users, IPasswordHashe
             return null;
         }
 
-        PasswordCheck check = passwords.Verify(user, command.Password);
-
-        if (check == PasswordCheck.Failed)
+        switch (passwords.Verify(user, command.Password))
         {
-            return null;
-        }
+            case PasswordCheck.Failed:
+                return null;
+            case PasswordCheck.RehashNeeded:
+                user.SetPasswordHash(passwords.Hash(user, command.Password), clock.GetUtcNow());
+                await users.Update(user, cancellationToken);
 
-        if (check == PasswordCheck.RehashNeeded)
-        {
-            user.SetPasswordHash(passwords.Hash(user, command.Password), clock.GetUtcNow());
-            await users.Update(user, cancellationToken);
+                break;
+            case PasswordCheck.Valid:
+                break;
+            default:
+                throw new InvalidOperationException("Unknown password check result.");
         }
 
         return UserContract.From(user);

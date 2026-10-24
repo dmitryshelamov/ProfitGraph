@@ -1,4 +1,4 @@
-namespace ProfitGraph.Infrastructure.Accounts;
+namespace ProfitGraph.Infrastructure.Accounts.Repositories.Queries;
 
 internal static class UserQueries
 {

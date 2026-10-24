@@ -63,11 +63,11 @@ public sealed class User : AggregateRoot
         return new User(id, NormalizeLogin(login), passwordHash, role, status, createdAt, updatedAt);
     }
 
-    public static string NormalizeLogin(string? login)
+    private static string NormalizeLogin(string? login)
     {
         string normalized = login?.Trim() ?? string.Empty;
 
-        if (normalized.Length == 0 || normalized.Length > MaxLoginLength)
+        if (normalized.Length is 0 or > MaxLoginLength)
         {
             throw new AccountRuleException(AccountRuleException.InvalidLogin, $"A login must contain 1 to {MaxLoginLength} characters.");
         }

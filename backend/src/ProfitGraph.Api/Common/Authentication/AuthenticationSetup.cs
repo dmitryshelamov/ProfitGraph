@@ -49,7 +49,7 @@ internal static class AuthenticationSetup
                 options.Events.OnRedirectToAccessDenied = context => Status(context.Response, StatusCodes.Status403Forbidden);
                 options.Events.OnValidatePrincipal = RejectInactiveAccounts;
             });
-        builder.Services.AddAuthorization(options => options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+        builder.Services.AddAuthorizationBuilder().SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
         builder.Services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -140,7 +140,7 @@ internal static class AuthenticationSetup
 
     private static void ConfigureKnownProxies(WebApplicationBuilder builder)
     {
-        IConfigurationSection[] proxies = builder.Configuration.GetSection("ReverseProxy:KnownProxies").GetChildren().ToArray();
+        IConfigurationSection[] proxies = [.. builder.Configuration.GetSection("ReverseProxy:KnownProxies").GetChildren()];
 
         if (proxies.Length == 0)
         {

@@ -40,7 +40,7 @@ public sealed class SignInCommandHandlerTests
 
         result.ShouldBeNull();
         _passwords.Received(1).VerifyDummy("password-123456");
-        _passwords.DidNotReceiveWithAnyArgs().Verify(default!, default!);
+        _passwords.DidNotReceiveWithAnyArgs().Verify(null!, null!);
     }
 
     [Test]
@@ -65,7 +65,7 @@ public sealed class SignInCommandHandlerTests
         UserContract? result = await Handler().Handle(new SignInCommand("alice", "password-123456"), CancellationToken.None);
 
         result.ShouldNotBeNull().Id.ShouldBe(user.Id);
-        await _users.DidNotReceiveWithAnyArgs().Update(default!, cancellationToken: default);
+        await _users.DidNotReceiveWithAnyArgs().Update(null!, CancellationToken.None);
     }
 
     [Test]

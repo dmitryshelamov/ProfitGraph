@@ -6,7 +6,8 @@ using Microsoft.Extensions.DependencyInjection;
 using ProfitGraph.Application;
 using ProfitGraph.Application.Accounts;
 using ProfitGraph.Domain.Accounts;
-using ProfitGraph.Infrastructure.Accounts;
+using ProfitGraph.Infrastructure.Accounts.Repositories;
+using ProfitGraph.Infrastructure.Accounts.Security;
 using ProfitGraph.Infrastructure.Common.Messaging;
 using ProfitGraph.Infrastructure.Common.Postgres;
 

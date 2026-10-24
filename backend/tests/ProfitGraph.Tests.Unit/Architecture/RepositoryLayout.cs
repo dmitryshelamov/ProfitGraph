@@ -6,6 +6,8 @@ internal static class RepositoryLayout
 
     public static string SourceDirectory => Path.Combine(Root.Value, "backend", "src");
 
+    private static string TestDirectory => Path.Combine(Root.Value, "backend", "tests");
+
     public static IEnumerable<string> SourceProjects()
     {
         return Directory.GetFiles(SourceDirectory, "ProfitGraph.*.csproj", SearchOption.AllDirectories);
@@ -13,9 +15,19 @@ internal static class RepositoryLayout
 
     public static IEnumerable<string> SourceFiles()
     {
+        return CodeFiles(SourceDirectory);
+    }
+
+    public static IEnumerable<string> TestFiles()
+    {
+        return CodeFiles(TestDirectory);
+    }
+
+    private static IEnumerable<string> CodeFiles(string directory)
+    {
         var separator = Path.DirectorySeparatorChar.ToString();
 
-        return Directory.GetFiles(SourceDirectory, "*.cs", SearchOption.AllDirectories)
+        return Directory.GetFiles(directory, "*.cs", SearchOption.AllDirectories)
             .Where(path => !path.Contains($"{separator}obj{separator}", StringComparison.Ordinal) &&
                 !path.Contains($"{separator}bin{separator}", StringComparison.Ordinal));
     }

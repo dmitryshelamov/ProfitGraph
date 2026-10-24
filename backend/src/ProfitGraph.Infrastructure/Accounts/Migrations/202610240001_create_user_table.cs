@@ -1,9 +1,9 @@
 using FluentMigrator;
 
-namespace ProfitGraph.Infrastructure.Accounts;
+namespace ProfitGraph.Infrastructure.Accounts.Migrations;
 
 [Migration(202610240001)]
-public sealed class CreateUsersTable : Migration
+public sealed class CreateUserTableMigration : Migration
 {
     public override void Up()
     {

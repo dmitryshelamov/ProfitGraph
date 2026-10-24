@@ -2,13 +2,6 @@ using ProfitGraph.Domain.Accounts;
 
 namespace ProfitGraph.Application.Accounts;
 
-public enum PasswordCheck
-{
-    Failed,
-    Valid,
-    RehashNeeded
-}
-
 public interface IPasswordHasher
 {
     string Hash(User user, string password);

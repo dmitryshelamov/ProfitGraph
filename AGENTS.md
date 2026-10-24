@@ -70,6 +70,8 @@ Key invariants:
 - Project dependencies: `Api, Worker -> Infrastructure, Venues.* -> Application -> Domain -> Engine`.
 - Folders are features first, then use cases; namespaces follow folders. Follow the template in
   `docs/architecture.md#folder-conventions` and never add top-level `Commands/`, `Entities/` or similar type folders.
+- One type per file, no nested types. Repositories follow `<Feature>/Repositories/{Contracts,Converters,Queries}` with
+  `*Db` row models; migrations are `<Feature>/Migrations/{version}_{snake_case}.cs` with a `*Migration` class.
 - Only `ProfitGraph.Venues.*` projects name concrete venues (ADR 0003).
 - Aggregates change state only through their methods; repositories contain no business rules (ADR 0004).
 - Use cases are MediatR commands and queries; MediatR stays on 12.5.0 (ADR 0005).
