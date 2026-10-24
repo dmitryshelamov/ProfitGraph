@@ -22,11 +22,12 @@ public sealed class BacktestHub(ISender sender, BacktestProgressSubscriptions su
     public async Task<BacktestCursorResponse> Subscribe(Guid runId)
     {
         Guid userId = (Context.User is { } user ? AuthenticationSetup.UserId(user) : null) ?? throw new HubException("Sign in to follow runs.");
-        BacktestCursorInternal cursor;
+        var query = new GetBacktestCursorQuery(userId, runId);
 
         try
         {
-            cursor = await sender.Send(new GetBacktestCursorQuery(userId, runId), Context.ConnectionAborted);
+            // Checks ownership before the connection joins the run's group.
+            await sender.Send(query, Context.ConnectionAborted);
         }
         catch (ResourceNotFoundException exception)
         {
@@ -34,6 +35,9 @@ public sealed class BacktestHub(ISender sender, BacktestProgressSubscriptions su
         }
 
         await Groups.AddToGroupAsync(Context.ConnectionId, BacktestProgressSubscriptions.Group(runId), Context.ConnectionAborted);
+
+        // Read after joining: anything committed later is sent to this connection, so the cursor leaves no gap.
+        BacktestCursorInternal cursor = await sender.Send(query, Context.ConnectionAborted);
 
         if (cursor.Outcome is null)
         {
