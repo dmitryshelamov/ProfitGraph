@@ -12,7 +12,8 @@ namespace ProfitGraph.Api.Optimization.Realtime;
 
 /// <summary>
 ///     <c>/ws/optimizations</c> (stage 4 plan, S4-12): a client subscribes to its own optimizations and receives
-///     <c>OptimizationProgress</c> for each stored trial, in delivery order, and <c>OptimizationFinished</c> once.
+///     <c>OptimizationProgress</c> for each stored trial, in delivery order, <c>OptimizationPaused</c> when it pauses and
+///     <c>OptimizationFinished</c> once.
 ///     Messages can be missed, for example across a reconnect; the client reads trials after its cursor over HTTP and
 ///     drops sequences it already has.
 /// </summary>

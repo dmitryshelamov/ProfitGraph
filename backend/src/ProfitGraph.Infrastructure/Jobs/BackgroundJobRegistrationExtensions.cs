@@ -12,10 +12,14 @@ namespace ProfitGraph.Infrastructure.Jobs;
 public static class BackgroundJobRegistrationExtensions
 {
     /// <summary>
-    ///     Registers a kind of work so that its request and result can be stored and read back, and the Worker lane that
-    ///     runs it.
+    ///     Registers a kind of work so that its request and result can be stored and read back, the Worker lane that runs it
+    ///     and whether it is resumable: a resumable job that a Worker restart interrupts is queued again, and its handler
+    ///     continues from the work it stored.
     /// </summary>
-    public static IServiceCollection AddBackgroundJob<TRequest, TResult>(this IServiceCollection services, string lane = BackgroundJobLanes.Main)
+    public static IServiceCollection AddBackgroundJob<TRequest, TResult>(
+        this IServiceCollection services,
+        string lane = BackgroundJobLanes.Main,
+        bool resumable = false)
         where TRequest : IBackgroundJobRequest<TResult>
         where TResult : IBackgroundJobResult
     {
@@ -24,7 +28,7 @@ public static class BackgroundJobRegistrationExtensions
             throw new ArgumentOutOfRangeException(nameof(lane), $"Unknown Worker lane '{lane}'.");
         }
 
-        services.AddSingleton(new BackgroundJobRegistration(TRequest.Kind, typeof(TRequest), typeof(TResult), lane));
+        services.AddSingleton(new BackgroundJobRegistration(TRequest.Kind, typeof(TRequest), typeof(TResult), lane, resumable));
 
         return services;
     }

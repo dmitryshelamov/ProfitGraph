@@ -47,6 +47,17 @@ internal sealed class BackgroundJobProgressReporter(BackgroundJobRepository repo
         }
     }
 
+    public async Task RecordStoredWork(CancellationToken cancellationToken)
+    {
+        if (_job is null)
+        {
+            return;
+        }
+
+        _job.RecordStoredWork(clock.GetUtcNow());
+        await repository.RecordStoredWork(_job.Id, cancellationToken);
+    }
+
     internal void Attach(BackgroundJob job)
     {
         _job = job;

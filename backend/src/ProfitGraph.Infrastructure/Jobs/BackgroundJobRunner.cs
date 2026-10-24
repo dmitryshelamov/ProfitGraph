@@ -27,9 +27,15 @@ internal sealed class BackgroundJobRunner(
     ISender sender,
     IServiceScopeFactory scopes,
     IOptions<BackgroundJobOptions> options,
+    IEnumerable<BackgroundJobRegistration> registrations,
     TimeProvider clock,
     ILogger<BackgroundJobRunner> logger)
 {
+    /// <summary>
+    ///     Consecutive interruptions without progress after which a resumable job fails instead of being queued again.
+    /// </summary>
+    internal const int InterruptionLimit = 3;
+
     internal static readonly BackgroundJobFailureInternal RestartFailure =
         new BackgroundJobFailureInternal(BackgroundJobErrorCodes.Interrupted, "The job was interrupted by a Worker restart.");
 
@@ -38,6 +44,12 @@ internal sealed class BackgroundJobRunner(
 
     private static readonly BackgroundJobFailureInternal UnexpectedFailure =
         new BackgroundJobFailureInternal(BackgroundJobErrorCodes.Unexpected, "An unexpected error occurred.");
+
+    private static readonly BackgroundJobFailureInternal StalledFailure = new BackgroundJobFailureInternal(
+        BackgroundJobErrorCodes.Interrupted,
+        $"The job was interrupted {InterruptionLimit} times in a row without making progress.");
+
+    private readonly HashSet<string> _resumable = [.. registrations.Where(registration => registration.Resumable).Select(registration => registration.Kind.Value)];
 
     /// <summary>
     ///     Runs one job of the given kinds and returns true, or returns false when none is queued.
@@ -78,7 +90,7 @@ internal sealed class BackgroundJobRunner(
     {
         using var work = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         using var watcherStop = new CancellationTokenSource();
-        Task<bool> watcher = WatchCancellation(job.Id, work, watcherStop.Token);
+        Task watcher = WatchStopRequests(job.Id, work, watcherStop.Token);
         progress.Attach(job);
         IBackgroundJobResult? result = null;
         BackgroundJobFailureInternal? failure = null;
@@ -98,23 +110,34 @@ internal sealed class BackgroundJobRunner(
         }
 
         await watcherStop.CancelAsync();
-        bool cancelRequested = await watcher;
+        await watcher;
         DateTimeOffset now = clock.GetUtcNow();
 
         if (failure is not null)
         {
             job.Fail(now);
         }
-        else if (cancelRequested && result is null)
-        {
-            job.RequestCancel(now);
-            job.ConfirmCancelled(now);
-        }
         else if (result is null)
         {
-            await repository.InterruptRunning(ShutdownFailure, now, CancellationToken.None, job.Id);
+            // Stopped without a result: decide on the stored requests, which the watcher may not have seen yet.
+            BackgroundJob current = await repository.Get(job.Id, CancellationToken.None) ?? job;
 
-            return;
+            if (current.CancelRequested)
+            {
+                current.ConfirmCancelled(now);
+            }
+            else if (current.PauseRequested)
+            {
+                current.ConfirmPaused(now);
+            }
+            else
+            {
+                await Interrupt(current, ShutdownFailure);
+
+                return;
+            }
+
+            job = current;
         }
         else
         {
@@ -128,10 +151,35 @@ internal sealed class BackgroundJobRunner(
     }
 
     /// <summary>
-    ///     Polls the cancellation flag in its own scope, because the work uses this scope's connection meanwhile. Returns
-    ///     whether cancellation was requested.
+    ///     Records that a stopped Worker interrupted a running job: a resumable job is queued again unless it stalled, any
+    ///     other job fails with <paramref name="failure" />.
     /// </summary>
-    private async Task<bool> WatchCancellation(BackgroundJobId id, CancellationTokenSource work, CancellationToken stop)
+    internal async Task Interrupt(BackgroundJob job, BackgroundJobFailureInternal failure)
+    {
+        DateTimeOffset now = clock.GetUtcNow();
+        BackgroundJobFailureInternal? stored = null;
+
+        if (!_resumable.Contains(job.Kind.Value))
+        {
+            job.Fail(now);
+            stored = failure;
+        }
+        else if (!job.Interrupt(InterruptionLimit, now))
+        {
+            stored = StalledFailure;
+        }
+
+        if (!await repository.Update(job, BackgroundJobStatus.Running, result: null, stored, CancellationToken.None))
+        {
+            logger.LogWarning("The interruption of job {JobId} was not saved because another transition won.", job.Id.Value);
+        }
+    }
+
+    /// <summary>
+    ///     Polls the stop requests in its own scope, because the work uses this scope's connection meanwhile, and stops the
+    ///     work on a cancellation or pause request.
+    /// </summary>
+    private async Task WatchStopRequests(BackgroundJobId id, CancellationTokenSource work, CancellationToken stop)
     {
         try
         {
@@ -140,12 +188,13 @@ internal sealed class BackgroundJobRunner(
             while (await timer.WaitForNextTickAsync(stop))
             {
                 using IServiceScope scope = scopes.CreateScope();
+                (bool cancel, bool pause) = await scope.ServiceProvider.GetRequiredService<BackgroundJobRepository>().StopRequest(id, stop);
 
-                if (await scope.ServiceProvider.GetRequiredService<BackgroundJobRepository>().IsCancelRequested(id, stop))
+                if (cancel || pause)
                 {
                     await work.CancelAsync();
 
-                    return true;
+                    return;
                 }
             }
         }
@@ -155,10 +204,8 @@ internal sealed class BackgroundJobRunner(
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Checking job cancellation failed; the job continues.");
+            logger.LogError(exception, "Checking job stop requests failed; the job continues.");
         }
-
-        return false;
     }
 
     private BackgroundJobFailureInternal Failure(Exception exception)

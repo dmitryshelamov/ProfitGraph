@@ -7,6 +7,8 @@ using ProfitGraph.Application.Optimization.Ports;
 using ProfitGraph.Domain.Optimization;
 using ProfitGraph.Infrastructure.Backtesting;
 using ProfitGraph.Infrastructure.Common.Postgres;
+using ProfitGraph.Infrastructure.Optimization.Repositories.Contracts;
+using ProfitGraph.Infrastructure.Optimization.Repositories.Converters;
 using ProfitGraph.Infrastructure.Optimization.Repositories.Queries;
 
 namespace ProfitGraph.Infrastructure.Optimization.Repositories;
@@ -38,5 +40,13 @@ internal sealed class OptimizationTrialStore(NpgsqlConnection connection, Postgr
         NpgsqlTransaction transaction = transactions.Current ?? throw new InvalidOperationException("Trials are written inside a transaction.");
         await connection.ExecuteAsync(
             new CommandDefinition(OptimizationTrialQueries.Write, new { OptimizationId = id.Value, Trials = rows }, transaction, cancellationToken: cancellationToken));
+    }
+
+    public async Task<IReadOnlyList<OptimizationTrialInternal>> ReadAll(OptimizationId id, CancellationToken cancellationToken)
+    {
+        IEnumerable<OptimizationTrialDb> rows = await connection.QueryAsync<OptimizationTrialDb>(
+            new CommandDefinition(OptimizationTrialQueries.All, new { OptimizationId = id.Value }, transactions.Current, cancellationToken: cancellationToken));
+
+        return [.. rows.Select(row => row.ToInternal())];
     }
 }

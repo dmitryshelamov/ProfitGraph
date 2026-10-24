@@ -102,3 +102,16 @@ walk-forward). This ADR records the search core; later stage 4 pull requests ame
   the API sends `OptimizationProgress` with every trial stored after the last one sent, in delivery order, then
   `OptimizationFinished` with the job's status once it has ended. A client that reconnects reads the trials after its
   cursor from `/api/optimizations/{id}/trials` and drops the sequences it already has.
+
+## Amendment: pause and resume (stage 4.5)
+
+- `POST /api/optimizations/{id}/pause` pauses a queued optimization at once, or stops a running one after its
+  accepted trials are stored. `/resume` queues a paused one again. Both answer `202` with the job, `409` when the
+  transition is not possible and `404` for another user's optimization. The hub sends `OptimizationPaused`.
+- A resumed or requeued optimization continues from its stage. If history was attached, it prepares history again
+  with the rules it captured and fails with `optimization_history_mismatch` when the identity or ranges changed. It
+  enumerates the same candidates and restores every stored trial by index instead of replaying it. A stored trial
+  that does not match its candidate fails with `persisted_trial_mismatch`. Stored trials count towards progress,
+  ranking, the best trial and finalist selection, and new trials continue the delivery sequence. A finalist already
+  started with the same values is not started again. For identical frozen inputs the stored trials, counters, best
+  trial and finalists equal those of an uninterrupted search; elapsed times may differ.

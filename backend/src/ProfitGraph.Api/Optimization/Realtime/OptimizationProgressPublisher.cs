@@ -10,8 +10,8 @@ namespace ProfitGraph.Api.Optimization.Realtime;
 
 /// <summary>
 ///     Turns the Worker's commit signals into hub messages (stage 4 plan, S4-12): for each followed optimization it reads
-///     the trials stored after the last one sent and sends them in order, then <c>OptimizationFinished</c> once its job
-///     has ended. Signals are handled one at a time, so an optimization's messages never overtake each other.
+///     the trials stored after the last one sent and sends them in order, then <c>OptimizationPaused</c> when its job
+///     pauses and <c>OptimizationFinished</c> once it has ended. Signals are handled one at a time, so an optimization's messages never overtake each other.
 /// </summary>
 public sealed class OptimizationProgressPublisher(
     IOptimizationProgressNotifications notifications,
@@ -71,10 +71,17 @@ public sealed class OptimizationProgressPublisher(
             after = page.Next;
         }
 
-        if (await reader.Cursor(id, cancellationToken) is { IsFinished: true } finished)
+        OptimizationCursorInternal state = await reader.Cursor(id, cancellationToken);
+
+        if (state.IsFinished)
         {
-            await group.SendAsync("OptimizationFinished", new OptimizationFinishedResponse(id.Value, finished.Status), cancellationToken);
+            await group.SendAsync("OptimizationFinished", new OptimizationFinishedResponse(id.Value, state.Status), cancellationToken);
             subscriptions.Forget(id.Value);
+        }
+        else if (state.Status == "Paused")
+        {
+            // A paused optimization stays followed: on resume its trials continue after the last one sent.
+            await group.SendAsync("OptimizationPaused", new OptimizationFinishedResponse(id.Value, state.Status), cancellationToken);
         }
     }
 }

@@ -14,6 +14,7 @@ public static class BackgroundJobInternalConverter
             job.Progress.Completed,
             job.Progress.Total,
             job.CancelRequested,
+            job.PauseRequested,
             job.CreatedAt,
             job.StartedAt,
             job.FinishedAt,

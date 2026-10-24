@@ -69,11 +69,17 @@ internal sealed class BackgroundJobRepository(
             row.Completed,
             row.Total,
             row.CancelRequested,
+            row.PauseRequested,
+            row.Interruptions,
             row.StartedAt,
             row.FinishedAt,
             row.UpdatedAt,
             ExpectedStatus = expectedStatus.ToString(),
-            SetsCancelRequest = job is { Status: BackgroundJobStatus.Running, CancelRequested: true }
+            SetsCancelRequest = job is { Status: BackgroundJobStatus.Running, CancelRequested: true } && expectedStatus == BackgroundJobStatus.Running,
+
+            // A cancellation may follow a pause request, never the other way round, so only a pause alone is a new pause request.
+            SetsPauseRequest = job is { Status: BackgroundJobStatus.Running, PauseRequested: true, CancelRequested: false } &&
+                expectedStatus == BackgroundJobStatus.Running
         };
         int updated = await connection.ExecuteAsync(Command(BackgroundJobQueries.Update, parameters, cancellationToken));
         transactions.RegisterDomainEventClear(job);
@@ -104,24 +110,31 @@ internal sealed class BackgroundJobRepository(
             Command(BackgroundJobQueries.RestartProgress, new { Id = id.Value, Completed = completed, Total = total, Now = now }, cancellationToken)) == 1;
     }
 
-    internal async Task<bool> IsCancelRequested(BackgroundJobId id, CancellationToken cancellationToken)
+    internal Task RecordStoredWork(BackgroundJobId id, CancellationToken cancellationToken)
     {
-        return await connection.QuerySingleOrDefaultAsync<bool>(Command(BackgroundJobQueries.IsCancelRequested, new { Id = id.Value }, cancellationToken));
+        return connection.ExecuteAsync(Command(BackgroundJobQueries.RecordStoredWork, new { Id = id.Value }, cancellationToken));
     }
 
     /// <summary>
-    ///     Fails running jobs left by a stopped Worker: every running job of the given kinds, or only the given one.
+    ///     Whether a running job was asked to stop for cancellation or for a pause.
     /// </summary>
-    internal async Task<int> InterruptRunning(
-        BackgroundJobFailureInternal failure,
-        DateTimeOffset now,
-        CancellationToken cancellationToken,
-        BackgroundJobId? id = null,
-        IReadOnlyList<string>? kinds = null)
+    internal async Task<(bool Cancel, bool Pause)> StopRequest(BackgroundJobId id, CancellationToken cancellationToken)
     {
-        var parameters = new { Failure = BackgroundJobPayloadSerializer.SerializeFailure(failure), Now = now, Id = id?.Value, Kinds = kinds?.ToArray() };
+        var row = await connection.QuerySingleOrDefaultAsync<BackgroundJobStopRequestDb>(
+            Command(BackgroundJobQueries.StopRequest, new { Id = id.Value }, cancellationToken));
 
-        return (await connection.QueryAsync<Guid>(Command(BackgroundJobQueries.InterruptRunning, parameters, cancellationToken))).Count();
+        return row is null ? (false, false) : (row.CancelRequested, row.PauseRequested);
+    }
+
+    /// <summary>
+    ///     Running jobs of the given kinds, for example those a stopped Worker left behind.
+    /// </summary>
+    internal async Task<IReadOnlyList<BackgroundJob>> ListRunning(IReadOnlyList<string> kinds, CancellationToken cancellationToken)
+    {
+        IEnumerable<BackgroundJobDb> rows = await connection.QueryAsync<BackgroundJobDb>(
+            Command(BackgroundJobQueries.ListRunning, new { Kinds = kinds.ToArray() }, cancellationToken));
+
+        return [.. rows.Select(row => row.ToDomain())];
     }
 
     internal Task Beat(string name, DateTimeOffset now, CancellationToken cancellationToken)

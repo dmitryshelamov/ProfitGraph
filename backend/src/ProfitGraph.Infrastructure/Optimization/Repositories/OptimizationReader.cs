@@ -8,9 +8,9 @@ using ProfitGraph.Application.Optimization.Ports;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Optimization;
 using ProfitGraph.Domain.Strategies;
-using ProfitGraph.Infrastructure.Backtesting;
 using ProfitGraph.Infrastructure.Common.Postgres;
 using ProfitGraph.Infrastructure.Optimization.Repositories.Contracts;
+using ProfitGraph.Infrastructure.Optimization.Repositories.Converters;
 using ProfitGraph.Infrastructure.Optimization.Repositories.Queries;
 
 namespace ProfitGraph.Infrastructure.Optimization.Repositories;
@@ -49,18 +49,7 @@ internal sealed class OptimizationReader(NpgsqlConnection connection, PostgresTr
         OptimizationTrialInternal[] page =
         [
             .. rows.Take(limit)
-                .Select(row => new OptimizationTrialInternal(
-                    row.Sequence,
-                    row.TrialIndex,
-                    BacktestJsonSerializer.Deserialize<Dictionary<string, decimal>>(row.Parameters),
-                    row.Status,
-                    row.FailureCode,
-                    row.Objective,
-                    row.ReturnPercent,
-                    row.TotalPnl,
-                    row.MaxDrawdownPercent,
-                    row.Executions,
-                    row.ElapsedMs))
+                .Select(row => row.ToInternal())
         ];
 
         return new OptimizationTrialPageInternal(page, rows.Length > limit ? page[^1].Sequence : null);

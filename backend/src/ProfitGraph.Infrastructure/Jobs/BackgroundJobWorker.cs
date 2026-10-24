@@ -3,13 +3,14 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using ProfitGraph.Domain.Jobs;
 using ProfitGraph.Infrastructure.Jobs.Repositories;
 
 namespace ProfitGraph.Infrastructure.Jobs;
 
 /// <summary>
-///     The job loop of one Worker lane: on start it fails the lane's jobs a stopped Worker left running, then it beats its
-///     heartbeat and runs the lane's queued jobs one at a time on every polling interval (ADR 0011).
+///     The job loop of one Worker lane: on start it recovers the lane's jobs a stopped Worker left running, then it beats
+///     its heartbeat and runs the lane's queued jobs one at a time on every polling interval (ADR 0011).
 /// </summary>
 internal sealed class BackgroundJobWorker(
     string lane,
@@ -40,12 +41,18 @@ internal sealed class BackgroundJobWorker(
             try
             {
                 using IServiceScope scope = scopes.CreateScope();
-                int recovered = await scope.ServiceProvider.GetRequiredService<BackgroundJobRepository>()
-                    .InterruptRunning(BackgroundJobRunner.RestartFailure, clock.GetUtcNow(), stoppingToken, kinds: _kinds);
+                IReadOnlyList<BackgroundJob> interrupted = await scope.ServiceProvider.GetRequiredService<BackgroundJobRepository>()
+                    .ListRunning(_kinds, stoppingToken);
+                var runner = scope.ServiceProvider.GetRequiredService<BackgroundJobRunner>();
 
-                if (recovered > 0)
+                foreach (BackgroundJob job in interrupted)
                 {
-                    logger.LogWarning("Marked {Count} interrupted background jobs of lane {Lane} as failed.", recovered, lane);
+                    await runner.Interrupt(job, BackgroundJobRunner.RestartFailure);
+                }
+
+                if (interrupted.Count > 0)
+                {
+                    logger.LogWarning("Recovered {Count} interrupted background jobs of lane {Lane}.", interrupted.Count, lane);
                 }
 
                 return;

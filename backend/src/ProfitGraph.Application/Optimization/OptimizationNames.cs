@@ -66,6 +66,18 @@ public static class OptimizationNames
         };
     }
 
+    public static OptimizationTrialStatus ParseTrialStatus(string status)
+    {
+        return status switch
+        {
+            "completed" => OptimizationTrialStatus.Completed,
+            "rejected_by_constraint" => OptimizationTrialStatus.RejectedByConstraint,
+            "rejected_by_template" => OptimizationTrialStatus.RejectedByTemplate,
+            "failed" => OptimizationTrialStatus.Failed,
+            _ => throw new ArgumentOutOfRangeException(nameof(status))
+        };
+    }
+
     public static string TrialStatus(OptimizationTrialStatus status)
     {
         return status switch

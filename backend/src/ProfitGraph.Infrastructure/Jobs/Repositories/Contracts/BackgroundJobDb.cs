@@ -12,6 +12,9 @@ internal sealed class BackgroundJobDb
     public long Completed { get; init; }
     public long? Total { get; init; }
     public bool CancelRequested { get; init; }
+    public bool PauseRequested { get; init; }
+    public int Interruptions { get; init; }
+    public bool Advanced { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset? StartedAt { get; init; }
     public DateTimeOffset? FinishedAt { get; init; }

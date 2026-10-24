@@ -10,7 +10,8 @@ namespace ProfitGraph.Application.Optimization.Execution;
 
 /// <summary>
 ///     Runs isolated metrics-only trials on the in-sample slice and drains completed results through one bounded, serial
-///     receiver. The ranking does not depend on the worker count or the order in which trials finish.
+///     receiver. The ranking does not depend on the worker count or the order in which trials finish. Trials stored by an
+///     earlier attempt are restored instead of replayed, so a resumed search ends exactly as an uninterrupted one.
 /// </summary>
 public sealed class OptimizationTrialRunner
 {
@@ -34,12 +35,14 @@ public sealed class OptimizationTrialRunner
     /// <param name="progress">Executed trials against the planned total, reported after each delivered execution.</param>
     /// <param name="cancellationToken">Stops new trials; results already produced are still delivered.</param>
     /// <param name="idleFlush">Called on the same consumer at least once a second, so a receiver can commit a partial batch.</param>
+    /// <param name="persistedTrials">Trials an earlier attempt stored; they are restored, counted and ranked but not delivered.</param>
     public async Task<OptimizationRunResultInternal> RunAsync(
         OptimizationRunInputInternal input,
         Func<OptimizationTrialResult, ValueTask> sink,
         IProgress<OptimizationProgressInternal>? progress = null,
         CancellationToken cancellationToken = default,
-        Func<ValueTask>? idleFlush = null)
+        Func<ValueTask>? idleFlush = null,
+        IReadOnlyList<OptimizationTrialInternal>? persistedTrials = null)
     {
         if (input.Budget is < 1 or > OptimizationSearchSpace.MaximumBudget || !Enum.IsDefined(input.Objective) ||
             input.Method is not (OptimizationSearchMethod.Grid or OptimizationSearchMethod.Random))
@@ -58,9 +61,10 @@ public sealed class OptimizationTrialRunner
                 FullMode = BoundedChannelFullMode.Wait
             });
         using var workersCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Dictionary<int, OptimizationTrialInternal> persisted = (persistedTrials ?? []).ToDictionary(trial => trial.TrialIndex);
         var total = 0;
-        var completed = 0;
-        var rejectedByTemplate = 0;
+        int rejectedByTemplate = persisted.Values.Count(trial => trial.Status == OptimizationNames.TrialStatus(OptimizationTrialStatus.RejectedByTemplate));
+        int completed = persisted.Count - rejectedByTemplate;
         var progressStarted = false;
         Task producer = ProduceAsync();
 
@@ -68,12 +72,18 @@ public sealed class OptimizationTrialRunner
         {
             await foreach (OptimizationTrialResult result in OptimizationResultStream.Read(channel.Reader, idleFlush, FlushInterval, _clock))
             {
-                await sink(result);
+                bool restored = persisted.ContainsKey(result.Trial.Index);
+
+                if (!restored)
+                {
+                    await sink(result);
+                }
+
                 results.Add(result);
 
                 if (result.Status == OptimizationTrialStatus.RejectedByTemplate)
                 {
-                    rejectedByTemplate++;
+                    rejectedByTemplate += restored ? 0 : 1;
 
                     continue;
                 }
@@ -85,7 +95,7 @@ public sealed class OptimizationTrialRunner
                     progressStarted = true;
                 }
 
-                completed++;
+                completed += restored ? 0 : 1;
                 progress?.Report(new OptimizationProgressInternal(completed, total));
             }
 
@@ -157,7 +167,11 @@ public sealed class OptimizationTrialRunner
 
                 if (TemplateParameterRules.Check(input.Template, input.CompiledGraph, trial.Selections).Count > 0)
                 {
-                    await channel.Writer.WriteAsync(OptimizationTrialResult.RejectedByTemplate(trial), CancellationToken.None);
+                    await channel.Writer.WriteAsync(
+                        persisted.TryGetValue(trial.Index, out OptimizationTrialInternal? stored)
+                            ? OptimizationTrialRestoring.Restore(trial, stored, input.InSampleBars, rejectedByTemplate: true)
+                            : OptimizationTrialResult.RejectedByTemplate(trial),
+                        CancellationToken.None);
 
                     continue;
                 }
@@ -180,6 +194,15 @@ public sealed class OptimizationTrialRunner
                 new ParallelOptions { MaxDegreeOfParallelism = _options.MaxWorkers, CancellationToken = workersCancellation.Token },
                 async (trial, token) =>
                 {
+                    if (persisted.TryGetValue(trial.Index, out OptimizationTrialInternal? stored))
+                    {
+                        await channel.Writer.WriteAsync(
+                            OptimizationTrialRestoring.Restore(trial, stored, input.InSampleBars, rejectedByTemplate: false),
+                            CancellationToken.None);
+
+                        return;
+                    }
+
                     OptimizationTrialResult result;
                     var timer = Stopwatch.StartNew();
 

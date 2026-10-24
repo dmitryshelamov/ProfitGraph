@@ -154,6 +154,97 @@ public sealed class BackgroundJobTests
         BackgroundJobId.New().ShouldNotBe(BackgroundJobId.New());
     }
 
+    [Test]
+    public void QueuedJobPausesAtOnceAndResumesToTheQueue()
+    {
+        BackgroundJob job = Queued();
+
+        job.RequestPause(Created.AddMinutes(1));
+        job.Status.ShouldBe(BackgroundJobStatus.Paused);
+        job.IsFinished.ShouldBeFalse();
+        Rule(() => job.RequestPause(Created.AddMinutes(2)), BackgroundJobRuleException.PauseAlreadyRequested);
+        job.Resume(Created.AddMinutes(3));
+
+        job.Status.ShouldBe(BackgroundJobStatus.Queued);
+        Rule(() => job.Resume(Created.AddMinutes(4)), BackgroundJobRuleException.NotPaused);
+    }
+
+    [Test]
+    public void RunningJobPausesOnlyAfterItsWorkStops()
+    {
+        BackgroundJob job = Running();
+        Rule(() => job.ConfirmPaused(Created.AddMinutes(1)), BackgroundJobRuleException.InvalidTransition);
+
+        job.RequestPause(Created.AddMinutes(1));
+        job.Status.ShouldBe(BackgroundJobStatus.Running);
+        job.PauseRequested.ShouldBeTrue();
+        Rule(() => job.RequestPause(Created.AddMinutes(2)), BackgroundJobRuleException.PauseAlreadyRequested);
+        job.ConfirmPaused(Created.AddMinutes(3));
+
+        job.Status.ShouldBe(BackgroundJobStatus.Paused);
+        job.PauseRequested.ShouldBeFalse();
+    }
+
+    [Test]
+    public void APausedJobIsCancelledAtOnceAndACancellingJobIsNotPaused()
+    {
+        BackgroundJob paused = Queued();
+        paused.RequestPause(Created.AddMinutes(1));
+        paused.RequestCancel(Created.AddMinutes(2));
+        paused.Status.ShouldBe(BackgroundJobStatus.Cancelled);
+
+        BackgroundJob cancelling = Running();
+        cancelling.RequestCancel(Created.AddMinutes(1));
+        Rule(() => cancelling.RequestPause(Created.AddMinutes(2)), BackgroundJobRuleException.PauseAlreadyRequested);
+    }
+
+    [Test]
+    public void InterruptedResumableJobIsQueuedUntilItStallsThreeTimesInARow()
+    {
+        BackgroundJob job = Running();
+        job.RecordStoredWork(Created.AddMinutes(1));
+        job.Interrupt(limit: 3, Created.AddMinutes(2)).ShouldBeTrue();
+        job.Interruptions.ShouldBe(0);
+
+        for (var attempt = 1; attempt <= 2; attempt++)
+        {
+            job.Start(Created.AddMinutes(2 + attempt));
+            job.Advanced.ShouldBeFalse();
+            job.Interrupt(limit: 3, Created.AddMinutes(2 + attempt)).ShouldBeTrue();
+            job.Interruptions.ShouldBe(attempt);
+            job.Status.ShouldBe(BackgroundJobStatus.Queued);
+        }
+
+        job.Start(Created.AddMinutes(6));
+        job.Interrupt(limit: 3, Created.AddMinutes(7)).ShouldBeFalse();
+
+        job.Status.ShouldBe(BackgroundJobStatus.Failed);
+        job.FinishedAt.ShouldBe(Created.AddMinutes(7));
+    }
+
+    [Test]
+    public void StoredWorkInAnAttemptRestartsTheStallCount()
+    {
+        BackgroundJob job = Running();
+        job.Interrupt(limit: 3, Created.AddMinutes(1));
+        job.Start(Created.AddMinutes(2));
+        job.Interrupt(limit: 3, Created.AddMinutes(3));
+        job.Interruptions.ShouldBe(2);
+        job.Start(Created.AddMinutes(4));
+        job.ReportProgress(completed: 1, total: 10, Created.AddMinutes(5));
+        job.Advanced.ShouldBeFalse("Progress alone is not stored work.");
+        job.RecordStoredWork(Created.AddMinutes(5));
+
+        job.Interrupt(limit: 3, Created.AddMinutes(6)).ShouldBeTrue();
+
+        job.Interruptions.ShouldBe(0);
+    }
+
+    private static void Rule(Action action, string code)
+    {
+        Should.Throw<BackgroundJobRuleException>(action).Code.ShouldBe(code);
+    }
+
     private static BackgroundJob Queued(UserId? owner = null)
     {
         return BackgroundJob.Queue(BackgroundJobId.New(), Kind, owner ?? UserId.New(), Created);

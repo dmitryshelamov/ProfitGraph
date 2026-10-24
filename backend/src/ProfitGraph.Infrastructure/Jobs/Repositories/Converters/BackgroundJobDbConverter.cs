@@ -18,7 +18,10 @@ internal static class BackgroundJobDbConverter
             row.CreatedAt,
             row.StartedAt,
             row.FinishedAt,
-            row.UpdatedAt);
+            row.UpdatedAt,
+            row.PauseRequested,
+            row.Interruptions,
+            row.Advanced);
     }
 
     public static BackgroundJobDb ToDb(this BackgroundJob job, string request, string? result, string? failure)
@@ -35,6 +38,9 @@ internal static class BackgroundJobDbConverter
             Completed = job.Progress.Completed,
             Total = job.Progress.Total,
             CancelRequested = job.CancelRequested,
+            PauseRequested = job.PauseRequested,
+            Interruptions = job.Interruptions,
+            Advanced = job.Advanced,
             CreatedAt = job.CreatedAt,
             StartedAt = job.StartedAt,
             FinishedAt = job.FinishedAt,

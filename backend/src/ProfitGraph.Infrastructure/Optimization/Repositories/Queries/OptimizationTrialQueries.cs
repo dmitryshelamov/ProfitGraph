@@ -16,14 +16,14 @@ internal static class OptimizationTrialQueries
         ON CONFLICT (optimization_id, sequence) DO NOTHING;
         """;
 
-    public const string Page =
+    private const string Columns =
         """
-        SELECT optimization_id AS OptimizationId, sequence AS Sequence, trial_index AS TrialIndex, parameters::text AS Parameters, status AS Status,
-            failure_code AS FailureCode, objective AS Objective, return_percent AS ReturnPercent, total_pnl AS TotalPnl,
-            max_drawdown_percent AS MaxDrawdownPercent, executions AS Executions, elapsed_ms AS ElapsedMs
-        FROM optimization_trials
-        WHERE optimization_id = @OptimizationId AND sequence > @After
-        ORDER BY sequence
-        LIMIT @Take;
+        optimization_id AS OptimizationId, sequence AS Sequence, trial_index AS TrialIndex, parameters::text AS Parameters, status AS Status,
+        failure_code AS FailureCode, objective AS Objective, return_percent AS ReturnPercent, total_pnl AS TotalPnl,
+        max_drawdown_percent AS MaxDrawdownPercent, executions AS Executions, elapsed_ms AS ElapsedMs
         """;
+
+    public const string Page = $"SELECT {Columns} FROM optimization_trials WHERE optimization_id = @OptimizationId AND sequence > @After ORDER BY sequence LIMIT @Take;";
+
+    public const string All = $"SELECT {Columns} FROM optimization_trials WHERE optimization_id = @OptimizationId ORDER BY sequence;";
 }

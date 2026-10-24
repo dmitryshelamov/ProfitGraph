@@ -6,7 +6,8 @@ using ProfitGraph.Domain.MarketData;
 namespace ProfitGraph.Application.Backtesting.History;
 
 /// <summary>
-///     Captures the instrument rules and prepares the history of a frozen configuration, with job progress.
+///     Captures the instrument rules and prepares the history of a frozen configuration, with job progress; work that
+///     resumes prepares the history again against the rules it already captured.
 /// </summary>
 public sealed class BacktestHistoryLoader(InstrumentRulesCaptureService rules, HistoryPreparationService history)
 {
@@ -14,14 +15,7 @@ public sealed class BacktestHistoryLoader(InstrumentRulesCaptureService rules, H
     {
         CandleSeries series = configuration.Series;
         InstrumentRulesSnapshotInternal captured = await rules.Capture(series.Venue, series.Symbol, cancellationToken);
-        PreparedHistory prepared = await history.Prepare(
-            series,
-            configuration.From,
-            configuration.To,
-            configuration.WarmupCandles,
-            configuration.ObservedAt,
-            reportProgress: true,
-            cancellationToken);
+        PreparedHistory prepared = await Prepare(configuration, cancellationToken);
         InstrumentRulesDefinitionInternal definition = captured.Definition;
         var info = new BacktestHistoryInfo(
             prepared.Identity,
@@ -36,5 +30,17 @@ public sealed class BacktestHistoryLoader(InstrumentRulesCaptureService rules, H
             definition.Rules);
 
         return new LoadedBacktestHistory(prepared, definition, info);
+    }
+
+    public Task<PreparedHistory> Prepare(BacktestConfiguration configuration, CancellationToken cancellationToken)
+    {
+        return history.Prepare(
+            configuration.Series,
+            configuration.From,
+            configuration.To,
+            configuration.WarmupCandles,
+            configuration.ObservedAt,
+            reportProgress: true,
+            cancellationToken);
     }
 }
