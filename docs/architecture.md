@@ -115,8 +115,9 @@ Venues.Bybit/
   Work that a record describes, such as a backtest run, is queued under the record's identifier. See
   [ADR 0011](adr/0011-background-jobs.md).
 - **Backtest execution.** The engine replays on its own thread and reports facts to `BacktestReplaySession`, which
-  commits them in bounded batches, each in its own transaction, while the replay waits on a full channel. See
-  [ADR 0012](adr/0012-backtest-runs.md).
+  commits them in bounded batches, each in its own transaction, while the replay waits on a full channel. Each commit
+  sends `NOTIFY backtest_progress`; the API listens and pushes committed observations to `/ws/backtests` (SignalR),
+  and clients fill gaps over HTTP. See [ADR 0012](adr/0012-backtest-runs.md).
 - **Persistence.** PostgreSQL with Dapper and FluentMigrator. Repositories load and save aggregates; they contain no
   business rules and use the scoped connection and the active transaction from `PostgresTransactionAccessor`.
   The API applies migrations on startup when `Postgres:RunMigrationsOnStartup` is set (Development) and supports

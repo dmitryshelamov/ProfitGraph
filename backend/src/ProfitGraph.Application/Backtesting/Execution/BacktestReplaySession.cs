@@ -30,6 +30,8 @@ public sealed class BacktestReplaySession : IBacktestObserver
     private MetricsAccumulator _metrics;
     private long _ledgerThrough;
     private long _diagnosticThrough;
+    private long _candleLedgerFrom;
+    private long _candleDiagnosticFrom;
     private int _executions;
     private bool _completed;
 
@@ -183,7 +185,9 @@ public sealed class BacktestReplaySession : IBacktestObserver
             {
                 _metrics = _metrics.Advance(candle, _executions);
                 _executions = 0;
-                candles.Add(new BacktestCandleObservation(candle, _ledgerThrough, _diagnosticThrough));
+                candles.Add(new BacktestCandleObservation(candle, _candleLedgerFrom, _ledgerThrough, _candleDiagnosticFrom, _diagnosticThrough));
+                _candleLedgerFrom = _ledgerThrough;
+                _candleDiagnosticFrom = _diagnosticThrough;
             }
         }
 

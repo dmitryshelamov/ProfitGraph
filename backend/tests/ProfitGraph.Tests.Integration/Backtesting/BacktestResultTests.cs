@@ -1,0 +1,258 @@
+using System.Globalization;
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json.Nodes;
+
+using Dapper;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+
+using Npgsql;
+
+using ProfitGraph.Application.Backtesting;
+using ProfitGraph.Tests.Integration.Common;
+using ProfitGraph.Tests.Integration.Jobs;
+using ProfitGraph.Tests.Integration.MarketData;
+
+namespace ProfitGraph.Tests.Integration.Backtesting;
+
+/// <summary>
+///     Reads of runs and their facts (ADR 0012): details, bounded pages, the chart, lists, the ranking and ownership.
+/// </summary>
+[NonParallelizable]
+public sealed class BacktestResultTests
+{
+    private static readonly Dictionary<string, string?> CompactAtOnce = new Dictionary<string, string?>
+    {
+        ["Backtests:CompactAfter"] = "00:00:00",
+        ["Backtests:CompactionInterval"] = "00:00:00.050"
+    };
+
+    private static readonly Dictionary<string, string?> CompactNever = new Dictionary<string, string?> { ["Backtests:CompactAfter"] = "1.00:00:00" };
+    private ProfitGraphApiFactory _application = null!;
+    private HttpClient _client = null!;
+    private Guid _userId;
+    private string _symbol = string.Empty;
+
+    [SetUp]
+    public async Task StartApi()
+    {
+        _application = new ProfitGraphApiFactory();
+        _client = await _application.CreateSignedInClient();
+        _userId = await JobScenario.UserId(_client);
+        _symbol = BacktestScenario.NewSymbol();
+    }
+
+    [TearDown]
+    public async Task StopApi()
+    {
+        _client.Dispose();
+        await _application.DisposeAsync();
+    }
+
+    [Test]
+    public async Task CompletedRunHasDetailsFactPagesAndAChart()
+    {
+        Guid id = await CompletedRun(BacktestScenario.Request(await BacktestScenario.CreateStrategy(_application, _userId), _symbol));
+        await Compact(id);
+
+        JsonNode run = await Get($"/api/backtests/{id}");
+        run["status"]!.GetValue<string>().ShouldBe("Completed");
+        run["stage"]!.GetValue<string>().ShouldBe("replaying");
+        run["configuration"]!["parameters"]!["buyAmount"]!.GetValue<string>().ShouldBe("50");
+        run["configuration"]!["outOfSampleFraction"]!.GetValue<string>().ShouldBe("0.25");
+        run["history"]!["replayCount"]!.GetValue<int>().ShouldBe(240);
+        run["history"]!["quoteAsset"]!.GetValue<string>().ShouldBe("USDT");
+        run["history"]!["rules"]!["priceTick"]!.GetValue<string>().ShouldBe("0.01");
+        run["result"]!["outcome"]!.GetValue<string>().ShouldBe("completed");
+        run["result"]!["metrics"]!["full"]!["observedCandles"]!.GetValue<int>().ShouldBe(240);
+        run["result"]!["metrics"]!["outOfSample"]!["observedCandles"]!.GetValue<int>().ShouldBe(60);
+        run["chartBucketSize"]!.GetValue<int>().ShouldBe(1);
+        run["candleCount"]!.GetValue<long>().ShouldBe(240);
+
+        JsonNode[] fills = await ReadAll($"/api/backtests/{id}/fills", limit: 7);
+        fills.Length.ShouldBe((int)await Scalar<long>("SELECT count(*) FROM backtest_ledger WHERE run_id = @id AND kind = 'Filled'", new { id }));
+        fills.Length.ShouldBeGreaterThan(0);
+        fills.ShouldAllBe(fill => fill["kind"]!.GetValue<string>() == "Filled" && fill["fill"] != null);
+        fills.Select(fill => fill["sequence"]!.GetValue<long>()).ShouldBeInOrder(SortDirection.Ascending);
+        JsonNode[] orders = await ReadAll($"/api/backtests/{id}/orders", limit: 5);
+        orders.Select(order => order["order"]!["id"]!.GetValue<long>()).ShouldBeUnique();
+        orders.Length.ShouldBe((int)await Scalar<long>("SELECT count(DISTINCT order_id) FROM backtest_ledger WHERE run_id = @id", new { id }));
+        (await ReadAll($"/api/backtests/{id}/diagnostics", limit: 3)).Length.ShouldBe((int)run["diagnosticCount"]!.GetValue<long>());
+
+        JsonNode chart = await Get($"/api/backtests/{id}/chart");
+        JsonArray points = chart["points"]!.AsArray();
+        chart["bucketSize"]!.GetValue<int>().ShouldBe(1);
+        points.Count.ShouldBe(240);
+        points.Sum(point => point!["buyFills"]!.GetValue<int>() + point["sellFills"]!.GetValue<int>()).ShouldBe(fills.Length);
+        JsonNode observations = await Get($"/api/backtests/{id}/observations");
+        observations["items"]!.AsArray().Select(item => item!["sequence"]!.GetValue<long>()).ShouldBe([240L]);
+    }
+
+    [Test]
+    public async Task EveryObservationCarriesItsOwnFacts_AndTheLiveChartEqualsTheCompactedOne()
+    {
+        Guid id = await CompletedRun(BacktestScenario.Request(await BacktestScenario.CreateStrategy(_application, _userId), _symbol));
+
+        JsonNode[] observations = await ReadAll($"/api/backtests/{id}/observations", limit: 50);
+        observations.Select(item => item["sequence"]!.GetValue<long>()).ShouldBe(Enumerable.Range(start: 1, count: 240).Select(index => (long)index));
+        long[] ledger = [.. observations.SelectMany(item => item["ledger"]!.AsArray()).Select(entry => entry!["sequence"]!.GetValue<long>())];
+        ledger.ShouldNotBeEmpty();
+        ledger.ShouldBe(Enumerable.Range(start: 1, ledger.Length).Select(index => (long)index));
+        observations.SelectMany(item => item["diagnostics"]!.AsArray())
+            .Select(diagnostic => diagnostic!["sequence"]!.GetValue<long>())
+            .ShouldBeInOrder(SortDirection.Ascending);
+        (await Get($"/api/backtests/{id}"))["chartBucketSize"].ShouldBeNull();
+        JsonNode live = await Get($"/api/backtests/{id}/chart");
+
+        await Compact(id);
+
+        (await Get($"/api/backtests/{id}/chart")).ToJsonString().ShouldBe(live.ToJsonString());
+        (await Get($"/api/backtests/{id}/observations"))["items"]!.AsArray().Count.ShouldBe(1);
+    }
+
+    [Test]
+    public async Task ReadsOfAnotherUsersRunAreMissing()
+    {
+        Guid strategyId = await BacktestScenario.CreateStrategy(_application, _userId);
+        Guid id = await BacktestScenario.Start(_client, BacktestScenario.Request(strategyId, _symbol));
+        using HttpClient other = await _application.CreateSignedInClient();
+
+        foreach (string path in new[] { "", "/observations", "/orders", "/fills", "/diagnostics", "/chart" })
+        {
+            foreach (Guid run in new[] { id, Guid.NewGuid() })
+            {
+                HttpResponseMessage response = await other.GetAsync($"/api/backtests/{run}{path}");
+                response.StatusCode.ShouldBe(HttpStatusCode.NotFound, path);
+                (await response.Content.ReadFromJsonAsync<JsonNode>())!["code"]!.GetValue<string>().ShouldBe(BacktestErrorCodes.RunNotFound);
+            }
+        }
+
+        HttpResponseMessage list = await other.GetAsync($"/api/strategies/{strategyId}/backtests");
+        list.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await other.GetFromJsonAsync<JsonNode>("/api/backtests?quote=USDT"))!["items"]!.AsArray().ShouldBeEmpty();
+    }
+
+    [Test]
+    public async Task StrategyRunsAreNewestFirst_TheListShowsTheLatest_AndTheRankingSortsByReturn()
+    {
+        Guid strategyId = await BacktestScenario.CreateStrategy(_application, _userId);
+        Guid small = await CompletedRun(BacktestScenario.Request(strategyId, _symbol));
+        Guid large = await CompletedRun(BacktestScenario.Request(strategyId, _symbol, parameters: new Dictionary<string, string> { ["buyAmount"] = "300" }));
+
+        JsonNode first = await Get($"/api/strategies/{strategyId}/backtests?limit=1");
+        JsonNode second = await Get($"/api/strategies/{strategyId}/backtests?limit=1&after={first["next"]!.GetValue<Guid>()}");
+        first["items"]![0]!["id"]!.GetValue<Guid>().ShouldBe(large);
+        second["items"]![0]!["id"]!.GetValue<Guid>().ShouldBe(small);
+        second["next"].ShouldBeNull();
+        JsonNode latest = (await _client.GetFromJsonAsync<JsonArray>("/api/strategies"))!.Single(item => item!["id"]!.GetValue<Guid>() == strategyId)!["latestRun"]!;
+        latest["id"]!.GetValue<Guid>().ShouldBe(large);
+        latest["status"]!.GetValue<string>().ShouldBe("Completed");
+
+        JsonNode[] ranking = await ReadAllRuns($"/api/backtests?quote=USDT&symbol={_symbol}&timeframe=1h", limit: 1);
+        ranking.Select(item => item["id"]!.GetValue<Guid>()).ShouldBe([small, large], ignoreOrder: true);
+        ranking.Select(item => decimal.Parse(item["returnPercent"]!.GetValue<string>(), CultureInfo.InvariantCulture)).ShouldBeInOrder(SortDirection.Descending);
+        (await Get($"/api/backtests?quote=USDT&symbol={_symbol}&timeframe=4h"))["items"]!.AsArray().ShouldBeEmpty();
+    }
+
+    [TestCase("/api/backtests?quote=usdt", "invalid_quote")]
+    [TestCase("/api/backtests?quote=USDT&timeframe=7m", "unsupported_timeframe")]
+    [TestCase("/api/backtests?quote=USDT&limit=101", "InclusiveBetweenValidator")]
+    [TestCase("/api/backtests/{id}/fills?limit=0", "InclusiveBetweenValidator")]
+    [TestCase("/api/backtests/{id}/observations?limit=101", "InclusiveBetweenValidator")]
+    [TestCase("/api/backtests/{id}/orders?after=-1", "GreaterThanOrEqualValidator")]
+    public async Task InvalidReadsAreRejected(string path, string code)
+    {
+        Guid id = await BacktestScenario.Start(_client, BacktestScenario.Request(await BacktestScenario.CreateStrategy(_application, _userId), _symbol));
+
+        HttpResponseMessage response = await _client.GetAsync(path.Replace("{id}", id.ToString(), StringComparison.Ordinal));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadFromJsonAsync<JsonNode>())!["errors"]!.AsArray().Select(error => error!["code"]!.GetValue<string>()).ShouldContain(code);
+    }
+
+    /// <summary>
+    ///     Starts a Worker that compacts finished runs at once and waits until it compacted the run.
+    /// </summary>
+    private async Task Compact(Guid id)
+    {
+        using IHost compactor = WorkerHost.Create(settings: CompactAtOnce);
+        await compactor.StartAsync();
+        DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(15);
+
+        while ((await Get($"/api/backtests/{id}"))["chartBucketSize"] is null)
+        {
+            DateTimeOffset.UtcNow.ShouldBeLessThan(deadline, "The run was not compacted.");
+            await Task.Delay(millisecondsDelay: 25);
+        }
+
+        await compactor.StopAsync();
+    }
+
+    private async Task<Guid> CompletedRun(object request)
+    {
+        using IHost worker = WorkerHost.Create(settings: CompactNever);
+        var history = worker.Services.GetRequiredService<FakeHistorySource>();
+        history.Reset();
+        history.Candles = BacktestScenario.Wave;
+        await worker.StartAsync();
+        Guid id = await BacktestScenario.Start(_client, request);
+        JsonNode job = await JobScenario.WaitFor(_client, id, BacktestScenario.Finished);
+        await worker.StopAsync();
+        job["status"]!.GetValue<string>().ShouldBe("Completed", job.ToJsonString());
+
+        return id;
+    }
+
+    private async Task<JsonNode> Get(string path)
+    {
+        HttpResponseMessage response = await _client.GetAsync(path);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+
+        return (await response.Content.ReadFromJsonAsync<JsonNode>())!;
+    }
+
+    private async Task<JsonNode[]> ReadAll(string path, int limit)
+    {
+        var items = new List<JsonNode>();
+        long? after = 0;
+
+        while (after is not null)
+        {
+            JsonNode page = await Get($"{path}?after={after}&limit={limit}");
+            JsonArray batch = page["items"]!.AsArray();
+            batch.Count.ShouldBeLessThanOrEqualTo(limit);
+            items.AddRange(batch.Select(item => item!));
+            after = page["next"]?.GetValue<long>();
+        }
+
+        return [.. items];
+    }
+
+    private async Task<JsonNode[]> ReadAllRuns(string path, int limit)
+    {
+        var items = new List<JsonNode>();
+        var cursor = string.Empty;
+
+        while (true)
+        {
+            JsonNode page = await Get($"{path}&limit={limit}{cursor}");
+            items.AddRange(page["items"]!.AsArray().Select(item => item!));
+
+            if (page["next"] is not { } next)
+            {
+                return [.. items];
+            }
+
+            cursor = $"&after={next.GetValue<Guid>()}";
+        }
+    }
+
+    private async Task<T> Scalar<T>(string sql, object parameters)
+    {
+        using IServiceScope scope = _application.Services.CreateScope();
+
+        return await scope.ServiceProvider.GetRequiredService<NpgsqlConnection>().QuerySingleAsync<T>(sql, parameters);
+    }
+}

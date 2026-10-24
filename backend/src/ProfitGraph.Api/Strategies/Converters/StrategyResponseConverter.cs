@@ -1,3 +1,4 @@
+using ProfitGraph.Api.Backtesting.Converters;
 using ProfitGraph.Api.Strategies.Contracts;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Strategies.Contracts;
@@ -38,7 +39,13 @@ internal static class StrategyResponseConverter
 
     public static StrategySummaryResponse ToResponse(this StrategySummaryInternal strategy)
     {
-        return new StrategySummaryResponse(strategy.Id, strategy.Name, strategy.CurrentVersion, strategy.UpdatedAt, strategy.TemplateKind?.ToString());
+        return new StrategySummaryResponse(
+            strategy.Id,
+            strategy.Name,
+            strategy.CurrentVersion,
+            strategy.UpdatedAt,
+            strategy.TemplateKind?.ToString(),
+            strategy.LatestRun?.ToResponse());
     }
 
     public static StrategyVersionResponse ToResponse(this StrategyVersionInternal version)

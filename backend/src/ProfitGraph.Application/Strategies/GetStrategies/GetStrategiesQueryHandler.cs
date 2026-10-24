@@ -1,18 +1,22 @@
 using MediatR;
 
+using ProfitGraph.Application.Backtesting.Contracts;
+using ProfitGraph.Application.Backtesting.Ports;
 using ProfitGraph.Application.Strategies.Contracts;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Strategies;
 
 namespace ProfitGraph.Application.Strategies.GetStrategies;
 
-internal sealed class GetStrategiesQueryHandler(IStrategyRepository repository) : IRequestHandler<GetStrategiesQuery, IReadOnlyList<StrategySummaryInternal>>
+internal sealed class GetStrategiesQueryHandler(IStrategyRepository repository, IBacktestReader backtests)
+    : IRequestHandler<GetStrategiesQuery, IReadOnlyList<StrategySummaryInternal>>
 {
     private const int Limit = 500;
 
     public async Task<IReadOnlyList<StrategySummaryInternal>> Handle(GetStrategiesQuery request, CancellationToken cancellationToken)
     {
         IReadOnlyList<StrategySummary> strategies = await repository.List(new UserId(request.UserId), Limit, cancellationToken);
+        IReadOnlyDictionary<Guid, BacktestSummaryInternal> latest = await backtests.Latest([.. strategies.Select(strategy => strategy.Id.Value)], cancellationToken);
 
         return
         [
@@ -21,7 +25,8 @@ internal sealed class GetStrategiesQueryHandler(IStrategyRepository repository) 
                 strategy.Name.Value,
                 strategy.CurrentVersion.Value,
                 strategy.UpdatedAt,
-                strategy.TemplateKind))
+                strategy.TemplateKind,
+                latest.GetValueOrDefault(strategy.Id.Value)))
         ];
     }
 }

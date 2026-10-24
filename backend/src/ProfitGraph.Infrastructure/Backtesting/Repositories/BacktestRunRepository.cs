@@ -3,6 +3,7 @@ using Dapper;
 using Npgsql;
 
 using ProfitGraph.Domain.Backtesting;
+using ProfitGraph.Engine.Replay;
 using ProfitGraph.Infrastructure.Backtesting.Repositories.Contracts;
 using ProfitGraph.Infrastructure.Backtesting.Repositories.Converters;
 using ProfitGraph.Infrastructure.Backtesting.Repositories.Queries;
@@ -58,7 +59,10 @@ internal sealed class BacktestRunRepository(NpgsqlConnection connection, Postgre
             result?.TotalPnl,
             result?.FailureCode,
             result?.FailureMessage,
-            Metrics = result?.Metrics is { } metrics ? BacktestJsonSerializer.Serialize(metrics) : null
+            Metrics = result?.Metrics is { } metrics ? BacktestJsonSerializer.Serialize(metrics) : null,
+
+            // Only completed runs are ranked; a cancelled or failed run covers part of its period.
+            ReturnPercent = result is { Outcome: BacktestOutcome.Completed } ? result.Metrics?.Full.ReturnPercent : null
         };
 
         if (await connection.ExecuteAsync(new CommandDefinition(BacktestRunQueries.Save, parameters, Transaction(), cancellationToken: cancellationToken)) != 1)
