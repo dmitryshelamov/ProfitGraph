@@ -8,7 +8,7 @@ using ProfitGraph.Domain.Optimization;
 
 namespace ProfitGraph.Application.Optimization.GetOptimizationRun;
 
-internal sealed class GetOptimizationRunQueryHandler(IOptimizationReader reader, IOptimizationRunRepository optimizations)
+internal sealed class GetOptimizationRunQueryHandler(IOptimizationReader reader, IOptimizationRunRepository optimizations, IOptimizationWindowStore windows)
     : IRequestHandler<GetOptimizationRunQuery, OptimizationRunInternal>
 {
     public async Task<OptimizationRunInternal> Handle(GetOptimizationRunQuery request, CancellationToken cancellationToken)
@@ -17,6 +17,6 @@ internal sealed class GetOptimizationRunQueryHandler(IOptimizationReader reader,
         OptimizationRun optimization = await optimizations.Get(id, cancellationToken)
             ?? throw new ResourceNotFoundException("The optimization does not exist.", OptimizationErrorCodes.NotFound);
 
-        return optimization.ToInternal(await reader.State(id, cancellationToken));
+        return optimization.ToInternal(await reader.State(id, cancellationToken), await windows.ReadSummary(id, cancellationToken));
     }
 }

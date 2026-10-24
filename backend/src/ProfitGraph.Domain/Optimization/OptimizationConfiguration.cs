@@ -6,7 +6,8 @@ namespace ProfitGraph.Domain.Optimization;
 /// <summary>
 ///     Everything an optimization freezes when it starts (stage 4 plan, S4-2): the backtest it searches around, with the
 ///     fixed parameter values and the fingerprint of the graph compiled with its ranges, the ranges by parameter name and
-///     how the search is run. A parameter is either fixed or ranged, never both.
+///     how the search is run. A parameter is either fixed or ranged, never both. With walk-forward settings each window
+///     searches its train range with the whole budget (ADR 0014).
 /// </summary>
 public sealed record OptimizationConfiguration
 {
@@ -20,6 +21,12 @@ public sealed record OptimizationConfiguration
     public int Budget { get; }
     public ulong Seed { get; }
     public int FinalistCount { get; }
+    public WalkForwardSettings? WalkForward { get; }
+
+    /// <summary>
+    ///     The most trials the optimization executes: the budget, once per walk-forward window.
+    /// </summary>
+    public int TrialCapacity => Budget * (WalkForward?.Windows ?? 1);
 
     public OptimizationConfiguration(
         BacktestConfiguration backtest,
@@ -29,7 +36,8 @@ public sealed record OptimizationConfiguration
         OptimizationConstraints constraints,
         int budget,
         ulong seed,
-        int finalistCount)
+        int finalistCount,
+        WalkForwardSettings? walkForward = null)
     {
         Backtest = backtest ?? throw new ArgumentNullException(nameof(backtest));
         Constraints = constraints ?? throw new ArgumentNullException(nameof(constraints));
@@ -49,12 +57,18 @@ public sealed record OptimizationConfiguration
             throw Invalid($"The budget must be 1 to {OptimizationSearchSpace.MaximumBudget} trials and the finalists 0 to {MaximumFinalists}.");
         }
 
+        if (walkForward is not null && ((long)walkForward.Windows * budget > OptimizationSearchSpace.MaximumBudget || finalistCount > 1))
+        {
+            throw Invalid($"A walk-forward search runs at most {OptimizationSearchSpace.MaximumBudget} trials over all windows and starts at most its last winner.");
+        }
+
         Ranges = new SortedDictionary<string, DecimalOptimizeParamValue>(ranges.ToDictionary(), StringComparer.Ordinal).AsReadOnly();
         Method = method;
         Objective = objective;
         Budget = budget;
         Seed = seed;
         FinalistCount = finalistCount;
+        WalkForward = walkForward;
     }
 
     private static OptimizationRuleException Invalid(string message)

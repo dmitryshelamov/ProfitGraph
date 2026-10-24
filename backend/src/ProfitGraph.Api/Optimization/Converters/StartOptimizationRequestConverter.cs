@@ -8,6 +8,7 @@ using ProfitGraph.Application.Backtesting.StartBacktest;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Optimization.Contracts;
 using ProfitGraph.Application.Optimization.StartOptimization;
+using ProfitGraph.Domain.Optimization;
 
 namespace ProfitGraph.Api.Optimization.Converters;
 
@@ -77,7 +78,13 @@ public static class StartOptimizationRequestConverter
             seed,
             request.FinalistCount,
             request.MinExecutions,
-            maxDrawdown);
+            maxDrawdown,
+            request.WalkForward is { } walkForward
+                ? new WalkForwardSettingsInternal(
+                    walkForward.Windows ?? WalkForwardSettings.DefaultWindows,
+                    walkForward.TrainToTestRatio ?? WalkForwardSettings.DefaultTrainToTestRatio,
+                    walkForward.Scheme ?? "rolling")
+                : null);
     }
 
     private static decimal? Number(string? value, string field, List<InputError> errors)

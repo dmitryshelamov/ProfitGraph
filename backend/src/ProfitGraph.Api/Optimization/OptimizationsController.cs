@@ -9,8 +9,10 @@ using ProfitGraph.Api.Jobs.Converters;
 using ProfitGraph.Api.Optimization.Contracts;
 using ProfitGraph.Api.Optimization.Converters;
 using ProfitGraph.Application.Jobs.Contracts;
+using ProfitGraph.Application.Optimization.Contracts;
 using ProfitGraph.Application.Optimization.GetOptimizationRun;
 using ProfitGraph.Application.Optimization.GetOptimizationTrials;
+using ProfitGraph.Application.Optimization.GetOptimizationWindows;
 using ProfitGraph.Application.Optimization.GetStrategyOptimizations;
 using ProfitGraph.Application.Optimization.PauseOptimization;
 using ProfitGraph.Application.Optimization.ResumeOptimization;
@@ -70,6 +72,18 @@ public sealed class OptimizationsController(ISender sender) : ControllerBase
     public async Task<ActionResult<OptimizationRunResponse>> Get(Guid id, CancellationToken cancellationToken)
     {
         return (await sender.Send(new GetOptimizationRunQuery(UserId(), id), cancellationToken)).ToResponse();
+    }
+
+    /// <summary>
+    ///     The finished walk-forward windows, in order: ranges, winner, train and test metrics, efficiency and bounded test
+    ///     equity.
+    /// </summary>
+    [HttpGet("{id:guid}/windows")]
+    public async Task<ActionResult<IReadOnlyList<OptimizationWindowResponse>>> Windows(Guid id, CancellationToken cancellationToken)
+    {
+        OptimizationWindowsInternal windows = await sender.Send(new GetOptimizationWindowsQuery(UserId(), id), cancellationToken);
+
+        return windows.Windows.Select(window => window.ToResponse()).ToArray();
     }
 
     /// <summary>

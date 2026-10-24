@@ -30,6 +30,10 @@ internal sealed class StartOptimizationCommandValidator : AbstractValidator<Star
             .InclusiveBetween(from: 0, OptimizationConfiguration.MaximumFinalists)
             .When(command => command.FinalistCount is not null);
         RuleFor(command => command.MinExecutions).GreaterThanOrEqualTo(0).When(command => command.MinExecutions is not null);
+        RuleFor(command => command.WalkForward!.Scheme)
+            .Must(scheme => scheme is "rolling" or "anchored")
+            .When(command => command.WalkForward is not null)
+            .WithMessage("Use rolling or anchored.");
         RuleFor(command => command.MaxDrawdownPercent).InclusiveBetween(from: 0m, to: 100m).When(command => command.MaxDrawdownPercent is not null);
     }
 }

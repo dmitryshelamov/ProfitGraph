@@ -18,6 +18,7 @@ internal sealed class OptimizationTrialDb
     public long Executions { get; init; }
     public long ElapsedMs { get; init; }
     public int Stage { get; init; }
+    public int WindowIndex { get; init; }
     public int? NeighborsEvaluated { get; init; }
     public int? NeighborsEligible { get; init; }
     public decimal? NeighborhoodMean { get; init; }

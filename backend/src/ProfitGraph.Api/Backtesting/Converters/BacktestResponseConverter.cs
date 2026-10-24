@@ -30,7 +30,10 @@ public static class BacktestResponseConverter
                     result.FailureCode,
                     result.FailureMessage,
                     result.Metrics is { } metrics
-                        ? new BacktestMetricsResponse(Sample(metrics.Full), Sample(metrics.InSample), metrics.OutOfSample is { } holdout ? Sample(holdout) : null)
+                        ? new BacktestMetricsResponse(
+                            metrics.Full.ToResponse(),
+                            metrics.InSample.ToResponse(),
+                            metrics.OutOfSample is { } holdout ? holdout.ToResponse() : null)
                         : null)
                 : null,
             run.State.LedgerCount,
@@ -218,7 +221,7 @@ public static class BacktestResponseConverter
             rules.QuotePrecision);
     }
 
-    private static SampleMetricsResponse Sample(SampleMetrics sample)
+    public static SampleMetricsResponse ToResponse(this SampleMetrics sample)
     {
         return new SampleMetricsResponse(
             sample.StartIndex,

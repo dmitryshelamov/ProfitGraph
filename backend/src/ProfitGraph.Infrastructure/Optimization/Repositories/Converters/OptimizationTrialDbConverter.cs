@@ -21,6 +21,7 @@ internal static class OptimizationTrialDbConverter
             row.Executions,
             row.ElapsedMs,
             row.Stage,
-            row.NeighborsEvaluated is { } evaluated ? new OptimizationNeighborhoodInternal(evaluated, row.NeighborsEligible!.Value, row.NeighborhoodMean) : null);
+            row.NeighborsEvaluated is { } evaluated ? new OptimizationNeighborhoodInternal(evaluated, row.NeighborsEligible!.Value, row.NeighborhoodMean) : null,
+            row.WindowIndex);
     }
 }

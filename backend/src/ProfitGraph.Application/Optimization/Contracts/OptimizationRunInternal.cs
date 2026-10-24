@@ -1,4 +1,5 @@
 using ProfitGraph.Application.Backtesting.Contracts;
+using ProfitGraph.Domain.Optimization;
 
 namespace ProfitGraph.Application.Optimization.Contracts;
 
@@ -13,4 +14,5 @@ public sealed record OptimizationRunInternal(
     int? PlannedTrials,
     OptimizationCountersInternal Counters,
     OptimizationBestTrialInternal? Best,
-    OptimizationStateInternal State);
+    OptimizationStateInternal State,
+    WalkForwardSummary? WalkForwardSummary);

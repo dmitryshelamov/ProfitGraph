@@ -22,7 +22,10 @@ internal static class OptimizationConfigurationDbConverter
             Seed = configuration.Seed,
             FinalistCount = configuration.FinalistCount,
             MinExecutions = configuration.Constraints.MinExecutions,
-            MaxDrawdownPercent = configuration.Constraints.MaxDrawdownPercent
+            MaxDrawdownPercent = configuration.Constraints.MaxDrawdownPercent,
+            WalkForward = configuration.WalkForward is { } settings
+                ? new WalkForwardSettingsDb { Windows = settings.Windows, TrainToTestRatio = settings.TrainToTestRatio, Scheme = settings.Scheme }
+                : null
         };
     }
 
@@ -36,6 +39,7 @@ internal static class OptimizationConfigurationDbConverter
             new OptimizationConstraints(row.MinExecutions, row.MaxDrawdownPercent),
             row.Budget,
             row.Seed,
-            row.FinalistCount);
+            row.FinalistCount,
+            row.WalkForward is { } settings ? new WalkForwardSettings(settings.Windows, settings.TrainToTestRatio, settings.Scheme) : null);
     }
 }

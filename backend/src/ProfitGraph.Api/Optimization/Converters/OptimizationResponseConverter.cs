@@ -32,13 +32,17 @@ public static class OptimizationResponseConverter
                 configuration.Seed.ToString(CultureInfo.InvariantCulture),
                 configuration.FinalistCount,
                 configuration.MinExecutions,
-                Text(configuration.MaxDrawdownPercent)),
+                Text(configuration.MaxDrawdownPercent),
+                configuration.WalkForward is { } walkForward
+                    ? new WalkForwardSettingsResponse(walkForward.Windows, walkForward.TrainToTestRatio, walkForward.Scheme)
+                    : null),
             optimization.Stage,
             optimization.History?.ToResponse(),
             optimization.PlannedTrials,
             new OptimizationCountersResponse(counters.Completed, counters.RejectedByConstraint, counters.RejectedByTemplate, counters.Failed),
             optimization.Best is { } best ? new OptimizationBestTrialResponse(best.TrialIndex, Text(best.Objective)) : null,
-            optimization.State.Finalists);
+            optimization.State.Finalists,
+            optimization.WalkForwardSummary?.ToResponse());
     }
 
     public static OptimizationTrialPageResponse ToResponse(this OptimizationTrialPageInternal page)
@@ -61,6 +65,7 @@ public static class OptimizationResponseConverter
             trial.Executions,
             trial.ElapsedMs,
             trial.Stage,
+            trial.WindowIndex,
             trial.Neighborhood is { } neighborhood
                 ? new OptimizationNeighborhoodResponse(neighborhood.Evaluated, neighborhood.Eligible, Text(neighborhood.Mean))
                 : null);

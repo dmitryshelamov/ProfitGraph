@@ -15,4 +15,5 @@ public sealed record OptimizationRunResponse(
     int? PlannedTrials,
     OptimizationCountersResponse Counters,
     OptimizationBestTrialResponse? Best,
-    IReadOnlyList<Guid> Finalists);
+    IReadOnlyList<Guid> Finalists,
+    WalkForwardSummaryResponse? WalkForwardSummary);
