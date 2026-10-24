@@ -28,6 +28,13 @@ export function AppShell() {
           >
             Стратегии
           </Link>
+          <Link
+            to="/historical-data"
+            className="text-text-secondary hover:text-text"
+            activeProps={{ className: 'text-text', 'aria-current': 'page' }}
+          >
+            Исторические данные
+          </Link>
         </nav>
         {user && (
           <div className="ml-auto flex items-center gap-3 text-sm">

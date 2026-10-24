@@ -168,6 +168,11 @@ src/
   selection and undo/redo history live in a Zustand store; every change is an editor command, so undo restores exact
   drafts. Saving sends the version the draft started from; `strategy_changed` keeps the draft and offers to reload.
   The editor route is guarded like other screens but renders without the navigation shell.
+- **Background work.** `modules/jobs` follows a job by polling `/api/jobs/{id}` every second until it finishes and
+  offers cancellation; `JobProgress` shows any job. History downloads and run starts hand their job to it.
+- **Run setup.** `modules/backtests` keeps the form as typed text: percents become fractions and dates become UTC
+  midnight by string arithmetic (`shared/lib/decimal`), never through `number`, before the request is sent. A run
+  replays a saved version, so the editor offers it only without unsaved changes.
 - **API client.** `shared/api/client.ts` is the only HTTP client. Its types come from
   `shared/api/generated/schema.d.ts`, generated from the API's OpenAPI document with `npm run generate:api` and never
   edited by hand. Failures surface as `ApiError` built from Problem Details.
@@ -189,7 +194,7 @@ src/
   against a routing table that replaces `fetch` (`src/test/fakeApi.ts`); unrouted requests answer 404. These tests
   live under `src/app`, the only layer allowed to import the router.
 - End-to-end tests (`frontend/e2e`, Playwright) drive the real API and frontend against a disposable database on the
-  test PostgreSQL. The block catalog and template fixtures under `src/test` are captured from the ProfitGraph API;
+  test PostgreSQL, with no Worker and with Bybit pointed at a closed local port, so no test reaches the exchange. The block catalog and template fixtures under `src/test` are captured from the ProfitGraph API;
   refresh them when the catalog or templates change.
 - `OpenApiDocumentTests` keep the OpenAPI document exact (integers are `integer`, enums are names), because the
   frontend types are generated from it.

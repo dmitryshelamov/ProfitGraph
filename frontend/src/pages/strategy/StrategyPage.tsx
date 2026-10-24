@@ -65,13 +65,22 @@ export function StrategyPage() {
           </>
         }
         actions={
-          <Link
-            to="/strategies/$strategyId/edit"
-            params={{ strategyId }}
-            className={buttonClassName('primary')}
-          >
-            Открыть редактор
-          </Link>
+          <>
+            <Link
+              to="/strategies/$strategyId/backtest"
+              params={{ strategyId }}
+              className={buttonClassName()}
+            >
+              Запустить прогон
+            </Link>
+            <Link
+              to="/strategies/$strategyId/edit"
+              params={{ strategyId }}
+              className={buttonClassName('primary')}
+            >
+              Открыть редактор
+            </Link>
+          </>
         }
       />
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">

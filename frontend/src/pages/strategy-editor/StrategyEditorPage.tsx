@@ -244,6 +244,25 @@ export function StrategyEditorPage() {
                 ))}
               </div>
               <span className="board-divider" aria-hidden="true" />
+              {/* A run replays a saved version, so unsaved edits must be saved first. */}
+              {dirty ? (
+                <button
+                  type="button"
+                  disabled
+                  title="Сохраните изменения, чтобы запустить прогон"
+                  className="board-button"
+                >
+                  Прогон
+                </button>
+              ) : (
+                <Link
+                  to="/strategies/$strategyId/backtest"
+                  params={{ strategyId }}
+                  className="board-button"
+                >
+                  Прогон
+                </Link>
+              )}
               <button
                 type="button"
                 disabled={saving || reloading || !dirty || !name.trim() || conflict}
