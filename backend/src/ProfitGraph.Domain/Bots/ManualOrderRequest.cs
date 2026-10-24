@@ -1,0 +1,134 @@
+using ProfitGraph.Domain.Common;
+using ProfitGraph.Engine.Accounting;
+
+namespace ProfitGraph.Domain.Bots;
+
+/// <summary>
+///     An owner's market order for a running bot (Profit Fox Designer ADR 0091): a buy sized in quote, a sell in base. The
+///     runtime that holds the bot's lease resolves it as a root, in the same transaction as the checkpoint. A request not
+///     taken within <see cref="Lifetime" /> expires, so a stopped bot never trades it later.
+/// </summary>
+public sealed class ManualOrderRequest : AggregateRoot
+{
+    public const int MaxReasonLength = 64;
+
+    public static readonly TimeSpan Lifetime = TimeSpan.FromSeconds(60);
+
+    public ManualOrderRequestId Id { get; }
+    public BotId BotId { get; }
+    public OrderSide Side { get; }
+    public decimal Amount { get; }
+    public ManualOrderStatus Status { get; private set; }
+    public long? EngineOrderId { get; private set; }
+
+    /// <summary>
+    ///     A stable code, such as an engine rejection reason or <c>expired</c>.
+    /// </summary>
+    public string? RejectionReason { get; private set; }
+
+    public DateTimeOffset CreatedAt { get; }
+    public DateTimeOffset? ResolvedAt { get; private set; }
+
+    private ManualOrderRequest(ManualOrderRequestId id, BotId botId, OrderSide side, decimal amount, DateTimeOffset createdAt)
+    {
+        if (!Enum.IsDefined(side) || amount <= 0m)
+        {
+            throw new BotRuleException(BotRuleException.InvalidSettings, "A manual order needs a side and a positive amount.");
+        }
+
+        Id = id;
+        BotId = botId;
+        Side = side;
+        Amount = amount;
+        Status = ManualOrderStatus.Pending;
+        CreatedAt = createdAt;
+    }
+
+    public static ManualOrderRequest Create(ManualOrderRequestId id, BotId botId, OrderSide side, decimal amount, DateTimeOffset now)
+    {
+        return new ManualOrderRequest(id, botId, side, amount, now);
+    }
+
+    public static ManualOrderRequest Restore(
+        ManualOrderRequestId id,
+        BotId botId,
+        OrderSide side,
+        decimal amount,
+        ManualOrderStatus status,
+        long? engineOrderId,
+        string? rejectionReason,
+        DateTimeOffset createdAt,
+        DateTimeOffset? resolvedAt)
+    {
+        if (!Enum.IsDefined(status) || status == ManualOrderStatus.Pending != resolvedAt is null ||
+            status == ManualOrderStatus.Submitted != engineOrderId is not null)
+        {
+            throw new ArgumentException("Invalid stored manual order request.");
+        }
+
+        return new ManualOrderRequest(id, botId, side, amount, createdAt)
+        {
+            Status = status,
+            EngineOrderId = engineOrderId,
+            RejectionReason = rejectionReason,
+            ResolvedAt = resolvedAt
+        };
+    }
+
+    public bool IsExpired(DateTimeOffset now)
+    {
+        return Status == ManualOrderStatus.Pending && CreatedAt < now - Lifetime;
+    }
+
+    /// <summary>
+    ///     The engine accepted the order under <paramref name="engineOrderId" />; it now follows the normal intent path.
+    /// </summary>
+    public void MarkSubmitted(long engineOrderId, DateTimeOffset now)
+    {
+        if (engineOrderId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(engineOrderId), "An engine order identifier is positive.");
+        }
+
+        EnsurePending();
+        Status = ManualOrderStatus.Submitted;
+        EngineOrderId = engineOrderId;
+        ResolvedAt = now;
+    }
+
+    public void Reject(string reason, DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(reason) || reason.Length > MaxReasonLength)
+        {
+            throw new ArgumentException("A rejection needs a short reason code.", nameof(reason));
+        }
+
+        EnsurePending();
+        Status = ManualOrderStatus.Rejected;
+        RejectionReason = reason;
+        ResolvedAt = now;
+    }
+
+    /// <summary>
+    ///     Rejects the request as <c>expired</c> when nobody took it in time. Returns whether it expired.
+    /// </summary>
+    public bool Expire(DateTimeOffset now)
+    {
+        if (!IsExpired(now))
+        {
+            return false;
+        }
+
+        Reject("expired", now);
+
+        return true;
+    }
+
+    private void EnsurePending()
+    {
+        if (Status != ManualOrderStatus.Pending)
+        {
+            throw new BotRuleException(BotRuleException.ManualOrderResolved, "The manual order request is already resolved.");
+        }
+    }
+}
