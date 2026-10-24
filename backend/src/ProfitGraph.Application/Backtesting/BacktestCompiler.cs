@@ -2,6 +2,7 @@ using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Common.Ports;
 using ProfitGraph.Engine.Blocks;
 using ProfitGraph.Engine.Compilation;
+using ProfitGraph.Engine.Graphs;
 using ProfitGraph.Engine.Lowering;
 using ProfitGraph.Engine.Nodes;
 
@@ -13,10 +14,20 @@ namespace ProfitGraph.Application.Backtesting;
 /// </summary>
 public sealed class BacktestCompiler(INodeTypeRegistry registry)
 {
-    public CompiledTradingGraph Compile(StrategyDefinition definition, IReadOnlyDictionary<string, decimal> parameters)
+    /// <param name="definition">The saved strategy definition.</param>
+    /// <param name="parameters">Fixed parameter values by name that replace the saved defaults.</param>
+    /// <param name="ranges">
+    ///     Optimization ranges by parameter name; a parameter with a range is a search dimension instead of a fixed value
+    ///     (Profit Fox Designer ADR 0038: ranges belong to the request, never to the saved version).
+    /// </param>
+    public CompiledTradingGraph Compile(
+        StrategyDefinition definition,
+        IReadOnlyDictionary<string, decimal> parameters,
+        IReadOnlyDictionary<string, DecimalOptimizeParamValue>? ranges = null)
     {
         IReadOnlyList<INodeDefinition> catalog = registry.GetAll();
         StrategyDefinition applied = Apply(definition, parameters);
+        CheckRanges(definition, parameters, ranges);
         StrategyBlockValidationResult validation = new StrategyDefinitionValidator().Validate(applied, catalog);
 
         if (!validation.IsValid)
@@ -30,12 +41,36 @@ public sealed class BacktestCompiler(INodeTypeRegistry registry)
             ]);
         }
 
-        TradingGraphCompilationResult compilation = new TradingGraphCompiler().Compile(new StrategyDefinitionLowerer(catalog).Lower(applied).Graph, catalog);
+        TradingGraphCompilationResult compilation = new TradingGraphCompiler().Compile(new StrategyDefinitionLowerer(catalog).Lower(applied, ranges).Graph, catalog);
 
         return compilation.Graph ?? throw new ApplicationValidationException(
         [
             .. compilation.Validation.Diagnostics.Select(diagnostic => new InputError(BacktestErrorCodes.StrategyInvalid, "Strategy", diagnostic.Message))
         ]);
+    }
+
+    private static void CheckRanges(
+        StrategyDefinition definition,
+        IReadOnlyDictionary<string, decimal> parameters,
+        IReadOnlyDictionary<string, DecimalOptimizeParamValue>? ranges)
+    {
+        if (ranges is null)
+        {
+            return;
+        }
+
+        InputError[] errors =
+        [
+            .. ranges.Keys.Where(name => definition.Parameters.All(parameter => parameter.Name != name))
+                .Select(name => new InputError(BacktestErrorCodes.UnknownParameter, $"Ranges.{name}", "The strategy has no such parameter.")),
+            .. ranges.Keys.Where(parameters.ContainsKey)
+                .Select(name => new InputError(BacktestErrorCodes.ParameterFixedAndRanged, $"Ranges.{name}", "A parameter is either fixed or optimized, not both."))
+        ];
+
+        if (errors.Length > 0)
+        {
+            throw new ApplicationValidationException(errors);
+        }
     }
 
     private static StrategyDefinition Apply(StrategyDefinition definition, IReadOnlyDictionary<string, decimal> parameters)
