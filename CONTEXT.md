@@ -95,6 +95,12 @@ created them; templates are shared.
 A user with authority to create and block accounts. An account cannot block itself, and the last active Owner cannot
 be blocked. The first Owner is created from private startup configuration while no account exists.
 
+### Exchange Credential
+
+A user's API key and secret for one trading venue, stored encrypted per value and never shown again; only the final
+four characters of the key are visible. A credential belongs to its owner, and another user's credential is reported
+as missing. See [ADR 0015](docs/adr/0015-exchange-credentials.md).
+
 ### Composition Root
 
 A host project that wires the application together: `ProfitGraph.Api` for HTTP and `ProfitGraph.Worker` for the
