@@ -35,12 +35,12 @@ dotnet build backend/ProfitGraph.sln
 dotnet test backend/ProfitGraph.sln
 ```
 
-Integration tests that need PostgreSQL (from stage 2) run against the test database:
+Integration tests need the test PostgreSQL. Each run creates and drops its own database there, so the container may
+stay up between runs and be shared by parallel worktrees:
 
 ```bash
 docker compose -f docker-compose.test.yml up -d --wait
 dotnet test backend/ProfitGraph.sln
-docker compose -f docker-compose.test.yml down
 ```
 
 Frontend checks run in `frontend/` (Node `^22.22.2 || ^24.15.0 || >=26`; CI uses Node 24):

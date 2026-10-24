@@ -82,7 +82,11 @@ Venues.Bybit/
   transitions (alerts, feed entries, degradation) are domain events delivered through the outbox.
   See [ADR 0004](adr/0004-explicit-live-state-machines.md).
 - **Persistence.** PostgreSQL with Dapper and FluentMigrator. Repositories load and save aggregates; they contain no
-  business rules. See [ADR 0006](adr/0006-persistence-and-migrations.md).
+  business rules and use the scoped connection and the active transaction from `PostgresTransactionAccessor`.
+  The API applies migrations on startup when `Postgres:RunMigrationsOnStartup` is set (Development) and supports
+  `--migrate-only` for deployments. See [ADR 0006](adr/0006-persistence-and-migrations.md).
+- **Health.** `/api/health` is liveness and runs no dependency checks; `/api/health/ready` runs the checks tagged
+  `ready`, including PostgreSQL.
 - **HTTP errors.** Problem Details with a stable `code` and `traceId`; validation failures add `errors`.
 - **Logging.** Serilog JSON to the console. Never log secrets, credentials, signatures or authentication headers.
 
@@ -123,7 +127,9 @@ src/
 
 - Unit tests cover Engine, Domain and Application, including every aggregate state transition.
 - Integration tests cover HTTP, persistence and hosts against the disposable test PostgreSQL
-  (`docker-compose.test.yml`, port 5436).
+  (`docker-compose.test.yml`, port 5436). Each run creates its own database `profitgraph_test_<guid>` and drops it
+  afterwards (`Tests.Integration/Common/TestDatabase`), so concurrent runs from other worktrees or agents never share
+  state. `PROFITGRAPH_TEST_POSTGRES` overrides the server; development ports 5433 and 5435 are refused.
 - Shouldly for assertions, NUnit for attributes and lifecycle; await asynchronous exception assertions.
 - Live code is tested with mocked venue clients only.
 

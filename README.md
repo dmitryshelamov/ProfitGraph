@@ -45,7 +45,7 @@ npm run dev
 `npm run typecheck`, `npm test`, `npm run build`. Клиент API перегенерируется командой `npm run generate:api`
 при запущенном API.
 
-PostgreSQL для разработки и тестов (понадобится с этапа 2):
+PostgreSQL для разработки и тестов (интеграционные тесты создают и удаляют свою базу на тестовом сервере):
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d --wait

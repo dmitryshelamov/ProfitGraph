@@ -22,7 +22,7 @@ public static class Program
                 .WriteTo.Console(new JsonFormatter()),
             preserveStaticLogger: true);
         builder.Services.AddSingleton(TimeProvider.System);
-        builder.Services.AddProfitGraphInfrastructure();
+        builder.Services.AddProfitGraphInfrastructure(builder.Configuration);
 
         IHost host = builder.Build();
         host.Run();
