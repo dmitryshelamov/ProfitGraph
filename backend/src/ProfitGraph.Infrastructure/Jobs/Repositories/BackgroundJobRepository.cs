@@ -82,11 +82,12 @@ internal sealed class BackgroundJobRepository(
     }
 
     /// <summary>
-    ///     Locks the oldest queued job inside the caller's transaction, or returns null when the queue is empty.
+    ///     Locks the oldest queued job of the given kinds inside the caller's transaction, or returns null when none is queued.
     /// </summary>
-    internal async Task<(BackgroundJob Job, string Request)?> LockNextQueued(CancellationToken cancellationToken)
+    internal async Task<(BackgroundJob Job, string Request)?> LockNextQueued(IReadOnlyList<string> kinds, CancellationToken cancellationToken)
     {
-        var row = await connection.QuerySingleOrDefaultAsync<BackgroundJobDb>(Command(BackgroundJobQueries.LockNextQueued, parameters: null, cancellationToken));
+        var row = await connection.QuerySingleOrDefaultAsync<BackgroundJobDb>(
+            Command(BackgroundJobQueries.LockNextQueued, new { Kinds = kinds.ToArray() }, cancellationToken));
 
         return row is null ? null : (row.ToDomain(), row.Request);
     }
@@ -109,11 +110,16 @@ internal sealed class BackgroundJobRepository(
     }
 
     /// <summary>
-    ///     Fails running jobs left by a stopped Worker: every running job, or only the given one.
+    ///     Fails running jobs left by a stopped Worker: every running job of the given kinds, or only the given one.
     /// </summary>
-    internal Task<int> InterruptRunning(BackgroundJobFailureInternal failure, DateTimeOffset now, CancellationToken cancellationToken, BackgroundJobId? id = null)
+    internal Task<int> InterruptRunning(
+        BackgroundJobFailureInternal failure,
+        DateTimeOffset now,
+        CancellationToken cancellationToken,
+        BackgroundJobId? id = null,
+        IReadOnlyList<string>? kinds = null)
     {
-        var parameters = new { Failure = BackgroundJobPayloadSerializer.SerializeFailure(failure), Now = now, Id = id?.Value };
+        var parameters = new { Failure = BackgroundJobPayloadSerializer.SerializeFailure(failure), Now = now, Id = id?.Value, Kinds = kinds?.ToArray() };
 
         return connection.ExecuteAsync(Command(BackgroundJobQueries.InterruptRunning, parameters, cancellationToken));
     }

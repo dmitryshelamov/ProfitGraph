@@ -12,4 +12,6 @@ public sealed class OptimizationRuleException(string code, string message) : Dom
     public const string InvalidSearchSpace = "invalid_search_space";
     public const string InvalidBudget = "invalid_optimization_budget";
     public const string InvalidConstraints = "invalid_optimization_constraints";
+    public const string InvalidConfiguration = "invalid_optimization_configuration";
+    public const string InvalidTransition = "invalid_optimization_transition";
 }

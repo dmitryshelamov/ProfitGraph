@@ -22,7 +22,8 @@ internal sealed class BacktestRunRepository(NpgsqlConnection connection, Postgre
             StrategyId = run.StrategyId.Value,
             StrategyVersion = run.StrategyVersion.Value,
             run.CreatedAt,
-            Configuration = BacktestJsonSerializer.Serialize(run.Configuration.ToDb())
+            Configuration = BacktestJsonSerializer.Serialize(run.Configuration.ToDb()),
+            OptimizationId = run.OptimizationId?.Value
         };
 
         await connection.ExecuteAsync(new CommandDefinition(BacktestRunQueries.Add, parameters, Transaction(), cancellationToken: cancellationToken));

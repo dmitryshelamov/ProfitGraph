@@ -40,11 +40,11 @@ internal sealed class BackgroundJobRunner(
         new BackgroundJobFailureInternal(BackgroundJobErrorCodes.Unexpected, "An unexpected error occurred.");
 
     /// <summary>
-    ///     Runs one job and returns true, or returns false when the queue is empty.
+    ///     Runs one job of the given kinds and returns true, or returns false when none is queued.
     /// </summary>
-    internal async Task<bool> RunNext(CancellationToken stoppingToken)
+    internal async Task<bool> RunNext(IReadOnlyList<string> kinds, CancellationToken stoppingToken)
     {
-        (BackgroundJob Job, string Request)? claimed = await transactions.ExecuteAsync(Claim, stoppingToken);
+        (BackgroundJob Job, string Request)? claimed = await transactions.ExecuteAsync(() => Claim(kinds), stoppingToken);
 
         if (claimed is null)
         {
@@ -59,9 +59,9 @@ internal sealed class BackgroundJobRunner(
         return true;
     }
 
-    private async Task<(BackgroundJob Job, string Request)?> Claim()
+    private async Task<(BackgroundJob Job, string Request)?> Claim(IReadOnlyList<string> kinds)
     {
-        (BackgroundJob Job, string Request)? next = await repository.LockNextQueued(CancellationToken.None);
+        (BackgroundJob Job, string Request)? next = await repository.LockNextQueued(kinds, CancellationToken.None);
 
         if (next is null)
         {

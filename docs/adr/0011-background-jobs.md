@@ -44,3 +44,10 @@ not the process that runs the job. Jobs also gain an owner, like strategies.
 
 - The Worker is required for jobs to run; the dev stack and end-to-end tests start it next to the API.
 - Pause and resume (Profit Fox Designer ADR 0044) return with optimization in stage 4.
+
+## Amendment: Worker lanes (stage 4.3)
+
+- **Lanes.** Each kind of work is registered with a lane. The Worker runs one job at a time in each lane: `main`
+  (downloads, backtests) and `optimization` (optimizations, stage 4 plan S4-10), so a long search never
+  delays a backtest. A lane claims only its own kinds, and on startup fails only its own interrupted jobs. Both lanes
+  share the process's CPU; `Optimization:MaxWorkers` bounds the trials an optimization replays at once.

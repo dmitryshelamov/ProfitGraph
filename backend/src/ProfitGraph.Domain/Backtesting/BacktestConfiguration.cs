@@ -80,6 +80,38 @@ public sealed record BacktestConfiguration
         return To is { } to && to < LatestClosed ? to : LatestClosed;
     }
 
+    /// <summary>
+    ///     Checks that prepared history covers this frozen period with no more warm-up than the strategy demands.
+    /// </summary>
+    public void CheckHistory(BacktestHistoryInfo history)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        Timeframe timeframe = Series.Timeframe;
+        long step = timeframe.Duration.Ticks;
+
+        if (string.IsNullOrWhiteSpace(history.Identity) || history.Rules is null ||
+            string.IsNullOrWhiteSpace(history.BaseAsset) || string.IsNullOrWhiteSpace(history.QuoteAsset) || history.BaseAsset == history.QuoteAsset)
+        {
+            throw new BacktestRunRuleException(BacktestRunRuleException.InvalidHistory, "History needs an identity and the captured rules of a pair of two assets.");
+        }
+
+        if ((From is { } from && history.From != from) || history.To != ResolveTo() ||
+            history.HistoryFrom.Offset != TimeSpan.Zero || history.From.Offset != TimeSpan.Zero || history.To.Offset != TimeSpan.Zero ||
+            !timeframe.IsAligned(history.HistoryFrom) || !timeframe.IsAligned(history.From) || history.HistoryFrom > history.From || history.From >= history.To)
+        {
+            throw new BacktestRunRuleException(BacktestRunRuleException.InvalidHistory, "History must cover the frozen period on the timeframe grid.");
+        }
+
+        if (history.WarmupCount < 0 || history.WarmupCount > WarmupCandles ||
+            (history.From.UtcTicks - history.HistoryFrom.UtcTicks) / step != history.WarmupCount ||
+            (history.To.UtcTicks - history.From.UtcTicks) / step != history.ReplayCount)
+        {
+            throw new BacktestRunRuleException(
+                BacktestRunRuleException.InvalidHistory,
+                "Warm-up and replay counts must match the attached ranges and the strategy's demand.");
+        }
+    }
+
     private static bool IsInvalidBound(DateTimeOffset? bound, Timeframe timeframe)
     {
         return bound is { } value && (value.Offset != TimeSpan.Zero || value < DateTimeOffset.UnixEpoch || !timeframe.IsAligned(value));

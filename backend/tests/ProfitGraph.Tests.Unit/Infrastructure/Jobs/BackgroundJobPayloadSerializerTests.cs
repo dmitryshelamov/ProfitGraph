@@ -8,7 +8,8 @@ namespace ProfitGraph.Tests.Unit.Infrastructure.Jobs;
 public sealed class BackgroundJobPayloadSerializerTests
 {
     private readonly BackgroundJobPayloadSerializer _serializer =
-        new BackgroundJobPayloadSerializer([new BackgroundJobRegistration(TestWorkRequest.Kind, typeof(TestWorkRequest), typeof(TestWorkResult))]);
+        new BackgroundJobPayloadSerializer(
+            [new BackgroundJobRegistration(TestWorkRequest.Kind, typeof(TestWorkRequest), typeof(TestWorkResult), BackgroundJobLanes.Main)]);
 
     [Test]
     public void RoundTripsRequestsResultsAndFailures()
@@ -41,7 +42,7 @@ public sealed class BackgroundJobPayloadSerializerTests
     [Test]
     public void AKindIsRegisteredOnce()
     {
-        var registration = new BackgroundJobRegistration(TestWorkRequest.Kind, typeof(TestWorkRequest), typeof(TestWorkResult));
+        var registration = new BackgroundJobRegistration(TestWorkRequest.Kind, typeof(TestWorkRequest), typeof(TestWorkResult), BackgroundJobLanes.Main);
 
         Should.Throw<InvalidOperationException>(() => new BackgroundJobPayloadSerializer([registration, registration]));
     }
