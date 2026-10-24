@@ -17,4 +17,8 @@ internal sealed class OptimizationTrialDb
     public decimal? MaxDrawdownPercent { get; init; }
     public long Executions { get; init; }
     public long ElapsedMs { get; init; }
+    public int Stage { get; init; }
+    public int? NeighborsEvaluated { get; init; }
+    public int? NeighborsEligible { get; init; }
+    public decimal? NeighborhoodMean { get; init; }
 }

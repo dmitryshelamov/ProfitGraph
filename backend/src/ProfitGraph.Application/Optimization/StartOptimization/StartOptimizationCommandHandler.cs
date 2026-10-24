@@ -58,6 +58,19 @@ internal sealed class StartOptimizationCommandHandler(
             throw Invalid("Budget", $"The grid has {space.GridSize} candidates, more than the budget; use auto or random.");
         }
 
+        bool coarseApplicable = OptimizationCoarseToFinePlan.TryCreate(space, budget, out _);
+        bool tpeApplicable = OptimizationTpePlan.TryCreate(space, budget, out _);
+
+        if (method == "coarse_to_fine" && !coarseApplicable)
+        {
+            throw Invalid("Method", "Coarse-to-fine search needs a coarse grid of at least two candidates within a third of the budget.");
+        }
+
+        if (method == "tpe" && !tpeApplicable)
+        {
+            throw Invalid("Method", "TPE search needs a grid larger than the budget and a budget of at least 50.");
+        }
+
         OptimizationConstraints constraints = Rule(
             () => new OptimizationConstraints(request.MinExecutions ?? 1, request.MaxDrawdownPercent ?? 50m),
             "MaxDrawdownPercent");
@@ -67,7 +80,9 @@ internal sealed class StartOptimizationCommandHandler(
             frozen,
             ranges,
             method == OptimizationNames.Auto
-                ? space.GridSize <= budget ? OptimizationSearchMethod.Grid : OptimizationSearchMethod.Random
+                ? space.GridSize <= budget ? OptimizationSearchMethod.Grid :
+                coarseApplicable ? OptimizationSearchMethod.CoarseToFine :
+                tpeApplicable ? OptimizationSearchMethod.Tpe : OptimizationSearchMethod.Random
                 : OptimizationNames.ParseMethod(method),
             request.Objective is { } objective ? OptimizationNames.ParseObjective(objective) : OptimizationObjective.InSampleReturnPercent,
             constraints,

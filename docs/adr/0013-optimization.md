@@ -115,3 +115,24 @@ walk-forward). This ADR records the search core; later stage 4 pull requests ame
   ranking, the best trial and finalist selection, and new trials continue the delivery sequence. A finalist already
   started with the same values is not started again. For identical frozen inputs the stored trials, counters, best
   trial and finalists equal those of an uninterrupted search; elapsed times may differ.
+
+## Amendment: coarse-to-fine and TPE (stage 4.6)
+
+- **Methods.** Two more methods are ported bit for bit from Profit Fox Designer (ADR 0033), with the archive's
+  vectors pinned in unit tests:
+  - `coarse_to_fine` searches a coarse grid of at most a third of the budget (stage 1). It then refines the unvisited
+    neighbors of its best three completed trials (stage 2), nearest first, within the remaining budget and at most
+    1 000 000 candidates. Refinement starts only after the receiver accepted the whole first stage.
+  - `tpe` (version one) runs a seeded random startup, then batches of 16 to 64 candidates. Each batch is guided by the
+    best tenth (at most 25) of the trials the receiver accepted, with a model frozen per batch and seeds derived per
+    batch (`OptimizationSeeds`, the archive's walk-forward seeds). It needs a grid larger than the budget and a budget
+    of at least 50.
+- **Choice.** `auto` enumerates a grid within the budget; a larger one is searched coarse-to-fine when that applies,
+  else by TPE, else by random sampling. A requested method that does not apply is `invalid_optimization` on
+  `Method`.
+- **Plan.** A coarse-to-fine search plans for its refinement's upper bound and corrects the plan once stage 2 is
+  known, so planned trials may decrease within the budget.
+- **Storage.** Every trial stores the stage that proposed it. After the search, each evaluated trial stores its
+  neighborhood score: how many grid neighbors were evaluated, how many had an objective, and their mean (radius one,
+  or the coarse multipliers for coarse-to-fine). Resume checks the stored stage as well, and both methods continue
+  from stored trials exactly like grid and random search.

@@ -44,7 +44,7 @@ public sealed class OptimizationRunTests
         Rule(() => optimization.BeginLoadingHistory());
         optimization.AttachHistory(History());
         optimization.PlanTrials(plannedTrials: 1);
-        Rule(() => optimization.PlanTrials(plannedTrials: 1));
+        Rule(() => optimization.PlanTrials(plannedTrials: 11));
         Rule(() => optimization.RecordTrials([Trial(index: 0, OptimizationTrialStatus.Failed), Trial(index: 1, OptimizationTrialStatus.Failed)], best: null));
         Rule(() => optimization.RecordTrials([Trial(index: 0, OptimizationTrialStatus.Failed)], Best(index: 0)));
         optimization.RecordTrials([Trial(index: 0, OptimizationTrialStatus.Completed)], Best(index: 0));

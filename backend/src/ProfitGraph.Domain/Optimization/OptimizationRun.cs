@@ -132,15 +132,17 @@ public sealed class OptimizationRun : AggregateRoot
     }
 
     /// <summary>
-    ///     Fixes how many trials the search executes; known once the candidates are filtered by the template rules.
+    ///     Sets how many trials the search executes, known once candidates are filtered by the template rules. A
+    ///     coarse-to-fine search plans for its refinement's upper bound first and knows the exact number after its first
+    ///     stage.
     /// </summary>
     public void PlanTrials(int plannedTrials)
     {
         EnsureSearching();
 
-        if (PlannedTrials is not null || plannedTrials < 0 || plannedTrials > Configuration.Budget || plannedTrials < Counters.Executed)
+        if (plannedTrials < 0 || plannedTrials > Configuration.Budget || plannedTrials < Counters.Executed)
         {
-            throw Transition("The planned trials are fixed once, within the budget and not below the executed trials.");
+            throw Transition("The planned trials are within the budget and not below the executed trials.");
         }
 
         PlannedTrials = plannedTrials;

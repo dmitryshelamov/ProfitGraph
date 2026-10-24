@@ -9,7 +9,7 @@ public static class OptimizationNames
 {
     public const string Auto = "auto";
 
-    public static IReadOnlyList<string> Methods { get; } = ["auto", "grid", "random"];
+    public static IReadOnlyList<string> Methods { get; } = ["auto", "grid", "random", "coarse_to_fine", "tpe"];
 
     public static IReadOnlyList<string> Objectives { get; } = ["in_sample_return_percent", "in_sample_total_pnl", "in_sample_return_to_drawdown"];
 
@@ -19,6 +19,8 @@ public static class OptimizationNames
         {
             OptimizationSearchMethod.Grid => "grid",
             OptimizationSearchMethod.Random => "random",
+            OptimizationSearchMethod.CoarseToFine => "coarse_to_fine",
+            OptimizationSearchMethod.Tpe => "tpe",
             _ => throw new ArgumentOutOfRangeException(nameof(method))
         };
     }
@@ -29,6 +31,8 @@ public static class OptimizationNames
         {
             "grid" => OptimizationSearchMethod.Grid,
             "random" => OptimizationSearchMethod.Random,
+            "coarse_to_fine" => OptimizationSearchMethod.CoarseToFine,
+            "tpe" => OptimizationSearchMethod.Tpe,
             _ => throw new ArgumentOutOfRangeException(nameof(method))
         };
     }

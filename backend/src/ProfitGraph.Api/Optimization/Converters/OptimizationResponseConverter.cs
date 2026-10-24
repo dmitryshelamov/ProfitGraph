@@ -59,7 +59,11 @@ public static class OptimizationResponseConverter
             Text(trial.TotalPnl),
             Text(trial.MaxDrawdownPercent),
             trial.Executions,
-            trial.ElapsedMs);
+            trial.ElapsedMs,
+            trial.Stage,
+            trial.Neighborhood is { } neighborhood
+                ? new OptimizationNeighborhoodResponse(neighborhood.Evaluated, neighborhood.Eligible, Text(neighborhood.Mean))
+                : null);
     }
 
     public static OptimizationSummaryPageResponse ToResponse(this OptimizationSummaryPageInternal page)

@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Numerics;
 using System.Threading.Channels;
 
 using ProfitGraph.Application.Optimization.Contracts;
@@ -11,7 +13,9 @@ namespace ProfitGraph.Application.Optimization.Execution;
 /// <summary>
 ///     Runs isolated metrics-only trials on the in-sample slice and drains completed results through one bounded, serial
 ///     receiver. The ranking does not depend on the worker count or the order in which trials finish. Trials stored by an
-///     earlier attempt are restored instead of replayed, so a resumed search ends exactly as an uninterrupted one.
+///     earlier attempt are restored instead of replayed, so a resumed search ends exactly as an uninterrupted one. A
+///     coarse-to-fine search refines after its whole first stage is received; TPE guides each batch by the trials the
+///     receiver accepted (Profit Fox Designer ADR 0033).
 /// </summary>
 public sealed class OptimizationTrialRunner
 {
@@ -44,14 +48,28 @@ public sealed class OptimizationTrialRunner
         Func<ValueTask>? idleFlush = null,
         IReadOnlyList<OptimizationTrialInternal>? persistedTrials = null)
     {
-        if (input.Budget is < 1 or > OptimizationSearchSpace.MaximumBudget || !Enum.IsDefined(input.Objective) ||
-            input.Method is not (OptimizationSearchMethod.Grid or OptimizationSearchMethod.Random))
+        if (input.Budget is < 1 or > OptimizationSearchSpace.MaximumBudget || !Enum.IsDefined(input.Objective) || !Enum.IsDefined(input.Method))
         {
             throw new ArgumentOutOfRangeException(nameof(input), "Budget must be within the supported limit and the objective and method must be supported.");
         }
 
+        OptimizationCoarseToFinePlan? coarsePlan = null;
+
+        if (input.Method == OptimizationSearchMethod.CoarseToFine && !OptimizationCoarseToFinePlan.TryCreate(input.SearchSpace, input.Budget, out coarsePlan))
+        {
+            throw new OptimizationException(OptimizationErrorCodes.MethodNotApplicable, "Coarse-to-fine search is not applicable to this search space and budget.");
+        }
+
+        OptimizationTpePlan? tpePlan = null;
+
+        if (input.Method == OptimizationSearchMethod.Tpe && !OptimizationTpePlan.TryCreate(input.SearchSpace, input.Budget, out tpePlan))
+        {
+            throw new OptimizationException(OptimizationErrorCodes.MethodNotApplicable, "TPE search is not applicable to this search space and budget.");
+        }
+
         PreparedReplay history = input.History.Slice(input.InSampleBars);
         OptimizationConstraints constraints = input.Constraints ?? new OptimizationConstraints();
+        Dictionary<int, OptimizationTrialInternal> persisted = (persistedTrials ?? []).ToDictionary(trial => trial.TrialIndex);
         var results = new List<OptimizationTrialResult>();
         var channel = Channel.CreateBounded<OptimizationTrialResult>(
             new BoundedChannelOptions(_options.ChannelCapacity)
@@ -61,11 +79,15 @@ public sealed class OptimizationTrialRunner
                 FullMode = BoundedChannelFullMode.Wait
             });
         using var workersCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        Dictionary<int, OptimizationTrialInternal> persisted = (persistedTrials ?? []).ToDictionary(trial => trial.TrialIndex);
         var total = 0;
         int rejectedByTemplate = persisted.Values.Count(trial => trial.Status == OptimizationNames.TrialStatus(OptimizationTrialStatus.RejectedByTemplate));
         int completed = persisted.Count - rejectedByTemplate;
         var progressStarted = false;
+        int reportedTotal = -1;
+        var stageOneReceived = 0;
+        var stageOneExpected = 0;
+        var stageOneDrained = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var tpeReceived = new SemaphoreSlim(initialCount: 0);
         Task producer = ProduceAsync();
 
         try
@@ -81,6 +103,16 @@ public sealed class OptimizationTrialRunner
 
                 results.Add(result);
 
+                if (tpePlan is not null)
+                {
+                    tpeReceived.Release();
+                }
+
+                if (coarsePlan is not null && result.Trial.Stage == 1 && ++stageOneReceived == stageOneExpected)
+                {
+                    stageOneDrained.TrySetResult();
+                }
+
                 if (result.Status == OptimizationTrialStatus.RejectedByTemplate)
                 {
                     rejectedByTemplate += restored ? 0 : 1;
@@ -91,23 +123,24 @@ public sealed class OptimizationTrialRunner
                 // Rejections stream while candidates are filtered, so progress starts once the planned total is known.
                 if (!progressStarted)
                 {
-                    progress?.Report(new OptimizationProgressInternal(completed, total));
+                    Report();
                     progressStarted = true;
                 }
 
                 completed += restored ? 0 : 1;
-                progress?.Report(new OptimizationProgressInternal(completed, total));
+                Report();
             }
 
             await producer;
 
-            if (!progressStarted)
+            if (!progressStarted || reportedTotal != total)
             {
-                progress?.Report(new OptimizationProgressInternal(completed, total));
+                Report();
             }
         }
         catch
         {
+            stageOneDrained.TrySetCanceled();
             await workersCancellation.CancelAsync();
             channel.Writer.TryComplete();
 
@@ -123,26 +156,66 @@ public sealed class OptimizationTrialRunner
             throw;
         }
 
-        return new OptimizationRunResultInternal(OptimizationRanking.Rank(results), completed, total, rejectedByTemplate, cancellationToken.IsCancellationRequested);
+        bool cancelled = cancellationToken.IsCancellationRequested;
+        IReadOnlyDictionary<int, OptimizationNeighborhoodScore> scores = cancelled
+            ? new Dictionary<int, OptimizationNeighborhoodScore>()
+            : OptimizationNeighborhoodScores.Calculate(input.SearchSpace, results, coarsePlan?.Multipliers);
+
+        return new OptimizationRunResultInternal(OptimizationRanking.Rank(results), completed, total, rejectedByTemplate, cancelled, scores);
+
+        void Report()
+        {
+            progress?.Report(new OptimizationProgressInternal(completed, Math.Max(completed, total)));
+            reportedTotal = total;
+        }
 
         async Task ProduceAsync()
         {
             try
             {
-                List<OptimizationTrial> runnable = await FilterAsync(
-                    input.SearchSpace.EnumerateCandidates(input.Budget, input.Seed, input.Method == OptimizationSearchMethod.Random),
-                    input.Budget);
-
-                if (runnable.Count < input.Budget && input.SearchSpace.GridSize > input.SearchSpace.CandidateLimit(input.Budget))
+                if (tpePlan is not null)
                 {
-                    throw new OptimizationException(
-                        OptimizationErrorCodes.CandidateLimitExceeded,
-                        $"Examined {input.SearchSpace.CandidateLimit(input.Budget)} candidates without finding {input.Budget} template-valid trials. " +
-                        "Narrow the parameter ranges or reduce the requested budget.");
+                    await RunTpeAsync(tpePlan);
+                }
+                else if (coarsePlan is null)
+                {
+                    List<OptimizationTrial> runnable = await FilterAsync(
+                        input.SearchSpace.EnumerateCandidates(input.Budget, input.Seed, input.Method == OptimizationSearchMethod.Random),
+                        input.Budget);
+
+                    if (runnable.Count < input.Budget && input.SearchSpace.GridSize > input.SearchSpace.CandidateLimit(input.Budget))
+                    {
+                        throw CandidateLimitExceeded(input.SearchSpace.CandidateLimit(input.Budget), input.Budget);
+                    }
+
+                    total = runnable.Count;
+                    await RunWorkersAsync(runnable, resultsSink: null);
+                }
+                else
+                {
+                    OptimizationTrial[] stageOneCandidates = [.. coarsePlan.StageOneCandidates()];
+                    var visited = new HashSet<BigInteger>(stageOneCandidates.Select(trial => trial.GridIndex));
+                    var stageOneResults = new ConcurrentBag<OptimizationTrialResult>();
+                    stageOneExpected = stageOneCandidates.Length;
+                    List<OptimizationTrial> stageOneRunnable = await FilterAsync(stageOneCandidates, input.Budget);
+                    total = checked(stageOneRunnable.Count + Math.Min(input.Budget - stageOneRunnable.Count, coarsePlan.RefineCandidateUpperBound));
+
+                    if (stageOneExpected == 0)
+                    {
+                        stageOneDrained.TrySetResult();
+                    }
+
+                    await RunWorkersAsync(stageOneRunnable, stageOneResults);
+
+                    // Refinement starts from the whole first stage as the receiver accepted it, restored trials included.
+                    await stageOneDrained.Task.WaitAsync(workersCancellation.Token);
+                    workersCancellation.Token.ThrowIfCancellationRequested();
+                    IReadOnlyList<OptimizationTrial> stageTwoCandidates = coarsePlan.StageTwoCandidates(stageOneResults, visited, stageOneCandidates.Length);
+                    List<OptimizationTrial> stageTwoRunnable = await FilterAsync(stageTwoCandidates, input.Budget - stageOneRunnable.Count);
+                    total = checked(stageOneRunnable.Count + stageTwoRunnable.Count);
+                    await RunWorkersAsync(stageTwoRunnable, resultsSink: null);
                 }
 
-                total = runnable.Count;
-                await RunWorkersAsync(runnable);
                 channel.Writer.TryComplete();
             }
             catch (OperationCanceledException) when (workersCancellation.IsCancellationRequested)
@@ -157,9 +230,77 @@ public sealed class OptimizationTrialRunner
             }
         }
 
+        async Task RunTpeAsync(OptimizationTpePlan plan)
+        {
+            total = input.Budget;
+            var visited = new HashSet<BigInteger>();
+            var nextIndex = 0;
+            var evaluated = 0;
+            int candidateLimit = input.SearchSpace.CandidateLimit(input.Budget);
+            var batchIndex = 0;
+            IEnumerable<OptimizationTrial> candidates = plan.StartupCandidates(input.Seed);
+            int batchLimit = plan.StartupCount;
+
+            while (evaluated < input.Budget)
+            {
+                workersCancellation.Token.ThrowIfCancellationRequested();
+                int previousIndex = nextIndex;
+                List<OptimizationTrial> runnable = await FilterAsync(TrackCandidates(candidates), batchLimit);
+                await RunWorkersAsync(runnable, resultsSink: null);
+
+                // The model sees only results accepted by the serial receiver, including restored trials.
+                for (int received = previousIndex; received < nextIndex; received++)
+                {
+                    await tpeReceived.WaitAsync(workersCancellation.Token);
+                }
+
+                workersCancellation.Token.ThrowIfCancellationRequested();
+                evaluated += runnable.Count;
+
+                if (evaluated < input.Budget && nextIndex >= candidateLimit && input.SearchSpace.GridSize > candidateLimit)
+                {
+                    throw CandidateLimitExceeded(candidateLimit, input.Budget);
+                }
+
+                if (runnable.Count < batchLimit)
+                {
+                    break;
+                }
+
+                batchLimit = Math.Min(plan.BatchSize, input.Budget - evaluated);
+                candidates = plan.GuidedCandidates(results, visited, batchIndex++, nextIndex, input.Seed);
+            }
+
+            if (persisted.Keys.Any(index => index >= nextIndex))
+            {
+                throw new OptimizationException(OptimizationErrorCodes.PersistedTrialMismatch, "A stored trial does not match the frozen search candidate at its index.");
+            }
+
+            IEnumerable<OptimizationTrial> TrackCandidates(IEnumerable<OptimizationTrial> source)
+            {
+                foreach (OptimizationTrial trial in source)
+                {
+                    if (nextIndex >= candidateLimit)
+                    {
+                        yield break;
+                    }
+
+                    visited.Add(trial.GridIndex);
+                    nextIndex = checked(trial.Index + 1);
+
+                    yield return trial;
+                }
+            }
+        }
+
         async Task<List<OptimizationTrial>> FilterAsync(IEnumerable<OptimizationTrial> candidates, int limit)
         {
             var runnable = new List<OptimizationTrial>();
+
+            if (limit == 0)
+            {
+                return runnable;
+            }
 
             foreach (OptimizationTrial trial in candidates)
             {
@@ -187,7 +328,7 @@ public sealed class OptimizationTrialRunner
             return runnable;
         }
 
-        async Task RunWorkersAsync(IReadOnlyList<OptimizationTrial> runnable)
+        async Task RunWorkersAsync(IReadOnlyList<OptimizationTrial> runnable, ConcurrentBag<OptimizationTrialResult>? resultsSink)
         {
             await Parallel.ForEachAsync(
                 runnable,
@@ -196,9 +337,9 @@ public sealed class OptimizationTrialRunner
                 {
                     if (persisted.TryGetValue(trial.Index, out OptimizationTrialInternal? stored))
                     {
-                        await channel.Writer.WriteAsync(
-                            OptimizationTrialRestoring.Restore(trial, stored, input.InSampleBars, rejectedByTemplate: false),
-                            CancellationToken.None);
+                        OptimizationTrialResult restored = OptimizationTrialRestoring.Restore(trial, stored, input.InSampleBars, rejectedByTemplate: false);
+                        await channel.Writer.WriteAsync(restored, CancellationToken.None);
+                        resultsSink?.Add(restored);
 
                         return;
                     }
@@ -232,7 +373,15 @@ public sealed class OptimizationTrialRunner
 
                     // Accepted results survive user cancellation and backpressure until the receiver drains them.
                     await channel.Writer.WriteAsync(result, CancellationToken.None);
+                    resultsSink?.Add(result);
                 });
         }
+    }
+
+    private static OptimizationException CandidateLimitExceeded(int limit, int budget)
+    {
+        return new OptimizationException(
+            OptimizationErrorCodes.CandidateLimitExceeded,
+            $"Examined {limit} candidates without finding {budget} template-valid trials. Narrow the parameter ranges or reduce the requested budget.");
     }
 }

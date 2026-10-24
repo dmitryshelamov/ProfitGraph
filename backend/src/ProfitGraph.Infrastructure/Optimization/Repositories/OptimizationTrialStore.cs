@@ -27,6 +27,7 @@ internal sealed class OptimizationTrialStore(NpgsqlConnection connection, Postgr
             {
                 ["sequence"] = trial.Sequence,
                 ["trial_index"] = trial.TrialIndex,
+                ["stage"] = trial.Stage,
                 ["parameters"] = trial.Parameters,
                 ["status"] = trial.Status,
                 ["failure_code"] = trial.FailureCode,
@@ -40,6 +41,30 @@ internal sealed class OptimizationTrialStore(NpgsqlConnection connection, Postgr
         NpgsqlTransaction transaction = transactions.Current ?? throw new InvalidOperationException("Trials are written inside a transaction.");
         await connection.ExecuteAsync(
             new CommandDefinition(OptimizationTrialQueries.Write, new { OptimizationId = id.Value, Trials = rows }, transaction, cancellationToken: cancellationToken));
+    }
+
+    public async Task WriteScores(OptimizationId id, IReadOnlyDictionary<int, OptimizationNeighborhoodScore> scores, CancellationToken cancellationToken)
+    {
+        if (scores.Count == 0)
+        {
+            return;
+        }
+
+        string rows = BacktestJsonSerializer.Serialize(
+            scores.Select(pair => new Dictionary<string, object?>
+            {
+                ["trial_index"] = pair.Key,
+                ["evaluated"] = pair.Value.Evaluated,
+                ["eligible"] = pair.Value.Eligible,
+                ["mean"] = pair.Value.Mean
+            }));
+        NpgsqlTransaction transaction = transactions.Current ?? throw new InvalidOperationException("Scores are written inside a transaction.");
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                OptimizationTrialQueries.WriteScores,
+                new { OptimizationId = id.Value, Scores = rows },
+                transaction,
+                cancellationToken: cancellationToken));
     }
 
     public async Task<IReadOnlyList<OptimizationTrialInternal>> ReadAll(OptimizationId id, CancellationToken cancellationToken)
