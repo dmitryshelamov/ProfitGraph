@@ -15,7 +15,7 @@ public sealed class VenuesEndpointTests
 
         var venues = (await client.GetFromJsonAsync<JsonArray>("/api/market-data/venues"))!;
 
-        JsonNode venue = venues.Single()!;
+        JsonNode venue = venues.Single(item => item!["id"]!.GetValue<string>() == "bybit")!;
         venue["id"]!.GetValue<string>().ShouldBe("bybit");
         venue["name"]!.GetValue<string>().ShouldBe("Bybit");
         venue["timeframes"]!.AsArray().Select(item => item!.GetValue<string>()).ShouldContain("1h");

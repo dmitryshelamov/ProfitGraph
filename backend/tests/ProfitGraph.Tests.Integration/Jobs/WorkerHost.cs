@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 
 using ProfitGraph.Infrastructure;
 using ProfitGraph.Infrastructure.Jobs;
+using ProfitGraph.Tests.Integration.MarketData;
 
 namespace ProfitGraph.Tests.Integration.Jobs;
 
@@ -28,6 +29,7 @@ public static class WorkerHost
         builder.Services.AddProfitGraphInfrastructure(builder.Configuration);
         builder.Services.AddBackgroundJobRunner();
         builder.Services.AddTestJob();
+        builder.Services.AddTestHistory();
 
         return builder.Build();
     }

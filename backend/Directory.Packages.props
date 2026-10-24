@@ -15,6 +15,10 @@
         <PackageVersion Include="Npgsql" Version="10.0.3" />
         <PackageVersion Include="Dapper" Version="2.1.79" />
         <PackageVersion Include="CsvHelper" Version="33.1.0" />
+        <PackageVersion Include="CryptoClients.Net" Version="5.9.0" />
+        <PackageVersion Include="Polly.Core" Version="8.4.2" />
+        <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.10" />
+        <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.10" />
         <PackageVersion Include="FluentMigrator.Runner" Version="8.0.1" />
         <PackageVersion Include="FluentMigrator.Extensions.Postgres" Version="8.0.1" />
         <PackageVersion Include="FluentValidation" Version="12.1.1" />

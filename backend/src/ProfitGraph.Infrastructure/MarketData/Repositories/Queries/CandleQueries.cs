@@ -26,6 +26,19 @@ internal static class CandleQueries
               (EXCLUDED.open, EXCLUDED.high, EXCLUDED.low, EXCLUDED.close, EXCLUDED.volume);
         """;
 
+    /// <summary>
+    ///     Adds only missing candles; stored values and their source stay as they are.
+    /// </summary>
+    public const string Append =
+        """
+        INSERT INTO candles (venue, symbol, timeframe, open_time, open, high, low, close, volume, source, imported_at)
+        SELECT @Venue, @Symbol, @Timeframe, open_time, open, high, low, close, volume, @Source, @ImportedAt
+        FROM unnest(@OpenTimes::timestamptz[], @Opens::numeric[], @Highs::numeric[], @Lows::numeric[], @Closes::numeric[], @Volumes::numeric[])
+            AS incoming(open_time, open, high, low, close, volume)
+        ORDER BY open_time
+        ON CONFLICT (venue, symbol, timeframe, open_time) DO NOTHING;
+        """;
+
     public const string Get =
         """
         SELECT open_time AS OpenTime, open AS Open, high AS High, low AS Low, close AS Close, volume AS Volume

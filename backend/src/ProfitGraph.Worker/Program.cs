@@ -1,5 +1,6 @@
 using ProfitGraph.Infrastructure;
 using ProfitGraph.Infrastructure.Jobs;
+using ProfitGraph.Venues.Bybit;
 
 using Serilog;
 using Serilog.Formatting.Json;
@@ -25,6 +26,7 @@ public static class Program
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddProfitGraphInfrastructure(builder.Configuration);
         builder.Services.AddBackgroundJobRunner();
+        builder.Services.AddBybitVenue(builder.Configuration);
 
         IHost host = builder.Build();
         host.Run();

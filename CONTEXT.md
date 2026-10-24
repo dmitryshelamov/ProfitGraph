@@ -39,6 +39,11 @@ error, never a default. See [ADR 0010](docs/adr/0010-venues-and-market-data.md).
 The stored history of one instrument of one venue on one timeframe. Stored candles are a cache of public market
 data shared by all users; only the Owner can change it by CSV import, and downloads only add missing candles.
 
+### History Download
+
+A background job that brings the closed candles of a series into the shared cache from a venue's public history. It
+fetches only the missing ranges, stores them chunk by chunk, and never changes a stored candle.
+
 ### Background Job
 
 Durable work that runs in the Worker after the request that started it has returned, such as a history download

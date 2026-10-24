@@ -5,12 +5,13 @@ using Microsoft.Extensions.DependencyInjection;
 
 using ProfitGraph.Api;
 using ProfitGraph.Tests.Integration.Jobs;
+using ProfitGraph.Tests.Integration.MarketData;
 
 namespace ProfitGraph.Tests.Integration.Common;
 
 /// <summary>
 ///     Hosts the API in the Testing environment against this run's disposable database, applying migrations on startup.
-///     The test kind of background work is registered, so tests can queue it and read its result.
+///     The test kind of background work and the test history venues are registered next to the real ones.
 /// </summary>
 public sealed class ProfitGraphApiFactory(IReadOnlyDictionary<string, string>? settings = null, TimeProvider? clock = null) : WebApplicationFactory<Program>
 {
@@ -33,6 +34,7 @@ public sealed class ProfitGraphApiFactory(IReadOnlyDictionary<string, string>? s
         builder.ConfigureTestServices(services =>
         {
             services.AddTestJob();
+            services.AddTestHistory();
 
             if (clock is not null)
             {

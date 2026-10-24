@@ -12,6 +12,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\ProfitGraph.Infrastructure\ProfitGraph.Infrastructure.csproj"/>
+        <ProjectReference Include="..\ProfitGraph.Venues.Bybit\ProfitGraph.Venues.Bybit.csproj"/>
     </ItemGroup>
 
 </Project>

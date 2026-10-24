@@ -24,7 +24,7 @@ public sealed partial class VenueNeutralityTests
     [GeneratedRegex(@"\b(bybit|t-?invest|tinkoff|steam)\b", RegexOptions.IgnoreCase)]
     private static partial Regex VenueName();
 
-    [GeneratedRegex(@"^\s*(using ProfitGraph\.Venues\.\w+;|builder\.Services\.Add\w+Venue\(\);)\s*$")]
+    [GeneratedRegex(@"^\s*(using ProfitGraph\.Venues\.\w+;|builder\.Services\.Add\w+Venue\(builder\.Configuration\);)\s*$")]
     private static partial Regex ModuleRegistration();
 
     private static string CoreText(string path)
