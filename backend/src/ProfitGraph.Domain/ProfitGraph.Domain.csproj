@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <PackageReference Include="MediatR.Contracts"/>
+        <InternalsVisibleTo Include="ProfitGraph.Tests.Unit"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\ProfitGraph.Engine\ProfitGraph.Engine.csproj"/>
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,48 @@
+name: Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'global.json'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'global.json'
+      - '.github/workflows/backend.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_ENVIRONMENT: Testing
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Restore
+        run: dotnet restore backend/ProfitGraph.sln
+      - name: Build with warnings as errors
+        run: dotnet build backend/ProfitGraph.sln --configuration Release --no-restore -warnaserror
+      - name: Unit and architecture tests
+        run: >-
+          dotnet test backend/tests/ProfitGraph.Tests.Unit/ProfitGraph.Tests.Unit.csproj
+          --configuration Release --no-build
+      - name: Integration tests
+        run: >-
+          dotnet test backend/tests/ProfitGraph.Tests.Integration/ProfitGraph.Tests.Integration.csproj
+          --configuration Release --no-build
