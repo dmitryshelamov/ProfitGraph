@@ -23,6 +23,12 @@ public sealed class BotRuntimeTests
         _ = _api.Services;
     }
 
+    [SetUp]
+    public Task Isolate()
+    {
+        return RuntimeScenario.StopEveryBot();
+    }
+
     [OneTimeTearDown]
     public async Task Stop()
     {

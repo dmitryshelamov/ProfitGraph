@@ -117,6 +117,15 @@ internal sealed class RuntimeScenario
         return bot;
     }
 
+    /// <summary>
+    ///     Stops every bot of this run's database, so a runtime host in the next scenario runs only that scenario's bots.
+    /// </summary>
+    public static async Task StopEveryBot()
+    {
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+        await connection.ExecuteAsync("UPDATE bots SET desired_state = 'Stopped' WHERE desired_state = 'Running'");
+    }
+
     public static async Task<Bot> Read(IHost host, BotId id)
     {
         using IServiceScope scope = host.Services.CreateScope();
