@@ -1,0 +1,29 @@
+namespace ProfitGraph.Infrastructure.Optimization.Repositories.Queries;
+
+internal static class OptimizationTrialQueries
+{
+    /// <summary>
+    ///     A retried batch leaves trials already stored under their sequence unchanged.
+    /// </summary>
+    public const string Write =
+        """
+        INSERT INTO optimization_trials (optimization_id, sequence, trial_index, parameters, status, failure_code, objective, return_percent, total_pnl,
+            max_drawdown_percent, executions, elapsed_ms)
+        SELECT @OptimizationId, t.sequence, t.trial_index, t.parameters, t.status, t.failure_code, t.objective, t.return_percent, t.total_pnl,
+            t.max_drawdown_percent, t.executions, t.elapsed_ms
+        FROM jsonb_to_recordset(CAST(@Trials AS jsonb)) AS t (sequence bigint, trial_index integer, parameters jsonb, status varchar, failure_code varchar,
+            objective numeric, return_percent numeric, total_pnl numeric, max_drawdown_percent numeric, executions bigint, elapsed_ms bigint)
+        ON CONFLICT (optimization_id, sequence) DO NOTHING;
+        """;
+
+    public const string Page =
+        """
+        SELECT optimization_id AS OptimizationId, sequence AS Sequence, trial_index AS TrialIndex, parameters::text AS Parameters, status AS Status,
+            failure_code AS FailureCode, objective AS Objective, return_percent AS ReturnPercent, total_pnl AS TotalPnl,
+            max_drawdown_percent AS MaxDrawdownPercent, executions AS Executions, elapsed_ms AS ElapsedMs
+        FROM optimization_trials
+        WHERE optimization_id = @OptimizationId AND sequence > @After
+        ORDER BY sequence
+        LIMIT @Take;
+        """;
+}

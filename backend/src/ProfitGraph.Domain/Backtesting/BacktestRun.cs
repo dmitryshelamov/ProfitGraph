@@ -1,7 +1,7 @@
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Common;
+using ProfitGraph.Domain.Optimization;
 using ProfitGraph.Domain.Strategies;
-using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Replay;
 
 namespace ProfitGraph.Domain.Backtesting;
@@ -19,6 +19,12 @@ public sealed class BacktestRun : AggregateRoot
     public StrategyVersionNumber StrategyVersion { get; }
     public DateTimeOffset CreatedAt { get; }
     public BacktestConfiguration Configuration { get; }
+
+    /// <summary>
+    ///     The optimization that started this run as one of its finalists.
+    /// </summary>
+    public OptimizationId? OptimizationId { get; }
+
     public BacktestRunStage? Stage { get; private set; }
     public BacktestHistoryInfo? History { get; private set; }
     public BacktestRunResult? Result { get; private set; }
@@ -29,9 +35,11 @@ public sealed class BacktestRun : AggregateRoot
         StrategyId strategyId,
         StrategyVersionNumber strategyVersion,
         DateTimeOffset createdAt,
-        BacktestConfiguration configuration)
+        BacktestConfiguration configuration,
+        OptimizationId? optimizationId)
     {
         Id = id;
+        OptimizationId = optimizationId;
         OwnerId = ownerId;
         StrategyId = strategyId;
         StrategyVersion = strategyVersion;
@@ -45,9 +53,10 @@ public sealed class BacktestRun : AggregateRoot
         StrategyId strategyId,
         StrategyVersionNumber strategyVersion,
         BacktestConfiguration configuration,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        OptimizationId? optimizationId = null)
     {
-        return new BacktestRun(id, ownerId, strategyId, strategyVersion, now, configuration);
+        return new BacktestRun(id, ownerId, strategyId, strategyVersion, now, configuration, optimizationId);
     }
 
     /// <summary>
@@ -62,9 +71,10 @@ public sealed class BacktestRun : AggregateRoot
         BacktestConfiguration configuration,
         BacktestRunStage? stage,
         BacktestHistoryInfo? history,
-        BacktestRunResult? result)
+        BacktestRunResult? result,
+        OptimizationId? optimizationId = null)
     {
-        var run = new BacktestRun(id, ownerId, strategyId, strategyVersion, createdAt, configuration);
+        var run = new BacktestRun(id, ownerId, strategyId, strategyVersion, createdAt, configuration, optimizationId);
 
         if (stage is not null)
         {
@@ -113,29 +123,7 @@ public sealed class BacktestRun : AggregateRoot
             throw new BacktestRunRuleException(BacktestRunRuleException.InvalidTransition, "History is attached once, while it is being loaded.");
         }
 
-        Timeframe timeframe = Configuration.Series.Timeframe;
-        long step = timeframe.Duration.Ticks;
-
-        if (string.IsNullOrWhiteSpace(history.Identity) || history.Rules is null ||
-            string.IsNullOrWhiteSpace(history.BaseAsset) || string.IsNullOrWhiteSpace(history.QuoteAsset) || history.BaseAsset == history.QuoteAsset)
-        {
-            throw InvalidHistory("History needs an identity and the captured rules of a pair of two assets.");
-        }
-
-        if ((Configuration.From is { } from && history.From != from) || history.To != Configuration.ResolveTo() ||
-            history.HistoryFrom.Offset != TimeSpan.Zero || history.From.Offset != TimeSpan.Zero || history.To.Offset != TimeSpan.Zero ||
-            !timeframe.IsAligned(history.HistoryFrom) || !timeframe.IsAligned(history.From) || history.HistoryFrom > history.From || history.From >= history.To)
-        {
-            throw InvalidHistory("History must cover the frozen period on the timeframe grid.");
-        }
-
-        if (history.WarmupCount < 0 || history.WarmupCount > Configuration.WarmupCandles ||
-            (history.From.UtcTicks - history.HistoryFrom.UtcTicks) / step != history.WarmupCount ||
-            (history.To.UtcTicks - history.From.UtcTicks) / step != history.ReplayCount)
-        {
-            throw InvalidHistory("Warm-up and replay counts must match the attached ranges and the strategy's demand.");
-        }
-
+        Configuration.CheckHistory(history);
         History = history;
         Stage = BacktestRunStage.Replaying;
     }
@@ -159,10 +147,5 @@ public sealed class BacktestRun : AggregateRoot
         }
 
         Result = result;
-    }
-
-    private static BacktestRunRuleException InvalidHistory(string message)
-    {
-        return new BacktestRunRuleException(BacktestRunRuleException.InvalidHistory, message);
     }
 }

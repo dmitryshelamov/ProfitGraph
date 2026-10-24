@@ -8,9 +8,7 @@ using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Application.Jobs.Ports;
 using ProfitGraph.Application.MarketData.Contracts;
-using ProfitGraph.Application.MarketData.Instruments;
 using ProfitGraph.Domain.Backtesting;
-using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Compilation;
 using ProfitGraph.Engine.Evaluation;
@@ -27,8 +25,7 @@ internal sealed class RunBacktestCommandHandler(
     IBacktestRunRepository runs,
     IStrategyRepository strategies,
     BacktestCompiler compiler,
-    InstrumentRulesCaptureService rules,
-    HistoryPreparationService history,
+    BacktestHistoryLoader history,
     IBacktestFactStore facts,
     ITransactionExecutor transactions,
     IBackgroundJobProgress progress,
@@ -43,32 +40,11 @@ internal sealed class RunBacktestCommandHandler(
         run.BeginLoadingHistory();
         await Save(run, cancellationToken);
 
-        CandleSeries series = configuration.Series;
-        InstrumentRulesSnapshotInternal captured = await rules.Capture(series.Venue, series.Symbol, cancellationToken);
-        PreparedHistory prepared = await history.Prepare(
-            series,
-            configuration.From,
-            configuration.To,
-            configuration.WarmupCandles,
-            configuration.ObservedAt,
-            reportProgress: true,
-            cancellationToken);
-        InstrumentRulesDefinitionInternal definition = captured.Definition;
-        run.AttachHistory(
-            new BacktestHistoryInfo(
-                prepared.Identity,
-                prepared.HistoryFrom,
-                prepared.From,
-                prepared.To,
-                prepared.WarmupCount,
-                prepared.Candles.Count - prepared.WarmupCount,
-                new InstrumentRulesSnapshotId(captured.Id),
-                definition.BaseAsset,
-                definition.QuoteAsset,
-                definition.Rules));
+        LoadedBacktestHistory loaded = await history.Load(configuration, cancellationToken);
+        run.AttachHistory(loaded.Info);
         await Save(run, cancellationToken);
 
-        BacktestInput input = Input(plan, configuration, definition, prepared);
+        BacktestInput input = Input(plan, configuration, loaded.Definition, loaded.Prepared);
         await progress.Restart(completed: 0, input.SampleRanges.TotalBars, cancellationToken);
         var session = new BacktestReplaySession(run.Id, facts, transactions, progress, options, configuration.Settings.StartingCapital, input.SampleRanges);
 

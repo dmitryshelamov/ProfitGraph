@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using ProfitGraph.Application.Backtesting;
 using ProfitGraph.Application.Backtesting.Contracts;
 using ProfitGraph.Application.Backtesting.Execution;
+using ProfitGraph.Application.Backtesting.History;
 using ProfitGraph.Application.Backtesting.Ports;
 using ProfitGraph.Application.Backtesting.RunBacktest;
 using ProfitGraph.Domain.Backtesting;
@@ -26,6 +27,7 @@ public static class BacktestingRegistration
             .ValidateOnStart();
         services.AddScoped(provider => provider.GetRequiredService<IOptionsMonitor<BacktestExecutionOptions>>().CurrentValue);
         services.AddScoped<BacktestCompiler>();
+        services.AddScoped<BacktestHistoryLoader>();
         services.AddScoped<IBacktestRunRepository, BacktestRunRepository>();
         services.AddScoped<IBacktestFactStore, BacktestFactStore>();
         services.AddScoped<IBacktestReader, BacktestReader>();

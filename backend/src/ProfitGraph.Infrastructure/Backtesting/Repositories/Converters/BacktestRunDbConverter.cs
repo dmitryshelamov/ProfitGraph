@@ -1,8 +1,7 @@
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Backtesting;
-using ProfitGraph.Domain.MarketData;
+using ProfitGraph.Domain.Optimization;
 using ProfitGraph.Domain.Strategies;
-using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Replay;
 using ProfitGraph.Infrastructure.Backtesting.Repositories.Contracts;
 
@@ -12,27 +11,7 @@ internal static class BacktestRunDbConverter
 {
     public static BacktestRun ToDomain(this BacktestRunDb row)
     {
-        BacktestHistoryInfo? history = row.HistoryIdentity is null
-            ? null
-            : new BacktestHistoryInfo(
-                row.HistoryIdentity,
-                row.HistoryFrom!.Value.ToUniversalTime(),
-                row.ReplayFrom!.Value.ToUniversalTime(),
-                row.ReplayTo!.Value.ToUniversalTime(),
-                row.WarmupCount!.Value,
-                row.ReplayCount!.Value,
-                new InstrumentRulesSnapshotId(row.RulesSnapshotId!.Value),
-                row.BaseAsset!,
-                row.QuoteAsset!,
-                new InstrumentRules(
-                    row.QuantityStep!.Value,
-                    row.PriceTick!.Value,
-                    row.MinQuantity!.Value,
-                    row.MinNotional!.Value,
-                    row.BasePrecision!.Value,
-                    row.QuotePrecision!.Value,
-                    row.BuyFeeAsset == "base" ? FeeAsset.Base : FeeAsset.Quote,
-                    row.ExactQuoteFees!.Value));
+        BacktestHistoryInfo? history = row.ToHistory();
         BacktestRunResult? result = row.Outcome is null
             ? null
             : new BacktestRunResult(
@@ -59,7 +38,8 @@ internal static class BacktestRunDbConverter
                 _ => throw new InvalidOperationException($"Unknown stored run stage '{row.Stage}'.")
             },
             history,
-            result);
+            result,
+            row.OptimizationId is { } optimizationId ? new OptimizationId(optimizationId) : null);
     }
 
     public static string? ToDb(this BacktestRunStage? stage)

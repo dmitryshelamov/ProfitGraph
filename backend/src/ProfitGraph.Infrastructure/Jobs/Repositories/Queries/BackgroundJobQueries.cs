@@ -19,7 +19,8 @@ internal static class BackgroundJobQueries
 
     public const string Get = $"SELECT {Columns} FROM background_jobs WHERE id = @Id;";
 
-    public const string LockNextQueued = $"SELECT {Columns} FROM background_jobs WHERE status = 'Queued' ORDER BY created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED;";
+    public const string LockNextQueued =
+        $"SELECT {Columns} FROM background_jobs WHERE status = 'Queued' AND kind = ANY(@Kinds) ORDER BY created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED;";
 
     /// <summary>
     ///     Applies a transition only from the expected status. Progress written by the runner is never lowered, a
@@ -58,7 +59,7 @@ internal static class BackgroundJobQueries
         """
         UPDATE background_jobs
         SET status = 'Failed', failure = CAST(@Failure AS jsonb), finished_at = @Now, updated_at = @Now
-        WHERE status = 'Running' AND (@Id::uuid IS NULL OR id = @Id);
+        WHERE status = 'Running' AND (@Id::uuid IS NULL OR id = @Id) AND (@Kinds::text[] IS NULL OR kind = ANY(@Kinds));
         """;
 
     public const string Beat =

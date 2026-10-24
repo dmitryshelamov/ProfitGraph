@@ -16,6 +16,7 @@ using ProfitGraph.Infrastructure.Common.NodeTypes;
 using ProfitGraph.Infrastructure.Common.Postgres;
 using ProfitGraph.Infrastructure.Jobs;
 using ProfitGraph.Infrastructure.MarketData;
+using ProfitGraph.Infrastructure.Optimization;
 using ProfitGraph.Infrastructure.Strategies.Repositories;
 using ProfitGraph.Infrastructure.Strategies.Repositories.Converters;
 
@@ -45,6 +46,7 @@ public static class DependencyInjection
         services.AddMarketData(configuration);
         services.AddBackgroundJobs(configuration);
         services.AddBacktesting(configuration);
+        services.AddOptimization(configuration);
 
         return services;
     }

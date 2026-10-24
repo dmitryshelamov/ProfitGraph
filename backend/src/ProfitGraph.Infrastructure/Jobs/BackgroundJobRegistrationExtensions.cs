@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 using ProfitGraph.Application.Jobs;
 using ProfitGraph.Application.Jobs.Ports;
@@ -11,13 +12,19 @@ namespace ProfitGraph.Infrastructure.Jobs;
 public static class BackgroundJobRegistrationExtensions
 {
     /// <summary>
-    ///     Registers a kind of work so that its request and result can be stored and read back.
+    ///     Registers a kind of work so that its request and result can be stored and read back, and the Worker lane that
+    ///     runs it.
     /// </summary>
-    public static IServiceCollection AddBackgroundJob<TRequest, TResult>(this IServiceCollection services)
+    public static IServiceCollection AddBackgroundJob<TRequest, TResult>(this IServiceCollection services, string lane = BackgroundJobLanes.Main)
         where TRequest : IBackgroundJobRequest<TResult>
         where TResult : IBackgroundJobResult
     {
-        services.AddSingleton(new BackgroundJobRegistration(TRequest.Kind, typeof(TRequest), typeof(TResult)));
+        if (!BackgroundJobLanes.All.Contains(lane))
+        {
+            throw new ArgumentOutOfRangeException(nameof(lane), $"Unknown Worker lane '{lane}'.");
+        }
+
+        services.AddSingleton(new BackgroundJobRegistration(TRequest.Kind, typeof(TRequest), typeof(TResult), lane));
 
         return services;
     }
@@ -28,7 +35,11 @@ public static class BackgroundJobRegistrationExtensions
     public static IServiceCollection AddBackgroundJobRunner(this IServiceCollection services)
     {
         services.AddScoped<BackgroundJobRunner>();
-        services.AddHostedService<BackgroundJobWorker>();
+
+        foreach (string lane in BackgroundJobLanes.All)
+        {
+            services.AddSingleton<IHostedService>(provider => ActivatorUtilities.CreateInstance<BackgroundJobWorker>(provider, lane));
+        }
 
         return services;
     }

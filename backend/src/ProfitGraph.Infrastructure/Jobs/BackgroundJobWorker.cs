@@ -8,15 +8,19 @@ using ProfitGraph.Infrastructure.Jobs.Repositories;
 namespace ProfitGraph.Infrastructure.Jobs;
 
 /// <summary>
-///     The Worker's job loop: on start it fails jobs a stopped Worker left running, then it beats its heartbeat and runs
-///     queued jobs one at a time on every polling interval (ADR 0011).
+///     The job loop of one Worker lane: on start it fails the lane's jobs a stopped Worker left running, then it beats its
+///     heartbeat and runs the lane's queued jobs one at a time on every polling interval (ADR 0011).
 /// </summary>
 internal sealed class BackgroundJobWorker(
+    string lane,
+    IEnumerable<BackgroundJobRegistration> registrations,
     IServiceScopeFactory scopes,
     IOptions<BackgroundJobOptions> options,
     TimeProvider clock,
     ILogger<BackgroundJobWorker> logger) : BackgroundService
 {
+    private readonly string[] _kinds = [.. registrations.Where(registration => registration.Lane == lane).Select(registration => registration.Kind.Value)];
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await RecoverInterrupted(stoppingToken);
@@ -37,11 +41,11 @@ internal sealed class BackgroundJobWorker(
             {
                 using IServiceScope scope = scopes.CreateScope();
                 int recovered = await scope.ServiceProvider.GetRequiredService<BackgroundJobRepository>()
-                    .InterruptRunning(BackgroundJobRunner.RestartFailure, clock.GetUtcNow(), stoppingToken);
+                    .InterruptRunning(BackgroundJobRunner.RestartFailure, clock.GetUtcNow(), stoppingToken, kinds: _kinds);
 
                 if (recovered > 0)
                 {
-                    logger.LogWarning("Marked {Count} interrupted background jobs as failed.", recovered);
+                    logger.LogWarning("Marked {Count} interrupted background jobs of lane {Lane} as failed.", recovered, lane);
                 }
 
                 return;
@@ -64,7 +68,7 @@ internal sealed class BackgroundJobWorker(
             {
                 using IServiceScope scope = scopes.CreateScope();
                 await scope.ServiceProvider.GetRequiredService<BackgroundJobRepository>().Beat(BackgroundJobOptions.WorkerName, clock.GetUtcNow(), stoppingToken);
-                ran = await scope.ServiceProvider.GetRequiredService<BackgroundJobRunner>().RunNext(stoppingToken);
+                ran = await scope.ServiceProvider.GetRequiredService<BackgroundJobRunner>().RunNext(_kinds, stoppingToken);
             }
             while (ran && !stoppingToken.IsCancellationRequested);
         }

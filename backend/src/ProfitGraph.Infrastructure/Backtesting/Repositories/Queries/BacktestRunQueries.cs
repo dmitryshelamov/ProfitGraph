@@ -4,14 +4,14 @@ internal static class BacktestRunQueries
 {
     public const string Add =
         """
-        INSERT INTO backtest_runs (id, owner_id, strategy_id, strategy_version, created_at, configuration)
-        VALUES (@Id, @OwnerId, @StrategyId, @StrategyVersion, @CreatedAt, CAST(@Configuration AS jsonb));
+        INSERT INTO backtest_runs (id, owner_id, strategy_id, strategy_version, created_at, configuration, optimization_id)
+        VALUES (@Id, @OwnerId, @StrategyId, @StrategyVersion, @CreatedAt, CAST(@Configuration AS jsonb), @OptimizationId);
         """;
 
     public const string Get =
         """
         SELECT r.id AS Id, r.owner_id AS OwnerId, r.strategy_id AS StrategyId, r.strategy_version AS StrategyVersion, r.created_at AS CreatedAt,
-            r.configuration::text AS Configuration, r.stage AS Stage, r.history_identity AS HistoryIdentity, r.history_from AS HistoryFrom,
+            r.configuration::text AS Configuration, r.optimization_id AS OptimizationId, r.stage AS Stage, r.history_identity AS HistoryIdentity, r.history_from AS HistoryFrom,
             r.replay_from AS ReplayFrom, r.replay_to AS ReplayTo, r.warmup_count AS WarmupCount, r.replay_count AS ReplayCount,
             r.rules_snapshot_id AS RulesSnapshotId, r.base_asset AS BaseAsset, r.quote_asset AS QuoteAsset,
             i.quantity_step AS QuantityStep, i.price_tick AS PriceTick, i.min_quantity AS MinQuantity, i.min_notional AS MinNotional,

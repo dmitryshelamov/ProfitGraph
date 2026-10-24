@@ -17,39 +17,14 @@ public static class BacktestRunInternalConverter
             run.StrategyId.Value,
             run.StrategyVersion.Value,
             run.CreatedAt,
-            new BacktestConfigurationInternal(
-                configuration.Series.Venue.Value,
-                configuration.Series.Symbol.Value,
-                configuration.Series.Timeframe.Key,
-                configuration.From,
-                configuration.To,
-                configuration.ObservedAt,
-                configuration.Parameters,
-                configuration.Settings.StartingCapital,
-                configuration.Settings.Slippage,
-                configuration.Settings.LimitFeeRate,
-                configuration.Settings.MarketFeeRate,
-                configuration.Split.Fraction,
-                configuration.WarmupCandles),
+            configuration.ToInternal(),
             run.Stage switch
             {
                 null => null,
                 BacktestRunStage.LoadingHistory => "loading_history",
                 _ => "replaying"
             },
-            history is null
-                ? null
-                : new BacktestHistoryInternal(
-                    history.Identity,
-                    history.HistoryFrom,
-                    history.From,
-                    history.To,
-                    history.WarmupCount,
-                    history.ReplayCount,
-                    history.RulesSnapshotId.Value,
-                    history.BaseAsset,
-                    history.QuoteAsset,
-                    history.Rules),
+            history?.ToInternal(),
             result is null
                 ? null
                 : new BacktestResultInternal(

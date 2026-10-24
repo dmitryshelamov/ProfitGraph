@@ -63,3 +63,29 @@ walk-forward). This ADR records the search core; later stage 4 pull requests ame
   1000 trials of 8760 hourly candles at eight workers to about 4 s for SMA and 48 s for Ladder on the reference host
   (2026-10-25), within the archive targets of 30 s and 10 minutes (archive: 8.5 s and 399 s). The estimate excludes
   persistence and finalists.
+
+## Amendment: jobs, storage and finalists (stage 4.3)
+
+- **Aggregate** (S4-1). `OptimizationRun` has the identifier of its job and belongs to the owner of the strategy;
+  another user's optimization is reported as missing. Its stages are not started → `LoadingHistory` → `Searching` →
+  `StartingFinalists`. It holds the planned trials, the counters by status and the best trial. Whether it is queued,
+  running, cancelled or failed is the job's status. Every transition has Domain tests.
+- **Freezing** (S4-2). `POST /api/optimizations` takes a backtest request, ranges by parameter name, the method
+  (`auto`, `grid` or `random`), objective, budget, seed (a decimal string), finalist count and constraints. It
+  freezes the backtest configuration exactly as a run does, with the fingerprint of the graph compiled with the
+  ranges, and stores the optimization with its job in one transaction. `auto` enumerates a grid within the budget
+  and samples a larger one. `grid` over budget is `invalid_optimization`. An omitted seed is drawn at random and
+  stored. The job runs in the `optimization` lane (ADR 0011).
+- **Execution.** The Worker recompiles with the frozen ranges and fails with `optimization_compilation_changed` on a
+  different fingerprint. It prepares history once and runs the trials on its in-sample part (amendment: trials).
+- **Storage** (S4-7). Trials are stored in `optimization_trials` in their final form, in batches of
+  `Optimization:BatchSize` (default 500) or at least every second: delivery sequence, trial index, ranged values by
+  name, status, failure code, objective, in-sample return, PnL, drawdown, executions and elapsed time. Each batch is
+  committed with the counters and the best trial in one short transaction. A batch retried under the same sequences
+  changes nothing. Cancellation keeps every stored trial, and the job records `Cancelled`.
+- **Finalists** (S4-5). After the search the best completed trials (default 3, at most 10) start as ordinary runs
+  of the whole prepared period. Each finalist has the trial's values fixed, the frozen clock reading and holdout,
+  and `backtest_runs.optimization_id`. They run in the main lane like any other run.
+- **HTTP.** `GET /api/optimizations/{id}` returns the configuration, stage, history, counters, best trial, job
+  status and finalist runs. `/trials` pages by delivery sequence (at most 500). `GET /api/strategies/{id}/optimizations`
+  lists a strategy's optimizations, newest first.

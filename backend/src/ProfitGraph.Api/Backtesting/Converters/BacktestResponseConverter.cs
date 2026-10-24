@@ -18,34 +18,9 @@ public static class BacktestResponseConverter
             run.StrategyVersion,
             run.State.Status,
             run.CreatedAt,
-            new BacktestConfigurationResponse(
-                configuration.Venue,
-                configuration.Symbol,
-                configuration.Timeframe,
-                configuration.From,
-                configuration.To,
-                configuration.ObservedAt,
-                configuration.Parameters.ToDictionary(pair => pair.Key, pair => Text(pair.Value), StringComparer.Ordinal),
-                Text(configuration.StartingCapital),
-                Text(configuration.Slippage),
-                Text(configuration.LimitFeeRate),
-                Text(configuration.MarketFeeRate),
-                Text(configuration.OutOfSampleFraction),
-                configuration.WarmupCandles),
+            configuration.ToResponse(),
             run.Stage,
-            run.History is { } history
-                ? new BacktestHistoryResponse(
-                    history.Identity,
-                    history.HistoryFrom,
-                    history.From,
-                    history.To,
-                    history.WarmupCount,
-                    history.ReplayCount,
-                    history.RulesSnapshotId,
-                    history.BaseAsset,
-                    history.QuoteAsset,
-                    Rules(history.Rules))
-                : null,
+            run.History?.ToResponse(),
             run.Result is { } result
                 ? new BacktestResultResponse(
                     result.Outcome,
@@ -62,6 +37,39 @@ public static class BacktestResponseConverter
             run.State.CandleCount,
             run.State.DiagnosticCount,
             run.State.ChartBucketSize);
+    }
+
+    public static BacktestConfigurationResponse ToResponse(this BacktestConfigurationInternal configuration)
+    {
+        return new BacktestConfigurationResponse(
+            configuration.Venue,
+            configuration.Symbol,
+            configuration.Timeframe,
+            configuration.From,
+            configuration.To,
+            configuration.ObservedAt,
+            configuration.Parameters.ToDictionary(pair => pair.Key, pair => Text(pair.Value), StringComparer.Ordinal),
+            Text(configuration.StartingCapital),
+            Text(configuration.Slippage),
+            Text(configuration.LimitFeeRate),
+            Text(configuration.MarketFeeRate),
+            Text(configuration.OutOfSampleFraction),
+            configuration.WarmupCandles);
+    }
+
+    public static BacktestHistoryResponse ToResponse(this BacktestHistoryInternal history)
+    {
+        return new BacktestHistoryResponse(
+            history.Identity,
+            history.HistoryFrom,
+            history.From,
+            history.To,
+            history.WarmupCount,
+            history.ReplayCount,
+            history.RulesSnapshotId,
+            history.BaseAsset,
+            history.QuoteAsset,
+            Rules(history.Rules));
     }
 
     public static BacktestObservationResponse ToResponse(this BacktestObservationInternal observation)
