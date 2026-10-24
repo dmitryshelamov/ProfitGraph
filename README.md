@@ -13,7 +13,7 @@ ProfitGraph — пересборка проекта Profit Fox Designer: код 
 
 ```text
 backend/    .NET 10: Engine, Domain, Application, Infrastructure, Api, Worker и модули площадок
-frontend/   React (переносится на этапе 0, второй PR)
+frontend/   React 19, TypeScript, Vite: веб-интерфейс
 docs/       архитектура, roadmap и ADR
 ```
 
@@ -31,6 +31,19 @@ dotnet run --project backend/src/ProfitGraph.Api --launch-profile http
 ```
 
 Проверка: `curl http://localhost:5291/api/health` возвращает `Healthy`.
+
+Фронтенд (Node `^22.13.0 || >=24`):
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Интерфейс открывается на `http://localhost:5273`; запросы `/api` проксируются в API на `localhost:5291`, поэтому
+главная страница показывает состояние API. Проверки фронтенда: `npm run lint`, `npm run format:check`,
+`npm run typecheck`, `npm test`, `npm run build`. Клиент API перегенерируется командой `npm run generate:api`
+при запущенном API.
 
 PostgreSQL для разработки и тестов (понадобится с этапа 2):
 

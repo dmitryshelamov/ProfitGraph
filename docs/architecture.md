@@ -91,6 +91,32 @@ Venues.Bybit/
 - Use UTC timestamps. Simulated market time is explicit replay input, separate from `TimeProvider`.
 - Backtest results are deterministic for identical inputs.
 
+## Frontend
+
+`frontend/` is a React 19 + TypeScript single-page application built with Vite, TanStack Router, TanStack Query,
+Zustand and Tailwind CSS 4; tests use Vitest and Testing Library.
+
+```text
+src/
+  app/        composition: providers, router, layout shell, global styles
+  pages/      one folder per route; a page composes modules
+  modules/    one folder per product area; index.ts is its public API
+  shared/     domain-free code: API client, UI components, utilities
+```
+
+- **Imports** (enforced by ESLint): `shared` imports nothing from `modules`, `pages` or `app`; `modules` import
+  `shared` and other modules only through their `index.ts`, never `pages` or `app`; `pages` import `modules` (through
+  `index.ts`) and `shared`, never `app` or another page; `app` may import anything.
+- **State.** Server state lives in TanStack Query; client UI state lives in Zustand. Do not copy server data into
+  Zustand stores.
+- **API client.** `shared/api/client.ts` is the only HTTP client. Its types come from
+  `shared/api/generated/schema.d.ts`, generated from the API's OpenAPI document with `npm run generate:api` and never
+  edited by hand. Failures surface as `ApiError` built from Problem Details.
+- **Numbers.** Money, prices, quantities, fees and balances arrive as decimal strings. Never convert them to
+  JavaScript `number` for arithmetic; format them for display only.
+- **Time.** The API sends UTC timestamps; convert to local time only for display.
+- **Texts.** User-facing texts are in Russian. The accent color is reserved for the single primary action on a screen.
+
 ## Testing
 
 - Unit tests cover Engine, Domain and Application, including every aggregate state transition.
