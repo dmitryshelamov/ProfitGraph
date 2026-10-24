@@ -13,10 +13,6 @@ internal sealed class ReadExchangeCredentialSecretsQueryHandler(IExchangeCredent
         protector.EnsureAvailable();
         ExchangeCredential credential = await credentials.GetOwned(query.Id, query.OwnerId, cancellationToken);
 
-        return new ExchangeCredentialSecretsInternal(
-            credential.Id.Value,
-            credential.Venue.Value,
-            protector.Decrypt(credential.Id, credential.OwnerId, ExchangeCredentialFields.ApiKey, credential.ApiKey),
-            protector.Decrypt(credential.Id, credential.OwnerId, ExchangeCredentialFields.ApiSecret, credential.ApiSecret));
+        return protector.Decrypt(credential);
     }
 }

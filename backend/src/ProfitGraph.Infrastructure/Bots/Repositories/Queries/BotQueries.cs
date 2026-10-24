@@ -22,6 +22,8 @@ internal static class BotQueries
 
     internal const string ListDesiredRunning = "SELECT id FROM bots WHERE desired_state = 'Running' ORDER BY id";
 
+    internal const string AnyUsesCredential = "SELECT EXISTS (SELECT 1 FROM bots WHERE exchange_credential_id = @credentialId)";
+
     internal const string Insert = """
                                    INSERT INTO bots (
                                        id, user_id, strategy_id, strategy_version_id, exchange_credential_id, venue, symbol, timeframe, parameters,

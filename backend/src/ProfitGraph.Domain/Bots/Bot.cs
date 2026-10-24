@@ -634,7 +634,10 @@ public sealed class Bot : AggregateRoot
             UpdatedAt);
     }
 
-    private void EnsureStopped()
+    /// <summary>
+    ///     Parameters, allocation and the run itself change only while the bot should stop and its runtime stopped.
+    /// </summary>
+    public void EnsureStopped()
     {
         if (DesiredState != BotDesiredState.Stopped || RuntimeStatus is BotRuntimeStatus.Starting or BotRuntimeStatus.Running)
         {
