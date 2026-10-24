@@ -42,7 +42,9 @@ test('a run of a template is set up from the editor with its exact settings', as
   await expect(page).toHaveURL(/\/strategies\/[0-9a-f-]+\/edit$/);
   const strategyPath = new URL(page.url()).pathname.replace(/\/edit$/, '');
 
-  await page.getByRole('link', { name: 'Прогон' }).click();
+  // The editor loads lazily; the shell's "Прогоны" link must not be mistaken for its run button.
+  await expect(page.getByRole('region', { name: 'Блок-схема стратегии' })).toBeVisible();
+  await page.getByRole('link', { name: 'Прогон', exact: true }).click();
   await expect(page).toHaveURL(`${strategyPath}/backtest`);
   const form = page.getByRole('form', { name: 'Настройка прогона' });
   await expect(form.getByLabel('Площадка')).toHaveValue('bybit');

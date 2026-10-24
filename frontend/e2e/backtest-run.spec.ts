@@ -30,7 +30,9 @@ test('a template backtest runs from pair selection to the result chart', async (
   await page.getByLabel('Название стратегии').fill(`E2E chart ${randomUUID()}`);
   await page.getByRole('button', { name: 'Создать стратегию', exact: true }).click();
   await expect(page).toHaveURL(/\/strategies\/[0-9a-f-]+\/edit$/);
-  await page.getByRole('link', { name: 'Прогон' }).click();
+  // The editor loads lazily; the shell's "Прогоны" link must not be mistaken for its run button.
+  await expect(page.getByRole('region', { name: 'Блок-схема стратегии' })).toBeVisible();
+  await page.getByRole('link', { name: 'Прогон', exact: true }).click();
 
   const setup = page.getByRole('form', { name: 'Настройка прогона' });
   await expect(setup.getByLabel('Площадка')).toHaveValue('bybit');
