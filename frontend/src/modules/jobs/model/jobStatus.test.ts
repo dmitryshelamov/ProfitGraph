@@ -3,15 +3,16 @@ import { isJobFinished, jobPercent, jobStatusLabel } from './jobStatus';
 describe('job status', () => {
   it('names statuses in Russian and keeps unknown ones', () => {
     expect(jobStatusLabel('Running')).toBe('Выполняется');
-    expect(jobStatusLabel('Paused')).toBe('Paused');
+    expect(jobStatusLabel('Paused')).toBe('Приостановлена');
+    expect(jobStatusLabel('Archived')).toBe('Archived');
   });
 
-  it('treats completed, failed and cancelled jobs as finished', () => {
+  it('treats completed, failed and cancelled jobs as finished, and a paused one as not', () => {
     expect(
-      ['Queued', 'Running', 'Completed', 'Failed', 'Cancelled'].map((status) =>
+      ['Queued', 'Running', 'Paused', 'Completed', 'Failed', 'Cancelled'].map((status) =>
         isJobFinished({ status }),
       ),
-    ).toEqual([false, false, true, true, true]);
+    ).toEqual([false, false, false, true, true, true]);
   });
 
   it('reports whole percent only once a total is known', () => {

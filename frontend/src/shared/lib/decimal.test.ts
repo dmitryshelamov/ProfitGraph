@@ -1,4 +1,5 @@
 import {
+  compareDecimals,
   fractionToPercent,
   isBackendDecimal,
   isDecimalString,
@@ -59,5 +60,14 @@ describe('roundDecimal', () => {
     expect(roundDecimal('12.5', 2)).toBe('12.5');
     expect(roundDecimal('7', 2)).toBe('7');
     expect(roundDecimal('1e3', 2)).toBeNull();
+  });
+});
+
+describe('compareDecimals', () => {
+  it('compares exactly across scales and signs, and rejects non-decimals', () => {
+    expect(compareDecimals('0.1', '0.10')).toBe(0);
+    expect(compareDecimals('-1', '0.0001')).toBe(-1);
+    expect(compareDecimals('100.000000000000000000000001', '100')).toBe(1);
+    expect(compareDecimals('1e3', '1')).toBeNull();
   });
 });

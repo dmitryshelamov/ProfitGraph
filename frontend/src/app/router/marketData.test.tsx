@@ -18,6 +18,7 @@ function job(status: string, extra: Record<string, unknown> = {}) {
     completed: 0,
     total: null,
     cancelRequested: false,
+    pauseRequested: false,
     createdAt: '2026-10-24T10:00:00Z',
     startedAt: null,
     finishedAt: null,

@@ -3,6 +3,7 @@ import type { BackgroundJob } from './types';
 const labels: Record<string, string> = {
   Queued: 'В очереди',
   Running: 'Выполняется',
+  Paused: 'Приостановлена',
   Completed: 'Завершена',
   Failed: 'Ошибка',
   Cancelled: 'Отменена',
