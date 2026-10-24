@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Domain.Common;
+using ProfitGraph.Engine.Common;
 
 namespace ProfitGraph.Api.Common.Errors;
 
@@ -25,6 +26,7 @@ internal sealed class HttpExceptionHandler(IProblemDetailsService problemDetails
             ResourceNotFoundException => (404, "Resource not found", "resource_not_found"),
             StateConflictException => (409, "State conflict", "state_conflict"),
             DomainException => (422, "Domain rule violation", "domain_rule_violation"),
+            EngineException => (422, "Domain rule violation", "domain_rule_violation"),
             BadHttpRequestException badRequest => (badRequest.StatusCode, "Invalid request", "invalid_request"),
             _ => (500, "Server error", "unexpected_error")
         };

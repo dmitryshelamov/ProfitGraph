@@ -14,7 +14,7 @@ Api, Worker -> Infrastructure, Venues.* -> Application -> Domain -> Engine
 
 | Project          | Owns                                                                                                   | Must not                                                        |
 |------------------|--------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
-| `Engine`         | Lowering, graph validation and compilation, evaluation, causal dispatch, trading accounting, replay.   | Perform I/O, reference packages beyond pure computation, know about live trading or venues. |
+| `Engine`         | Lowering, graph validation and compilation, evaluation, causal dispatch, trading accounting, replay.   | Perform I/O, reference packages beyond pure computation, know about live trading or venues (ADR 0009). |
 | `Domain`         | Aggregates, value objects, invariants, explicit state transitions, domain events, repository contracts. | Reference infrastructure packages; depends only on `Engine` and `MediatR.Contracts`.       |
 | `Application`    | Commands, queries, handlers, validators, ports (including venue ports), boundary contracts.            | Use HTTP types, SQL, or concrete clients.                       |
 | `Infrastructure` | Persistence, migrations, background jobs, outbox, encryption, MediatR behaviors.                       | Own trading or bot invariants, or contain user-facing texts.    |
@@ -55,8 +55,9 @@ Venues.Bybit/
   MarketData/, Trading/, BybitVenueModule.cs
 ```
 
-- **Engine** is organized by engine subsystem instead of product feature: `Graphs/`, `Blocks/`, `Lowering/`,
-  `Compilation/`, `Evaluation/`, `Dispatch/`, `Accounting/`, `Replay/`, `Metrics/`, `Templates/`.
+- **Engine** is organized by engine subsystem instead of product feature: `Common/`, `Market/`, `Accounting/`,
+  `Graphs/`, `Blocks/`, `Lowering/`, `Compilation/`, `Evaluation/`, `Dispatch/`, `Replay/`, `Metrics/`, `Templates/`.
+  Engine exceptions derive from `Common/EngineException`.
 - **Use cases** get their own folder named after the use case (`CreateStrategy/`). It holds the command or query, its
   handler and its validator; nothing else.
 - **Naming:** `*Command`, `*CommandHandler`, `*CommandValidator`, `*Query`, `*QueryHandler`, `*Contract` for
