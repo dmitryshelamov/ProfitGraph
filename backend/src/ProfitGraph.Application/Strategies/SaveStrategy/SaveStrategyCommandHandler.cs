@@ -14,15 +14,16 @@ internal sealed class SaveStrategyCommandHandler(IStrategyRepository repository,
     public async Task<StrategyInternal> Handle(SaveStrategyCommand request, CancellationToken cancellationToken)
     {
         Strategy strategy = await repository.GetOwned(request.Id, request.UserId, cancellationToken);
+        var expectedVersion = new StrategyVersionNumber(request.ExpectedVersion);
 
-        if (strategy.CurrentVersion != request.ExpectedVersion)
+        if (strategy.CurrentVersion != expectedVersion)
         {
             throw new StateConflictException("The strategy has changed. Reload it before saving.", ChangedCode);
         }
 
-        StrategyVersion version = strategy.Save(request.Name, request.Definition.ToDomain(), request.Layout.ToDomain(), clock.GetUtcNow());
+        StrategyVersion version = strategy.Save(new StrategyName(request.Name), request.Definition.ToDomain(), request.Layout.ToDomain(), clock.GetUtcNow());
 
-        if (!await repository.Save(strategy, version, request.ExpectedVersion, cancellationToken))
+        if (!await repository.Save(strategy, version, expectedVersion, cancellationToken))
         {
             throw new StateConflictException("The strategy has changed. Reload it before saving.", ChangedCode);
         }

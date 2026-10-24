@@ -8,8 +8,8 @@ internal static class UserDbConverter
     public static User ToDomain(this UserDb row)
     {
         return User.Restore(
-            row.Id,
-            row.Login,
+            new UserId(row.Id),
+            new UserLogin(row.Login),
             row.PasswordHash,
             Enum.Parse<UserRole>(row.Role),
             Enum.Parse<UserStatus>(row.Status),
@@ -21,8 +21,8 @@ internal static class UserDbConverter
     {
         return new UserDb
         {
-            Id = user.Id,
-            Login = user.Login,
+            Id = user.Id.Value,
+            Login = user.Login.Value,
             PasswordHash = user.PasswordHash,
             Role = user.Role.ToString(),
             Status = user.Status.ToString(),

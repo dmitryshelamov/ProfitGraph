@@ -8,9 +8,9 @@ internal static class PasswordRules
 {
     internal static IRuleBuilderOptions<T, string> ValidLogin<T>(this IRuleBuilder<T, string> rule)
     {
-        return rule.Must(login => !string.IsNullOrWhiteSpace(login) && login.Trim().Length <= User.MaxLoginLength)
+        return rule.Must(login => UserLogin.TryCreate(login, out _))
             .WithErrorCode("invalid_login")
-            .WithMessage($"A login must contain 1 to {User.MaxLoginLength} characters.");
+            .WithMessage($"A login must contain 1 to {UserLogin.MaxLength} characters.");
     }
 
     internal static IRuleBuilderOptions<T, string> StrongPassword<T>(this IRuleBuilder<T, string> rule)

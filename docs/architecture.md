@@ -37,7 +37,7 @@ for a new product area, and list it here.
 ```text
 Domain/
   Common/                     AggregateRoot, IDomainEvent, DomainException
-  Strategies/                 Strategy.cs, StrategyVersion.cs, IStrategyRepository.cs, StrategyRuleException.cs
+  Strategies/                 Strategy.cs, StrategyVersion.cs, StrategyId.cs, StrategyName.cs, IStrategyRepository.cs, ...
 Application/
   Common/                     Messaging (ICommand, IQuery), Exceptions, Transactions
   Strategies/
@@ -102,6 +102,12 @@ Venues.Bybit/
 - **Domain state.** Aggregates change state only through methods that enforce their invariants. Consequences of
   transitions (alerts, feed entries, degradation) are domain events delivered through the outbox.
   See [ADR 0004](adr/0004-explicit-live-state-machines.md).
+- **Value objects.** Entities hold identifiers and constrained values as value objects, not primitives: typed IDs
+  (`StrategyId`, `UserId`) and numbers (`StrategyVersionNumber`) are `readonly record struct`s, and constrained text
+  (`StrategyName`, `UserLogin`) is a sealed record. A value object validates in its constructor, so an invalid value
+  cannot reach an entity. Application contracts (`*Internal`) and row models (`*Db`) keep primitives; their converters
+  unwrap `.Value` and wrap on the way back. Handlers create value objects from request primitives. An architecture
+  test rejects raw `Guid` properties on Domain types.
 - **Persistence.** PostgreSQL with Dapper and FluentMigrator. Repositories load and save aggregates; they contain no
   business rules and use the scoped connection and the active transaction from `PostgresTransactionAccessor`.
   The API applies migrations on startup when `Postgres:RunMigrationsOnStartup` is set (Development) and supports

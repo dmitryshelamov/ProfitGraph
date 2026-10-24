@@ -63,7 +63,7 @@ public sealed class StrategyCommandTests
                 created.Definition,
                 created.Layout),
             CancellationToken.None));
-        (await repository.Get(created.Id, CancellationToken.None))!.CurrentVersion.ShouldBe(1);
+        (await repository.Get(new StrategyId(created.Id), CancellationToken.None))!.CurrentVersion.Value.ShouldBe(1);
     }
 
     [Test]
@@ -97,7 +97,7 @@ public sealed class StrategyCommandTests
 
         read.Code.ShouldBe("strategy_not_found");
         save.Code.ShouldBe("strategy_not_found");
-        (await repository.Get(created.Id, CancellationToken.None))!.Name.ShouldBe("Initial");
+        (await repository.Get(new StrategyId(created.Id), CancellationToken.None))!.Name.Value.ShouldBe("Initial");
     }
 
     [Test]
@@ -113,7 +113,7 @@ public sealed class StrategyCommandTests
             () => validation.IsValid.ShouldBeFalse(),
             () => validation.Version.ShouldBe(1),
             () => validation.Diagnostics.Single().Code.ShouldBe("UnknownNodeType"));
-        (await repository.GetVersions(created.Id, CancellationToken.None)).Count.ShouldBe(1);
+        (await repository.GetVersions(new StrategyId(created.Id), CancellationToken.None)).Count.ShouldBe(1);
     }
 
     [Test]
@@ -129,13 +129,13 @@ public sealed class StrategyCommandTests
             CancellationToken.None);
 
         validation.Version.ShouldBeNull();
-        await repository.DidNotReceive().GetVersion(Arg.Any<Guid>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await repository.DidNotReceive().GetVersion(Arg.Any<StrategyId>(), Arg.Any<StrategyVersionNumber>(), Arg.Any<CancellationToken>());
         await repository.DidNotReceive()
             .Add(
                 Arg.Any<Strategy>(),
                 Arg.Any<StrategyVersion>(),
                 Arg.Any<CancellationToken>());
-        (await repository.GetVersions(created.Id, CancellationToken.None)).Count.ShouldBe(1);
+        (await repository.GetVersions(new StrategyId(created.Id), CancellationToken.None)).Count.ShouldBe(1);
     }
 
     [Test]

@@ -6,8 +6,10 @@ namespace ProfitGraph.Tests.Unit.Application.Strategies;
 
 internal sealed class StrategyRepositoryFixture
 {
-    private readonly Dictionary<Guid, Strategy> _strategies = new Dictionary<Guid, Strategy>();
-    private readonly Dictionary<(Guid, int), StrategyVersion> _versions = new Dictionary<(Guid, int), StrategyVersion>();
+    private readonly Dictionary<StrategyId, Strategy> _strategies = new Dictionary<StrategyId, Strategy>();
+
+    private readonly Dictionary<(StrategyId, StrategyVersionNumber), StrategyVersion> _versions =
+        new Dictionary<(StrategyId, StrategyVersionNumber), StrategyVersion>();
 
     public IStrategyRepository Repository { get; } = Substitute.For<IStrategyRepository>();
     public bool RejectSave { get; set; }
@@ -25,25 +27,25 @@ internal sealed class StrategyRepositoryFixture
 
                 return Task.CompletedTask;
             });
-        Repository.Get(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        Repository.Get(Arg.Any<StrategyId>(), Arg.Any<CancellationToken>())
             .Returns(call =>
-                _strategies.TryGetValue(call.Arg<Guid>(), out Strategy? value) ? Clone(value) : null);
-        Repository.GetVersion(Arg.Any<Guid>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                _strategies.TryGetValue(call.Arg<StrategyId>(), out Strategy? value) ? Clone(value) : null);
+        Repository.GetVersion(Arg.Any<StrategyId>(), Arg.Any<StrategyVersionNumber>(), Arg.Any<CancellationToken>())
             .Returns(call =>
-                _versions.GetValueOrDefault((call.Arg<Guid>(), call.Arg<int>())));
-        Repository.GetVersions(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+                _versions.GetValueOrDefault((call.Arg<StrategyId>(), call.Arg<StrategyVersionNumber>())));
+        Repository.GetVersions(Arg.Any<StrategyId>(), Arg.Any<CancellationToken>())
             .Returns(call =>
-                _versions.Where(pair => pair.Key.Item1 == call.Arg<Guid>())
+                _versions.Where(pair => pair.Key.Item1 == call.Arg<StrategyId>())
                     .Select(pair => pair.Value)
-                    .OrderByDescending(version => version.Number)
+                    .OrderByDescending(version => version.Number.Value)
                     .ToArray());
-        Repository.Save(Arg.Any<Strategy>(), Arg.Any<StrategyVersion>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+        Repository.Save(Arg.Any<Strategy>(), Arg.Any<StrategyVersion>(), Arg.Any<StrategyVersionNumber>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
                 var strategy = call.Arg<Strategy>()!;
                 var version = call.Arg<StrategyVersion>()!;
 
-                if (RejectSave || _strategies[strategy.Id].CurrentVersion != call.Arg<int>())
+                if (RejectSave || _strategies[strategy.Id].CurrentVersion != call.Arg<StrategyVersionNumber>())
                 {
                     return false;
                 }

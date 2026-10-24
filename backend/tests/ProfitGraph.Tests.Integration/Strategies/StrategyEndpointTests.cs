@@ -235,9 +235,10 @@ public sealed class StrategyEndpointTests
         using IServiceScope scope = application.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
         var executor = scope.ServiceProvider.GetRequiredService<PostgresTransactionExecutor>();
-        Guid owner = (await repository.Get(id, CancellationToken.None))!.OwnerId;
+        var strategyId = new StrategyId(id);
+        Guid owner = (await repository.Get(strategyId, CancellationToken.None))!.OwnerId.Value;
         var handler = new SaveStrategyCommandHandler(repository, scope.ServiceProvider.GetRequiredService<TimeProvider>());
-        StrategyVersion version = (await repository.GetVersion(id, number: 1, CancellationToken.None))!;
+        StrategyVersion version = (await repository.GetVersion(strategyId, StrategyVersionNumber.First, CancellationToken.None))!;
 
         await Should.ThrowAsync<InvalidOperationException>(async () => await executor.ExecuteAsync<StrategyInternal>(
             async () =>
@@ -256,11 +257,11 @@ public sealed class StrategyEndpointTests
             },
             CancellationToken.None));
 
-        Strategy after = (await repository.Get(id, CancellationToken.None))!;
+        Strategy after = (await repository.Get(strategyId, CancellationToken.None))!;
         after.ShouldSatisfyAllConditions(
-            () => after.CurrentVersion.ShouldBe(1),
-            () => after.Name.ShouldBe("SMA strategy"));
-        (await repository.GetVersions(id, CancellationToken.None)).Count.ShouldBe(1);
+            () => after.CurrentVersion.ShouldBe(StrategyVersionNumber.First),
+            () => after.Name.Value.ShouldBe("SMA strategy"));
+        (await repository.GetVersions(strategyId, CancellationToken.None)).Count.ShouldBe(1);
     }
 
     [Test]

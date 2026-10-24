@@ -10,8 +10,8 @@ internal sealed class GetUserQueryHandler(IUserRepository users) : IRequestHandl
 {
     public async Task<UserInternal?> Handle(GetUserQuery query, CancellationToken cancellationToken)
     {
-        User? user = await users.GetById(query.Id, cancellationToken);
+        User? user = await users.GetById(new UserId(query.Id), cancellationToken);
 
-        return user is null ? null : user.ToInternal();
+        return user?.ToInternal();
     }
 }

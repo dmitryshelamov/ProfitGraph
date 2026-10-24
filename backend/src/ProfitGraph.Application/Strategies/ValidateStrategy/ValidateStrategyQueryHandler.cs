@@ -20,9 +20,12 @@ internal sealed class ValidateStrategyQueryHandler(IStrategyRepository repositor
 
         if (request.Definition is null)
         {
-            StrategyVersion version = await repository.GetVersion(request.Id, request.Version ?? strategy.CurrentVersion, cancellationToken)
+            StrategyVersion version = await repository.GetVersion(
+                    strategy.Id,
+                    request.Version is { } number ? new StrategyVersionNumber(number) : strategy.CurrentVersion,
+                    cancellationToken)
                 ?? throw new ResourceNotFoundException("The strategy version does not exist.", "strategy_version_not_found");
-            checkedVersion = version.Number;
+            checkedVersion = version.Number.Value;
             definition = version.Definition;
         }
         else

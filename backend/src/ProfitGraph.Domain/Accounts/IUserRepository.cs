@@ -2,9 +2,9 @@ namespace ProfitGraph.Domain.Accounts;
 
 public interface IUserRepository
 {
-    Task<User?> GetById(Guid id, CancellationToken cancellationToken);
+    Task<User?> GetById(UserId id, CancellationToken cancellationToken);
 
-    Task<User?> GetByLogin(string login, CancellationToken cancellationToken);
+    Task<User?> GetByLogin(UserLogin login, CancellationToken cancellationToken);
 
     /// <summary>
     ///     Counts active Owners and locks their rows until the transaction ends, so concurrent blocks cannot remove the last one.

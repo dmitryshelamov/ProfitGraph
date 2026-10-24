@@ -11,9 +11,9 @@ public static class StrategyVersionInternalConverter
     public static StrategyVersionInternal ToInternal(this StrategyVersion version)
     {
         return new StrategyVersionInternal(
-            version.Id,
-            version.StrategyId,
-            version.Number,
+            version.Id.Value,
+            version.StrategyId.Value,
+            version.Number.Value,
             version.CreatedAt,
             version.Definition.ToInternal(),
             version.Layout.ToInternal());

@@ -35,7 +35,7 @@ public sealed class ParameterDisplayUnitEndpointTests
         result["definition"]!["parameters"]![0]!["displayUnit"]!.GetValue<string>().ShouldBe(unit);
         using IServiceScope scope = app.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
-        (await repository.GetVersion(id, number: 1, CancellationToken.None))!.Definition.Parameters[0].DisplayUnit.ShouldBe(expected);
+        (await repository.GetVersion(new StrategyId(id), StrategyVersionNumber.First, CancellationToken.None))!.Definition.Parameters[0].DisplayUnit.ShouldBe(expected);
         request["expectedVersion"] = 1;
         request["definition"]!["parameters"]![0]!["displayUnit"] = "none";
         using HttpResponseMessage saved = await client.PutAsJsonAsync($"/api/strategies/{id}", request);
@@ -60,7 +60,7 @@ public sealed class ParameterDisplayUnitEndpointTests
         var legacy = (await client.GetFromJsonAsync<JsonNode>($"/api/strategies/{id}"))!;
         legacy["definition"]!["parameters"]![0]!["displayUnit"].ShouldBeNull();
         var repository = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
-        (await repository.GetVersion(id, number: 1, CancellationToken.None))!.Definition.Parameters[0].DisplayUnit.ShouldBeNull();
+        (await repository.GetVersion(new StrategyId(id), StrategyVersionNumber.First, CancellationToken.None))!.Definition.Parameters[0].DisplayUnit.ShouldBeNull();
     }
 
     [TestCase("Percent")]

@@ -9,9 +9,9 @@ internal static class StrategySummaryDbConverter
     public static StrategySummary ToDomain(this StrategySummaryDb row)
     {
         return new StrategySummary(
-            row.Id,
-            row.Name,
-            row.CurrentVersion,
+            new StrategyId(row.Id),
+            new StrategyName(row.Name),
+            new StrategyVersionNumber(row.CurrentVersion),
             row.UpdatedAt,
             row.TemplateKind is null ? null : Enum.Parse<StrategyTemplateKind>(row.TemplateKind));
     }

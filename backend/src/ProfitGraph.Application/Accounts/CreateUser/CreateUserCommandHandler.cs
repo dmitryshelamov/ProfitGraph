@@ -12,7 +12,7 @@ internal sealed class CreateUserCommandHandler(IUserRepository users, IPasswordH
     public async Task<UserInternal> Handle(CreateUserCommand command, CancellationToken cancellationToken)
     {
         DateTimeOffset now = clock.GetUtcNow();
-        var user = User.Create(Guid.NewGuid(), command.Login, command.Role, now);
+        var user = User.Create(UserId.New(), new UserLogin(command.Login), command.Role, now);
         user.SetPasswordHash(passwords.Hash(user, command.Password), now);
 
         if (!await users.TryAdd(user, cancellationToken))

@@ -8,26 +8,16 @@ public sealed class UserTests
     private static readonly DateTimeOffset Later = Created.AddHours(1);
 
     [Test]
-    public void CreateTrimsTheLoginAndStartsActive()
+    public void CreateStartsActive()
     {
-        var user = User.Create(Guid.NewGuid(), "  alice  ", UserRole.User, Created);
+        var id = UserId.New();
+        var user = User.Create(id, new UserLogin("alice"), UserRole.User, Created);
 
-        user.Login.ShouldBe("alice");
-        user.IsActive.ShouldBeTrue();
-        user.CreatedAt.ShouldBe(Created);
-    }
-
-    [TestCase("")]
-    [TestCase("   ")]
-    public void CreateRejectsAnEmptyLogin(string login)
-    {
-        Should.Throw<AccountRuleException>(() => User.Create(Guid.NewGuid(), login, UserRole.User, Created)).Code.ShouldBe(AccountRuleException.InvalidLogin);
-    }
-
-    [Test]
-    public void CreateRejectsATooLongLogin()
-    {
-        Should.Throw<AccountRuleException>(() => User.Create(Guid.NewGuid(), new string(c: 'a', User.MaxLoginLength + 1), UserRole.User, Created));
+        user.ShouldSatisfyAllConditions(
+            () => user.Id.ShouldBe(id),
+            () => user.Login.ShouldBe(new UserLogin("alice")),
+            () => user.IsActive.ShouldBeTrue(),
+            () => user.CreatedAt.ShouldBe(Created));
     }
 
     [Test]
@@ -35,7 +25,7 @@ public sealed class UserTests
     {
         User user = Active(UserRole.User);
 
-        user.Block(Guid.NewGuid(), activeOwnerCount: 1, Later);
+        user.Block(UserId.New(), activeOwnerCount: 1, Later);
 
         user.Status.ShouldBe(UserStatus.Blocked);
         user.UpdatedAt.ShouldBe(Later);
@@ -55,7 +45,7 @@ public sealed class UserTests
     {
         User owner = Active(UserRole.Owner);
 
-        Should.Throw<AccountRuleException>(() => owner.Block(Guid.NewGuid(), activeOwnerCount: 1, Later)).Code.ShouldBe(AccountRuleException.LastOwner);
+        Should.Throw<AccountRuleException>(() => owner.Block(UserId.New(), activeOwnerCount: 1, Later)).Code.ShouldBe(AccountRuleException.LastOwner);
         owner.IsActive.ShouldBeTrue();
     }
 
@@ -64,7 +54,7 @@ public sealed class UserTests
     {
         User owner = Active(UserRole.Owner);
 
-        owner.Block(Guid.NewGuid(), activeOwnerCount: 2, Later);
+        owner.Block(UserId.New(), activeOwnerCount: 2, Later);
 
         owner.Status.ShouldBe(UserStatus.Blocked);
     }
@@ -73,9 +63,9 @@ public sealed class UserTests
     public void BlockingABlockedAccountChangesNothing()
     {
         User user = Active(UserRole.User);
-        user.Block(Guid.NewGuid(), activeOwnerCount: 1, Later);
+        user.Block(UserId.New(), activeOwnerCount: 1, Later);
 
-        user.Block(Guid.NewGuid(), activeOwnerCount: 1, Later.AddHours(1));
+        user.Block(UserId.New(), activeOwnerCount: 1, Later.AddHours(1));
 
         user.Status.ShouldBe(UserStatus.Blocked);
         user.UpdatedAt.ShouldBe(Later);
@@ -84,12 +74,12 @@ public sealed class UserTests
     [Test]
     public void RestoreRejectsAMissingPasswordHash()
     {
-        Should.Throw<ArgumentException>(() => User.Restore(Guid.NewGuid(), "alice", " ", UserRole.User, UserStatus.Active, Created, Created));
+        Should.Throw<ArgumentException>(() => User.Restore(UserId.New(), new UserLogin("alice"), " ", UserRole.User, UserStatus.Active, Created, Created));
     }
 
     private static User Active(UserRole role)
     {
-        var user = User.Create(Guid.NewGuid(), "account", role, Created);
+        var user = User.Create(UserId.New(), new UserLogin("account"), role, Created);
         user.SetPasswordHash("hash", Created);
 
         return user;

@@ -1,3 +1,4 @@
+using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Blocks;
 using ProfitGraph.Engine.Graphs;
@@ -11,105 +12,75 @@ public sealed class StrategyTests
     private static readonly DateTimeOffset Later = Created.AddHours(1);
     private static readonly StrategyDefinition Definition = SmaStrategyBlockFactory.Create();
     private static readonly GraphLayout Layout = new GraphLayout(new Dictionary<string, NodePosition>());
+    private static readonly StrategyName Sma = new StrategyName("SMA");
 
     [Test]
-    public void CreateTrimsTheNameAndStartsAtVersionOne()
+    public void CreateStartsAtTheFirstVersion()
     {
-        var id = Guid.NewGuid();
-        var owner = Guid.NewGuid();
+        var id = StrategyId.New();
+        var owner = UserId.New();
 
-        (Strategy strategy, StrategyVersion version) = Strategy.Create(id, owner, "  SMA  ", Definition, Layout, Created);
+        (Strategy strategy, StrategyVersion version) = Strategy.Create(id, owner, Sma, Definition, Layout, Created);
 
         strategy.ShouldSatisfyAllConditions(
-            () => strategy.Name.ShouldBe("SMA"),
+            () => strategy.Id.ShouldBe(id),
+            () => strategy.Name.ShouldBe(Sma),
             () => strategy.OwnerId.ShouldBe(owner),
-            () => strategy.CurrentVersion.ShouldBe(1),
+            () => strategy.CurrentVersion.ShouldBe(StrategyVersionNumber.First),
             () => strategy.CreatedAt.ShouldBe(Created),
             () => strategy.UpdatedAt.ShouldBe(Created));
         version.ShouldSatisfyAllConditions(
             () => version.StrategyId.ShouldBe(id),
-            () => version.Number.ShouldBe(1),
+            () => version.Number.ShouldBe(StrategyVersionNumber.First),
             () => version.Definition.ShouldBe(Definition),
             () => version.CreatedAt.ShouldBe(Created));
-    }
-
-    [Test]
-    public void CreateRequiresAnIdentifierAndAnOwner()
-    {
-        Should.Throw<ArgumentException>(() => Strategy.Create(Guid.Empty, Guid.NewGuid(), "SMA", Definition, Layout, Created));
-        Should.Throw<ArgumentException>(() => Strategy.Create(Guid.NewGuid(), Guid.Empty, "SMA", Definition, Layout, Created));
-    }
-
-    [TestCase("")]
-    [TestCase("   ")]
-    public void CreateRejectsAnEmptyName(string name)
-    {
-        Should.Throw<StrategyRuleException>(() => Strategy.Create(Guid.NewGuid(), Guid.NewGuid(), name, Definition, Layout, Created))
-            .Code.ShouldBe(StrategyRuleException.InvalidName);
-    }
-
-    [Test]
-    public void CreateRejectsATooLongName()
-    {
-        Should.Throw<StrategyRuleException>(() => Strategy.Create(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            new string(c: 'a', Strategy.MaxNameLength + 1),
-            Definition,
-            Layout,
-            Created));
     }
 
     [Test]
     public void SaveRecordsTheNextVersionAndKeepsCreationTime()
     {
         Strategy strategy = Create();
+        var renamed = new StrategyName("Renamed");
 
-        StrategyVersion second = strategy.Save(" Renamed ", Definition, Layout, Later);
-        StrategyVersion third = strategy.Save("Renamed", Definition, Layout, Later.AddHours(1));
+        StrategyVersion second = strategy.Save(renamed, Definition, Layout, Later);
+        StrategyVersion third = strategy.Save(renamed, Definition, Layout, Later.AddHours(1));
 
-        second.Number.ShouldBe(2);
-        third.Number.ShouldBe(3);
+        second.Number.ShouldBe(new StrategyVersionNumber(2));
+        third.Number.ShouldBe(new StrategyVersionNumber(3));
         second.Id.ShouldNotBe(third.Id);
         strategy.ShouldSatisfyAllConditions(
-            () => strategy.Name.ShouldBe("Renamed"),
-            () => strategy.CurrentVersion.ShouldBe(3),
+            () => strategy.Name.ShouldBe(renamed),
+            () => strategy.CurrentVersion.ShouldBe(third.Number),
             () => strategy.CreatedAt.ShouldBe(Created),
             () => strategy.UpdatedAt.ShouldBe(Later.AddHours(1)));
     }
 
     [Test]
-    public void SaveWithAnInvalidNameLeavesTheStrategyUnchanged()
-    {
-        Strategy strategy = Create();
-
-        Should.Throw<StrategyRuleException>(() => strategy.Save(" ", Definition, Layout, Later));
-
-        strategy.ShouldSatisfyAllConditions(
-            () => strategy.Name.ShouldBe("SMA"),
-            () => strategy.CurrentVersion.ShouldBe(1),
-            () => strategy.UpdatedAt.ShouldBe(Created));
-    }
-
-    [Test]
     public void OnlyTheOwnerOwnsTheStrategy()
     {
-        var owner = Guid.NewGuid();
-        Strategy strategy = Strategy.Restore(Guid.NewGuid(), owner, "SMA", currentVersion: 1, Created, Created);
+        var owner = UserId.New();
+        Strategy strategy = Strategy.Restore(StrategyId.New(), owner, Sma, StrategyVersionNumber.First, Created, Created);
 
         strategy.IsOwnedBy(owner).ShouldBeTrue();
-        strategy.IsOwnedBy(Guid.NewGuid()).ShouldBeFalse();
+        strategy.IsOwnedBy(UserId.New()).ShouldBeFalse();
     }
 
     [Test]
-    public void RestoreRejectsInvalidStoredState()
+    public void RestoreKeepsTheStoredState()
     {
-        Should.Throw<ArgumentException>(() => Strategy.Restore(Guid.NewGuid(), Guid.Empty, "SMA", currentVersion: 1, Created, Created));
-        Should.Throw<ArgumentException>(() => Strategy.Restore(Guid.NewGuid(), Guid.NewGuid(), "SMA", currentVersion: 0, Created, Created));
+        var id = StrategyId.New();
+        var version = new StrategyVersionNumber(7);
+
+        Strategy strategy = Strategy.Restore(id, UserId.New(), Sma, version, Created, Later);
+
+        strategy.ShouldSatisfyAllConditions(
+            () => strategy.Id.ShouldBe(id),
+            () => strategy.CurrentVersion.ShouldBe(version),
+            () => strategy.UpdatedAt.ShouldBe(Later));
     }
 
     private static Strategy Create()
     {
-        return Strategy.Create(Guid.NewGuid(), Guid.NewGuid(), "SMA", Definition, Layout, Created).Strategy;
+        return Strategy.Create(StrategyId.New(), UserId.New(), Sma, Definition, Layout, Created).Strategy;
     }
 }

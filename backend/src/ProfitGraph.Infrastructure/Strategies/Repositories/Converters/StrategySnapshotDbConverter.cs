@@ -43,9 +43,9 @@ internal sealed class StrategySnapshotDbConverter
             ?? throw new InvalidOperationException("Strategy snapshot is empty.");
 
         return new StrategyVersion(
-            row.Id,
-            row.StrategyId,
-            row.Number,
+            new StrategyVersionId(row.Id),
+            new StrategyId(row.StrategyId),
+            new StrategyVersionNumber(row.Number),
             snapshot.Definition.ToDomain(),
             snapshot.Layout.ToDomain(),
             row.CreatedAt);

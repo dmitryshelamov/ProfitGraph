@@ -2,20 +2,20 @@ using Dapper;
 
 using Npgsql;
 
-using ProfitGraph.Domain.Strategies;
+using ProfitGraph.Infrastructure.Strategies.Repositories.Contracts;
 
 namespace ProfitGraph.Infrastructure.Strategies.Repositories.Queries;
 
 internal static class StrategyQueries
 {
-    public static CommandDefinition Add(Strategy strategy, NpgsqlTransaction? transaction, CancellationToken cancellationToken)
+    public static CommandDefinition Add(StrategyDb row, NpgsqlTransaction? transaction, CancellationToken cancellationToken)
     {
         return new CommandDefinition(
             commandText: """
                          INSERT INTO strategies (id, owner_id, name, current_version, created_at, updated_at)
                          VALUES (@Id, @OwnerId, @Name, @CurrentVersion, @CreatedAt, @UpdatedAt)
                          """,
-            strategy,
+            row,
             transaction,
             cancellationToken: cancellationToken);
     }
@@ -50,14 +50,14 @@ internal static class StrategyQueries
             cancellationToken: cancellationToken);
     }
 
-    public static CommandDefinition Save(Strategy strategy, int expectedVersion, NpgsqlTransaction? transaction, CancellationToken cancellationToken)
+    public static CommandDefinition Save(StrategyDb row, int expectedVersion, NpgsqlTransaction? transaction, CancellationToken cancellationToken)
     {
         return new CommandDefinition(
             commandText: """
                          UPDATE strategies SET name = @Name, current_version = @CurrentVersion, updated_at = @UpdatedAt
                          WHERE id = @Id AND current_version = @ExpectedVersion
                          """,
-            new { strategy.Id, strategy.Name, strategy.CurrentVersion, strategy.UpdatedAt, ExpectedVersion = expectedVersion },
+            new { row.Id, row.Name, row.CurrentVersion, row.UpdatedAt, ExpectedVersion = expectedVersion },
             transaction,
             cancellationToken: cancellationToken);
     }

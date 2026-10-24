@@ -7,6 +7,6 @@ public static class UserInternalConverter
 {
     public static UserInternal ToInternal(this User user)
     {
-        return new UserInternal(user.Id, user.Login, user.Role, user.Status);
+        return new UserInternal(user.Id.Value, user.Login.Value, user.Role, user.Status);
     }
 }

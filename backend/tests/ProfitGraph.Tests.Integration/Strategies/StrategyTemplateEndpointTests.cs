@@ -51,7 +51,7 @@ public sealed class StrategyTemplateEndpointTests
             response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
             var created = (await response.Content.ReadFromJsonAsync<JsonNode>())!;
             var id = created["id"]!.GetValue<Guid>();
-            StrategyVersion version = (await repository.GetVersion(id, number: 1, CancellationToken.None))!;
+            StrategyVersion version = (await repository.GetVersion(new StrategyId(id), StrategyVersionNumber.First, CancellationToken.None))!;
 
             if (version.Definition.TemplateKind is StrategyTemplateKind.CapitulationDip or StrategyTemplateKind.VolumeMomentum)
             {

@@ -11,8 +11,8 @@ internal sealed class GetStrategyVersionQueryHandler(IStrategyRepository reposit
 {
     public async Task<StrategyVersionInternal> Handle(GetStrategyVersionQuery request, CancellationToken cancellationToken)
     {
-        await repository.GetOwned(request.Id, request.UserId, cancellationToken);
-        StrategyVersion version = await repository.GetVersion(request.Id, request.Version, cancellationToken)
+        Strategy strategy = await repository.GetOwned(request.Id, request.UserId, cancellationToken);
+        StrategyVersion version = await repository.GetVersion(strategy.Id, new StrategyVersionNumber(request.Version), cancellationToken)
             ?? throw new ResourceNotFoundException("The strategy version does not exist.", "strategy_version_not_found");
 
         return version.ToInternal();

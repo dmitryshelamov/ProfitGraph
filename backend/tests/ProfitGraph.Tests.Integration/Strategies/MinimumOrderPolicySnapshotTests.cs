@@ -30,9 +30,9 @@ public sealed class MinimumOrderPolicySnapshotTests
             ],
             []);
         var version = new StrategyVersion(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            Number: 1,
+            StrategyVersionId.New(),
+            StrategyId.New(),
+            StrategyVersionNumber.First,
             definition,
             new GraphLayout(new Dictionary<string, NodePosition>()),
             DateTimeOffset.UnixEpoch);
@@ -46,7 +46,7 @@ public sealed class MinimumOrderPolicySnapshotTests
         StrategyVersion restored = serializer.Deserialize(
             new StrategyVersionDb
             {
-                Id = version.Id, StrategyId = version.StrategyId, Number = version.Number, CreatedAt = version.CreatedAt, SnapshotJson = json
+                Id = version.Id.Value, StrategyId = version.StrategyId.Value, Number = version.Number.Value, CreatedAt = version.CreatedAt, SnapshotJson = json
             });
         restored.Definition.Blocks[0].MinimumOrderPolicy.ShouldBe(expected);
         restored.Definition.Blocks[1].Checks[0].MinimumOrderPolicy.ShouldBe(expected);

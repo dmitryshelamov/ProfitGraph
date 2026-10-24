@@ -10,8 +10,7 @@ internal sealed class SignInCommandHandler(IUserRepository users, IPasswordHashe
 {
     public async Task<UserInternal?> Handle(SignInCommand command, CancellationToken cancellationToken)
     {
-        string login = command.Login.Trim();
-        User? user = login.Length is > 0 and <= User.MaxLoginLength ? await users.GetByLogin(login, cancellationToken) : null;
+        User? user = UserLogin.TryCreate(command.Login, out UserLogin? login) ? await users.GetByLogin(login, cancellationToken) : null;
 
         if (user is not { IsActive: true })
         {
