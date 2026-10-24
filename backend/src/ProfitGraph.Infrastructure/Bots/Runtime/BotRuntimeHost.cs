@@ -60,7 +60,14 @@ internal sealed class BotRuntimeHost(IServiceScopeFactory scopes, IOptions<BotRu
                 runner.StopAfterCurrentRoot();
             }
 
-            await Task.WhenAll(_runners.Values.Select(runner => runner.Completion));
+            try
+            {
+                await Task.WhenAll(_runners.Values.Select(runner => runner.Completion));
+            }
+            catch (Exception exception)
+            {
+                logger.LogError("Stopping the bot runners failed with {ExceptionType}.", exception.GetType().Name);
+            }
         }
     }
 

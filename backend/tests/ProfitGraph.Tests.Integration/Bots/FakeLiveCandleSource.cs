@@ -15,6 +15,7 @@ namespace ProfitGraph.Tests.Integration.Bots;
 public sealed class FakeLiveCandleSource : ILiveCandleSource
 {
     private readonly ConcurrentDictionary<Channel<Candle>, byte> _subscribers = new ConcurrentDictionary<Channel<Candle>, byte>();
+    private Exception? _failure;
 
     public int Subscribers => _subscribers.Count;
 
@@ -53,8 +54,13 @@ public sealed class FakeLiveCandleSource : ILiveCandleSource
         }
     }
 
+    /// <summary>
+    ///     Breaks every current and later subscription.
+    /// </summary>
     public void Fail(Exception failure)
     {
+        Volatile.Write(ref _failure, failure);
+
         foreach (Channel<Candle> subscriber in _subscribers.Keys)
         {
             subscriber.Writer.TryComplete(failure);

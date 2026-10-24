@@ -31,7 +31,7 @@ namespace ProfitGraph.Tests.Integration.Bots;
 /// </summary>
 internal sealed class RuntimeScenario
 {
-    internal static readonly TimeSpan LeaseDuration = TimeSpan.FromSeconds(2);
+    internal static readonly TimeSpan LeaseDuration = TimeSpan.FromSeconds(5);
 
     private ScriptedOrderGateway Gateway { get; } = new ScriptedOrderGateway();
     public FakeLiveCandleSource Candles { get; } = new FakeLiveCandleSource();

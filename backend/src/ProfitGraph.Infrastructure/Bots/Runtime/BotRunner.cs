@@ -108,7 +108,7 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
 
             if (!_leaseLost)
             {
-                await sender.Send(new ReleaseBotLeaseCommand(bot.Id.Value, holder.Value, epoch), CancellationToken.None);
+                await TryRelease(sender);
             }
 
             _producers.Dispose();
@@ -139,17 +139,39 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
         }
     }
 
+    /// <summary>
+    ///     Renews the lease every interval. A failed renewal is retried while the lease still lasts; a refused or expired
+    ///     one means another runtime may take the bot, so the runner stops.
+    /// </summary>
     private async Task KeepLease(CancellationToken hostToken)
     {
+        DateTimeOffset renewedAt = clock.GetUtcNow();
+
         try
         {
             while (!_producers.IsCancellationRequested)
             {
                 await Task.Delay(options.RenewInterval, clock, _producers.Token);
-                using IServiceScope scope = scopes.CreateScope();
+                bool renewed;
 
-                if (!await scope.ServiceProvider.GetRequiredService<ISender>()
-                        .Send(new RenewBotLeaseCommand(bot.Id.Value, holder.Value, epoch, options.LeaseDuration), hostToken))
+                try
+                {
+                    using IServiceScope scope = scopes.CreateScope();
+                    renewed = await scope.ServiceProvider.GetRequiredService<ISender>()
+                        .Send(new RenewBotLeaseCommand(bot.Id.Value, holder.Value, epoch, options.LeaseDuration), hostToken);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException && clock.GetUtcNow() - renewedAt < options.LeaseDuration)
+                {
+                    logger.LogWarning("Renewing the lease of bot {BotId} failed with {ExceptionType}; it is retried.", bot.Id.Value, exception.GetType().Name);
+
+                    continue;
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    renewed = false;
+                }
+
+                if (!renewed)
                 {
                     _leaseLost = true;
                     logger.LogWarning("Bot {BotId} could not renew its lease.", bot.Id.Value);
@@ -157,6 +179,8 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
 
                     return;
                 }
+
+                renewedAt = clock.GetUtcNow();
             }
         }
         catch (OperationCanceledException) when (_producers.IsCancellationRequested || hostToken.IsCancellationRequested)
@@ -170,6 +194,21 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
         if (!await sender.Send(new ReportBotRuntimeCommand(bot.Id.Value, holder.Value, epoch, report), cancellationToken))
         {
             throw new BotLeaseLostException();
+        }
+    }
+
+    /// <summary>
+    ///     A lease that cannot be released expires by itself; the runner ends either way.
+    /// </summary>
+    private async Task TryRelease(ISender sender)
+    {
+        try
+        {
+            await sender.Send(new ReleaseBotLeaseCommand(bot.Id.Value, holder.Value, epoch), CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError("Releasing the lease of bot {BotId} failed with {ExceptionType}.", bot.Id.Value, exception.GetType().Name);
         }
     }
 
