@@ -1,20 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { getRouteApi, Link } from '@tanstack/react-router';
-import { useState } from 'react';
+import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 
 import { BacktestSetupForm } from '@/modules/backtests';
-import { type BackgroundJob, JobProgress } from '@/modules/jobs';
 import { strategyQuery } from '@/modules/strategies';
-import { Button } from '@/shared/ui/Button';
-import { Card } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
 
 const route = getRouteApi('/_authenticated/_shell/strategies/$strategyId/backtest');
 
+/** Sets up a run of the strategy's current version and opens it once queued. */
 export function BacktestSetupPage() {
   const { strategyId } = route.useParams();
   const strategy = useQuery(strategyQuery(strategyId));
-  const [started, setStarted] = useState<BackgroundJob | null>(null);
+  const navigate = useNavigate();
   const back = (
     <nav aria-label="Путь" className="text-sm text-muted">
       <Link to="/strategies" className="hover:text-link">
@@ -53,24 +50,11 @@ export function BacktestSetupPage() {
         title="Новый прогон"
         meta={`${strategy.data.name}, версия ${strategy.data.currentVersion}`}
       />
-      {started ? (
-        <Card
-          title="Прогон поставлен в очередь"
-          actions={
-            <Button size="sm" onClick={() => setStarted(null)}>
-              Настроить ещё один
-            </Button>
-          }
-        >
-          <JobProgress jobId={started.id} label="Прогон" />
-        </Card>
-      ) : (
-        <BacktestSetupForm
-          key={strategy.data.currentVersion}
-          strategy={strategy.data}
-          onStarted={setStarted}
-        />
-      )}
+      <BacktestSetupForm
+        key={strategy.data.currentVersion}
+        strategy={strategy.data}
+        onStarted={(job) => void navigate({ to: '/backtests/$runId', params: { runId: job.id } })}
+      />
     </div>
   );
 }

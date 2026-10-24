@@ -84,3 +84,23 @@ export function fractionToPercent(value: string): string | null {
     ? formatCoefficient(parsed.coefficient, parsed.scale - 2)
     : formatCoefficient(parsed.coefficient * 10n ** BigInt(2 - parsed.scale), 0);
 }
+
+/** Rounds a decimal string half away from zero to at most `places` decimals, without floating point: "1.005" → "1.01". */
+export function roundDecimal(value: string, places: number): string | null {
+  const parsed = parts(value);
+
+  if (!parsed) {
+    return null;
+  }
+
+  if (parsed.scale <= places) {
+    return formatCoefficient(parsed.coefficient, parsed.scale);
+  }
+
+  const divisor = 10n ** BigInt(parsed.scale - places);
+  const negative = parsed.coefficient < 0n;
+  const magnitude = negative ? -parsed.coefficient : parsed.coefficient;
+  const rounded = (magnitude + divisor / 2n) / divisor;
+
+  return formatCoefficient(negative ? -rounded : rounded, places);
+}

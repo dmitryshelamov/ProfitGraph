@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
+import { Amount } from '@/modules/backtests';
+import { jobStatusLabel } from '@/modules/jobs';
 import { strategiesQuery, strategyTemplateLabel } from '@/modules/strategies';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
@@ -111,6 +113,9 @@ export function StrategiesPage() {
                   <th scope="col" className="px-4 py-3 font-medium">
                     Изменена
                   </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    Последний прогон
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -131,6 +136,23 @@ export function StrategiesPage() {
                     <td className="px-4 py-3 text-text-secondary">v{strategy.currentVersion}</td>
                     <td className="px-4 py-3 text-muted">
                       <DateTime value={strategy.updatedAt} />
+                    </td>
+                    <td className="px-4 py-3">
+                      {strategy.latestRun ? (
+                        <Link
+                          to="/backtests/$runId"
+                          params={{ runId: strategy.latestRun.id }}
+                          className="hover:text-link"
+                        >
+                          {strategy.latestRun.returnPercent !== null ? (
+                            <Amount value={strategy.latestRun.returnPercent} suffix="%" />
+                          ) : (
+                            jobStatusLabel(strategy.latestRun.status)
+                          )}
+                        </Link>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}

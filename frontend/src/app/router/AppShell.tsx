@@ -29,6 +29,13 @@ export function AppShell() {
             Стратегии
           </Link>
           <Link
+            to="/backtests"
+            className="text-text-secondary hover:text-text"
+            activeProps={{ className: 'text-text', 'aria-current': 'page' }}
+          >
+            Прогоны
+          </Link>
+          <Link
             to="/historical-data"
             className="text-text-secondary hover:text-text"
             activeProps={{ className: 'text-text', 'aria-current': 'page' }}

@@ -93,6 +93,21 @@ const backtestSetupRoute = createRoute({
   ),
 });
 
+const backtestsRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/backtests',
+  component: lazyRouteComponent(() => import('@/pages/backtests/BacktestsPage'), 'BacktestsPage'),
+});
+
+const backtestRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/backtests/$runId',
+  component: lazyRouteComponent(
+    () => import('@/pages/backtest/BacktestRunPage'),
+    'BacktestRunPage',
+  ),
+});
+
 const historicalDataRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/historical-data',
@@ -119,6 +134,8 @@ const routeTree = rootRoute.addChildren([
       strategiesRoute,
       strategyRoute,
       backtestSetupRoute,
+      backtestsRoute,
+      backtestRoute,
       historicalDataRoute,
     ]),
     strategyEditorRoute,

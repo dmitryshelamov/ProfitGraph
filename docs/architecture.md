@@ -173,6 +173,11 @@ src/
 - **Run setup.** `modules/backtests` keeps the form as typed text: percents become fractions and dates become UTC
   midnight by string arithmetic (`shared/lib/decimal`), never through `number`, before the request is sent. A run
   replays a saved version, so the editor offers it only without unsaved changes.
+- **Run results.** `modules/backtests` shows a run from its job: while the job is unfinished, `useRunProgress`
+  follows `/ws/backtests` (SignalR) and `ProgressBuffer` keeps each observation once and in order, filling gaps from
+  `/observations` before showing anything after them; once the job finishes, the page reads the result, the chart
+  and the fact pages. `modules/market-chart` draws with lightweight-charts, the one place where decimal strings become
+  numbers, for drawing only; every exact value on the page comes from the strings.
 - **API client.** `shared/api/client.ts` is the only HTTP client. Its types come from
   `shared/api/generated/schema.d.ts`, generated from the API's OpenAPI document with `npm run generate:api` and never
   edited by hand. Failures surface as `ApiError` built from Problem Details.
@@ -194,7 +199,8 @@ src/
   against a routing table that replaces `fetch` (`src/test/fakeApi.ts`); unrouted requests answer 404. These tests
   live under `src/app`, the only layer allowed to import the router.
 - End-to-end tests (`frontend/e2e`, Playwright) drive the real API and frontend against a disposable database on the
-  test PostgreSQL, with no Worker and with Bybit pointed at a closed local port, so no test reaches the exchange. The block catalog and template fixtures under `src/test` are captured from the ProfitGraph API;
+  test PostgreSQL, with the Worker and a local Bybit stub (`e2e/bybit-stub.ts`), so no test reaches the exchange. They
+  cover the stage 3 acceptance path: pick a pair, download its history, run a template and read its chart. The block catalog and template fixtures under `src/test` are captured from the ProfitGraph API;
   refresh them when the catalog or templates change.
 - `OpenApiDocumentTests` keep the OpenAPI document exact (integers are `integer`, enums are names), because the
   frontend types are generated from it.
