@@ -1,5 +1,6 @@
 using ProfitGraph.Infrastructure;
 using ProfitGraph.Infrastructure.Backtesting;
+using ProfitGraph.Infrastructure.Common.Outbox;
 using ProfitGraph.Infrastructure.Jobs;
 using ProfitGraph.Venues.Bybit;
 
@@ -28,6 +29,7 @@ public static class Program
         builder.Services.AddProfitGraphInfrastructure(builder.Configuration);
         builder.Services.AddBackgroundJobRunner();
         builder.Services.AddBacktestCompaction();
+        builder.Services.AddOutboxDispatcher();
         builder.Services.AddBybitVenue(builder.Configuration);
 
         IHost host = builder.Build();

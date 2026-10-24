@@ -103,6 +103,9 @@ Venues.Bybit/
 - **Domain state.** Aggregates change state only through methods that enforce their invariants. Consequences of
   transitions (alerts, feed entries, degradation) are domain events delivered through the outbox.
   See [ADR 0004](adr/0004-explicit-live-state-machines.md).
+- **Outbox.** A transaction stores the Domain events of the aggregates it wrote in `outbox_messages`; the Worker
+  delivers each to MediatR notification handlers once, in the transaction that marks it delivered. Handlers write only
+  to the database. See [ADR 0016](adr/0016-live-bot-runtime.md).
 - **Value objects.** Entities hold identifiers and constrained values as value objects, not primitives: typed IDs
   (`StrategyId`, `UserId`) and numbers (`StrategyVersionNumber`) are `readonly record struct`s, and constrained text
   (`StrategyName`, `UserLogin`) is a sealed record. A value object validates in its constructor, so an invalid value

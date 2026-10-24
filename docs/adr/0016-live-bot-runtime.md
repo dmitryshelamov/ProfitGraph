@@ -57,3 +57,21 @@ gateway amend it in later stage 5 pull requests.
 - The runtime and its stores call these methods instead of encoding rules in SQL; integration tests verify only
   persistence, fencing and delivery.
 - Client order ID formats belong to venue modules; the Domain treats the ID as opaque.
+
+## Amendment: persistence and outbox (stage 5.3)
+
+- **Tables.** `bots`, `bot_leases`, `bot_checkpoints` (versioned JSONB of `GraphEngineCheckpoint` with the applied
+  parameter values), `bot_order_intents` (unique per bot, engine order and kind, ordered by a sequence) and the
+  single-row `trading_halt`. A bot refers to its owner, strategy, strategy version and credential.
+- **Row locks.** Bots, leases and intents change under a row lock taken when they are loaded (`GetForUpdate`) in the
+  writing transaction, which serializes the owner's commands, the runtime and the dispatcher. This replaces version
+  numbers for these aggregates (ADR 0004 amendment).
+- **Fenced root.** `BotRootCommitter` locks the lease, checks holder, epoch and expiry through `BotLease.IsHeldBy`,
+  then saves the checkpoint, the new intents (a repeated intent is ignored) and the bot in one transaction. A fenced
+  writer gets `BotLeaseLostException` and nothing is written.
+- **Outbox.** Every transaction stores the Domain events of the aggregates it wrote in `outbox_messages` before
+  commit. The Worker's dispatcher delivers due messages in sequence order, one transaction each, to MediatR handlers
+  that only write to the database and then marks the message delivered; a crash or a failed handler rolls both back,
+  so each event takes effect once. Failed deliveries wait 1, 2, 4, ... seconds up to five minutes; a message of an
+  unknown type is kept with `unknown_event_type`. Several dispatchers may run (`SKIP LOCKED`). Side effects outside
+  the database, such as Telegram, get their own delivery queue fed by a handler.

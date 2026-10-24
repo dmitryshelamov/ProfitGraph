@@ -13,6 +13,11 @@ internal sealed class PostgresTransactionAccessor
 
     internal NpgsqlTransaction? Current { get; set; }
 
+    /// <summary>
+    ///     The aggregates written in the current transaction; their Domain events go to the outbox before commit.
+    /// </summary>
+    internal IReadOnlyCollection<AggregateRoot> RegisteredAggregates => _pendingDomainEventClears;
+
     internal void RegisterDomainEventClear(AggregateRoot aggregate)
     {
         if (!_pendingDomainEventClears.Contains(aggregate))
