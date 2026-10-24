@@ -1,4 +1,5 @@
 using ProfitGraph.Infrastructure;
+using ProfitGraph.Infrastructure.Jobs;
 
 using Serilog;
 using Serilog.Formatting.Json;
@@ -6,8 +7,8 @@ using Serilog.Formatting.Json;
 namespace ProfitGraph.Worker;
 
 /// <summary>
-///     Live runtime host. Bot runtime services are registered here as the live slice is ported;
-///     trading stays disabled unless explicitly enabled by configuration.
+///     Runs background jobs (ADR 0011) and, from stage 5, the live bot runtime; trading stays disabled unless explicitly
+///     enabled by configuration.
 /// </summary>
 public static class Program
 {
@@ -23,6 +24,7 @@ public static class Program
             preserveStaticLogger: true);
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddProfitGraphInfrastructure(builder.Configuration);
+        builder.Services.AddBackgroundJobRunner();
 
         IHost host = builder.Build();
         host.Run();

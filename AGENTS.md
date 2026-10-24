@@ -57,6 +57,8 @@ npm run build
 ## Local development
 
 - API: `dotnet run --project backend/src/ProfitGraph.Api --launch-profile http` on `localhost:5291`.
+- Worker: `dotnet run --project backend/src/ProfitGraph.Worker` runs background jobs (ADR 0011); without it jobs stay
+  queued and `/api/health/ready` reports `Degraded`.
 - Frontend: `npm run dev` in `frontend/` on `localhost:5273` (`strictPort`); `/api` and `/ws` are proxied to the API.
   Regenerate the API client with `npm run generate:api` while the API runs.
 - Development PostgreSQL: `docker compose -f docker-compose.dev.yml up -d --wait` on `localhost:5435`.

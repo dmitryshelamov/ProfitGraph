@@ -32,6 +32,14 @@ dotnet run --project backend/src/ProfitGraph.Api --launch-profile http
 
 Проверка: `curl http://localhost:5291/api/health` возвращает `Healthy`.
 
+Фоновые задачи (загрузка истории, прогоны) выполняет Worker; запустите его рядом с API:
+
+```bash
+dotnet run --project backend/src/ProfitGraph.Worker
+```
+
+Без Worker задачи остаются в очереди, а `/api/health/ready` отвечает `Degraded`.
+
 Все остальные endpoint требуют входа. Первый Owner создаётся из приватной конфигурации, пока в базе нет ни одного
 аккаунта. Для разработки задайте его через user-secrets (пароль не короче 12 символов, в репозиторий не попадает):
 

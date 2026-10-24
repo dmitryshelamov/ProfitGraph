@@ -13,6 +13,7 @@ using ProfitGraph.Infrastructure.Accounts.Security;
 using ProfitGraph.Infrastructure.Common.Messaging;
 using ProfitGraph.Infrastructure.Common.NodeTypes;
 using ProfitGraph.Infrastructure.Common.Postgres;
+using ProfitGraph.Infrastructure.Jobs;
 using ProfitGraph.Infrastructure.MarketData;
 using ProfitGraph.Infrastructure.Strategies.Repositories;
 using ProfitGraph.Infrastructure.Strategies.Repositories.Converters;
@@ -41,6 +42,7 @@ public static class DependencyInjection
         services.AddSingleton<StrategySnapshotDbConverter>();
         services.AddNodeTypes();
         services.AddMarketData(configuration);
+        services.AddBackgroundJobs(configuration);
 
         return services;
     }

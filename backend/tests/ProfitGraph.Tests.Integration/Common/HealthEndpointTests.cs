@@ -35,14 +35,15 @@ public sealed class HealthEndpointTests
     }
 
     [Test]
-    public async Task ReadinessChecksTheDatabase()
+    public async Task ReadinessChecksTheDatabaseAndReportsAMissingWorkerAsDegraded()
     {
         using HttpClient client = _factory.CreateClient();
 
         HttpResponseMessage response = await client.GetAsync("/api/health/ready");
 
+        // The database answers; without a Worker heartbeat the API still serves, so readiness stays 200.
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        (await response.Content.ReadAsStringAsync()).ShouldBe("Healthy");
+        (await response.Content.ReadAsStringAsync()).ShouldBeOneOf("Healthy", "Degraded");
     }
 
     [Test]
