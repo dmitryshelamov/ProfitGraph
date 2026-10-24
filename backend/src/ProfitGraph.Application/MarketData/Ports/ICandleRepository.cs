@@ -14,6 +14,11 @@ public interface ICandleRepository
     Task Import(CandleSeries series, IReadOnlyList<Candle> candles, DateTimeOffset importedAt, CancellationToken cancellationToken);
 
     /// <summary>
+    ///     Adds candles that are not stored yet and returns how many were added; stored candles never change.
+    /// </summary>
+    Task<int> Append(CandleSeries series, IReadOnlyList<Candle> candles, string source, DateTimeOffset importedAt, CancellationToken cancellationToken);
+
+    /// <summary>
     ///     Reads at most <paramref name="limit" /> candles of the half-open range [from, to), oldest first.
     /// </summary>
     Task<IReadOnlyList<Candle>> Get(CandleSeries series, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken);

@@ -66,7 +66,7 @@ Api/
     Contracts/                CreateStrategyRequest.cs, StrategyResponse.cs
     Converters/               StrategyResponseConverter.cs (ToResponse extensions)
 Venues.Bybit/
-  BybitVenue.cs (venue descriptor), BybitRegistration.cs (AddBybitVenue), later MarketData/, Trading/
+  BybitVenue.cs (venue descriptor), BybitRegistration.cs (AddBybitVenue), MarketData/ (public history), later Trading/
 ```
 
 - **Engine** is organized by engine subsystem instead of product feature: `Common/`, `Market/`, `Accounting/`,

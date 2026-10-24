@@ -13,7 +13,7 @@ internal sealed class BybitVenue : IVenueDescriptor
 {
     private const int MaxSymbolLength = 32;
 
-    private static readonly VenueId VenueId = new VenueId("bybit");
+    internal static readonly VenueId VenueId = new VenueId("bybit");
 
     public VenueId Id => VenueId;
 

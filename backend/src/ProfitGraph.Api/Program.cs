@@ -49,7 +49,7 @@ public class Program
         builder.Services.AddHealthChecks();
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddProfitGraphInfrastructure(builder.Configuration);
-        builder.Services.AddBybitVenue();
+        builder.Services.AddBybitVenue(builder.Configuration);
         builder.Services.AddScoped<CsvImportLimitsFilter>();
         builder.AddProfitGraphAuthentication();
 

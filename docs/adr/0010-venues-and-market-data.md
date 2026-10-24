@@ -43,3 +43,22 @@ every venue, and CSV import could be called by anyone sharing the workspace.
 - A user who is not the Owner can read candles but not import them.
 - A composition root (API, Worker) names a venue module only to register it (`using` and `Add...Venue()`); the
   venue-neutrality architecture test allows exactly these lines there and nowhere else.
+
+## Amendment: history download (stage 3.3)
+
+- A venue offers public history by registering an `IHistoricalCandleSource` (ADR 0003: a capability is a port).
+  Downloading from a venue without one is a validation error (`historical_data_unavailable`).
+- `POST /api/historical-data/downloads` queues a `historical_download` job (ADR 0011) for any signed-in user, because
+  a download only adds missing candles. The start must come before the latest closed candle, which is checked when
+  the job is queued and again when the Worker runs it.
+- The Worker reads the clock once. Omitted bounds mean the venue's first candle, found by binary search over "is
+  there a candle before t", and the latest closed candle; a later end is clamped to it. Only missing ranges are
+  fetched, in chunks of `HistoricalDownload:MaxCandlesPerChunk` (10 000). Each chunk is checked completely (grid,
+  OHLCV, range, duplicates, gaps) before it is stored in its own short transaction, so a failure keeps the chunks
+  already stored and a later download continues from the cache.
+- Bybit (stage 3 plan, S3-8) uses CryptoClients.Net/Bybit.Net 5.9.0 with only public requests. A handler checks the
+  raw JSON before the SDK, so no price or volume is rounded silently. Retries (Polly), waiting until Bybit's
+  rate-limit reset, per-attempt and total timeouts and a circuit breaker are configured in `Venues:Bybit`; resets
+  use the system clock, never the application's. The MVP's general request limiter is not ported: for public
+  history the SDK's own waiting and the reset times are enough; per-account limits return with orders (stage 5).
+

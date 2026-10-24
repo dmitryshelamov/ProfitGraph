@@ -4,13 +4,18 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 using ProfitGraph.Api.Common.Authentication;
+using ProfitGraph.Api.Jobs;
+using ProfitGraph.Api.Jobs.Contracts;
+using ProfitGraph.Api.Jobs.Converters;
 using ProfitGraph.Api.MarketData.Contracts;
 using ProfitGraph.Api.MarketData.Converters;
 using ProfitGraph.Application.Common.Exceptions;
+using ProfitGraph.Application.Jobs.Contracts;
 using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Application.MarketData.GetCandles;
 using ProfitGraph.Application.MarketData.ImportCandles;
 using ProfitGraph.Application.MarketData.Ports;
+using ProfitGraph.Application.MarketData.StartCandleDownload;
 
 namespace ProfitGraph.Api.MarketData;
 
@@ -46,6 +51,27 @@ public sealed class HistoricalDataController(ISender sender) : ControllerBase
             cancellationToken);
 
         return result.ToResponse();
+    }
+
+    /// <summary>
+    ///     Queues a download of missing public history for the Worker; the job reports progress and the result
+    ///     (<c>HistoricalDownload</c>) at /api/jobs/{id}. Downloads only add candles, so every user may start one.
+    /// </summary>
+    [HttpPost("downloads")]
+    public async Task<ActionResult<BackgroundJobResponse>> Download(DownloadCandlesRequest request, CancellationToken cancellationToken)
+    {
+        Guid userId = AuthenticationSetup.UserId(User) ?? throw new InvalidOperationException("An authorized request has no user identifier.");
+        BackgroundJobInternal job = await sender.Send(
+            new StartCandleDownloadCommand(
+                userId,
+                request.Venue ?? string.Empty,
+                request.Symbol ?? string.Empty,
+                request.Timeframe ?? string.Empty,
+                request.From,
+                request.To),
+            cancellationToken);
+
+        return AcceptedAtAction(nameof(JobsController.Get), "Jobs", new { id = job.Id }, job.ToResponse());
     }
 
     [HttpGet("candles")]
