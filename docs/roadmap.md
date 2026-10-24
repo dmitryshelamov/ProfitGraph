@@ -10,16 +10,16 @@ small pull requests; a stage is done when its acceptance criterion holds.
 | 0. Skeleton | Solution and projects, MediatR pipeline, Problem Details, health, architecture tests, CI, compose, documents; frontend skeleton | CI is green, `/api/health` responds, the frontend builds | Done |
 | 1. Engine | Graph, blocks, lowering, validation, compilation, evaluation, dispatch, accounting, replay, metrics, templates | Ported tests and regression fixtures pass; templates on the same candles produce the same ledger as the MVP | Done |
 | 2. Strategies and accounts | Strategy versions, block catalog API, users, sign-in, sessions, rate limits; persistence foundation, transaction behavior, migration version test | Strategy CRUD and sign-in work through API and UI | Done |
-| 3. Data and backtests | Venue ports, `Venues.Bybit` public data, CSV import, background jobs, durable runs, progress, results, comparison, holdout | A template backtest on Bybit data runs from pair selection to result charts | In progress: venues and candles, background jobs, Bybit history |
+| 3. Data and backtests | Venue ports, `Venues.Bybit` public data, CSV import, background jobs, durable runs, progress, results, comparison, holdout | A template backtest on Bybit data runs from pair selection to result charts | In progress: venues and candles, background jobs, Bybit history, instruments and history preparation |
 | 4. Optimization | Grid, coarse-to-fine, TPE, walk-forward, durable trials, resume | Walk-forward optimization completes and resumes after restart | Planned |
 | 5. Live core | Bot and order-intent aggregates, Worker, leases and fencing, checkpoints, outbox, reconciliation, risk limits, credential encryption, Bybit order gateway (trading disabled by default), manual orders, graph change, event feed, positions, account snapshots, Telegram alerts | Bot scenarios pass against a mocked gateway; every transition has Domain tests | Planned |
 | 6. Production | Production compose, watchdog, runbook, switch-over | The owner deploys, enters credentials and starts bots | Planned |
 
 ### Carried over from stage 1
 
-- Return the tests that need later stages: template fingerprint tests (stage 3), composite and parameter-resolution
-  tests that use optimization search spaces and the walk-forward equity observer (stage 4). The saved Ladder SMA
-  definition parity returned in stage 2.
+- Return the tests that need later stages: composite and parameter-resolution tests that use optimization search
+  spaces and the walk-forward equity observer (stage 4). The saved Ladder SMA definition parity returned in stage 2,
+  the template fingerprint tests in stage 3.
 
 ## Wave 2
 

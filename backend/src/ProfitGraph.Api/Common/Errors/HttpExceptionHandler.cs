@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
 using ProfitGraph.Application.Common.Exceptions;
+using ProfitGraph.Application.MarketData;
 using ProfitGraph.Domain.Common;
 using ProfitGraph.Engine.Common;
 
@@ -27,6 +28,9 @@ internal sealed class HttpExceptionHandler(IProblemDetailsService problemDetails
             StateConflictException conflict => (409, "State conflict", conflict.Code),
             DomainException domain => (422, "Domain rule violation", domain.Code),
             EngineException => (422, "Domain rule violation", "domain_rule_violation"),
+            InstrumentRulesException { Code: InstrumentRulesErrorCodes.InvalidRequest } instrument => (422, "Instrument unavailable", instrument.Code),
+            InstrumentRulesException { Code: InstrumentRulesErrorCodes.InvalidProviderData } instrument => (502, "Invalid venue data", instrument.Code),
+            InstrumentRulesException instrument => (503, "Venue unavailable", instrument.Code),
             BadHttpRequestException badRequest => (badRequest.StatusCode, "Invalid request", "invalid_request"),
             _ => (500, "Server error", "unexpected_error")
         };

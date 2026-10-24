@@ -7,7 +7,8 @@ namespace ProfitGraph.Tests.Integration.MarketData;
 public static class TestHistoryRegistration
 {
     /// <summary>
-    ///     Adds a venue with history served by <see cref="FakeHistorySource" /> and a venue without any history source.
+    ///     Adds a venue with history and instruments served by <see cref="FakeHistorySource" /> and <see cref="FakeInstrumentSource" />,
+    ///     and a venue without any of them.
     /// </summary>
     public static IServiceCollection AddTestHistory(this IServiceCollection services)
     {
@@ -15,6 +16,9 @@ public static class TestHistoryRegistration
         services.AddSingleton<IVenueDescriptor>(new TestHistoryVenue(TestHistoryVenue.WithoutHistory));
         services.AddSingleton<FakeHistorySource>();
         services.AddSingleton<IHistoricalCandleSource>(provider => provider.GetRequiredService<FakeHistorySource>());
+        services.AddSingleton<FakeInstrumentSource>();
+        services.AddSingleton<IInstrumentRulesSource>(provider => provider.GetRequiredService<FakeInstrumentSource>());
+        services.AddSingleton<IInstrumentCatalog>(provider => provider.GetRequiredService<FakeInstrumentSource>());
 
         return services;
     }

@@ -26,4 +26,9 @@ public static class MarketDataResponseConverter
     {
         return new CandleImportResponse(import.Venue, import.Symbol, import.Timeframe, import.Accepted, import.From, import.To);
     }
+
+    public static InstrumentResponse ToResponse(this InstrumentInternal instrument)
+    {
+        return new InstrumentResponse(instrument.Venue, instrument.Symbol, instrument.BaseAsset, instrument.QuoteAsset);
+    }
 }

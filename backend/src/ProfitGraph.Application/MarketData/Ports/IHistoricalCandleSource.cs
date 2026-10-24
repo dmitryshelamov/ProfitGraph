@@ -7,10 +7,8 @@ namespace ProfitGraph.Application.MarketData.Ports;
 ///     A venue's public closed-candle history (ADR 0003: a capability is a port). Failures are
 ///     <see cref="HistoricalDataException" /> with a stable code.
 /// </summary>
-public interface IHistoricalCandleSource
+public interface IHistoricalCandleSource : IVenuePort
 {
-    VenueId Venue { get; }
-
     /// <summary>
     ///     The source recorded with downloaded candles.
     /// </summary>

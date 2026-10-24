@@ -44,6 +44,23 @@ data shared by all users; only the Owner can change it by CSV import, and downlo
 A background job that brings the closed candles of a series into the shared cache from a venue's public history. It
 fetches only the missing ranges, stores them chunk by chunk, and never changes a stored candle.
 
+### Instrument Rules Snapshot
+
+The trading rules of one instrument (quantity step, price tick, minimums, asset precisions) as the venue reported
+them at one moment. A snapshot is never updated and does not claim to be the rules that applied in the past; a run
+uses the snapshot taken when it started.
+
+### Prepared History
+
+The immutable copy of candles one run replays: the warm-up before the run's start and the replay range, complete and
+contiguous, with an identity that changes whenever any candle or the partition changes. A later import or download
+cannot change a prepared history.
+
+### Compilation Fingerprint
+
+The identity of what a compiled strategy executes under the engine's execution policy. Editing labels, display names
+or display units keeps it; changing any semantic value changes it.
+
 ### Background Job
 
 Durable work that runs in the Worker after the request that started it has returned, such as a history download

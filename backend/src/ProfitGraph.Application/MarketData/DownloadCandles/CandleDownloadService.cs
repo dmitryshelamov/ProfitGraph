@@ -15,7 +15,7 @@ namespace ProfitGraph.Application.MarketData.DownloadCandles;
 /// </summary>
 public sealed class CandleDownloadService(
     VenueRegistry venues,
-    HistorySources sources,
+    VenuePorts<IHistoricalCandleSource> sources,
     ICandleRepository repository,
     ITransactionExecutor transactions,
     IBackgroundJobProgress progress,
@@ -24,21 +24,34 @@ public sealed class CandleDownloadService(
 {
     public async Task<HistoricalDownloadInternal> Download(DownloadCandlesCommand request, CancellationToken cancellationToken)
     {
-        transactions.EnsureNoTransaction();
         CandleSeries series = venues.ResolveSeries(request.Venue, request.Symbol, request.Timeframe);
-        IHistoricalCandleSource source = sources.Find(series.Venue)
-            ?? throw new HistoricalDataException(HistoricalDataErrorCodes.Unavailable, "This venue offers no public history download.", []);
+        ResolvedCandleRange range = await Resolve(series, request.From, request.To, clock.GetUtcNow(), cancellationToken);
+
+        return await Ensure(range, reportProgress: true, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Fixes the range against one clock reading: an omitted start is the venue's first candle, an omitted or later end
+    ///     is the latest closed candle.
+    /// </summary>
+    public async Task<ResolvedCandleRange> Resolve(
+        CandleSeries series,
+        DateTimeOffset? requestedFrom,
+        DateTimeOffset? requestedTo,
+        DateTimeOffset observedAt,
+        CancellationToken cancellationToken)
+    {
+        transactions.EnsureNoTransaction();
         Timeframe timeframe = series.Timeframe;
-        DateTimeOffset observedAt = clock.GetUtcNow();
         DateTimeOffset latest = timeframe.FloorToGrid(observedAt);
 
-        if (request.From >= latest)
+        if (requestedFrom >= latest)
         {
             throw new ApplicationValidationException([new InputError("invalid_request", "From", "The start must come before the latest closed candle.")]);
         }
 
-        DateTimeOffset to = request.To is null || request.To > latest ? latest : request.To.Value;
-        DateTimeOffset from = request.From ?? await source.FindFirst(series.Symbol, timeframe, to, cancellationToken)
+        DateTimeOffset to = requestedTo is null || requestedTo > latest ? latest : requestedTo.Value;
+        DateTimeOffset from = requestedFrom ?? await Source(series).FindFirst(series.Symbol, timeframe, to, cancellationToken)
             ?? throw new HistoricalDataException(
                 HistoricalDataErrorCodes.Unavailable,
                 "The venue has no closed history before the requested end.",
@@ -52,36 +65,57 @@ public sealed class CandleDownloadService(
                 [new CandleRangeInternal(from, to)]);
         }
 
-        if (to <= from)
-        {
-            throw new ApplicationValidationException([new InputError("invalid_request", "To", "The range must contain at least one closed candle.")]);
-        }
+        return to > from
+            ? new ResolvedCandleRange(series, from, to, observedAt, latest)
+            : throw new ApplicationValidationException([new InputError("invalid_request", "To", "The range must contain at least one closed candle.")]);
+    }
 
-        long total = (to.UtcTicks - from.UtcTicks) / timeframe.Duration.Ticks;
+    /// <summary>
+    ///     Brings every candle of a resolved range into the cache without reading the clock again; the venue is asked only
+    ///     for missing candles.
+    /// </summary>
+    public async Task<HistoricalDownloadInternal> Ensure(ResolvedCandleRange range, bool reportProgress, CancellationToken cancellationToken)
+    {
+        transactions.EnsureNoTransaction();
+        CandleSeries series = range.Series;
+        long total = range.Count;
         long cached = 0;
         long downloaded = 0;
         long inserted = 0;
-        await progress.Report(completed: 0, total, cancellationToken);
 
-        for (DateTimeOffset chunkFrom = from; chunkFrom < to;)
+        if (reportProgress)
+        {
+            await progress.Report(completed: 0, total, cancellationToken);
+        }
+
+        for (DateTimeOffset chunkFrom = range.From; chunkFrom < range.To;)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            long count = Math.Min(options.MaxCandlesPerChunk, (to.UtcTicks - chunkFrom.UtcTicks) / timeframe.Duration.Ticks);
-            DateTimeOffset chunkTo = chunkFrom.AddTicks(count * timeframe.Duration.Ticks);
-            (int chunkCached, int chunkDownloaded, int chunkInserted) = await Chunk(series, source, chunkFrom, chunkTo, (int)count, observedAt, cancellationToken);
+            long count = Math.Min(options.MaxCandlesPerChunk, (range.To.UtcTicks - chunkFrom.UtcTicks) / series.Timeframe.Duration.Ticks);
+            DateTimeOffset chunkTo = chunkFrom.AddTicks(count * series.Timeframe.Duration.Ticks);
+            (int chunkCached, int chunkDownloaded, int chunkInserted) = await Chunk(series, chunkFrom, chunkTo, (int)count, range.ObservedAt, cancellationToken);
             cached += chunkCached;
             downloaded += chunkDownloaded;
             inserted += chunkInserted;
             chunkFrom = chunkTo;
-            await progress.Report((chunkFrom.UtcTicks - from.UtcTicks) / timeframe.Duration.Ticks, total, cancellationToken);
+
+            if (reportProgress)
+            {
+                await progress.Report((chunkFrom.UtcTicks - range.From.UtcTicks) / series.Timeframe.Duration.Ticks, total, cancellationToken);
+            }
         }
 
-        return new HistoricalDownloadInternal(series.Venue.Value, series.Symbol.Value, timeframe.Key, from, to, total, cached, downloaded, inserted);
+        return new HistoricalDownloadInternal(series.Venue.Value, series.Symbol.Value, series.Timeframe.Key, range.From, range.To, total, cached, downloaded, inserted);
+    }
+
+    private IHistoricalCandleSource Source(CandleSeries series)
+    {
+        return sources.Find(series.Venue)
+            ?? throw new HistoricalDataException(HistoricalDataErrorCodes.Unavailable, "This venue offers no public history download.", []);
     }
 
     private async Task<(int Cached, int Downloaded, int Inserted)> Chunk(
         CandleSeries series,
-        IHistoricalCandleSource source,
         DateTimeOffset from,
         DateTimeOffset to,
         int count,
@@ -97,6 +131,14 @@ public sealed class CandleDownloadService(
             to,
             HistoricalDataErrorCodes.InvalidStoredData);
         IReadOnlyList<CandleRangeInternal> missing = FindMissing(cachedCandles, series.Timeframe, from, to);
+
+        // A fully cached chunk needs no venue, so history imported for a venue without downloads can still be prepared.
+        if (missing.Count == 0)
+        {
+            return (cachedCandles.Count, 0, 0);
+        }
+
+        IHistoricalCandleSource source = Source(series);
         var downloadedCandles = new Dictionary<DateTimeOffset, Candle>();
 
         foreach (CandleRangeInternal range in missing)
@@ -116,13 +158,8 @@ public sealed class CandleDownloadService(
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        var inserted = 0;
-
-        if (downloadedCandles.Count > 0)
-        {
-            Candle[] candles = [.. downloadedCandles.Values.OrderBy(candle => candle.OpenTime)];
-            inserted = await transactions.ExecuteAsync(() => repository.Append(series, candles, source.Source, observedAt, cancellationToken), cancellationToken);
-        }
+        Candle[] downloaded = [.. downloadedCandles.Values.OrderBy(candle => candle.OpenTime)];
+        int inserted = await transactions.ExecuteAsync(() => repository.Append(series, downloaded, source.Source, observedAt, cancellationToken), cancellationToken);
 
         return (cachedCandles.Count, downloadedCandles.Count, inserted);
     }
