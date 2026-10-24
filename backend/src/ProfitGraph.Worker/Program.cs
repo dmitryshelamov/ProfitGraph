@@ -1,4 +1,5 @@
 using ProfitGraph.Infrastructure;
+using ProfitGraph.Infrastructure.Backtesting;
 using ProfitGraph.Infrastructure.Jobs;
 using ProfitGraph.Venues.Bybit;
 
@@ -26,6 +27,7 @@ public static class Program
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddProfitGraphInfrastructure(builder.Configuration);
         builder.Services.AddBackgroundJobRunner();
+        builder.Services.AddBacktestCompaction();
         builder.Services.AddBybitVenue(builder.Configuration);
 
         IHost host = builder.Build();

@@ -20,12 +20,29 @@ internal static class SignedInClients
 
     internal static async Task<HttpClient> CreateSignedInClient(this ProfitGraphApiFactory factory, UserRole role = UserRole.User)
     {
-        UserInternal user = await factory.CreateAccount(role);
+        return await factory.SignIn(await factory.CreateAccount(role));
+    }
+
+    internal static async Task<HttpClient> SignIn(this ProfitGraphApiFactory factory, UserInternal user)
+    {
         HttpClient client = factory.CreateClient();
         HttpResponseMessage response = await client.PostAsJsonAsync("/api/auth/login", new { login = user.Login, password = Password });
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         return client;
+    }
+
+    /// <summary>
+    ///     Signs the user in once more and returns the session cookie as a <c>Cookie</c> header value, for clients that
+    ///     keep no cookies themselves, such as SignalR.
+    /// </summary>
+    internal static async Task<string> SessionCookie(this ProfitGraphApiFactory factory, UserInternal user)
+    {
+        using HttpClient client = factory.Server.CreateClient();
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/auth/login", new { login = user.Login, password = Password });
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        return string.Join("; ", response.Headers.GetValues("Set-Cookie").Select(cookie => cookie.Split(';')[0]));
     }
 
     internal static async Task<UserInternal> CreateAccount(this ProfitGraphApiFactory factory, UserRole role)

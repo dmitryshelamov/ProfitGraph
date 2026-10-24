@@ -45,3 +45,26 @@ ProfitGraph keeps the frozen inputs and the bounded replay pipeline, stores resu
 - An engine change that alters compilation fails queued runs instead of replaying something else.
 - Reading results, progress over SignalR and chart buckets are stage 3.6; reconciliation of a partially stored
   batch after a storage failure is not ported.
+
+## Amendment: results and progress (stage 3.6)
+
+- **Reads.** Every read checks that the run belongs to the user; another user's run or strategy is reported as missing.
+  `GET /api/backtests/{id}` returns the configuration, history, result, job status and fact counts. Facts come in
+  bounded pages with a `next` cursor: `/observations` (candle observations after a sequence, each with the ledger and
+  diagnostic ranges it owns, at most 100), `/orders` (latest state per order, by order id), `/fills` and
+  `/diagnostics` (at most 500). `/chart` returns at most 5000 points.
+- **Chart compaction** (Profit Fox Designer ADR 0046). The Worker turns the observations of a run whose job finished at
+  least `Backtests:CompactAfter` ago (default 10 minutes, checked every `Backtests:CompactionInterval`) into chart
+  buckets of consecutive candles and keeps only the last observation; ledger, diagnostics and metrics stay. Until then
+  the chart is aggregated from the observations with the same SQL, so an interrupted run has a chart too. The delay
+  gives live clients time to catch up before observations disappear.
+- **Lists.** `GET /api/strategies/{id}/backtests` lists a strategy's runs newest first; the strategy list shows each
+  strategy's latest run. `GET /api/backtests?quote=&symbol=&timeframe=` ranks the user's completed runs in one quote
+  currency by full-period return; cancelled and failed runs are not ranked. List cursors are run identifiers.
+- **Progress** (S3-9, S3-11). Each committed fact batch and each run save sends `NOTIFY backtest_progress` with the
+  run id in the same transaction, so a signal never precedes its facts. The API listens on a dedicated connection and,
+  for runs that someone follows, reads the observations committed after the last one it sent and sends them in order
+  as `BacktestProgress` to the run's group on `/ws/backtests`, then `BacktestFinished` once the run has a result.
+  `Subscribe(runId)` checks ownership and returns the run's last stored observation and outcome. A client buffers
+  messages, reads observations after its cursor over HTTP to fill gaps (for example after a reconnect) and keeps each
+  sequence once; a lost signal is caught up by the next one, and the job status remains the final word.

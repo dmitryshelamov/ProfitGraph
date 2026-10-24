@@ -24,7 +24,7 @@ public sealed class BacktestReplaySessionTests
     [Test]
     public async Task EveryFactIsStoredInReplayOrderInBoundedBatches()
     {
-        var store = new RecordingFactStore();
+        using var store = new RecordingFactStore();
         var transactions = new ImmediateTransactions();
         var progress = Substitute.For<IBackgroundJobProgress>();
         BacktestInput input = Input();
@@ -39,6 +39,10 @@ public sealed class BacktestReplaySessionTests
         BacktestCandleObservation[] candles = [.. store.Batches.SelectMany(batch => batch.Candles)];
         candles.Select(candle => candle.Snapshot.Sequence).ShouldBe(Enumerable.Range(start: 1, input.Replay.Count).Select(index => (long)index));
         candles[^1].LedgerThrough.ShouldBe(result.Ledger[^1].Sequence);
+        candles[0].LedgerFrom.ShouldBe(0);
+        candles[0].DiagnosticFrom.ShouldBe(0);
+        candles.Zip(candles.Skip(1))
+            .ShouldAllBe(pair => pair.Second.LedgerFrom == pair.First.LedgerThrough && pair.Second.DiagnosticFrom == pair.First.DiagnosticThrough);
         store.Batches.ShouldAllBe(batch => batch.Ledger.Count + batch.Candles.Count + batch.Diagnostics.Count <= SmallBatches.BatchSize);
         store.Batches.SelectMany(batch => batch.Diagnostics)
             .Select(record => record.Sequence)
@@ -54,33 +58,16 @@ public sealed class BacktestReplaySessionTests
     [Test]
     public async Task CancelledReplayStoresEveryFactItReported()
     {
-        // Disposed after the replay, which is the only user of the token source.
-        var cancellation = new CancellationTokenSource();
-        var store = new RecordingFactStore
+        using var store = new RecordingFactStore
         {
-            BeforeAppend = async number =>
-            {
-                if (number == 3)
-                {
-                    await cancellation.CancelAsync();
-                }
-
-                await Task.Delay(millisecondsDelay: 1, CancellationToken.None);
-            }
+            CancelReplayAtBatch = 3,
+            BeforeAppend = _ => Task.Delay(millisecondsDelay: 1, CancellationToken.None)
         };
         BacktestInput input = Input();
         BacktestReplaySession session = Session(store, new ImmediateTransactions(), Substitute.For<IBackgroundJobProgress>(), input);
-        BacktestResult result;
 
-        try
-        {
-            result = await Task.Run(() => new BacktestEngine().Run(input, session, cancellation.Token), CancellationToken.None);
-            await session.Complete();
-        }
-        finally
-        {
-            cancellation.Dispose();
-        }
+        BacktestResult result = await Task.Run(() => new BacktestEngine().Run(input, session, store.ReplayToken), CancellationToken.None);
+        await session.Complete();
 
         result.Terminal.Outcome.ShouldBe(BacktestOutcome.Cancelled);
         result.Terminal.ProcessedCandles.ShouldBeLessThan(input.Replay.Count);
@@ -92,7 +79,7 @@ public sealed class BacktestReplaySessionTests
     [Test]
     public async Task StorageFailureStopsTheReplayAndFailsCompletion()
     {
-        var store = new RecordingFactStore
+        using var store = new RecordingFactStore
         {
             BeforeAppend = number => number == 2 ? throw new InvalidOperationException("The database is gone.") : Task.CompletedTask
         };
@@ -112,7 +99,8 @@ public sealed class BacktestReplaySessionTests
     public async Task CompletionIsSingleUse()
     {
         BacktestInput input = Input();
-        BacktestReplaySession session = Session(new RecordingFactStore(), new ImmediateTransactions(), Substitute.For<IBackgroundJobProgress>(), input);
+        using var store = new RecordingFactStore();
+        BacktestReplaySession session = Session(store, new ImmediateTransactions(), Substitute.For<IBackgroundJobProgress>(), input);
         await Task.Run(() => new BacktestEngine().Run(input, session), CancellationToken.None);
         await session.Complete();
 

@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
+using ProfitGraph.Api.Backtesting.Realtime;
 using ProfitGraph.Api.Common.Authentication;
 using ProfitGraph.Api.Common.Errors;
 using ProfitGraph.Api.MarketData;
@@ -51,6 +52,9 @@ public class Program
         builder.Services.AddProfitGraphInfrastructure(builder.Configuration);
         builder.Services.AddBybitVenue(builder.Configuration);
         builder.Services.AddScoped<CsvImportLimitsFilter>();
+        builder.Services.AddSignalR();
+        builder.Services.AddSingleton<BacktestProgressSubscriptions>();
+        builder.Services.AddHostedService<BacktestProgressPublisher>();
         builder.AddProfitGraphAuthentication();
 
         WebApplication app = builder.Build();
@@ -80,6 +84,7 @@ public class Program
         }
 
         app.MapControllers();
+        app.MapHub<BacktestHub>(BacktestHub.Path);
         app.MapHealthChecks("/api/health", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
         app.MapHealthChecks("/api/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains(HealthTags.Ready) }).AllowAnonymous();
 

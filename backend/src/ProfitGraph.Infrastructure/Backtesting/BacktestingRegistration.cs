@@ -13,7 +13,7 @@ using ProfitGraph.Infrastructure.Jobs;
 
 namespace ProfitGraph.Infrastructure.Backtesting;
 
-internal static class BacktestingRegistration
+public static class BacktestingRegistration
 {
     /// <summary>
     ///     Registers runs, their fact store and the backtest job that the Worker executes.
@@ -28,7 +28,20 @@ internal static class BacktestingRegistration
         services.AddScoped<BacktestCompiler>();
         services.AddScoped<IBacktestRunRepository, BacktestRunRepository>();
         services.AddScoped<IBacktestFactStore, BacktestFactStore>();
+        services.AddScoped<IBacktestReader, BacktestReader>();
+        services.AddSingleton<IBacktestProgressNotifications, BacktestProgressNotifications>();
         services.AddBackgroundJob<RunBacktestCommand, BacktestCompletedInternal>();
+
+        return services;
+    }
+
+    /// <summary>
+    ///     Adds compaction of finished runs to the Worker.
+    /// </summary>
+    public static IServiceCollection AddBacktestCompaction(this IServiceCollection services)
+    {
+        services.AddScoped<BacktestCompactor>();
+        services.AddHostedService<BacktestCompactionWorker>();
 
         return services;
     }

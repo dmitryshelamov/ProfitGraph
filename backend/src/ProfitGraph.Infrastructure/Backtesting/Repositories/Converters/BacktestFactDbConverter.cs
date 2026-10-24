@@ -49,7 +49,9 @@ internal static class BacktestFactDbConverter
             FeesQuote = account.FeesQuote,
             LastBuyPrice = account.LastBuyPrice,
             ActiveOrders = account.Orders.Count,
+            LedgerFrom = observation.LedgerFrom,
             LedgerThrough = observation.LedgerThrough,
+            DiagnosticFrom = observation.DiagnosticFrom,
             DiagnosticThrough = observation.DiagnosticThrough
         };
     }

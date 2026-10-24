@@ -28,6 +28,8 @@ internal sealed class BacktestCandleDb
     public decimal FeesQuote { get; init; }
     public decimal? LastBuyPrice { get; init; }
     public int ActiveOrders { get; init; }
+    public long LedgerFrom { get; init; }
     public long LedgerThrough { get; init; }
+    public long DiagnosticFrom { get; init; }
     public long DiagnosticThrough { get; init; }
 }

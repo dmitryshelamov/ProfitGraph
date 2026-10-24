@@ -67,6 +67,11 @@ One backtest of a strategy version with frozen parameters, period, settings and 
 background job with the same identifier and stores its ledger, one observation per replayed candle and its
 diagnostics as immutable facts. See [ADR 0012](docs/adr/0012-backtest-runs.md).
 
+### Chart Bucket
+
+Consecutive replayed candles of a finished run collapsed into one chart point: open, high, low, close, volume, equity
+range and fill counts. A run keeps at most 5000 buckets.
+
 ### Background Job
 
 Durable work that runs in the Worker after the request that started it has returned, such as a history download

@@ -4,8 +4,6 @@ using System.Text.Json.Nodes;
 
 using Dapper;
 
-using MediatR;
-
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -14,9 +12,6 @@ using Npgsql;
 using ProfitGraph.Application.Backtesting;
 using ProfitGraph.Application.Backtesting.History;
 using ProfitGraph.Application.MarketData;
-using ProfitGraph.Application.Strategies.Contracts;
-using ProfitGraph.Application.Strategies.Converters;
-using ProfitGraph.Application.Strategies.CreateStrategy;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Accounting;
@@ -24,7 +19,6 @@ using ProfitGraph.Engine.Compilation;
 using ProfitGraph.Engine.Evaluation;
 using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Replay;
-using ProfitGraph.Engine.Templates;
 using ProfitGraph.Infrastructure.Backtesting;
 using ProfitGraph.Tests.Integration.Common;
 using ProfitGraph.Tests.Integration.Jobs;
@@ -38,9 +32,8 @@ namespace ProfitGraph.Tests.Integration.Backtesting;
 [NonParallelizable]
 public sealed class BacktestRunTests
 {
-    private static readonly DateTimeOffset First = FakeHistorySource.DefaultFirst;
-    private static readonly DateTimeOffset From = First.AddDays(2);
-    private static readonly DateTimeOffset To = First.AddDays(12);
+    private static readonly DateTimeOffset From = BacktestScenario.From;
+    private static readonly DateTimeOffset To = BacktestScenario.To;
     private ProfitGraphApiFactory _application = null!;
     private HttpClient _client = null!;
     private Guid _userId;
@@ -48,7 +41,7 @@ public sealed class BacktestRunTests
 
     private static DateTimeOffset Tomorrow => new DateTimeOffset(DateTime.UtcNow.Date.AddDays(1), TimeSpan.Zero);
 
-    private static Func<JsonNode, bool> Finished => job => job["status"]!.GetValue<string>() is "Completed" or "Failed" or "Cancelled";
+    private static Func<JsonNode, bool> Finished => BacktestScenario.Finished;
 
     [SetUp]
     public async Task StartApi()
@@ -56,7 +49,7 @@ public sealed class BacktestRunTests
         _application = new ProfitGraphApiFactory();
         _client = await _application.CreateSignedInClient();
         _userId = await JobScenario.UserId(_client);
-        _symbol = "B" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant() + "USDT";
+        _symbol = BacktestScenario.NewSymbol();
     }
 
     [TearDown]
@@ -69,7 +62,7 @@ public sealed class BacktestRunTests
     [Test]
     public async Task RunReplaysPreparedHistory_AndStoresTheFactsOfADirectReplay()
     {
-        using IHost worker = await StartWorker(Wave);
+        using IHost worker = await StartWorker(BacktestScenario.Wave);
         Guid strategyId = await CreateStrategy();
 
         HttpResponseMessage response = await _client.PostAsJsonAsync("/api/backtests", Request(strategyId));
@@ -106,18 +99,11 @@ public sealed class BacktestRunTests
     [Test]
     public async Task CancellingDuringPreparationKeepsTheRunWithoutAResult()
     {
-        using var gate = new SemaphoreSlim(initialCount: 0);
-        using IHost worker = await StartWorker((timeframe, from, to) =>
-        {
-            gate.Wait(TimeSpan.FromSeconds(10));
-
-            return FakeHistorySource.Complete(timeframe, from, to);
-        });
+        using IHost worker = await StartWorker(candles: null, HoldUntilCancelled);
         Guid id = await Start(await CreateStrategy());
         await JobScenario.WaitFor(_client, id, JobScenario.Status("Running"));
 
         (await _client.PostAsync($"/api/jobs/{id}/cancel", content: null)).StatusCode.ShouldBe(HttpStatusCode.Accepted);
-        gate.Release(releaseCount: 100);
         JsonNode job = await JobScenario.WaitFor(_client, id, Finished);
         await worker.StopAsync();
 
@@ -130,20 +116,11 @@ public sealed class BacktestRunTests
     [Test]
     public async Task WorkerShutdownInterruptsARun()
     {
-        using var gate = new SemaphoreSlim(initialCount: 0);
-        IHost worker = await StartWorker((timeframe, from, to) =>
-        {
-            gate.Wait(TimeSpan.FromSeconds(10));
-
-            return FakeHistorySource.Complete(timeframe, from, to);
-        });
+        using IHost worker = await StartWorker(candles: null, HoldUntilCancelled);
         Guid id = await Start(await CreateStrategy());
         await JobScenario.WaitFor(_client, id, JobScenario.Status("Running"));
 
-        Task stopping = worker.StopAsync();
-        gate.Release(releaseCount: 100);
-        await stopping;
-        worker.Dispose();
+        await worker.StopAsync();
         JsonNode job = await JobScenario.WaitFor(_client, id, Finished);
 
         job["failure"]!["code"]!.GetValue<string>().ShouldBe("background_job_interrupted");
@@ -205,59 +182,25 @@ public sealed class BacktestRunTests
     }
 
     /// <summary>
-    ///     A price wave that makes the fast SMA cross the slow one again and again.
+    ///     Holds every history request until the job's token is cancelled, so the run stays in preparation.
     /// </summary>
-    private static IReadOnlyList<Candle> Wave(Timeframe timeframe, DateTimeOffset from, DateTimeOffset to)
+    private static Task HoldUntilCancelled(CancellationToken cancellationToken)
     {
-        var candles = new List<Candle>();
-
-        for (DateTimeOffset time = from; time < to; time += timeframe.Duration)
-        {
-            long index = (time.UtcTicks - First.UtcTicks) / timeframe.Duration.Ticks;
-            decimal open = Price(index - 1);
-            decimal close = Price(index);
-            candles.Add(new Candle(time, open, Math.Max(open, close) + 1m, Math.Min(open, close) - 1m, close, Volume: 10m));
-        }
-
-        return candles;
+        return Task.Delay(Timeout.Infinite, cancellationToken);
     }
 
-    private static decimal Price(long index)
-    {
-        return 100m + (index % 12 < 6 ? index % 12 : 12 - index % 12) * 2m;
-    }
-
-    private async Task<IHost> StartWorker(Func<Timeframe, DateTimeOffset, DateTimeOffset, IReadOnlyList<Candle>>? candles)
+    private async Task<IHost> StartWorker(
+        Func<Timeframe, DateTimeOffset, DateTimeOffset, IReadOnlyList<Candle>>? candles,
+        Func<CancellationToken, Task>? beforeGet = null)
     {
         IHost worker = WorkerHost.Create();
         var history = worker.Services.GetRequiredService<FakeHistorySource>();
         history.Reset();
         history.Candles = candles;
+        history.BeforeGet = beforeGet;
         await worker.StartAsync();
 
         return worker;
-    }
-
-    private async Task<Guid> CreateStrategy()
-    {
-        using IServiceScope scope = _application.Services.CreateScope();
-        StrategyInternal created = await scope.ServiceProvider.GetRequiredService<ISender>()
-            .Send(
-                new CreateStrategyCommand(
-                    _userId,
-                    "Wave SMA",
-                    SmaStrategyBlockFactory.Create(fastPeriod: 2, slowPeriod: 4).ToInternal(),
-                    new GraphLayoutInternal(new Dictionary<string, NodePositionInternal>())));
-
-        return created.Id;
-    }
-
-    private async Task<Guid> Start(Guid strategyId)
-    {
-        HttpResponseMessage response = await _client.PostAsJsonAsync("/api/backtests", Request(strategyId));
-        response.StatusCode.ShouldBe(HttpStatusCode.Accepted, await response.Content.ReadAsStringAsync());
-
-        return (await response.Content.ReadFromJsonAsync<JsonNode>())!["id"]!.GetValue<Guid>();
     }
 
     private object Request(
@@ -269,21 +212,17 @@ public sealed class BacktestRunTests
         string startingCapital = "1000",
         string outOfSampleFraction = "0.25")
     {
-        return new
-        {
-            strategyId,
-            venue,
-            symbol = _symbol,
-            timeframe = "1h",
-            from = from ?? From,
-            to = to ?? To,
-            parameters = parameters ?? new Dictionary<string, string> { ["buyAmount"] = "50" },
-            startingCapital,
-            slippage = "0.001",
-            limitFeeRate = "0.001",
-            marketFeeRate = "0.001",
-            outOfSampleFraction
-        };
+        return BacktestScenario.Request(strategyId, _symbol, venue, from, to, parameters, startingCapital, outOfSampleFraction);
+    }
+
+    private Task<Guid> CreateStrategy()
+    {
+        return BacktestScenario.CreateStrategy(_application, _userId);
+    }
+
+    private Task<Guid> Start(Guid strategyId)
+    {
+        return BacktestScenario.Start(_client, Request(strategyId));
     }
 
     /// <summary>

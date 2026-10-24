@@ -16,6 +16,11 @@ public sealed class FakeHistorySource : IHistoricalCandleSource
 
     public Func<Timeframe, DateTimeOffset, DateTimeOffset, IReadOnlyList<Candle>>? Candles { get; set; }
 
+    /// <summary>
+    ///     Runs before each history request with the request's token, for example to hold the request until it is cancelled.
+    /// </summary>
+    public Func<CancellationToken, Task>? BeforeGet { get; set; }
+
     public List<(DateTimeOffset From, DateTimeOffset To)> Requests { get; } = [];
 
     public VenueId Venue { get; } = new VenueId(TestHistoryVenue.WithHistory);
@@ -27,20 +32,31 @@ public sealed class FakeHistorySource : IHistoricalCandleSource
         return Task.FromResult(First < to ? First : null);
     }
 
-    public Task<IReadOnlyList<Candle>> Get(InstrumentSymbol symbol, Timeframe timeframe, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Candle>> Get(
+        InstrumentSymbol symbol,
+        Timeframe timeframe,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken)
     {
         lock (Requests)
         {
             Requests.Add((from, to));
         }
 
-        return Task.FromResult(Candles?.Invoke(timeframe, from, to) ?? Complete(timeframe, from, to));
+        if (BeforeGet is not null)
+        {
+            await BeforeGet(cancellationToken);
+        }
+
+        return Candles?.Invoke(timeframe, from, to) ?? Complete(timeframe, from, to);
     }
 
     public void Reset()
     {
         First = DefaultFirst;
         Candles = null;
+        BeforeGet = null;
 
         lock (Requests)
         {
