@@ -29,6 +29,25 @@ public sealed class Portfolio
         QuoteTotal = startingCapital;
     }
 
+    internal void Restore(ExternalAccountCheckpoint checkpoint)
+    {
+        if (checkpoint.StartingCapital != StartingCapital)
+        {
+            throw new ArgumentException("Checkpoint capital does not match execution settings.", nameof(checkpoint));
+        }
+
+        QuoteTotal = checkpoint.QuoteTotal;
+        QuoteReserved = checkpoint.QuoteReserved;
+        BaseTotal = checkpoint.BaseTotal;
+        BaseReserved = checkpoint.BaseReserved;
+        CostBasis = checkpoint.CostBasis;
+        RealizedPnl = checkpoint.RealizedPnl;
+        FeesBase = checkpoint.FeesBase;
+        FeesQuote = checkpoint.FeesQuote;
+        LastBuyPrice = checkpoint.LastBuyPrice;
+        EnsureInvariants();
+    }
+
     public decimal Equity(decimal close)
     {
         return QuoteTotal + BaseTotal * close;
