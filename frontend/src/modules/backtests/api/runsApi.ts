@@ -7,10 +7,15 @@ export const backtestKeys = {
   chart: (id: string) => ['backtests', id, 'chart'] as const,
   facts: (id: string, kind: FactKind) => ['backtests', id, kind] as const,
   strategyRuns: (strategyId: string) => ['strategies', strategyId, 'backtests'] as const,
-  ranking: (quote: string) => ['backtests', 'ranking', quote] as const,
+  ranking: (quote: string, sort: RankingSort, order: RankingOrder) =>
+    ['backtests', 'ranking', quote, sort, order] as const,
 };
 
 export type FactKind = 'orders' | 'fills' | 'diagnostics';
+
+/** The ranking's column and direction; ties fall back to the start time in the same direction. */
+export type RankingSort = 'return' | 'pnl' | 'drawdown' | 'created';
+export type RankingOrder = 'asc' | 'desc';
 
 /** Another user's run is a 404 like a missing one; retrying cannot change that. */
 function retryUnlessMissing(count: number, error: Error): boolean {
@@ -99,13 +104,19 @@ export function strategyRunsQuery(strategyId: string) {
 }
 
 /** The user's completed runs in one quote currency, best return first. */
-export function rankingQuery(quote: string) {
+export function rankingQuery(
+  quote: string,
+  sort: RankingSort = 'return',
+  order: RankingOrder = 'desc',
+) {
   return infiniteQueryOptions({
-    queryKey: backtestKeys.ranking(quote),
+    queryKey: backtestKeys.ranking(quote, sort, order),
     queryFn: async ({ pageParam }) =>
       unwrap(
         await api.GET('/api/backtests', {
-          params: { query: { quote, limit: 50, ...(pageParam ? { after: pageParam } : {}) } },
+          params: {
+            query: { quote, limit: 50, sort, order, ...(pageParam ? { after: pageParam } : {}) },
+          },
         }),
       ),
     initialPageParam: '' as string,

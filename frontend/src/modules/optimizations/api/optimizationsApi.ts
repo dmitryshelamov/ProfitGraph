@@ -7,6 +7,8 @@ import type { StartOptimizationRequest } from '../model/types';
 export const optimizationKeys = {
   optimization: (id: string) => ['optimizations', id] as const,
   trials: (id: string) => ['optimizations', id, 'trials'] as const,
+  trial: (id: string, windowIndex: number, trialIndex: number) =>
+    ['optimizations', id, 'trials', windowIndex, trialIndex] as const,
   windows: (id: string) => ['optimizations', id, 'windows'] as const,
   strategyOptimizations: (strategyId: string) =>
     ['strategies', strategyId, 'optimizations'] as const,
@@ -66,6 +68,20 @@ export function optimizationTrialsQuery(id: string) {
     queryFn: async ({ pageParam }) => optimizationTrials(id, pageParam),
     initialPageParam: 0,
     getNextPageParam: (page) => page.next ?? undefined,
+    retry: retryUnlessMissing,
+  });
+}
+
+/** One stored trial by its index in the search and its walk-forward window. */
+export function optimizationTrialQuery(id: string, windowIndex: number, trialIndex: number) {
+  return queryOptions({
+    queryKey: optimizationKeys.trial(id, windowIndex, trialIndex),
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/api/optimizations/{id}/trials/{trialIndex}', {
+          params: { path: { id, trialIndex }, query: { window: windowIndex } },
+        }),
+      ),
     retry: retryUnlessMissing,
   });
 }

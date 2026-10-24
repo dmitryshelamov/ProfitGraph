@@ -29,7 +29,8 @@ internal static class BacktestRunQueries
             stage = @Stage, history_identity = @HistoryIdentity, history_from = @HistoryFrom, replay_from = @ReplayFrom, replay_to = @ReplayTo,
             warmup_count = @WarmupCount, replay_count = @ReplayCount, rules_snapshot_id = @RulesSnapshotId, base_asset = @BaseAsset,
             quote_asset = @QuoteAsset, outcome = @Outcome, processed_candles = @ProcessedCandles, equity = @Equity, total_pnl = @TotalPnl,
-            failure_code = @FailureCode, failure_message = @FailureMessage, metrics = CAST(@Metrics AS jsonb), return_percent = @ReturnPercent
+            failure_code = @FailureCode, failure_message = @FailureMessage, metrics = CAST(@Metrics AS jsonb), return_percent = @ReturnPercent,
+            max_drawdown_percent = @MaxDrawdownPercent
         WHERE id = @Id;
 
         SELECT pg_notify('backtest_progress', @Id::text);

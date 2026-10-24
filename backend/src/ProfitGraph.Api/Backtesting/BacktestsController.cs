@@ -8,6 +8,7 @@ using ProfitGraph.Api.Common.Authentication;
 using ProfitGraph.Api.Jobs;
 using ProfitGraph.Api.Jobs.Contracts;
 using ProfitGraph.Api.Jobs.Converters;
+using ProfitGraph.Application.Backtesting;
 using ProfitGraph.Application.Backtesting.Contracts;
 using ProfitGraph.Application.Backtesting.GetBacktestChart;
 using ProfitGraph.Application.Backtesting.GetBacktestDiagnostics;
@@ -17,6 +18,7 @@ using ProfitGraph.Application.Backtesting.GetBacktestOrders;
 using ProfitGraph.Application.Backtesting.GetBacktestRanking;
 using ProfitGraph.Application.Backtesting.GetBacktestRun;
 using ProfitGraph.Application.Backtesting.GetStrategyBacktests;
+using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Jobs.Contracts;
 
 namespace ProfitGraph.Api.Backtesting;
@@ -38,7 +40,9 @@ public sealed class BacktestsController(ISender sender) : ControllerBase
     }
 
     /// <summary>
-    ///     The user's completed runs in one quote currency, best full-period return first (stage 3 plan, S3-4).
+    ///     The user's completed runs in one quote currency (stage 3 plan, S3-4), sorted by <paramref name="sort" />
+    ///     (<c>return</c>, the default, <c>pnl</c>, <c>drawdown</c> or <c>created</c>) in <paramref name="order" /> (<c>desc</c>
+    ///     by default).
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<BacktestSummaryPageResponse>> Ranking(
@@ -47,10 +51,26 @@ public sealed class BacktestsController(ISender sender) : ControllerBase
         [FromQuery] string? timeframe,
         [FromQuery] Guid? after,
         CancellationToken cancellationToken,
-        [FromQuery] int limit = 50)
+        [FromQuery] int limit = 50,
+        [FromQuery] string? sort = null,
+        [FromQuery] string? order = null)
     {
+        BacktestRankingSort column = sort switch
+        {
+            null or "return" => BacktestRankingSort.ReturnPercent,
+            "pnl" => BacktestRankingSort.TotalPnl,
+            "drawdown" => BacktestRankingSort.MaxDrawdownPercent,
+            "created" => BacktestRankingSort.CreatedAt,
+            _ => throw new ApplicationValidationException([new InputError("invalid_sort", "Sort", "Sort by return, pnl, drawdown or created.")])
+        };
+
+        if (order is not (null or "asc" or "desc"))
+        {
+            throw new ApplicationValidationException([new InputError("invalid_order", "Order", "Order asc or desc.")]);
+        }
+
         BacktestSummaryPageInternal page = await sender.Send(
-            new GetBacktestRankingQuery(UserId(), quote ?? string.Empty, symbol, timeframe, after, limit),
+            new GetBacktestRankingQuery(UserId(), quote ?? string.Empty, symbol, timeframe, after, limit, column, order == "asc"),
             cancellationToken);
 
         return page.ToResponse();

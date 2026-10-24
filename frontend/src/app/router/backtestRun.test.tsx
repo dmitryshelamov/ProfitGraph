@@ -170,13 +170,15 @@ describe('run lists', () => {
     quoteAsset: 'USDT',
     totalPnl: '12.5',
     returnPercent: '1.25',
+    maxDrawdownPercent: '3',
   };
 
   it('ranks completed runs in a quote currency and loads more', async () => {
     fakeApi({
       'GET /api/auth/me': () => json(owner),
-      'GET /api/backtests?quote=USDT&limit=50': () => json({ items: [listed], next: runId }),
-      [`GET /api/backtests?quote=USDT&limit=50&after=${runId}`]: () =>
+      'GET /api/backtests?quote=USDT&limit=50&sort=return&order=desc': () =>
+        json({ items: [listed], next: runId }),
+      [`GET /api/backtests?quote=USDT&limit=50&sort=return&order=desc&after=${runId}`]: () =>
         json({
           items: [{ ...listed, id: 'second', symbol: 'ETHUSDT', returnPercent: '-2' }],
           next: null,
@@ -189,6 +191,34 @@ describe('run lists', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Показать ещё' }));
     expect(await within(table).findByText('ETHUSDT')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Показать ещё' })).not.toBeInTheDocument();
+  });
+
+  it('sorts the ranking by a result column and picks runs to compare', async () => {
+    fakeApi({
+      'GET /api/auth/me': () => json(owner),
+      'GET /api/backtests?quote=USDT&limit=50&sort=return&order=desc': () =>
+        json({ items: [listed], next: null }),
+      'GET /api/backtests?quote=USDT&limit=50&sort=drawdown&order=desc': () =>
+        json({ items: [{ ...listed, id: 'deep', symbol: 'SOLUSDT' }], next: null }),
+    });
+    sessionStorage.clear();
+    renderApp('/backtests');
+
+    await screen.findByText('BTCUSDT');
+    await userEvent.click(screen.getByRole('button', { name: 'Просадка, %' }));
+    expect(await screen.findByText('SOLUSDT')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Просадка, % ↓' })).toHaveAttribute(
+      'aria-sort',
+      'descending',
+    );
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Сравнить прогон SOLUSDT' }));
+    const bar = screen.getByRole('complementary', { name: 'Сравнение' });
+    expect(within(bar).getByText('Выбрано для сравнения: 1')).toBeInTheDocument();
+    expect(within(bar).getByRole('link', { name: 'Сравнить' })).toHaveAttribute(
+      'href',
+      '/compare?runs=deep',
+    );
   });
 
   it('lists a strategy’s runs on its page and its latest run in the strategy list', async () => {

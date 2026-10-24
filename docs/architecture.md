@@ -184,6 +184,11 @@ src/
   follows `/ws/optimizations` and `SequenceBuffer` (`shared/lib`) keeps the latest trials once and in order, filling
   gaps from `/trials`. Pause and resume go through the optimization's own endpoints. Once the job finishes, the
   page reads every trial, the walk-forward windows and summary, and links the finalist runs.
+- **Comparison.** `modules/comparison` keeps the runs and trials picked for comparison in a Zustand store persisted
+  to the tab's session storage, a viewer convenience, and shows the count with a link to `/compare`. The page reads its
+  items from the address, loads each run and trial through their own modules, and draws the runs' equity with
+  `EquityComparisonChart` (`modules/market-chart`). Tables take an `action` column so pages add the picking checkbox
+  without modules importing each other in a cycle.
 - **API client.** `shared/api/client.ts` is the only HTTP client. Its types come from
   `shared/api/generated/schema.d.ts`, generated from the API's OpenAPI document with `npm run generate:api` and never
   edited by hand. Failures surface as `ApiError` built from Problem Details.

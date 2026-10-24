@@ -16,6 +16,8 @@ public interface IOptimizationReader
 
     Task<OptimizationCursorInternal> Cursor(OptimizationId id, CancellationToken cancellationToken);
 
+    Task<OptimizationTrialInternal?> Trial(OptimizationId id, int windowIndex, int trialIndex, CancellationToken cancellationToken);
+
     Task<OptimizationTrialPageInternal> Trials(OptimizationId id, long afterSequence, int limit, CancellationToken cancellationToken);
 
     Task<OptimizationSummaryPageInternal> ForStrategy(StrategyId strategyId, Guid? after, int limit, CancellationToken cancellationToken);

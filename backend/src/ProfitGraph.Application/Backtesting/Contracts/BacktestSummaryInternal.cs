@@ -16,4 +16,5 @@ public sealed record BacktestSummaryInternal(
     string? Outcome,
     string? QuoteAsset,
     decimal? TotalPnl,
-    decimal? ReturnPercent);
+    decimal? ReturnPercent,
+    decimal? MaxDrawdownPercent);

@@ -63,7 +63,8 @@ internal sealed class BacktestRunRepository(NpgsqlConnection connection, Postgre
             Metrics = result?.Metrics is { } metrics ? BacktestJsonSerializer.Serialize(metrics) : null,
 
             // Only completed runs are ranked; a cancelled or failed run covers part of its period.
-            ReturnPercent = result is { Outcome: BacktestOutcome.Completed } ? result.Metrics?.Full.ReturnPercent : null
+            ReturnPercent = result is { Outcome: BacktestOutcome.Completed } ? result.Metrics?.Full.ReturnPercent : null,
+            MaxDrawdownPercent = result is { Outcome: BacktestOutcome.Completed } ? result.Metrics?.Full.MaxDrawdownPercent : null
         };
 
         if (await connection.ExecuteAsync(new CommandDefinition(BacktestRunQueries.Save, parameters, Transaction(), cancellationToken: cancellationToken)) != 1)

@@ -1,8 +1,10 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 
 import { Button } from '@/shared/ui/Button';
 
 import { optimizationTrialsQuery } from '../api/optimizationsApi';
+import type { OptimizationTrial } from '../model/types';
 import { TrialsTable } from './TrialsTable';
 
 /** All stored trials of a finished optimization, in delivery order, page by page. */
@@ -10,10 +12,12 @@ export function OptimizationTrials({
   optimizationId,
   showWindow,
   showStage,
+  action,
 }: {
   optimizationId: string;
   showWindow: boolean;
   showStage: boolean;
+  action?: (trial: OptimizationTrial) => ReactNode;
 }) {
   const trials = useInfiniteQuery(optimizationTrialsQuery(optimizationId));
 
@@ -35,7 +39,7 @@ export function OptimizationTrials({
     <p className="text-muted">Испытаний нет.</p>
   ) : (
     <div className="space-y-3">
-      <TrialsTable trials={items} showWindow={showWindow} showStage={showStage} />
+      <TrialsTable trials={items} showWindow={showWindow} showStage={showStage} action={action} />
       {trials.hasNextPage && (
         <Button
           size="sm"

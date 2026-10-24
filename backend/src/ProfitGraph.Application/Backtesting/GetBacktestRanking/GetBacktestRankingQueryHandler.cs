@@ -10,6 +10,15 @@ internal sealed class GetBacktestRankingQueryHandler(IBacktestReader reader) : I
 {
     public Task<BacktestSummaryPageInternal> Handle(GetBacktestRankingQuery request, CancellationToken cancellationToken)
     {
-        return reader.Ranking(new UserId(request.UserId), request.Quote, request.Symbol, request.Timeframe, request.After, request.Limit, cancellationToken);
+        return reader.Ranking(
+            new UserId(request.UserId),
+            request.Quote,
+            request.Symbol,
+            request.Timeframe,
+            request.After,
+            request.Limit,
+            request.Sort,
+            request.Ascending,
+            cancellationToken);
     }
 }

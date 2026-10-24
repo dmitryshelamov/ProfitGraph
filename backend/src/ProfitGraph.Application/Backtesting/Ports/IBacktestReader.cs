@@ -46,6 +46,8 @@ public interface IBacktestReader
         string? timeframe,
         Guid? after,
         int limit,
+        BacktestRankingSort sort,
+        bool ascending,
         CancellationToken cancellationToken);
 
     /// <summary>

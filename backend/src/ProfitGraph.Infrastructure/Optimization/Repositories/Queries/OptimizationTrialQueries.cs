@@ -37,5 +37,8 @@ internal static class OptimizationTrialQueries
 
     public const string Page = $"SELECT {Columns} FROM optimization_trials WHERE optimization_id = @OptimizationId AND sequence > @After ORDER BY sequence LIMIT @Take;";
 
+    public const string One =
+        $"SELECT {Columns} FROM optimization_trials WHERE optimization_id = @OptimizationId AND window_index = @WindowIndex AND trial_index = @TrialIndex;";
+
     public const string All = $"SELECT {Columns} FROM optimization_trials WHERE optimization_id = @OptimizationId ORDER BY sequence;";
 }
