@@ -14,6 +14,7 @@
         <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="9.0.21" />
         <PackageVersion Include="Npgsql" Version="10.0.3" />
         <PackageVersion Include="Dapper" Version="2.1.79" />
+        <PackageVersion Include="CsvHelper" Version="33.1.0" />
         <PackageVersion Include="FluentMigrator.Runner" Version="8.0.1" />
         <PackageVersion Include="FluentMigrator.Extensions.Postgres" Version="8.0.1" />
         <PackageVersion Include="FluentValidation" Version="12.1.1" />
@@ -21,6 +22,7 @@
         <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
         <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
         <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
         <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
         <!-- Transitive pin: Microsoft.AspNetCore.OpenApi brings a vulnerable Microsoft.OpenApi 2.0.0. -->
         <PackageVersion Include="Microsoft.OpenApi" Version="2.11.0" />
