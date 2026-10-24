@@ -63,3 +63,12 @@ not the process that runs the job. Jobs also gain an owner, like strategies.
   stored work (for an optimization, every committed trial batch). After three interruptions in a row whose attempts
   stored nothing, the job fails with `background_job_interrupted`. Other kinds keep failing on an interruption.
 - **Signals.** Every status change notifies `background_job_status` with the job's identifier.
+
+## Amendment: Worker roles (stage 5.5)
+
+- **Roles.** `Worker:Roles` lists what a Worker process runs: `jobs` (the lanes above) and `live` (the live bot runtime
+  and outbox delivery, ADR 0016). Without the setting a process runs both, as in Development and end-to-end tests; an
+  empty or unknown role stops startup. Production may run the same binary as two processes so that optimizations do
+  not take CPU from bots (stage 5 plan S5-17).
+- **Single jobs process.** The restart rules above assume exactly one process with the `jobs` role; a deployment stops
+  the old one before starting the new one. Live bots need no such rule: each is fenced by its lease.

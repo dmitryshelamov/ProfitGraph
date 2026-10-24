@@ -1,4 +1,5 @@
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.MarketData;
 
 namespace ProfitGraph.Domain.Bots;
 
@@ -21,6 +22,11 @@ public interface IBotRepository
     Task<IReadOnlyList<Bot>> ListByOwner(UserId ownerId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<BotId>> ListDesiredRunning(CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     The bots that should run on one candle series.
+    /// </summary>
+    Task<IReadOnlyList<BotId>> ListDesiredRunningOnSeries(CandleSeries series, CancellationToken cancellationToken);
 
     /// <summary>
     ///     Whether any bot trades through the credential, which then cannot be deleted.

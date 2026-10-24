@@ -1,5 +1,6 @@
 using ProfitGraph.Infrastructure;
 using ProfitGraph.Infrastructure.Backtesting;
+using ProfitGraph.Infrastructure.Common;
 using ProfitGraph.Infrastructure.Common.Outbox;
 using ProfitGraph.Infrastructure.Jobs;
 using ProfitGraph.Venues.Bybit;
@@ -10,8 +11,8 @@ using Serilog.Formatting.Json;
 namespace ProfitGraph.Worker;
 
 /// <summary>
-///     Runs background jobs (ADR 0011) and, from stage 5, the live bot runtime; trading stays disabled unless explicitly
-///     enabled by configuration.
+///     Runs background jobs (ADR 0011) and the live bot runtime, by its configured roles (<see cref="WorkerRoles" />);
+///     trading stays disabled unless explicitly enabled by configuration.
 /// </summary>
 public static class Program
 {
@@ -27,9 +28,19 @@ public static class Program
             preserveStaticLogger: true);
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddProfitGraphInfrastructure(builder.Configuration);
-        builder.Services.AddBackgroundJobRunner();
-        builder.Services.AddBacktestCompaction();
-        builder.Services.AddOutboxDispatcher();
+        IReadOnlySet<string> roles = WorkerRoles.Read(builder.Configuration);
+
+        if (roles.Contains(WorkerRoles.Jobs))
+        {
+            builder.Services.AddBackgroundJobRunner();
+            builder.Services.AddBacktestCompaction();
+        }
+
+        if (roles.Contains(WorkerRoles.Live))
+        {
+            builder.Services.AddOutboxDispatcher();
+        }
+
         builder.Services.AddBybitVenue(builder.Configuration);
 
         IHost host = builder.Build();

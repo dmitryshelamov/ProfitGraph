@@ -4,6 +4,7 @@ using Npgsql;
 
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Infrastructure.Bots.Repositories.Contracts;
 using ProfitGraph.Infrastructure.Bots.Repositories.Converters;
 using ProfitGraph.Infrastructure.Bots.Repositories.Queries;
@@ -38,6 +39,17 @@ internal sealed class BotRepository(NpgsqlConnection connection, PostgresTransac
     public async Task<IReadOnlyList<BotId>> ListDesiredRunning(CancellationToken cancellationToken)
     {
         IEnumerable<Guid> ids = await connection.QueryAsync<Guid>(Command(BotQueries.ListDesiredRunning, parameters: null, cancellationToken));
+
+        return [.. ids.Select(id => new BotId(id))];
+    }
+
+    public async Task<IReadOnlyList<BotId>> ListDesiredRunningOnSeries(CandleSeries series, CancellationToken cancellationToken)
+    {
+        IEnumerable<Guid> ids = await connection.QueryAsync<Guid>(
+            Command(
+                BotQueries.ListDesiredRunningOnSeries,
+                new { venue = series.Venue.Value, symbol = series.Symbol.Value, timeframe = series.Timeframe.Key },
+                cancellationToken));
 
         return [.. ids.Select(id => new BotId(id))];
     }

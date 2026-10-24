@@ -3,8 +3,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Venues.Bybit.Instruments;
+using ProfitGraph.Venues.Bybit.LiveData;
 using ProfitGraph.Venues.Bybit.MarketData;
 
 namespace ProfitGraph.Venues.Bybit;
@@ -12,7 +14,7 @@ namespace ProfitGraph.Venues.Bybit;
 public static class BybitRegistration
 {
     /// <summary>
-    ///     Registers Bybit Spot: its descriptor, public history, tradable pairs and instrument rules. Every request is public; no credentials are used.
+    ///     Registers Bybit Spot: its descriptor, public history, live candles, tradable pairs and instrument rules. Every request is public; no credentials are used.
     /// </summary>
     public static IServiceCollection AddBybitVenue(this IServiceCollection services, IConfiguration configuration)
     {
@@ -36,6 +38,8 @@ public static class BybitRegistration
 
         // The list is only for picking a pair; its rules are read again, guarded, when they are captured.
         services.AddHttpClient<IInstrumentCatalog, BybitInstrumentCatalog>(Configure);
+        services.AddSingleton<IBybitPublicStreamTransport, BybitPublicWebSocketTransport>();
+        services.AddSingleton<ILiveCandleSource, BybitLiveCandleSource>();
 
         return services;
     }
