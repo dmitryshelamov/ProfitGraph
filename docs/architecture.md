@@ -132,6 +132,8 @@ Venues.Bybit/
   blocking ends existing sessions. Sign-in is limited to 20 attempts per minute per client address and 10 per login,
   and an unknown or blocked login costs the same password verification as a wrong password. The first Owner comes
   from `Auth:BootstrapOwner` only while no account exists. Account management requires the Owner role.
+- **Secrets at rest.** Exchange credentials are encrypted per value with AES-256-GCM under master keys configured
+  outside the repository; no response or log contains a secret. See [ADR 0015](adr/0015-exchange-credentials.md).
 - **Logging.** Serilog JSON to the console. Never log secrets, credentials, signatures or authentication headers.
 
 ## Numbers and Time

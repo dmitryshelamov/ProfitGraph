@@ -51,6 +51,17 @@ dotnet user-secrets --project backend/src/ProfitGraph.Api set "Auth:BootstrapOwn
 dotnet user-secrets --project backend/src/ProfitGraph.Api set "Auth:BootstrapOwner:Password" "<пароль>"
 ```
 
+Ключи бирж хранятся зашифрованными мастер-ключом (ADR 0015). Без него endpoint ключей отвечают `503`. Для разработки
+сгенерируйте случайный 32-байтный ключ и сохраните его только в user-secrets API:
+
+```bash
+dotnet user-secrets --project backend/src/ProfitGraph.Api set "Secrets:MasterKeys:dev-1" "$(openssl rand -base64 32)"
+```
+
+```bash
+dotnet user-secrets --project backend/src/ProfitGraph.Api set "Secrets:ActiveKeyId" "dev-1"
+```
+
 Фронтенд (Node `^22.22.2 || ^24.15.0 || >=26`):
 
 ```bash

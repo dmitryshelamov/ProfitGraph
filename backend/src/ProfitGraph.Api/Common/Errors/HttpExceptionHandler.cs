@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
+using ProfitGraph.Application.Accounts;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Domain.Common;
@@ -26,6 +27,7 @@ internal sealed class HttpExceptionHandler(IProblemDetailsService problemDetails
             ApplicationValidationException => (400, "Invalid request", "validation_failed"),
             ResourceNotFoundException notFound => (404, "Resource not found", notFound.Code),
             StateConflictException conflict => (409, "State conflict", conflict.Code),
+            CredentialsUnavailableException unavailable => (503, "Credentials unavailable", unavailable.Code),
             DomainException domain => (422, "Domain rule violation", domain.Code),
             EngineException => (422, "Domain rule violation", "domain_rule_violation"),
             InstrumentRulesException { Code: InstrumentRulesErrorCodes.InvalidRequest } instrument => (422, "Instrument unavailable", instrument.Code),

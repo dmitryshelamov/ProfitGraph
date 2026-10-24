@@ -39,6 +39,9 @@ public static class DependencyInjection
         services.AddPostgres(configuration);
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
+        services.AddScoped<IExchangeCredentialRepository, ExchangeCredentialRepository>();
+        services.AddOptions<SecretsOptions>().Bind(configuration.GetSection(SecretsOptions.SectionName));
+        services.AddSingleton<ISecretProtector, AesGcmSecretProtector>();
         services.AddScoped<IStrategyRepository, StrategyRepository>();
         services.AddScoped<IStrategyVersionReader, StrategyVersionReader>();
         services.AddSingleton<StrategySnapshotDbConverter>();
