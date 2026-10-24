@@ -8,7 +8,7 @@ using ValueType = ProfitGraph.Engine.Nodes.ValueType;
 namespace ProfitGraph.Engine.Compilation;
 
 /// <summary>
-///     Compiles strict typed bindings and lifecycle boundaries without invoking Phase 1 node evaluation or replay.
+///     Compiles strict typed bindings and lifecycle boundaries without invoking replay.
 /// </summary>
 public sealed class TradingGraphCompiler
 {

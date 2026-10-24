@@ -101,11 +101,9 @@ public sealed class GraphValidator
             {
                 bool invalidInteger = integerValue switch
                 {
-                    FixedParamValue { Value: NumberParamLiteral integer } => !IsIntegral(integer.Value),
                     FixedParamValue { Value: DecimalParamLiteral integer } => decimal.Truncate(integer.Value) != integer.Value,
                     DecimalOptimizeParamValue optimize => decimal.Truncate(optimize.Min) != optimize.Min || decimal.Truncate(optimize.Max) != optimize.Max ||
                         decimal.Truncate(optimize.Step) != optimize.Step,
-                    OptimizeParamValue optimize => !IsIntegral(optimize.Min) || !IsIntegral(optimize.Max) || !IsIntegral(optimize.Step),
                     _ => false
                 };
 
@@ -411,11 +409,6 @@ public sealed class GraphValidator
         return invalidDeclaredType || invalidMode || missingMode || invalidClock;
     }
 
-    private static bool IsIntegral(double value)
-    {
-        return double.IsFinite(value) && Math.Truncate(value) == value;
-    }
-
     private static bool InDecimalRange(decimal value, ParamSpec spec)
     {
         return (!spec.MinValue.HasValue || value >= (decimal)spec.MinValue.Value)
@@ -434,13 +427,8 @@ public sealed class GraphValidator
             ? EngineLiteralResolver.IsValid(value, node.DeclaredValueType ?? ValueType.Scalar)
             : value switch
             {
-                FixedParamValue { Value: NumberParamLiteral number } => spec.ValueKind == ParamValueKind.Number && ParamConstraints.IsInRange(number.Value, spec),
                 FixedParamValue { Value: TextParamLiteral text } => spec.ValueKind == ParamValueKind.Text && text.Value is not null &&
                     (spec.AllowedValues is null || spec.AllowedValues.Contains(text.Value, StringComparer.Ordinal)),
-                OptimizeParamValue optimize => spec.ValueKind == ParamValueKind.Number &&
-                    ParamConstraints.IsInRange(optimize.Min, spec) && ParamConstraints.IsInRange(optimize.Max, spec) && optimize.Min <= optimize.Max &&
-                    double.IsFinite(optimize.Step) && optimize.Step > 0 &&
-                    (!spec.Step.HasValue || ParamConstraints.IsMultiple(optimize.Step, spec.Step.Value)),
                 FixedParamValue { Value: DecimalParamLiteral number } => spec.ValueKind == ParamValueKind.Number && InDecimalRange(number.Value, spec),
                 DecimalOptimizeParamValue range => spec.ValueKind == ParamValueKind.Number && range.Min <= range.Max && range.Step > 0m
                     && InDecimalRange(range.Min, spec) && InDecimalRange(range.Max, spec)
@@ -448,17 +436,6 @@ public sealed class GraphValidator
                 WiredParamValue => true,
                 _ => false
             };
-
-        if (strict && spec.ValueKind == ParamValueKind.Number && value is OptimizeParamValue or FixedParamValue { Value: NumberParamLiteral })
-        {
-            valid &= EngineLiteralResolver.IsValid(value, spec.Key == "period" ? ValueType.Integer : node.DeclaredValueType ?? ValueType.Scalar);
-        }
-
-        if (strict && node.DeclaredValueType is ValueType.Price or ValueType.BaseAmount or ValueType.QuoteAmount && spec.Key == "value"
-            && value is OptimizeParamValue or FixedParamValue { Value: NumberParamLiteral })
-        {
-            valid = false;
-        }
 
         if (!valid)
         {

@@ -10,7 +10,6 @@ namespace ProfitGraph.Engine.Nodes.BuiltIn;
 public sealed class ActiveOrderNodeDefinition : INodeDefinition
 {
     public string TypeKey => nameof(TradingNodeBehavior.ActiveOrder);
-    public bool SupportsPhase1 => false;
     public bool IsAction => false;
     public TradingNodeBehavior? TradingBehavior => TradingNodeBehavior.ActiveOrder;
     public NodeClock? EngineClock => NodeClock.Dispatch;
@@ -97,10 +96,5 @@ public sealed class ActiveOrderNodeDefinition : INodeDefinition
                 context.Number("price", order.LimitPrice.Value);
             }
         }
-    }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        throw new InvalidOperationException("A production trading node requires the causal dispatcher.");
     }
 }

@@ -9,7 +9,6 @@ namespace ProfitGraph.Engine.Nodes.BuiltIn;
 public sealed class MarketSellNodeDefinition : INodeDefinition
 {
     public string TypeKey => nameof(TradingNodeBehavior.MarketSell);
-    public bool SupportsPhase1 => false;
     public bool IsAction => true;
     public TradingNodeBehavior? TradingBehavior => TradingNodeBehavior.MarketSell;
     public NodeClock? EngineClock => NodeClock.Action;
@@ -50,10 +49,5 @@ public sealed class MarketSellNodeDefinition : INodeDefinition
     public NodeClock ResolveClock(NodeClock inherited)
     {
         return NodeClock.Action;
-    }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        throw new InvalidOperationException("A production trading node requires the causal dispatcher.");
     }
 }

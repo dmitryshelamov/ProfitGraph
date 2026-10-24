@@ -1,4 +1,3 @@
-using ProfitGraph.Engine.Compilation;
 using ProfitGraph.Engine.Graphs;
 using ProfitGraph.Engine.Graphs.Validation;
 using ProfitGraph.Engine.Nodes;
@@ -85,7 +84,7 @@ public sealed class GraphTypingTests
             "integer",
             "Constant",
             schemaVersion: 2,
-            new Dictionary<string, ParamValue> { ["value"] = new FixedParamValue(new NumberParamLiteral(1.5)) },
+            new Dictionary<string, ParamValue> { ["value"] = new FixedParamValue(new DecimalParamLiteral(1.5m)) },
             ValueType.Integer);
         new GraphValidator().Validate(new StrategyGraph([integer], []), Definitions).IsValid.ShouldBeFalse();
     }
@@ -114,13 +113,13 @@ public sealed class GraphTypingTests
             "count",
             "Constant",
             schemaVersion: 2,
-            new Dictionary<string, ParamValue> { ["value"] = new FixedParamValue(new NumberParamLiteral(3)) },
+            new Dictionary<string, ParamValue> { ["value"] = new FixedParamValue(new DecimalParamLiteral(3m)) },
             ValueType.Integer);
         var scale = new GraphNode(
             "scale",
             "Constant",
             schemaVersion: 2,
-            new Dictionary<string, ParamValue> { ["value"] = new FixedParamValue(new NumberParamLiteral(0.5)) });
+            new Dictionary<string, ParamValue> { ["value"] = new FixedParamValue(new DecimalParamLiteral(0.5m)) });
         var mean = new GraphNode(
             "mean",
             "SMA",
@@ -139,7 +138,6 @@ public sealed class GraphTypingTests
         diagnostics.ShouldContain(diagnostic =>
             diagnostic.Code == GraphDiagnosticCode.IncompatibleUnits && diagnostic.NodeId == "mean" && diagnostic.ParamKey == "period");
         new GraphValidator().ValidateStrict(graph, Definitions).IsValid.ShouldBeFalse();
-        new GraphCompiler().Compile(graph, Definitions).Graph.ShouldBeNull();
     }
 
     [TestCase("SMA", ValueType.Scalar, arg3: false)]
@@ -159,23 +157,20 @@ public sealed class GraphTypingTests
 
         outputs[new PortReference("sample", "out")].ShouldBe(expected);
         new GraphValidator().Validate(graph, Definitions).IsValid.ShouldBe(validPeriod);
-        (new GraphCompiler().Compile(graph, Definitions).Graph is not null).ShouldBe(validPeriod);
     }
 
     [TestCase(1d, 2d, 0.5d, false)]
     [TestCase(1.5d, 2d, 1d, false)]
     [TestCase(1d, 2.5d, 1d, false)]
     [TestCase(1d, 3d, 1d, true)]
-    [TestCase(double.NaN, 3d, 1d, false)]
-    [TestCase(1d, double.PositiveInfinity, 1d, false)]
     [TestCase(1d, 3d, 0d, false)]
-    public void IntegerOptimizationBoundsAndStepMustBeIntegralAndRetainExistingConstraints(double min, double max, double step, bool valid)
+    public void IntegerOptimizationBoundsAndStepMustBeIntegralAndRetainExistingConstraints(decimal min, decimal max, decimal step, bool valid)
     {
         var count = new GraphNode(
             "count",
             "Constant",
             schemaVersion: 2,
-            new Dictionary<string, ParamValue> { ["value"] = new OptimizeParamValue(min, max, step) },
+            new Dictionary<string, ParamValue> { ["value"] = new DecimalOptimizeParamValue(min, max, step) },
             ValueType.Integer);
         var mean = new GraphNode(
             "mean",
@@ -185,7 +180,6 @@ public sealed class GraphTypingTests
         var graph = new StrategyGraph([count, Node("price", "CandleField"), mean], [Connect("price", "mean", "in")]);
 
         new GraphValidator().ValidateStrict(graph, Definitions).IsValid.ShouldBe(valid);
-        (new GraphCompiler().Compile(graph, Definitions).Graph is not null).ShouldBe(valid);
     }
 
     private static GraphNode Node(string id, string typeKey = "Constant", ValueType? type = null, string? operation = null)

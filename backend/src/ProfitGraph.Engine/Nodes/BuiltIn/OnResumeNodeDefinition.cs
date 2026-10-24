@@ -9,7 +9,6 @@ namespace ProfitGraph.Engine.Nodes.BuiltIn;
 public sealed class OnResumeNodeDefinition : INodeDefinition
 {
     public string TypeKey => NodeTypeKeys.OnResume;
-    public bool SupportsPhase1 => false;
     public bool EvaluatesDispatch => true;
     public NodeClock? EngineClock => NodeClock.Event;
     public NodeCategory Category => NodeCategory.Signal;
@@ -23,10 +22,5 @@ public sealed class OnResumeNodeDefinition : INodeDefinition
         return context.Occurrence?.Kind == EventKind.Resume
             ? EngineValue.FromEvent(context.Occurrence)
             : EngineValue.Unavailable(ValueType.Event);
-    }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        throw new InvalidOperationException("OnResume requires the graph dispatcher.");
     }
 }

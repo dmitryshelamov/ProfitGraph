@@ -57,19 +57,4 @@ public sealed class CrossesAboveNodeDefinition : INodeDefinition
 
         return null;
     }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return new Dictionary<string, NodeOutput> { ["out"] = EvaluateValue(context, inputs, parameters) };
-    }
-
-    private static NodeOutput EvaluateValue(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        IReadOnlyList<NodeOutput> a = context.InputHistory("a");
-        IReadOnlyList<NodeOutput> b = context.InputHistory("b");
-
-        return NodeOutput.Condition(
-            a.Count >= 2 && b.Count >= 2 && a[^2].IsAvailable && b[^2].IsAvailable &&
-            a[^2].SeriesValue <= b[^2].SeriesValue && a[^1].SeriesValue > b[^1].SeriesValue);
-    }
 }

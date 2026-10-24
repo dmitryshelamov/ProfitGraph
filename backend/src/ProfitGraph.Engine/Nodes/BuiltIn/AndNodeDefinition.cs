@@ -33,14 +33,4 @@ public sealed class AndNodeDefinition : INodeDefinition
     {
         return EngineValue.FromBoolean(context.Inputs["a"].Boolean && context.Inputs["b"].Boolean);
     }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return new Dictionary<string, NodeOutput> { ["out"] = EvaluateValue(context, inputs, parameters) };
-    }
-
-    private static NodeOutput EvaluateValue(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return NodeOutput.Condition(inputs["a"].ConditionValue && inputs["b"].ConditionValue);
-    }
 }

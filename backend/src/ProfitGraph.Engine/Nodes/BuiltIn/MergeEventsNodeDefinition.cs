@@ -36,14 +36,4 @@ public sealed class MergeEventsNodeDefinition : INodeDefinition
 
         return result.IsAvailable ? result : EngineValue.Unavailable(ValueType.Event);
     }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return new Dictionary<string, NodeOutput> { ["out"] = EvaluateValue(context, inputs, parameters) };
-    }
-
-    private static NodeOutput EvaluateValue(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return NodeOutput.Event(inputs["a"].EventFired || inputs["b"].EventFired);
-    }
 }

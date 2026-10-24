@@ -29,7 +29,7 @@ public sealed class EventFieldDefaultTests
         {
             "decimal" => Number(1m),
             "boolean" => new FixedParamValue(new BooleanParamLiteral(true)),
-            "optimize" => new OptimizeParamValue(Min: 1d, Max: 2d, Step: 1d),
+            "optimize" => new DecimalOptimizeParamValue(Min: 1m, Max: 2m, Step: 1m),
             "wired" => new WiredParamValue(new PortReference("source", "out")),
             _ => throw new ArgumentOutOfRangeException(nameof(mode))
         };

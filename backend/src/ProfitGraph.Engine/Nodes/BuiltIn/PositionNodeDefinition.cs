@@ -9,7 +9,6 @@ namespace ProfitGraph.Engine.Nodes.BuiltIn;
 public sealed class PositionNodeDefinition : INodeDefinition
 {
     public string TypeKey => nameof(TradingNodeBehavior.Position);
-    public bool SupportsPhase1 => false;
     public bool IsAction => false;
     public TradingNodeBehavior? TradingBehavior => TradingNodeBehavior.Position;
     public NodeClock? EngineClock => NodeClock.Dispatch;
@@ -60,10 +59,5 @@ public sealed class PositionNodeDefinition : INodeDefinition
         {
             context.Number("lastBuyPrice", account.LastBuyPrice.Value);
         }
-    }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        throw new InvalidOperationException("A production trading node requires the causal dispatcher.");
     }
 }

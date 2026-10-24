@@ -8,7 +8,6 @@ namespace ProfitGraph.Engine.Nodes.BuiltIn;
 public sealed class OnOrderRejectedNodeDefinition : INodeDefinition
 {
     public string TypeKey => nameof(TradingNodeBehavior.OnOrderRejected);
-    public bool SupportsPhase1 => false;
     public bool IsAction => false;
     public TradingNodeBehavior? TradingBehavior => TradingNodeBehavior.OnOrderRejected;
     public NodeClock? EngineClock => NodeClock.Event;
@@ -34,10 +33,5 @@ public sealed class OnOrderRejectedNodeDefinition : INodeDefinition
     public NodeClock ResolveClock(NodeClock inherited)
     {
         return NodeClock.Event;
-    }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        throw new InvalidOperationException("A production trading node requires the causal dispatcher.");
     }
 }

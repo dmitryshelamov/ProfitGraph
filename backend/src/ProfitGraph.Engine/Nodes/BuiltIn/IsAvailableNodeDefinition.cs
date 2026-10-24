@@ -36,14 +36,4 @@ public sealed class IsAvailableNodeDefinition : INodeDefinition
     {
         return EngineValue.FromBoolean(context.Inputs["in"].IsAvailable);
     }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return new Dictionary<string, NodeOutput> { ["out"] = EvaluateValue(context, inputs, parameters) };
-    }
-
-    private static NodeOutput EvaluateValue(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return NodeOutput.Condition(inputs["in"].IsAvailable);
-    }
 }

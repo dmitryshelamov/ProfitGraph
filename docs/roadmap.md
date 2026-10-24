@@ -17,8 +17,6 @@ small pull requests; a stage is done when its acceptance criterion holds.
 
 ### Carried over from stage 1
 
-- Remove the unused Phase 1 interpreter path (`GraphCompiler`, `GraphInterpreter`, `INodeDefinition.Evaluate` with
-  `double` outputs, `NumberParamLiteral`); the golden comparison guards the change.
 - Return the tests that need later stages: template fingerprint tests and the saved Ladder SMA definition parity
   (stages 2–3, with application contracts), composite and parameter-resolution tests that use optimization search
   spaces and the walk-forward equity observer (stage 4).

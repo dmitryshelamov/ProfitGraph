@@ -229,7 +229,7 @@ public sealed class EngineParameterResolver
             {
                 CompiledEngineInput? binding = node.EngineInputs.SingleOrDefault(input => input.Spec.Key == key);
 
-                if (value is not (OptimizeParamValue or DecimalOptimizeParamValue) || binding?.Source is not null)
+                if (value is not DecimalOptimizeParamValue || binding?.Source is not null)
                 {
                     continue;
                 }
@@ -290,7 +290,6 @@ public sealed class EngineParameterResolver
         (decimal min, decimal max, decimal step) = value switch
         {
             DecimalOptimizeParamValue range => (range.Min, range.Max, range.Step),
-            OptimizeParamValue range => (Legacy(range.Min, type), Legacy(range.Max, type), Legacy(range.Step, type)),
             _ => throw new InvalidOperationException("Unsupported parameter binding.")
         };
 
@@ -302,19 +301,12 @@ public sealed class EngineParameterResolver
         return EngineValue.Numeric(type, selected);
     }
 
-    private static decimal Legacy(double value, ValueType type)
-    {
-        return EngineLiteralResolver.Resolve(new NumberParamLiteral(value), type)?.Number
-            ?? throw new InvalidOperationException("Legacy numeric parameter cannot be represented exactly.");
-    }
-
     private static ParamLiteral Default(object value)
     {
         return value switch
         {
             string text => new TextParamLiteral(text),
             decimal number => new DecimalParamLiteral(number),
-            double number => new NumberParamLiteral(number),
             int number => new DecimalParamLiteral(number),
             long number => new DecimalParamLiteral(number),
             bool boolean => new BooleanParamLiteral(boolean),

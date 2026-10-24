@@ -27,7 +27,6 @@ public enum GraphDiagnosticCode
     ConflictingCancelTarget,
     ValueOrImmediateActionCycle,
     InvalidNodeMetadata,
-    UnsupportedPhase1Graph,
     SmaInputNotCandleClocked,
     UnboundedIndicatorPeriod,
     WarmupOverflow,

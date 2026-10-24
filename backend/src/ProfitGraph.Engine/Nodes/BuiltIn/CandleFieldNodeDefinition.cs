@@ -45,23 +45,4 @@ public sealed class CandleFieldNodeDefinition : INodeDefinition
     {
         return NodeTextSettingResolver.Resolve(node, Params, "field") == "Volume" ? ValueType.BaseAmount : ValueType.Price;
     }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return new Dictionary<string, NodeOutput> { ["out"] = EvaluateValue(context, inputs, parameters) };
-    }
-
-    private static NodeOutput EvaluateValue(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return NodeOutput.Series(
-            parameters.GetString("field") switch
-            {
-                "Open" => (double)context.CurrentCandle.Open,
-                "High" => (double)context.CurrentCandle.High,
-                "Low" => (double)context.CurrentCandle.Low,
-                "Close" => (double)context.CurrentCandle.Close,
-                "Volume" => (double)context.CurrentCandle.Volume,
-                _ => throw new InvalidOperationException("Unknown candle field.")
-            });
-    }
 }

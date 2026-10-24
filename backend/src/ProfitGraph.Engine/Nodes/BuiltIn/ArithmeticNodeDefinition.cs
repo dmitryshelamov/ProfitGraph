@@ -69,30 +69,4 @@ public sealed class ArithmeticNodeDefinition : INodeDefinition
             _ => null
         };
     }
-
-    public IReadOnlyDictionary<string, NodeOutput> Evaluate(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        return new Dictionary<string, NodeOutput> { ["out"] = EvaluateValue(context, inputs, parameters) };
-    }
-
-    private static NodeOutput EvaluateValue(NodeContext context, IReadOnlyDictionary<string, NodeOutput> inputs, ResolvedParams parameters)
-    {
-        double a = inputs["a"].SeriesValue;
-        double b = inputs["b"].SeriesValue;
-
-        return NodeOutput.Series(
-            parameters.GetString("op") switch
-            {
-                "Add" => a + b,
-                "Subtract" => a - b,
-                "Multiply" => a * b,
-                "Divide" when b != 0 => a / b,
-                "Divide" => throw new InvalidOperationException("Division by zero."),
-                "Min" => Math.Min(a, b),
-                "Max" => Math.Max(a, b),
-                "Modulo" when b != 0 => a % b,
-                "Modulo" => throw new InvalidOperationException("Division by zero."),
-                _ => throw new InvalidOperationException("Unknown arithmetic operation.")
-            });
-    }
 }

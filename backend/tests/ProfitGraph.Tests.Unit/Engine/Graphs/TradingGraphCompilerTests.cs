@@ -134,38 +134,6 @@ public sealed class TradingGraphCompilerTests
         ((IList<CompiledEngineInput>)compiled.Nodes[0].EngineInputs).IsReadOnly.ShouldBeTrue();
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void MonetaryInlineDoubleFixedAndOptimizeNeverCompile(bool optimize)
-    {
-        ParamValue value = optimize ? new OptimizeParamValue(Min: 1d, Max: 2d, Step: 1d) : Fixed(new NumberParamLiteral(1d));
-        var graph = new StrategyGraph([Node("action", "TestAction", new Dictionary<string, ParamValue> { ["amount"] = value })], []);
-
-        TradingGraphCompilationResult result = Compile(graph, Action());
-
-        result.Graph.ShouldBeNull();
-        result.Validation.Diagnostics.ShouldContain(diagnostic => diagnostic.Code == GraphDiagnosticCode.InvalidLiteralRange);
-    }
-
-    [TestCase(1)]
-    [TestCase(2)]
-    public void MonetaryConnectedDoubleCannotUseSchemaBypass(int schema)
-    {
-        var source = new GraphNode(
-            "money",
-            "Constant",
-            schema,
-            new Dictionary<string, ParamValue> { ["value"] = Fixed(new NumberParamLiteral(1d)) },
-            ValueType.QuoteAmount);
-        GraphNode action = Node("action", "TestAction", new Dictionary<string, ParamValue>());
-        var graph = new StrategyGraph([source, action], [Connect("money", "out", "action", "amount")]);
-
-        TradingGraphCompilationResult result = Compile(graph, Action());
-
-        result.Graph.ShouldBeNull();
-        result.Validation.IsValid.ShouldBeFalse();
-    }
-
     [Test]
     public void ConnectionOverridesInvalidInlineWiredSourceAndPreservesStableRank()
     {
@@ -269,21 +237,10 @@ public sealed class TradingGraphCompilerTests
         CompiledTradingGraph result = Compile(new StrategyGraph([node], [])).Graph.ShouldNotBeNull();
 
         result.Nodes[0].OutputTypes["out"].ShouldBe(type);
-        EngineLiteralResolver.Resolve(new NumberParamLiteral(1d), type).ShouldBeNull();
-    }
-
-    [TestCase(ValueType.Scalar, arg2: 0.1d)]
-    [TestCase(ValueType.Integer, arg2: 3d)]
-    public void RawDimensionlessConversionIsCheckedAndInvariant(ValueType type, double number)
-    {
-        EngineLiteralResolver.Resolve(new NumberParamLiteral(number), type).ShouldNotBeNull().Number.ShouldBe((decimal)number);
-        EngineLiteralResolver.Resolve(new NumberParamLiteral(double.MaxValue), type).ShouldBeNull();
-        EngineLiteralResolver.Resolve(new NumberParamLiteral(1e-100), type).ShouldBeNull();
-        EngineLiteralResolver.Resolve(new NumberParamLiteral(1.234567e-28), type).ShouldBeNull();
     }
 
     [Test]
-    public void OrdinaryValueCycleIsRejectedWithoutChangingPhase1CycleBehavior()
+    public void OrdinaryValueCycleIsRejected()
     {
         var constant = new GraphNode("value", "Constant", schemaVersion: 2, new Dictionary<string, ParamValue>());
         var add = new GraphNode("add", "Arithmetic", schemaVersion: 2, new Dictionary<string, ParamValue>());
@@ -292,9 +249,6 @@ public sealed class TradingGraphCompilerTests
         Compile(graph, new ArithmeticNodeDefinition())
             .Validation.Diagnostics
             .ShouldContain(diagnostic => diagnostic.Code == GraphDiagnosticCode.ValueOrImmediateActionCycle);
-        new GraphCompiler().Compile(graph, [new ConstantNodeDefinition(), new ArithmeticNodeDefinition()])
-            .Validation.Diagnostics
-            .ShouldContain(diagnostic => diagnostic.Code == GraphDiagnosticCode.Cycle);
     }
 
     [Test]
@@ -384,7 +338,7 @@ public sealed class TradingGraphCompilerTests
     [Test]
     public void NumericSeriesCannotConnectToCondition()
     {
-        var source = new GraphNode("number", "Constant", schemaVersion: 2, new Dictionary<string, ParamValue> { ["value"] = Fixed(new NumberParamLiteral(1d)) });
+        var source = new GraphNode("number", "Constant", schemaVersion: 2, new Dictionary<string, ParamValue> { ["value"] = Fixed(new DecimalParamLiteral(1m)) });
         GraphNode action = Node("action", "TestAction", new Dictionary<string, ParamValue> { ["amount"] = Fixed(new DecimalParamLiteral(1m)) });
         var graph = new StrategyGraph([source, action], [Connect("number", "out", "action", "enabled")]);
 
@@ -393,26 +347,6 @@ public sealed class TradingGraphCompilerTests
         new TradingGraphCompiler().Compile(graph, definitions)
             .Validation.Diagnostics
             .ShouldContain(diagnostic => diagnostic.Code == GraphDiagnosticCode.IncompatiblePort);
-    }
-
-    [TestCase("filled")]
-    [TestCase("cancelled")]
-    [TestCase(null)]
-    public void Phase1RefusesActionPlansIncludingDeferredFeedback(string? feedback)
-    {
-        GraphNode action = Node(
-            "action",
-            "TestAction",
-            new Dictionary<string, ParamValue> { ["amount"] = Fixed(new DecimalParamLiteral(1m)) },
-            feedback is null ? ActionEvaluationMode.OnCandleClose : ActionEvaluationMode.OnEvent);
-        var graph = new StrategyGraph([action], feedback is null ? [] : [Connect("action", feedback, "action", "trigger")]);
-        INodeDefinition[] definitions = [Action()];
-
-        new TradingGraphCompiler().Compile(graph, definitions).Graph.ShouldNotBeNull();
-        GraphCompilationResult result = new GraphCompiler().Compile(graph, definitions);
-
-        result.Graph.ShouldBeNull();
-        result.Validation.Diagnostics.ShouldContain(diagnostic => diagnostic.Code == GraphDiagnosticCode.UnsupportedPhase1Graph);
     }
 
     [TestCase(null)]
@@ -475,38 +409,6 @@ public sealed class TradingGraphCompilerTests
         validation.Diagnostics.ShouldContain(diagnostic => diagnostic.Code == GraphDiagnosticCode.IncompatibleUnits &&
             diagnostic.NodeId == "indicator" && diagnostic.PortKey == "in");
         new TradingGraphCompiler().Compile(graph, definitions).Graph.ShouldBeNull();
-        new GraphCompiler().Compile(graph, definitions).Graph.ShouldBeNull();
-    }
-
-    [TestCase(ValueType.Scalar)]
-    [TestCase(ValueType.Boolean)]
-    [TestCase(ValueType.Tag)]
-    [TestCase(ValueType.OrderId)]
-    public void Phase1RefusesNewTypedLiteralRuntimeBindings(ValueType type)
-    {
-        ParamLiteral literal = type switch
-        {
-            ValueType.Scalar => new DecimalParamLiteral(1m),
-            ValueType.Boolean => new BooleanParamLiteral(true),
-            ValueType.Tag => new TextParamLiteral("entry"),
-            _ => new OrderIdParamLiteral(1)
-        };
-        var graph = new StrategyGraph(
-            [
-                new GraphNode(
-                    "source",
-                    "Constant",
-                    schemaVersion: 2,
-                    new Dictionary<string, ParamValue> { ["value"] = Fixed(literal) },
-                    type)
-            ],
-            []);
-        INodeDefinition[] definitions = [new ConstantNodeDefinition()];
-
-        new TradingGraphCompiler().Compile(graph, definitions).Graph.ShouldNotBeNull();
-        new GraphCompiler().Compile(graph, definitions)
-            .Validation.Diagnostics
-            .ShouldContain(diagnostic => diagnostic.Code == GraphDiagnosticCode.UnsupportedPhase1Graph);
     }
 
     private static TradingGraphCompilationResult Compile(StrategyGraph graph, params INodeDefinition[] definitions)
