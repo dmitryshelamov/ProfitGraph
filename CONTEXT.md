@@ -101,6 +101,29 @@ A user's API key and secret for one trading venue, stored encrypted per value an
 four characters of the key are visible. A credential belongs to its owner, and another user's credential is reported
 as missing. See [ADR 0015](docs/adr/0015-exchange-credentials.md).
 
+### Bot
+
+A strategy running live on one venue series through one of its owner's exchange credentials. The owner sets its desired
+state (running or stopped); the runtime that holds the bot's lease reports its runtime status. A degraded bot either
+restarts automatically after a runtime failure or waits for the owner because of a safety reason. See
+[ADR 0016](docs/adr/0016-live-bot-runtime.md).
+
+### Bot Lease
+
+The right of one runtime process to execute a bot, renewed while it works. Taking over an expired lease raises its
+epoch, and every state write checks the epoch, so a stale process cannot commit. Its submit gate opens only after the
+bot's venue state was reconciled.
+
+### Order Intent
+
+A submit or cancel for the venue, saved in the same transaction as the engine checkpoint that produced it and then
+delivered by a dispatcher. A submit that may have reached the venue is looked up before any retry.
+
+### Kill Switch
+
+A per-bot control, or the global trading halt, that stops bots at once, cancels their open orders and rejects
+submits that never left the process. It never sells a position.
+
 ### Composition Root
 
 A host project that wires the application together: `ProfitGraph.Api` for HTTP and `ProfitGraph.Worker` for the
