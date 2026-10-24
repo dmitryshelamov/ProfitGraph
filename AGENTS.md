@@ -43,9 +43,22 @@ dotnet test backend/ProfitGraph.sln
 docker compose -f docker-compose.test.yml down
 ```
 
+Frontend checks run in `frontend/` (Node `^22.13.0 || >=24`; CI uses Node 24):
+
+```bash
+npm ci
+npm run lint
+npm run format:check
+npm run typecheck
+npm test
+npm run build
+```
+
 ## Local development
 
 - API: `dotnet run --project backend/src/ProfitGraph.Api --launch-profile http` on `localhost:5291`.
+- Frontend: `npm run dev` in `frontend/` on `localhost:5273` (`strictPort`); `/api` and `/ws` are proxied to the API.
+  Regenerate the API client with `npm run generate:api` while the API runs.
 - Development PostgreSQL: `docker compose -f docker-compose.dev.yml up -d --wait` on `localhost:5435`.
 - Stop temporary instances started for checks; do not leave stray processes.
 
