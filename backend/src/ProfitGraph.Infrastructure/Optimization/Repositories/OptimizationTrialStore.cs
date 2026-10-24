@@ -28,6 +28,7 @@ internal sealed class OptimizationTrialStore(NpgsqlConnection connection, Postgr
                 ["sequence"] = trial.Sequence,
                 ["trial_index"] = trial.TrialIndex,
                 ["stage"] = trial.Stage,
+                ["window_index"] = trial.WindowIndex,
                 ["parameters"] = trial.Parameters,
                 ["status"] = trial.Status,
                 ["failure_code"] = trial.FailureCode,
@@ -43,7 +44,11 @@ internal sealed class OptimizationTrialStore(NpgsqlConnection connection, Postgr
             new CommandDefinition(OptimizationTrialQueries.Write, new { OptimizationId = id.Value, Trials = rows }, transaction, cancellationToken: cancellationToken));
     }
 
-    public async Task WriteScores(OptimizationId id, IReadOnlyDictionary<int, OptimizationNeighborhoodScore> scores, CancellationToken cancellationToken)
+    public async Task WriteScores(
+        OptimizationId id,
+        int windowIndex,
+        IReadOnlyDictionary<int, OptimizationNeighborhoodScore> scores,
+        CancellationToken cancellationToken)
     {
         if (scores.Count == 0)
         {
@@ -62,7 +67,7 @@ internal sealed class OptimizationTrialStore(NpgsqlConnection connection, Postgr
         await connection.ExecuteAsync(
             new CommandDefinition(
                 OptimizationTrialQueries.WriteScores,
-                new { OptimizationId = id.Value, Scores = rows },
+                new { OptimizationId = id.Value, WindowIndex = windowIndex, Scores = rows },
                 transaction,
                 cancellationToken: cancellationToken));
     }

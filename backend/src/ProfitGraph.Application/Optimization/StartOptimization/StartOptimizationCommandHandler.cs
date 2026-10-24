@@ -9,6 +9,7 @@ using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Jobs;
 using ProfitGraph.Application.Jobs.Contracts;
 using ProfitGraph.Application.MarketData;
+using ProfitGraph.Application.Optimization.Contracts;
 using ProfitGraph.Application.Optimization.RunOptimization;
 using ProfitGraph.Application.Strategies;
 using ProfitGraph.Domain.Accounts;
@@ -76,6 +77,7 @@ internal sealed class StartOptimizationCommandHandler(
             "MaxDrawdownPercent");
         CandleSeries series = venues.ResolveSeries(backtest.Venue, backtest.Symbol, backtest.Timeframe);
         BacktestConfiguration frozen = BacktestFreezing.Freeze(backtest, series, parameters, plan, clock.GetUtcNow());
+        WalkForwardSettings? walkForward = request.WalkForward is { } requested ? WalkForward(requested, frozen) : null;
         var configuration = new OptimizationConfiguration(
             frozen,
             ranges,
@@ -88,7 +90,8 @@ internal sealed class StartOptimizationCommandHandler(
             constraints,
             budget,
             request.Seed ?? BinaryPrimitives.ReadUInt64LittleEndian(RandomNumberGenerator.GetBytes(count: 8)),
-            request.FinalistCount ?? 3);
+            request.FinalistCount ?? (walkForward is null ? 3 : 1),
+            walkForward);
         var owner = new UserId(backtest.UserId);
         var jobId = BackgroundJobId.New();
         var optimization = OptimizationRun.Create(new OptimizationId(jobId), owner, strategy.Id, version.Number, configuration, frozen.ObservedAt);
@@ -96,6 +99,33 @@ internal sealed class StartOptimizationCommandHandler(
         await optimizations.Add(optimization, cancellationToken);
 
         return job;
+    }
+
+    /// <summary>
+    ///     With a known start the windows are checked at once against the in-sample range; without one only the Worker
+    ///     knows the range.
+    /// </summary>
+    private static WalkForwardSettings WalkForward(WalkForwardSettingsInternal requested, BacktestConfiguration frozen)
+    {
+        try
+        {
+            var settings = new WalkForwardSettings(
+                requested.Windows,
+                requested.TrainToTestRatio,
+                requested.Scheme == "anchored" ? WalkForwardScheme.Anchored : WalkForwardScheme.Rolling);
+
+            if (frozen.From is { } from)
+            {
+                long replay = (frozen.ResolveTo().UtcTicks - from.UtcTicks) / frozen.Series.Timeframe.Duration.Ticks;
+                WalkForwardPlan.Create(frozen.Split.Split(checked((int)replay)).InSampleBars, settings);
+            }
+
+            return settings;
+        }
+        catch (WalkForwardWindowException exception)
+        {
+            throw new ApplicationValidationException([new InputError(exception.Code, "WalkForward", exception.Message)]);
+        }
     }
 
     private static T Rule<T>(Func<T> create, string field)

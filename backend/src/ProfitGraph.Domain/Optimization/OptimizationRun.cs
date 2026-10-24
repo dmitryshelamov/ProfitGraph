@@ -140,7 +140,7 @@ public sealed class OptimizationRun : AggregateRoot
     {
         EnsureSearching();
 
-        if (plannedTrials < 0 || plannedTrials > Configuration.Budget || plannedTrials < Counters.Executed)
+        if (plannedTrials < 0 || plannedTrials > Configuration.TrialCapacity || plannedTrials < Counters.Executed)
         {
             throw Transition("The planned trials are within the budget and not below the executed trials.");
         }
@@ -162,7 +162,7 @@ public sealed class OptimizationRun : AggregateRoot
             counters = counters.Add(trial.Status);
         }
 
-        if (counters.Executed > Configuration.Budget || (PlannedTrials is { } planned && counters.Executed > planned) ||
+        if (counters.Executed > Configuration.TrialCapacity || (PlannedTrials is { } planned && counters.Executed > planned) ||
             (best is null && Best is not null) || (best is not null && counters.Completed == 0))
         {
             throw Transition("Trials never exceed the plan, and the best trial is a completed one that is never dropped.");
@@ -185,7 +185,7 @@ public sealed class OptimizationRun : AggregateRoot
             throw Transition("Trial counters cannot be negative.");
         }
 
-        if (plannedTrials is { } planned && planned > Configuration.Budget)
+        if (plannedTrials is { } planned && planned > Configuration.TrialCapacity)
         {
             throw Transition("The planned trials cannot exceed the budget.");
         }
@@ -193,7 +193,7 @@ public sealed class OptimizationRun : AggregateRoot
         Counters = counters;
         PlannedTrials = plannedTrials;
 
-        if (counters.Executed > Configuration.Budget || (best is not null && counters.Completed == 0) || (plannedTrials is { } plan && counters.Executed > plan))
+        if (counters.Executed > Configuration.TrialCapacity || (best is not null && counters.Completed == 0) || (plannedTrials is { } plan && counters.Executed > plan))
         {
             throw Transition("Stored trials exceed the plan or have a best trial without a completed one.");
         }

@@ -4,7 +4,8 @@ namespace ProfitGraph.Application.Optimization.Contracts;
 ///     A stored trial. <paramref name="Sequence" /> is its delivery order, from 1, and the cursor of trial pages;
 ///     <paramref name="TrialIndex" /> is its position in the search and <paramref name="Stage" /> the coarse-to-fine or TPE
 ///     stage that proposed it. Parameters are the ranged values by name. <paramref name="Neighborhood" /> is stored once
-///     the search ends.
+///     the search ends. A walk-forward trial belongs to the train range of window <paramref name="WindowIndex" />; trial
+///     indexes start over in each window.
 /// </summary>
 public sealed record OptimizationTrialInternal(
     long Sequence,
@@ -19,4 +20,5 @@ public sealed record OptimizationTrialInternal(
     long Executions,
     long ElapsedMs,
     int Stage = 1,
-    OptimizationNeighborhoodInternal? Neighborhood = null);
+    OptimizationNeighborhoodInternal? Neighborhood = null,
+    int WindowIndex = 0);

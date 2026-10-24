@@ -6,7 +6,7 @@ namespace ProfitGraph.Application.Optimization.Converters;
 
 public static class OptimizationRunInternalConverter
 {
-    public static OptimizationRunInternal ToInternal(this OptimizationRun optimization, OptimizationStateInternal state)
+    public static OptimizationRunInternal ToInternal(this OptimizationRun optimization, OptimizationStateInternal state, WalkForwardSummary? summary)
     {
         OptimizationConfiguration configuration = optimization.Configuration;
         OptimizationCounters counters = optimization.Counters;
@@ -25,12 +25,19 @@ public static class OptimizationRunInternalConverter
                 configuration.Seed,
                 configuration.FinalistCount,
                 configuration.Constraints.MinExecutions,
-                configuration.Constraints.MaxDrawdownPercent),
+                configuration.Constraints.MaxDrawdownPercent,
+                configuration.WalkForward is { } walkForward
+                    ? new WalkForwardSettingsInternal(
+                        walkForward.Windows,
+                        walkForward.TrainToTestRatio,
+                        walkForward.Scheme == WalkForwardScheme.Anchored ? "anchored" : "rolling")
+                    : null),
             OptimizationNames.Stage(optimization.Stage),
             optimization.History?.ToInternal(),
             optimization.PlannedTrials,
             new OptimizationCountersInternal(counters.Completed, counters.RejectedByConstraint, counters.RejectedByTemplate, counters.Failed),
             optimization.Best is { } best ? new OptimizationBestTrialInternal(best.TrialIndex, best.Objective) : null,
-            state);
+            state,
+            summary);
     }
 }

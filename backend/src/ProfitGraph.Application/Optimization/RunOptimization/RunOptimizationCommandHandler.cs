@@ -32,12 +32,14 @@ namespace ProfitGraph.Application.Optimization.RunOptimization;
 internal sealed class RunOptimizationCommandHandler(
     IOptimizationRunRepository optimizations,
     IOptimizationTrialStore trials,
+    IOptimizationWindowStore windows,
     IOptimizationReader reader,
     IBacktestRunRepository backtests,
     IStrategyRepository strategies,
     BacktestCompiler compiler,
     BacktestHistoryLoader history,
     OptimizationTrialRunner runner,
+    WalkForwardRunner walkForward,
     OptimizationTrialRunnerOptions options,
     BackgroundJobQueue queue,
     ITransactionExecutor transactions,
@@ -76,39 +78,29 @@ internal sealed class RunOptimizationCommandHandler(
             configuration.Seed,
             configuration.Method);
         IReadOnlyList<OptimizationTrialInternal> stored = await trials.ReadAll(optimization.Id, cancellationToken);
-        await progress.Restart(optimization.Counters.Executed, optimization.PlannedTrials ?? configuration.Budget, cancellationToken);
-        OptimizationRunResultInternal result = await Search(optimization, input, stored, cancellationToken);
-
-        if (result.IsCancelled)
-        {
-            throw new OperationCanceledException("The optimization stopped after its trials were stored.", cancellationToken);
-        }
-
-        if (optimization.Stage == OptimizationStage.Searching)
-        {
-            optimization.CompleteSearch();
-            await transactions.ExecuteAsync(
-                async () =>
-                {
-                    await trials.WriteScores(optimization.Id, result.NeighborhoodScores, CancellationToken.None);
-                    await optimizations.Save(optimization, CancellationToken.None);
-
-                    return true;
-                },
-                CancellationToken.None);
-        }
-
-        OptimizationTrialResult[] finalists = [.. result.Ranking.Where(trial => trial.Status == OptimizationTrialStatus.Completed).Take(configuration.FinalistCount)];
+        await progress.Restart(optimization.Counters.Executed, optimization.PlannedTrials ?? configuration.TrialCapacity, cancellationToken);
+        var recorder = new OptimizationTrialRecorder(
+            optimization,
+            stored,
+            configuration.WalkForward is null,
+            options.BatchSize,
+            trials,
+            optimizations,
+            transactions,
+            progress);
+        IReadOnlyList<EngineExecutionInputs> finalists = configuration.WalkForward is { } settings
+            ? await SearchWalkForward(optimization, input, settings, stored, recorder, cancellationToken)
+            : await Search(optimization, input, stored, recorder, cancellationToken);
         IReadOnlyList<IReadOnlyDictionary<string, decimal>> started = await StartedFinalists(optimization, cancellationToken);
-        await progress.Restart(completed: 0, finalists.Length, cancellationToken);
+        await progress.Restart(completed: 0, finalists.Count, cancellationToken);
 
-        for (var index = 0; index < finalists.Length; index++)
+        for (var index = 0; index < finalists.Count; index++)
         {
             await StartFinalist(optimization, version, finalists[index], started, cancellationToken);
-            await progress.Report(index + 1, finalists.Length, cancellationToken);
+            await progress.Report(index + 1, finalists.Count, cancellationToken);
         }
 
-        return new OptimizationCompletedInternal(optimization.Id.Value, optimization.Counters.Executed, finalists.Length);
+        return new OptimizationCompletedInternal(optimization.Id.Value, optimization.Counters.Executed, finalists.Count);
     }
 
     /// <summary>
@@ -160,84 +152,136 @@ internal sealed class RunOptimizationCommandHandler(
     }
 
     /// <summary>
-    ///     Runs the trials and stores them in batches on the runner's serial receiver, each batch in its own short
-    ///     transaction with the counters and the best trial.
+    ///     Runs the trials of one search, stores them through the recorder and returns the best completed trials' values as
+    ///     finalists.
     /// </summary>
-    private async Task<OptimizationRunResultInternal> Search(
+    private async Task<IReadOnlyList<EngineExecutionInputs>> Search(
         OptimizationRun optimization,
         OptimizationRunInputInternal input,
         IReadOnlyList<OptimizationTrialInternal> stored,
+        OptimizationTrialRecorder recorder,
         CancellationToken cancellationToken)
     {
-        var batch = new List<OptimizationTrialResult>(options.BatchSize);
-        var planned = new OptimizationPlannedTrials();
-        OptimizationTrialResult? best = OptimizationRanking.Rank(stored.Where(trial => trial is { Status: "completed", Objective: not null }).Select(Ranked))
-            .FirstOrDefault();
-        long sequence = stored.Count == 0 ? 0 : stored.Max(trial => trial.Sequence);
         OptimizationRunResultInternal result;
 
         try
         {
-            result = await runner.RunAsync(
-                input,
-                async trial =>
-                {
-                    batch.Add(trial);
-
-                    if (batch.Count >= options.BatchSize)
-                    {
-                        await Flush();
-                    }
-                },
-                planned,
-                cancellationToken,
-                Flush,
-                stored);
+            result = await runner.RunAsync(input, trial => recorder.Add(windowIndex: 0, trial), recorder.Planned, cancellationToken, recorder.Flush, stored);
         }
         finally
         {
-            await Flush();
+            await recorder.Flush();
         }
 
-        if (optimization.PlannedTrials != result.TotalTrials && !result.IsCancelled)
+        if (result.IsCancelled)
+        {
+            throw new OperationCanceledException("The optimization stopped after its trials were stored.", cancellationToken);
+        }
+
+        if (optimization.Stage == OptimizationStage.Searching)
         {
             optimization.PlanTrials(result.TotalTrials);
-            await Save(optimization, CancellationToken.None);
-        }
-
-        return result;
-
-        async ValueTask Flush()
-        {
-            if (batch.Count == 0)
-            {
-                return;
-            }
-
-            OptimizationTrialInternal[] records = [.. batch.Select(trial => Record(++sequence, trial))];
-            best = OptimizationRanking.Rank(
-                    batch.Where(trial => trial is { Status: OptimizationTrialStatus.Completed, ObjectiveValue: not null }).Append(best).OfType<OptimizationTrialResult>())
-                .FirstOrDefault();
-
-            if (planned.Total is { } total && total != optimization.PlannedTrials)
-            {
-                optimization.PlanTrials(total);
-            }
-
-            optimization.RecordTrials(batch, best is null ? null : new OptimizationBestTrial(best.Trial.Index, best.ObjectiveValue!.Value));
+            optimization.CompleteSearch();
             await transactions.ExecuteAsync(
                 async () =>
                 {
-                    await trials.Write(optimization.Id, records, CancellationToken.None);
+                    await trials.WriteScores(optimization.Id, windowIndex: 0, result.NeighborhoodScores, CancellationToken.None);
                     await optimizations.Save(optimization, CancellationToken.None);
 
                     return true;
                 },
                 CancellationToken.None);
-            batch.Clear();
-            await progress.RecordStoredWork(CancellationToken.None);
-            await progress.Report(optimization.Counters.Executed, optimization.PlannedTrials ?? input.Budget, CancellationToken.None);
         }
+
+        return
+        [
+            .. result.Ranking.Where(trial => trial.Status == OptimizationTrialStatus.Completed)
+                .Take(optimization.Configuration.FinalistCount)
+                .Select(trial => trial.Trial.Selections)
+        ];
+    }
+
+    /// <summary>
+    ///     Searches each walk-forward window's train range and tests its winner (ADR 0014), storing trials, finished windows
+    ///     and scores as they come; the finalist is the last window's winner.
+    /// </summary>
+    private async Task<IReadOnlyList<EngineExecutionInputs>> SearchWalkForward(
+        OptimizationRun optimization,
+        OptimizationRunInputInternal input,
+        WalkForwardSettings settings,
+        IReadOnlyList<OptimizationTrialInternal> stored,
+        OptimizationTrialRecorder recorder,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<WalkForwardWindowResult> finished = await windows.ReadWindows(optimization.Id, cancellationToken);
+        WalkForwardRunResultInternal result;
+
+        try
+        {
+            result = await walkForward.RunAsync(
+                input,
+                settings,
+                trial => recorder.Add(trial.WindowIndex, trial.Result),
+                async window =>
+                {
+                    await recorder.Flush();
+                    await Store(() => windows.WriteWindow(optimization.Id, window, CancellationToken.None));
+                },
+                recorder.Planned,
+                cancellationToken,
+                async (windowIndex, scores) =>
+                {
+                    await recorder.Flush();
+                    await Store(() => trials.WriteScores(optimization.Id, windowIndex, scores, CancellationToken.None));
+                },
+                recorder.Flush,
+                stored,
+                finished);
+        }
+        catch (WalkForwardWindowException exception)
+        {
+            throw new OptimizationException(exception.Code, exception.Message);
+        }
+        finally
+        {
+            await recorder.Flush();
+        }
+
+        if (result.IsCancelled)
+        {
+            throw new OperationCanceledException("The walk-forward optimization stopped after its trials and windows were stored.", cancellationToken);
+        }
+
+        if (optimization.Stage == OptimizationStage.Searching)
+        {
+            optimization.PlanTrials(result.TotalTrials);
+            optimization.CompleteSearch();
+            await Store(async () =>
+            {
+                await windows.WriteSummary(optimization.Id, result.Summary, CancellationToken.None);
+                await optimizations.Save(optimization, CancellationToken.None);
+            });
+        }
+
+        return
+        [
+            .. result.Windows.Select(window => window.Parameters)
+                .TakeLast(1)
+                .OfType<EngineExecutionInputs>()
+                .Take(optimization.Configuration.FinalistCount)
+        ];
+    }
+
+    private Task<bool> Store(Func<Task> write)
+    {
+        return transactions.ExecuteAsync(
+            async () =>
+            {
+                await write();
+
+                return true;
+            },
+            CancellationToken.None);
     }
 
     /// <summary>
@@ -246,7 +290,7 @@ internal sealed class RunOptimizationCommandHandler(
     private async Task StartFinalist(
         OptimizationRun optimization,
         StrategyVersion version,
-        OptimizationTrialResult finalist,
+        EngineExecutionInputs finalist,
         IReadOnlyList<IReadOnlyDictionary<string, decimal>> started,
         CancellationToken cancellationToken)
     {
@@ -254,7 +298,7 @@ internal sealed class RunOptimizationCommandHandler(
         BacktestHistoryInfo prepared = optimization.History!;
         var parameters = new Dictionary<string, decimal>(backtest.Parameters, StringComparer.Ordinal);
 
-        foreach ((PortReference reference, decimal value) in finalist.Trial.Selections.OptimizedValues)
+        foreach ((PortReference reference, decimal value) in finalist.OptimizedValues)
         {
             parameters[reference.NodeId] = value;
         }
@@ -311,36 +355,6 @@ internal sealed class RunOptimizationCommandHandler(
         }
 
         return started;
-    }
-
-    /// <summary>
-    ///     A stored completed trial as a rankable result: ranking reads only its objective and its values.
-    /// </summary>
-    private static OptimizationTrialResult Ranked(OptimizationTrialInternal stored)
-    {
-        var trial = new OptimizationTrial(
-            stored.TrialIndex,
-            GridIndex: 0,
-            new EngineExecutionInputs(stored.Parameters.ToDictionary(pair => new PortReference(pair.Key, "value"), pair => pair.Value)));
-
-        return OptimizationTrialResult.Restore(trial, metrics: null, OptimizationTrialStatus.Completed, stored.Objective, failureCode: null, stored.ElapsedMs);
-    }
-
-    private static OptimizationTrialInternal Record(long sequence, OptimizationTrialResult trial)
-    {
-        return new OptimizationTrialInternal(
-            sequence,
-            trial.Trial.Index,
-            trial.Trial.Selections.OptimizedValues.ToDictionary(pair => pair.Key.NodeId, pair => pair.Value, StringComparer.Ordinal),
-            OptimizationNames.TrialStatus(trial.Status),
-            trial.FailureCode,
-            trial.ObjectiveValue,
-            trial.Metrics?.ReturnPercent,
-            trial.Metrics?.TotalPnl,
-            trial.Metrics?.MaxDrawdownPercent,
-            trial.Metrics?.Executions ?? 0,
-            trial.ElapsedMs,
-            trial.Trial.Stage);
     }
 
     private Task<bool> Save(OptimizationRun optimization, CancellationToken cancellationToken)

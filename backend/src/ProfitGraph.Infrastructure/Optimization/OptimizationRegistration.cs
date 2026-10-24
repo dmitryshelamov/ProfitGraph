@@ -27,6 +27,8 @@ internal static class OptimizationRegistration
         services.AddScoped<OptimizationTrialRunner>();
         services.AddScoped<IOptimizationRunRepository, OptimizationRunRepository>();
         services.AddScoped<IOptimizationTrialStore, OptimizationTrialStore>();
+        services.AddScoped<IOptimizationWindowStore, OptimizationWindowStore>();
+        services.AddScoped<WalkForwardRunner>();
         services.AddScoped<IOptimizationReader, OptimizationReader>();
         services.AddSingleton<IOptimizationProgressNotifications, OptimizationProgressNotifications>();
         services.AddBackgroundJob<RunOptimizationCommand, OptimizationCompletedInternal>(BackgroundJobLanes.Optimization, resumable: true);

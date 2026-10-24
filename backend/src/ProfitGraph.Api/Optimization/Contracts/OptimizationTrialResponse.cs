@@ -13,4 +13,5 @@ public sealed record OptimizationTrialResponse(
     long Executions,
     long ElapsedMs,
     int Stage,
+    int WindowIndex,
     OptimizationNeighborhoodResponse? Neighborhood);

@@ -16,4 +16,5 @@ public sealed record StartOptimizationRequest(
     string? Seed,
     int? FinalistCount,
     long? MinExecutions,
-    string? MaxDrawdownPercent);
+    string? MaxDrawdownPercent,
+    WalkForwardRequest? WalkForward = null);

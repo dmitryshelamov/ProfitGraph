@@ -11,4 +11,5 @@ public sealed record OptimizationConfigurationResponse(
     string Seed,
     int FinalistCount,
     long MinExecutions,
-    string MaxDrawdownPercent);
+    string MaxDrawdownPercent,
+    WalkForwardSettingsResponse? WalkForward);

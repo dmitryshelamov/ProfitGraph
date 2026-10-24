@@ -11,4 +11,5 @@ public sealed record OptimizationConfigurationInternal(
     ulong Seed,
     int FinalistCount,
     long MinExecutions,
-    decimal MaxDrawdownPercent);
+    decimal MaxDrawdownPercent,
+    WalkForwardSettingsInternal? WalkForward);

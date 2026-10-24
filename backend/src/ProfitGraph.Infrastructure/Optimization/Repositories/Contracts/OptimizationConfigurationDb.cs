@@ -17,4 +17,5 @@ internal sealed class OptimizationConfigurationDb
     public int FinalistCount { get; init; }
     public long MinExecutions { get; init; }
     public decimal MaxDrawdownPercent { get; init; }
+    public WalkForwardSettingsDb? WalkForward { get; init; }
 }
