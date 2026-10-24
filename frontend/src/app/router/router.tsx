@@ -108,6 +108,24 @@ const backtestRoute = createRoute({
   ),
 });
 
+const optimizationSetupRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/strategies/$strategyId/optimize',
+  component: lazyRouteComponent(
+    () => import('@/pages/optimization-setup/OptimizationSetupPage'),
+    'OptimizationSetupPage',
+  ),
+});
+
+const optimizationRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/optimizations/$optimizationId',
+  component: lazyRouteComponent(
+    () => import('@/pages/optimization/OptimizationPage'),
+    'OptimizationPage',
+  ),
+});
+
 const historicalDataRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/historical-data',
@@ -136,6 +154,8 @@ const routeTree = rootRoute.addChildren([
       backtestSetupRoute,
       backtestsRoute,
       backtestRoute,
+      optimizationSetupRoute,
+      optimizationRoute,
       historicalDataRoute,
     ]),
     strategyEditorRoute,

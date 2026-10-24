@@ -336,6 +336,289 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/optimizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StartOptimizationRequest"];
+                    "text/json": components["schemas"]["StartOptimizationRequest"];
+                    "application/*+json": components["schemas"]["StartOptimizationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BackgroundJobResponse"];
+                        "application/json": components["schemas"]["BackgroundJobResponse"];
+                        "text/json": components["schemas"]["BackgroundJobResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/optimizations/{id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BackgroundJobResponse"];
+                        "application/json": components["schemas"]["BackgroundJobResponse"];
+                        "text/json": components["schemas"]["BackgroundJobResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/optimizations/{id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BackgroundJobResponse"];
+                        "application/json": components["schemas"]["BackgroundJobResponse"];
+                        "text/json": components["schemas"]["BackgroundJobResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/strategies/{strategyId}/optimizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    after?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    strategyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["OptimizationSummaryPageResponse"];
+                        "application/json": components["schemas"]["OptimizationSummaryPageResponse"];
+                        "text/json": components["schemas"]["OptimizationSummaryPageResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/optimizations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["OptimizationRunResponse"];
+                        "application/json": components["schemas"]["OptimizationRunResponse"];
+                        "text/json": components["schemas"]["OptimizationRunResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/optimizations/{id}/windows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["OptimizationWindowResponse"][];
+                        "application/json": components["schemas"]["OptimizationWindowResponse"][];
+                        "text/json": components["schemas"]["OptimizationWindowResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/optimizations/{id}/trials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    after?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["OptimizationTrialPageResponse"];
+                        "application/json": components["schemas"]["OptimizationTrialPageResponse"];
+                        "text/json": components["schemas"]["OptimizationTrialPageResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/historical-data/csv": {
         parameters: {
             query?: never;
@@ -1192,6 +1475,7 @@ export interface components {
             /** Format: int64 */
             total: null | number;
             cancelRequested: boolean;
+            pauseRequested: boolean;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -1542,6 +1826,157 @@ export interface components {
             /** Format: double */
             y: number;
         };
+        OptimizationBestTrialResponse: {
+            /** Format: int32 */
+            trialIndex: number;
+            objective: string;
+        };
+        OptimizationConfigurationResponse: {
+            backtest: components["schemas"]["BacktestConfigurationResponse"];
+            ranges: {
+                [key: string]: components["schemas"]["OptimizationRangeResponse"];
+            };
+            method: string;
+            objective: string;
+            /** Format: int32 */
+            budget: number;
+            seed: string;
+            /** Format: int32 */
+            finalistCount: number;
+            /** Format: int64 */
+            minExecutions: number;
+            maxDrawdownPercent: string;
+            walkForward: null | components["schemas"]["WalkForwardSettingsResponse"];
+        };
+        OptimizationCountersResponse: {
+            /** Format: int32 */
+            completed: number;
+            /** Format: int32 */
+            rejectedByConstraint: number;
+            /** Format: int32 */
+            rejectedByTemplate: number;
+            /** Format: int32 */
+            failed: number;
+        };
+        OptimizationNeighborhoodResponse: {
+            /** Format: int32 */
+            evaluated: number;
+            /** Format: int32 */
+            eligible: number;
+            mean: null | string;
+        };
+        OptimizationRangeRequest: {
+            min: null | string;
+            max: null | string;
+            step: null | string;
+        };
+        OptimizationRangeResponse: {
+            min: string;
+            max: string;
+            step: string;
+        };
+        OptimizationRunResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            strategyId: string;
+            /** Format: int32 */
+            strategyVersion: number;
+            status: string;
+            /** Format: date-time */
+            createdAt: string;
+            configuration: components["schemas"]["OptimizationConfigurationResponse"];
+            stage: null | string;
+            history: null | components["schemas"]["BacktestHistoryResponse"];
+            /** Format: int32 */
+            plannedTrials: null | number;
+            counters: components["schemas"]["OptimizationCountersResponse"];
+            best: null | components["schemas"]["OptimizationBestTrialResponse"];
+            finalists: string[];
+            walkForwardSummary: null | components["schemas"]["WalkForwardSummaryResponse"];
+        };
+        OptimizationSummaryPageResponse: {
+            items: components["schemas"]["OptimizationSummaryResponse"][];
+            /** Format: uuid */
+            next: null | string;
+        };
+        OptimizationSummaryResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int32 */
+            strategyVersion: number;
+            /** Format: date-time */
+            createdAt: string;
+            venue: string;
+            symbol: string;
+            timeframe: string;
+            method: string;
+            status: string;
+            /** Format: int32 */
+            executedTrials: number;
+            bestObjective: null | string;
+        };
+        OptimizationTrialPageResponse: {
+            items: components["schemas"]["OptimizationTrialResponse"][];
+            /** Format: int64 */
+            next: null | number;
+        };
+        OptimizationTrialResponse: {
+            /** Format: int64 */
+            sequence: number;
+            /** Format: int32 */
+            trialIndex: number;
+            parameters: {
+                [key: string]: string;
+            };
+            status: string;
+            failureCode: null | string;
+            objective: null | string;
+            returnPercent: null | string;
+            totalPnl: null | string;
+            maxDrawdownPercent: null | string;
+            /** Format: int64 */
+            executions: number;
+            /** Format: int64 */
+            elapsedMs: number;
+            /** Format: int32 */
+            stage: number;
+            /** Format: int32 */
+            windowIndex: number;
+            neighborhood: null | components["schemas"]["OptimizationNeighborhoodResponse"];
+        };
+        OptimizationWindowResponse: {
+            /** Format: int32 */
+            index: number;
+            /** Format: int32 */
+            trainStart: number;
+            /** Format: int32 */
+            trainCount: number;
+            /** Format: int32 */
+            testStart: number;
+            /** Format: int32 */
+            testCount: number;
+            /** Format: date-time */
+            trainFrom: string;
+            /** Format: date-time */
+            trainTo: string;
+            /** Format: date-time */
+            testFrom: string;
+            /** Format: date-time */
+            testTo: string;
+            status: string;
+            /** Format: int32 */
+            winnerTrialIndex: null | number;
+            parameters: null | {
+                [key: string]: string;
+            };
+            trainMetrics: null | components["schemas"]["SampleMetricsResponse"];
+            testMetrics: null | components["schemas"]["SampleMetricsResponse"];
+            wfe: null | string;
+            failureCode: null | string;
+            diagnostics: components["schemas"]["WalkForwardDiagnosticResponse"][];
+            equity: components["schemas"]["WalkForwardEquityPointResponse"][];
+        };
         SampleMetricsResponse: {
             /** Format: int32 */
             startIndex: number;
@@ -1592,6 +2027,23 @@ export interface components {
             limitFeeRate: null | string;
             marketFeeRate: null | string;
             outOfSampleFraction: null | string;
+        };
+        StartOptimizationRequest: {
+            backtest: null | components["schemas"]["StartBacktestRequest"];
+            ranges: null | {
+                [key: string]: components["schemas"]["OptimizationRangeRequest"];
+            };
+            method: null | string;
+            objective: null | string;
+            /** Format: int32 */
+            budget: null | number;
+            seed: null | string;
+            /** Format: int32 */
+            finalistCount: null | number;
+            /** Format: int64 */
+            minExecutions: null | number;
+            maxDrawdownPercent: null | string;
+            walkForward?: null | components["schemas"]["WalkForwardRequest"];
         };
         StrategyBlockRequest: {
             id: string;
@@ -1808,6 +2260,56 @@ export interface components {
             id: string;
             name: string;
             timeframes: string[];
+        };
+        WalkForwardDiagnosticResponse: {
+            code: string;
+            metric: string;
+            /** Format: int32 */
+            windowIndex: null | number;
+        };
+        WalkForwardEquityPointResponse: {
+            /** Format: int32 */
+            candleIndex: number;
+            /** Format: date-time */
+            time: null | string;
+            closeEquity: string;
+        };
+        WalkForwardParameterStabilityResponse: {
+            parameter: string;
+            winners: components["schemas"]["WalkForwardParameterWinnerResponse"][];
+            /** Format: int32 */
+            distinctCount: number;
+            rangeInSteps: null | string;
+        };
+        WalkForwardParameterWinnerResponse: {
+            /** Format: int32 */
+            windowIndex: number;
+            value: string;
+        };
+        WalkForwardRequest: {
+            /** Format: int32 */
+            windows: null | number;
+            /** Format: int32 */
+            trainToTestRatio: null | number;
+            scheme: null | string;
+        };
+        WalkForwardSettingsResponse: {
+            /** Format: int32 */
+            windows: number;
+            /** Format: int32 */
+            trainToTestRatio: number;
+            scheme: string;
+        };
+        WalkForwardSummaryResponse: {
+            testTotalPnl: null | string;
+            testCompoundedReturnPercent: null | string;
+            /** Format: int32 */
+            profitableWindows: number;
+            /** Format: int32 */
+            testWindows: number;
+            overallWfe: null | string;
+            parameterStability: components["schemas"]["WalkForwardParameterStabilityResponse"][];
+            diagnostics: components["schemas"]["WalkForwardDiagnosticResponse"][];
         };
     };
     responses: never;

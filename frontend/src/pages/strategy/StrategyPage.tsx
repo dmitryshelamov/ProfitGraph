@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getRouteApi, Link } from '@tanstack/react-router';
 
 import { StrategyRuns } from '@/modules/backtests';
+import { StrategyOptimizations } from '@/modules/optimizations';
 import { strategyQuery, strategyTemplateLabel } from '@/modules/strategies';
 import { ApiError } from '@/shared/api/client';
 import { buttonClassName } from '@/shared/ui/Button';
@@ -76,6 +77,13 @@ export function StrategyPage() {
               Запустить прогон
             </Link>
             <Link
+              to="/strategies/$strategyId/optimize"
+              params={{ strategyId }}
+              className={buttonClassName()}
+            >
+              Оптимизировать
+            </Link>
+            <Link
               to="/strategies/$strategyId/edit"
               params={{ strategyId }}
               className={buttonClassName('primary')}
@@ -91,6 +99,9 @@ export function StrategyPage() {
           <StrategyParameters definition={current.definition} />
           <Card title="Прогоны">
             <StrategyRuns strategyId={strategyId} />
+          </Card>
+          <Card title="Оптимизации">
+            <StrategyOptimizations strategyId={strategyId} />
           </Card>
         </div>
         <StrategyVersions strategyId={strategyId} currentVersion={current.currentVersion} />

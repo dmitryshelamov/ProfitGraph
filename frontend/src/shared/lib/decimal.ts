@@ -104,3 +104,19 @@ export function roundDecimal(value: string, places: number): string | null {
 
   return formatCoefficient(negative ? -rounded : rounded, places);
 }
+
+/** Compares two decimal strings exactly: negative when `left` is smaller, zero when equal; null for a non-decimal. */
+export function compareDecimals(left: string, right: string): number | null {
+  const a = parts(left);
+  const b = parts(right);
+
+  if (!a || !b) {
+    return null;
+  }
+
+  const scale = Math.max(a.scale, b.scale);
+  const x = a.coefficient * 10n ** BigInt(scale - a.scale);
+  const y = b.coefficient * 10n ** BigInt(scale - b.scale);
+
+  return x < y ? -1 : x > y ? 1 : 0;
+}

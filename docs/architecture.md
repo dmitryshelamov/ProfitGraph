@@ -178,6 +178,12 @@ src/
   `/observations` before showing anything after them; once the job finishes, the page reads the result, the chart
   and the fact pages. `modules/market-chart` draws with lightweight-charts, the one place where decimal strings become
   numbers, for drawing only; every exact value on the page comes from the strings.
+- **Optimization.** `modules/optimizations` sets up a search around the backtest form: each parameter is either
+  fixed or ranged (from, to, step, typed as text and converted like the run setup), with the method, objective,
+  budget, constraints and optional walk-forward windows. While its job is unfinished, `useOptimizationProgress`
+  follows `/ws/optimizations` and `SequenceBuffer` (`shared/lib`) keeps the latest trials once and in order, filling
+  gaps from `/trials`. Pause and resume go through the optimization's own endpoints. Once the job finishes, the
+  page reads every trial, the walk-forward windows and summary, and links the finalist runs.
 - **API client.** `shared/api/client.ts` is the only HTTP client. Its types come from
   `shared/api/generated/schema.d.ts`, generated from the API's OpenAPI document with `npm run generate:api` and never
   edited by hand. Failures surface as `ApiError` built from Problem Details.
