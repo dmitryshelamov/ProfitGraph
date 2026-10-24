@@ -1,0 +1,82 @@
+/* Общие плавающие панели и кнопки доски: редактор и остальные экраны выглядят одинаково */
+.board-bar,
+.board-card {
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-panel-2);
+  box-shadow:
+    0 1px 2px #0005,
+    0 6px 20px #0006;
+}
+.board-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 44px;
+  box-sizing: border-box;
+  padding: 0 4px;
+  pointer-events: auto;
+}
+.board-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: #e7eaf2;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.board-button:hover:not(:disabled) {
+  background: #2a3142;
+}
+.board-button:disabled {
+  opacity: 0.4;
+}
+.board-button[aria-selected='true'],
+.board-button[aria-expanded='true'] {
+  background: #2c3a5c;
+  color: #fff;
+}
+.board-button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.board-icon {
+  width: 34px;
+  padding: 0;
+  font-size: 18px;
+}
+.board-primary {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: 600;
+}
+.board-primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+.board-count {
+  padding: 0 6px;
+  border-radius: 9px;
+  background: #343d52;
+  font-size: 11px;
+  line-height: 18px;
+}
+.board-divider {
+  width: 1px;
+  height: 22px;
+  margin: 0 4px;
+  background: var(--color-line);
+}
+.board-button[aria-pressed='true'],
+.board-button[aria-current='page'],
+.board-button[data-status='active'] {
+  background: #2c3a5c;
+  color: #fff;
+}

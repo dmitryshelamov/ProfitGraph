@@ -51,11 +51,18 @@ const authenticatedRoute = createRoute({
       throw redirect({ to: '/sign-in', search: { returnTo: location.href } });
     }
   },
+  component: Outlet,
+});
+
+/** Regular screens share the navigation shell; the editor uses the whole window. */
+const shellRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  id: '_shell',
   component: AppShell,
 });
 
 const homeRoute = createRoute({
-  getParentRoute: () => authenticatedRoute,
+  getParentRoute: () => shellRoute,
   path: '/',
   beforeLoad: () => {
     throw redirect({ to: '/strategies' });
@@ -63,7 +70,7 @@ const homeRoute = createRoute({
 });
 
 const strategiesRoute = createRoute({
-  getParentRoute: () => authenticatedRoute,
+  getParentRoute: () => shellRoute,
   path: '/strategies',
   component: lazyRouteComponent(
     () => import('@/pages/strategies/StrategiesPage'),
@@ -72,14 +79,26 @@ const strategiesRoute = createRoute({
 });
 
 const strategyRoute = createRoute({
-  getParentRoute: () => authenticatedRoute,
+  getParentRoute: () => shellRoute,
   path: '/strategies/$strategyId',
   component: lazyRouteComponent(() => import('@/pages/strategy/StrategyPage'), 'StrategyPage'),
 });
 
+const strategyEditorRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/strategies/$strategyId/edit',
+  component: lazyRouteComponent(
+    () => import('@/pages/strategy-editor/StrategyEditorPage'),
+    'StrategyEditorPage',
+  ),
+});
+
 const routeTree = rootRoute.addChildren([
   signInRoute,
-  authenticatedRoute.addChildren([homeRoute, strategiesRoute, strategyRoute]),
+  authenticatedRoute.addChildren([
+    shellRoute.addChildren([homeRoute, strategiesRoute, strategyRoute]),
+    strategyEditorRoute,
+  ]),
 ]);
 
 export function createAppRouter(queryClient: QueryClient, history?: RouterHistory) {

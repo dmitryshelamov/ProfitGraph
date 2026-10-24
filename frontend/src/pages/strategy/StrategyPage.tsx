@@ -3,6 +3,7 @@ import { getRouteApi, Link } from '@tanstack/react-router';
 
 import { strategyQuery, strategyTemplateLabel } from '@/modules/strategies';
 import { ApiError } from '@/shared/api/client';
+import { buttonClassName } from '@/shared/ui/Button';
 import { DateTime } from '@/shared/ui/DateTime';
 import { PageHeader } from '@/shared/ui/PageHeader';
 
@@ -10,7 +11,7 @@ import { StrategyParameters } from './StrategyParameters';
 import { StrategyValidationCard } from './StrategyValidationCard';
 import { StrategyVersions } from './StrategyVersions';
 
-const route = getRouteApi('/_authenticated/strategies/$strategyId');
+const route = getRouteApi('/_authenticated/_shell/strategies/$strategyId');
 
 function loadFailure(error: Error): string {
   if (error instanceof ApiError && error.status === 404) {
@@ -62,6 +63,15 @@ export function StrategyPage() {
             {strategyTemplateLabel(current.definition.templateKind)} · версия{' '}
             {current.currentVersion} · сохранена <DateTime value={current.updatedAt} />
           </>
+        }
+        actions={
+          <Link
+            to="/strategies/$strategyId/edit"
+            params={{ strategyId }}
+            className={buttonClassName('primary')}
+          >
+            Открыть редактор
+          </Link>
         }
       />
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">

@@ -1,0 +1,793 @@
+{
+  "blockKinds": [
+    {
+      "key": "event",
+      "label": "Событие",
+      "operands": [],
+      "outputType": null,
+      "choices": ["out"],
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "condition",
+      "label": "Условие",
+      "operands": [],
+      "outputType": null,
+      "choices": ["yes", "no"],
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "order",
+      "label": "Ордер",
+      "operands": [],
+      "outputType": null,
+      "choices": ["submitted", "filled", "cancelled", "rejected"],
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "cancel",
+      "label": "Отмена",
+      "operands": [
+        {
+          "key": "tag",
+          "label": "Метка",
+          "valueTypes": ["Tag"],
+          "required": true
+        }
+      ],
+      "outputType": null,
+      "choices": ["completed", "rejected"],
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    }
+  ],
+  "eventSources": [
+    {
+      "key": "OnStart",
+      "label": "При старте",
+      "operands": [],
+      "outputType": null,
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "OnResume",
+      "label": "При возобновлении",
+      "operands": [],
+      "outputType": null,
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "OnCandleClosed",
+      "label": "Свеча закрылась",
+      "operands": [],
+      "outputType": null,
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "OnOrderFilled",
+      "label": "Ордер исполнен",
+      "operands": [
+        {
+          "key": "tag",
+          "label": "Метка",
+          "valueTypes": ["Tag"],
+          "required": false
+        }
+      ],
+      "outputType": null,
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "OnOrderCancelled",
+      "label": "Ордер отменён",
+      "operands": [
+        {
+          "key": "tag",
+          "label": "Метка",
+          "valueTypes": ["Tag"],
+          "required": false
+        }
+      ],
+      "outputType": null,
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "OnOrderRejected",
+      "label": "Ордер отклонён",
+      "operands": [
+        {
+          "key": "tag",
+          "label": "Метка",
+          "valueTypes": ["Tag"],
+          "required": false
+        }
+      ],
+      "outputType": null,
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    }
+  ],
+  "checkTypes": [
+    {
+      "key": "CrossesAbove",
+      "label": "Пересечение вверх",
+      "operands": [
+        {
+          "key": "a",
+          "label": "Первое значение",
+          "valueTypes": ["Integer", "Scalar", "Price", "BaseAmount", "QuoteAmount"],
+          "required": true
+        },
+        {
+          "key": "b",
+          "label": "Второе значение",
+          "valueTypes": ["Integer", "Scalar", "Price", "BaseAmount", "QuoteAmount"],
+          "required": true
+        }
+      ],
+      "outputType": "Boolean",
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "CrossesBelow",
+      "label": "Пересечение вниз",
+      "operands": [
+        {
+          "key": "a",
+          "label": "Первое значение",
+          "valueTypes": ["Integer", "Scalar", "Price", "BaseAmount", "QuoteAmount"],
+          "required": true
+        },
+        {
+          "key": "b",
+          "label": "Второе значение",
+          "valueTypes": ["Integer", "Scalar", "Price", "BaseAmount", "QuoteAmount"],
+          "required": true
+        }
+      ],
+      "outputType": "Boolean",
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "Compare",
+      "label": "Сравнение",
+      "operands": [
+        {
+          "key": "a",
+          "label": "Первое значение",
+          "valueTypes": ["Integer", "Scalar", "Price", "BaseAmount", "QuoteAmount"],
+          "required": true
+        },
+        {
+          "key": "b",
+          "label": "Второе значение",
+          "valueTypes": ["Integer", "Scalar", "Price", "BaseAmount", "QuoteAmount"],
+          "required": true
+        }
+      ],
+      "outputType": "Boolean",
+      "choices": ["<", "<=", "=", "!=", ">=", ">"],
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "PositionFlat",
+      "label": "Позиция закрыта",
+      "operands": [],
+      "outputType": "Boolean",
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "NoActiveOrders",
+      "label": "Нет активных ордеров",
+      "operands": [],
+      "outputType": "Boolean",
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "NoActiveTaggedOrder",
+      "label": "Нет ордера с меткой",
+      "operands": [
+        {
+          "key": "tag",
+          "label": "Метка",
+          "valueTypes": ["Tag"],
+          "required": true
+        }
+      ],
+      "outputType": "Boolean",
+      "choices": ["out", "exists"],
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "HasBaseBalance",
+      "label": "Есть базовый баланс",
+      "operands": [
+        {
+          "key": "minQuantity",
+          "label": "Минимальное количество",
+          "valueTypes": ["BaseAmount"],
+          "required": false
+        }
+      ],
+      "outputType": "Boolean",
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "PositionFlatPreview",
+      "label": "Остаток позиции",
+      "operands": [
+        {
+          "key": "quantity",
+          "label": "Количество",
+          "valueTypes": ["BaseAmount"],
+          "required": true
+        }
+      ],
+      "outputType": "Boolean",
+      "choices": ["out", "valid"],
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "OrderSizePreviewValid",
+      "label": "Размер ордера допустим",
+      "operands": [
+        {
+          "key": "amount",
+          "label": "Сумма",
+          "valueTypes": ["QuoteAmount"],
+          "required": false
+        },
+        {
+          "key": "quantity",
+          "label": "Количество",
+          "valueTypes": ["BaseAmount"],
+          "required": false
+        },
+        {
+          "key": "price",
+          "label": "Цена",
+          "valueTypes": ["Price"],
+          "required": false
+        },
+        {
+          "key": "quoteLimit",
+          "label": "Предел суммы",
+          "valueTypes": ["QuoteAmount"],
+          "required": false
+        }
+      ],
+      "outputType": "Boolean",
+      "choices": null,
+      "fields": null,
+      "sides": ["Buy", "Sell"],
+      "sizeModes": ["amount", "quantity"],
+      "orderKinds": ["Market", "Limit"],
+      "minimumOrderPolicies": ["Reject", "RaiseToExchangeMinimum"]
+    }
+  ],
+  "orderKinds": [
+    {
+      "key": "Market",
+      "label": "Рыночный",
+      "operands": [
+        {
+          "key": "amount",
+          "label": "Сумма",
+          "valueTypes": ["QuoteAmount"],
+          "required": false
+        },
+        {
+          "key": "quantity",
+          "label": "Количество",
+          "valueTypes": ["BaseAmount"],
+          "required": false
+        },
+        {
+          "key": "price",
+          "label": "Цена пересчёта",
+          "valueTypes": ["Price"],
+          "required": false
+        },
+        {
+          "key": "tag",
+          "label": "Метка",
+          "valueTypes": ["Tag"],
+          "required": false
+        }
+      ],
+      "outputType": null,
+      "choices": null,
+      "fields": null,
+      "sides": ["Buy", "Sell"],
+      "sizeModes": ["amount", "quantity"],
+      "orderKinds": null,
+      "minimumOrderPolicies": ["Reject", "RaiseToExchangeMinimum"]
+    },
+    {
+      "key": "Limit",
+      "label": "Лимитный",
+      "operands": [
+        {
+          "key": "amount",
+          "label": "Сумма",
+          "valueTypes": ["QuoteAmount"],
+          "required": false
+        },
+        {
+          "key": "quantity",
+          "label": "Количество",
+          "valueTypes": ["BaseAmount"],
+          "required": false
+        },
+        {
+          "key": "price",
+          "label": "Цена",
+          "valueTypes": ["Price"],
+          "required": true
+        },
+        {
+          "key": "tag",
+          "label": "Метка",
+          "valueTypes": ["Tag"],
+          "required": false
+        }
+      ],
+      "outputType": null,
+      "choices": null,
+      "fields": null,
+      "sides": ["Buy", "Sell"],
+      "sizeModes": ["amount", "quantity"],
+      "orderKinds": null,
+      "minimumOrderPolicies": ["Reject", "RaiseToExchangeMinimum"]
+    }
+  ],
+  "valueSources": [
+    {
+      "key": "constant",
+      "label": "Константа",
+      "operands": [],
+      "outputType": "declared",
+      "choices": [
+        "Integer",
+        "Scalar",
+        "Price",
+        "BaseAmount",
+        "QuoteAmount",
+        "Boolean",
+        "Tag",
+        "OrderId",
+        "RejectionReason"
+      ],
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "parameter",
+      "label": "Параметр",
+      "operands": [],
+      "outputType": "declared",
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "value",
+      "label": "Именованное значение",
+      "operands": [],
+      "outputType": "inferred",
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "candle",
+      "label": "Поле свечи",
+      "operands": [],
+      "outputType": "field",
+      "choices": ["Open", "High", "Low", "Close", "Volume"],
+      "fields": [
+        {
+          "key": "Open",
+          "label": "Открытие",
+          "valueTypes": ["Price"],
+          "required": false
+        },
+        {
+          "key": "High",
+          "label": "Максимум",
+          "valueTypes": ["Price"],
+          "required": false
+        },
+        {
+          "key": "Low",
+          "label": "Минимум",
+          "valueTypes": ["Price"],
+          "required": false
+        },
+        {
+          "key": "Close",
+          "label": "Закрытие",
+          "valueTypes": ["Price"],
+          "required": false
+        },
+        {
+          "key": "Volume",
+          "label": "Объём",
+          "valueTypes": ["BaseAmount"],
+          "required": false
+        }
+      ],
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "SMA",
+      "label": "Скользящая средняя",
+      "operands": [
+        {
+          "key": "in",
+          "label": "Значение",
+          "valueTypes": ["Integer", "Scalar", "Price", "BaseAmount", "QuoteAmount"],
+          "required": true
+        },
+        {
+          "key": "period",
+          "label": "Период",
+          "valueTypes": ["Integer"],
+          "required": true
+        }
+      ],
+      "outputType": "input",
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "ATR",
+      "label": "Средний истинный диапазон",
+      "operands": [
+        {
+          "key": "period",
+          "label": "Период",
+          "valueTypes": ["Integer"],
+          "required": true
+        }
+      ],
+      "outputType": "Price",
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "previous",
+      "label": "Предыдущее значение",
+      "operands": [
+        {
+          "key": "in",
+          "label": "Значение",
+          "valueTypes": ["Integer", "Scalar", "Price", "BaseAmount", "QuoteAmount"],
+          "required": true
+        }
+      ],
+      "outputType": "input",
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "balance",
+      "label": "Баланс",
+      "operands": [],
+      "outputType": "field",
+      "choices": [
+        "baseAvailable",
+        "quoteAvailable",
+        "baseReserved",
+        "quoteReserved",
+        "baseTotal",
+        "quoteTotal"
+      ],
+      "fields": [
+        {
+          "key": "baseAvailable",
+          "label": "Доступно базового актива",
+          "valueTypes": ["BaseAmount"],
+          "required": false
+        },
+        {
+          "key": "baseReserved",
+          "label": "В резерве базового актива",
+          "valueTypes": ["BaseAmount"],
+          "required": false
+        },
+        {
+          "key": "baseTotal",
+          "label": "Всего базового актива",
+          "valueTypes": ["BaseAmount"],
+          "required": false
+        },
+        {
+          "key": "quoteAvailable",
+          "label": "Доступно котируемого актива",
+          "valueTypes": ["QuoteAmount"],
+          "required": false
+        },
+        {
+          "key": "quoteReserved",
+          "label": "В резерве котируемого актива",
+          "valueTypes": ["QuoteAmount"],
+          "required": false
+        },
+        {
+          "key": "quoteTotal",
+          "label": "Всего котируемого актива",
+          "valueTypes": ["QuoteAmount"],
+          "required": false
+        }
+      ],
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "position",
+      "label": "Позиция",
+      "operands": [],
+      "outputType": "field",
+      "choices": [
+        "quantity",
+        "costBasis",
+        "averageCost",
+        "lastBuyPrice",
+        "realizedPnl",
+        "barsHeld"
+      ],
+      "fields": [
+        {
+          "key": "quantity",
+          "label": "Количество",
+          "valueTypes": ["BaseAmount"],
+          "required": false
+        },
+        {
+          "key": "costBasis",
+          "label": "Стоимость",
+          "valueTypes": ["QuoteAmount"],
+          "required": false
+        },
+        {
+          "key": "averageCost",
+          "label": "Средняя цена",
+          "valueTypes": ["Price"],
+          "required": false
+        },
+        {
+          "key": "lastBuyPrice",
+          "label": "Последняя цена покупки",
+          "valueTypes": ["Price"],
+          "required": false
+        },
+        {
+          "key": "realizedPnl",
+          "label": "Реализованный PnL",
+          "valueTypes": ["QuoteAmount"],
+          "required": false
+        },
+        {
+          "key": "barsHeld",
+          "label": "Свечей в позиции",
+          "valueTypes": ["Integer"],
+          "required": false
+        }
+      ],
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "activeOrder",
+      "label": "Активный ордер",
+      "operands": [
+        {
+          "key": "tag",
+          "label": "Метка",
+          "valueTypes": ["Tag"],
+          "required": true
+        }
+      ],
+      "outputType": "field",
+      "choices": [
+        "exists",
+        "order",
+        "orderId",
+        "side",
+        "type",
+        "price",
+        "reservedQuote",
+        "reservedBase"
+      ],
+      "fields": [
+        {
+          "key": "exists",
+          "label": "Существует",
+          "valueTypes": ["Boolean"],
+          "required": false
+        },
+        {
+          "key": "order",
+          "label": "Ордер",
+          "valueTypes": ["Order"],
+          "required": false
+        },
+        {
+          "key": "orderId",
+          "label": "Идентификатор",
+          "valueTypes": ["OrderId"],
+          "required": false
+        },
+        {
+          "key": "side",
+          "label": "Сторона",
+          "valueTypes": ["OrderSide"],
+          "required": false
+        },
+        {
+          "key": "type",
+          "label": "Тип",
+          "valueTypes": ["OrderType"],
+          "required": false
+        },
+        {
+          "key": "price",
+          "label": "Цена",
+          "valueTypes": ["Price"],
+          "required": false
+        },
+        {
+          "key": "reservedQuote",
+          "label": "Резерв суммы",
+          "valueTypes": ["QuoteAmount"],
+          "required": false
+        },
+        {
+          "key": "reservedBase",
+          "label": "Резерв количества",
+          "valueTypes": ["BaseAmount"],
+          "required": false
+        }
+      ],
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "arithmetic",
+      "label": "Арифметика",
+      "operands": [
+        {
+          "key": "a",
+          "label": "Первое значение",
+          "valueTypes": ["Integer", "Scalar", "Price", "BaseAmount", "QuoteAmount"],
+          "required": true
+        },
+        {
+          "key": "b",
+          "label": "Второе значение",
+          "valueTypes": ["Integer", "Scalar", "Price", "BaseAmount", "QuoteAmount"],
+          "required": true
+        }
+      ],
+      "outputType": "inferred",
+      "choices": ["Add", "Subtract", "Multiply", "Divide", "Min", "Max", "Modulo"],
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    }
+  ]
+}

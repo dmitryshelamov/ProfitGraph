@@ -22,9 +22,24 @@ export function parameterReadableName(name: string): string {
   return Object.hasOwn(readableNames, name) ? readableNames[name]! : name;
 }
 
+export type ParameterDisplayUnit = 'percent' | 'quote' | 'base' | 'none';
+
+const displayUnits: readonly string[] = ['percent', 'quote', 'base', 'none'];
+
+/** The unit a parameter is shown in; a missing or unknown unit shows the bare number. */
+export function parameterDisplayUnit(displayUnit?: string | null): ParameterDisplayUnit {
+  return displayUnit && displayUnits.includes(displayUnit)
+    ? (displayUnit as ParameterDisplayUnit)
+    : 'none';
+}
+
+export function isPercentageParameter(displayUnit?: string | null): boolean {
+  return parameterDisplayUnit(displayUnit) === 'percent';
+}
+
 /** A parameter marked as percent stores a fraction ("0.015") and is shown as percent ("1.5%"). */
 export function parameterValueDisplay(value: string, displayUnit?: string | null): string {
-  if (displayUnit !== 'percent') {
+  if (!isPercentageParameter(displayUnit)) {
     return value;
   }
 

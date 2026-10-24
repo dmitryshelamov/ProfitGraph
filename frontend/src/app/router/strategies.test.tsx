@@ -1,6 +1,7 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import blockCatalog from '@/test/blockCatalog.fixture.json';
 import { fakeApi, json, problem } from '@/test/fakeApi';
 import { owner, strategy, summary, template } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
@@ -50,12 +51,13 @@ describe('strategy list', () => {
     expect(screen.getByText('Ничего не найдено')).toBeInTheDocument();
   });
 
-  it('creates a strategy from a template and opens it', async () => {
+  it('creates a strategy from a template and opens it in the editor', async () => {
     const created: unknown[] = [];
     fakeApi({
       ...strategyRoutes(),
       'GET /api/strategies': () => json([]),
       'GET /api/strategy-templates': () => json([template]),
+      'GET /api/block-catalog': () => json(blockCatalog),
       'POST /api/strategies': async (request) => {
         created.push(await request.json());
 
@@ -72,8 +74,9 @@ describe('strategy list', () => {
     await userEvent.type(name, '  Ladder на BTC  ');
     await userEvent.click(screen.getByRole('button', { name: 'Создать стратегию' }));
 
-    expect(await screen.findByRole('heading', { name: strategy.name })).toBeInTheDocument();
-    expect(history.location.pathname).toBe(`/strategies/${strategy.id}`);
+    await waitFor(() => expect(history.location.pathname).toBe(`/strategies/${strategy.id}/edit`));
+    expect(await screen.findByRole('region', { name: 'Блок-схема стратегии' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Название стратегии')).toHaveValue(strategy.name);
     expect(created).toEqual([
       { name: 'Ladder на BTC', definition: template.definition, layout: template.layout },
     ]);

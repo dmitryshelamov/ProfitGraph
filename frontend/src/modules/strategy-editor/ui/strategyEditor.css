@@ -1,0 +1,1111 @@
+/* Редактор стратегии на крупных узлах: палитра из макета «Крупные узлы стратегии». */
+.flowchart-canvas {
+  --fc-bg: #12151c;
+  --fc-node: #222836;
+  --fc-node-hover: #283043;
+  --fc-head: #2a3141;
+  --fc-line: #343b4d;
+  --fc-text: #e6e9f0;
+  --fc-muted: #9aa3b5;
+  --fc-wire: #7f8aa0;
+  --fc-event: #8a96ab;
+  --fc-decision: #e0a93a;
+  --fc-buy: #3cc184;
+  --fc-sell: #f07a5c;
+  --fc-cancel: #d968a3;
+  --fc-step: #5b93f0;
+  --fc-select: #5b8def;
+  --fc-danger: #fb7185;
+  --fc-no: #ef5350;
+  position: absolute;
+  inset: 0;
+  background: var(--fc-bg);
+}
+.flowchart-canvas .react-flow {
+  --xy-background-color: var(--fc-bg);
+}
+
+/* Блок: шапка с видом и названием, подписанные входы и выходы, настройки */
+.flowchart-node {
+  --tone: var(--fc-step);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  border: 1px solid var(--fc-line);
+  border-radius: 9px;
+  background: var(--fc-node);
+  color: var(--fc-text);
+  font-family: inherit;
+  box-shadow: 0 1px 2px #0003;
+}
+.tone-event {
+  --tone: var(--fc-event);
+}
+.tone-decision {
+  --tone: var(--fc-decision);
+}
+.tone-buy {
+  --tone: var(--fc-buy);
+}
+.tone-sell {
+  --tone: var(--fc-sell);
+}
+.tone-cancel {
+  --tone: var(--fc-cancel);
+}
+.react-flow__node-flowchart,
+.react-flow__node-flowchart .flowchart-node,
+.react-flow__node-flowchart .flowchart-node button {
+  pointer-events: all;
+}
+.react-flow__node-flowchart.dragging .flowchart-node {
+  box-shadow: 0 10px 28px #0008;
+}
+.flowchart-head {
+  display: grid;
+  flex: none;
+  grid-template-columns: auto 1fr auto;
+  align-content: center;
+  align-items: center;
+  gap: 1px 7px;
+  box-sizing: border-box;
+  height: 45px;
+  padding: 0 8px 0 11px;
+  border-bottom: 1px solid var(--fc-line);
+  border-radius: 8px 8px 0 0;
+  background: var(--fc-head);
+  cursor: grab;
+}
+.flowchart-head i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--tone);
+}
+.flowchart-head span {
+  color: var(--fc-muted);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.flowchart-head b {
+  grid-column: 1 / 3;
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.flowchart-ports {
+  display: grid;
+  flex: none;
+  grid-template-columns: 1fr 1fr;
+  padding: 4px 0;
+}
+.flowchart-port {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  font-size: 12px;
+}
+.flowchart-port.is-input {
+  padding-left: 12px;
+}
+.flowchart-port.is-output {
+  justify-content: flex-end;
+  padding-right: 12px;
+}
+.flowchart-port.is-open {
+  color: var(--fc-muted);
+}
+.flowchart-details {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-height: 0;
+  padding: 7px 11px;
+  border-top: 1px dashed var(--fc-line);
+  text-align: left;
+  cursor: pointer;
+}
+.flowchart-details > span {
+  overflow: hidden;
+  height: 19px;
+  color: var(--fc-muted);
+  font-size: 12px;
+  line-height: 19px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.flowchart-details small {
+  font-size: 12px;
+}
+.flowchart-details em {
+  color: var(--fc-text);
+  font-style: normal;
+}
+.flowchart-details .flowchart-mode {
+  color: var(--fc-text);
+  font-weight: 500;
+}
+.flowchart-details:hover {
+  background: var(--fc-node-hover);
+}
+.flowchart-node.is-selected {
+  border-color: var(--fc-select);
+  box-shadow: 0 0 0 2px var(--fc-select);
+}
+.flowchart-node.is-detached {
+  border-style: dashed;
+}
+.flowchart-node.is-detached > :not(.flowchart-head) {
+  opacity: 0.6;
+}
+.flowchart-head span em {
+  color: var(--fc-danger);
+  font-style: normal;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.flowchart-node.has-diagnostic {
+  border-color: var(--fc-danger);
+}
+.flowchart-diagnostic {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 6px;
+  right: 6px;
+  overflow: hidden;
+  color: #fda4af;
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Порты: вход — пустой кружок, выход — заполненный цветом блока */
+.flowchart-node .react-flow__handle {
+  width: 12px;
+  height: 12px;
+  min-width: 0;
+  min-height: 0;
+  border: 2px solid var(--tone);
+  border-radius: 50%;
+  background: var(--fc-node);
+}
+.flowchart-port.is-output .react-flow__handle {
+  background: var(--tone);
+}
+/* A larger invisible ring makes the small port easy to grab. */
+.flowchart-node .react-flow__handle::after {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  content: '';
+}
+.flowchart-port.is-open .react-flow__handle {
+  background: var(--fc-node);
+}
+.flowchart-node .react-flow__handle:hover,
+.flowchart-node .react-flow__handle.connectingto {
+  transform: translate(var(--flowchart-shift, 0), -50%) scale(1.35);
+  box-shadow: 0 0 0 3px #5b8def55;
+}
+.flowchart-port.is-input .react-flow__handle {
+  --flowchart-shift: -50%;
+}
+.flowchart-port.is-output .react-flow__handle {
+  --flowchart-shift: 50%;
+}
+
+/* Удаление блока */
+.flowchart-node-delete {
+  grid-row: 1 / 3;
+  grid-column: 3;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: var(--fc-muted);
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0;
+}
+.flowchart-node:hover .flowchart-node-delete,
+.flowchart-node.is-selected .flowchart-node-delete,
+.flowchart-node-delete:focus-visible {
+  opacity: 1;
+}
+.flowchart-node-delete:hover {
+  color: var(--fc-danger);
+}
+
+/* Каждый выход рисует «+» в своём кружке: у свободного контурный, у занятого залитый */
+.flowchart-port.is-output .react-flow__handle {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  color: var(--fc-bg);
+  cursor: pointer;
+}
+.flowchart-port.is-open .react-flow__handle {
+  color: var(--tone);
+}
+.flowchart-port.is-output .react-flow__handle svg {
+  display: block;
+  width: 8px;
+  height: 8px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.6;
+  pointer-events: none;
+}
+.flowchart-port.is-output .react-flow__handle:hover,
+.flowchart-port.is-output .react-flow__handle:focus-visible {
+  transform: translate(50%, -50%) scale(1.15);
+  background: var(--tone);
+  color: var(--fc-bg);
+  outline: none;
+}
+
+/* «Да» и «нет» у развилки окрашены, как их провода */
+.flowchart-decision .flowchart-port[data-exit='yes'] {
+  --tone: var(--fc-buy);
+}
+.flowchart-decision .flowchart-port[data-exit='no'] {
+  --tone: var(--fc-no);
+}
+
+/* Провода: цвет берут от выхода, подпись выхода видна при наведении */
+.flowchart-canvas .react-flow__edge-path {
+  transition:
+    stroke-width 0.12s,
+    filter 0.12s;
+}
+.flowchart-wire-label {
+  position: absolute;
+  z-index: 5;
+  padding: 0 6px;
+  border: 1px solid;
+  border-radius: 5px;
+  background: var(--fc-bg);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.flowchart-canvas .react-flow__edgeupdater {
+  cursor: grab;
+}
+
+/* Выбор нового блока */
+.flowchart-picker {
+  position: absolute;
+  z-index: 30;
+  top: 50%;
+  left: 68px;
+  display: grid;
+  gap: 2px;
+  width: 240px;
+  max-height: 70%;
+  overflow: auto;
+  padding: 6px;
+  transform: translateY(-50%);
+}
+.flowchart-picker.is-placed {
+  width: 220px;
+  max-height: none;
+  transform: none;
+}
+.flowchart-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 2px 4px 8px;
+  color: var(--fc-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.flowchart-picker .flowchart-picker-head button {
+  width: 22px;
+  padding: 0;
+  text-align: center;
+  font-size: 15px;
+}
+.flowchart-picker hr {
+  margin: 3px 4px;
+  border: 0;
+  border-top: 1px solid var(--fc-line);
+}
+.flowchart-picker button {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 5px;
+  text-align: left;
+  font-size: 13px;
+}
+.flowchart-picker button:hover {
+  background: #283043;
+}
+
+.flowchart-unused {
+  position: absolute;
+  z-index: 5;
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 260px);
+  overflow-x: auto;
+  padding: 6px 10px;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.flowchart-unused button {
+  display: flex;
+  flex-direction: column;
+  padding: 3px 7px;
+  border: 1px solid var(--color-line);
+  border-radius: 5px;
+}
+.flowchart-unused button span {
+  color: #fda4af;
+}
+
+/* Доска как в Miro: холст на весь экран, всё управление — плавающие панели поверх него */
+.strategy-board {
+  position: relative;
+  height: 100dvh;
+  overflow: hidden;
+  background: #12151c;
+}
+.flowchart-board {
+  position: absolute;
+  inset: 0;
+}
+.board-home {
+  font-weight: 600;
+}
+.board-title {
+  width: 16rem;
+  min-width: 6rem;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+.board-title:hover {
+  border-color: var(--color-line);
+}
+.board-title:focus {
+  border-color: var(--color-accent);
+  outline: none;
+}
+.board-state {
+  padding: 0 8px 0 2px;
+  color: var(--color-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Слой панелей страницы: не мешает таскать холст в пустых местах */
+.board-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  pointer-events: none;
+}
+.board-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.board-body > * {
+  pointer-events: auto;
+}
+.board-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+.board-top .board-bar {
+  min-width: 0;
+  overflow-x: auto;
+}
+.board-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.board-account {
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 0 4px 0 10px;
+  overflow: visible !important;
+}
+.board-account .account-menu summary {
+  color: var(--color-text-secondary);
+}
+.board-top .board-bots {
+  position: relative;
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow: visible;
+}
+.board-bots > summary {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.board-bots-list {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  max-height: min(320px, 50vh);
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.board-toast {
+  position: absolute;
+  z-index: 20;
+  top: 0;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(640px, calc(100% - 24px));
+  padding: 8px 14px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-panel-2);
+  box-shadow: 0 6px 20px #0006;
+  font-size: 13px;
+  transform: translateX(-50%);
+}
+.board-toast[role='alert'] {
+  color: #fca5a5;
+}
+.board-conflict {
+  top: 48px;
+  color: #fcd34d;
+}
+
+/* Настройки выбранного блока — плавающая карточка справа */
+.board-card-head {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 6px 6px 16px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-panel-2);
+  font-size: 13px;
+}
+.board-inspector {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 52px;
+  width: 420px;
+  max-width: 100%;
+  overflow: auto;
+}
+
+/* Прогоны, оптимизации и проверка — выезжающий снизу лист */
+.board-sheet {
+  position: absolute;
+  right: 0;
+  bottom: 52px;
+  left: 56px;
+  max-width: 960px;
+  max-height: 45%;
+  margin-inline: auto;
+  overflow: auto;
+}
+.board-sheet.beside-inspector {
+  right: 432px;
+}
+.board-sheet > *,
+.board-sheet > .screen > * {
+  border-bottom: 0;
+  background: transparent;
+}
+.board-sheet > .sheet-close {
+  position: sticky;
+  z-index: 2;
+  top: 8px;
+  float: right;
+  margin: 8px 8px 0 0;
+  background: var(--color-panel-2);
+}
+.board-sheet > .sheet-close:hover {
+  background: #2a3142;
+}
+
+/* Инструменты слева, меню старта и подсказка */
+.board-tools {
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  left: 12px;
+  flex-direction: column;
+  height: auto;
+  padding: 4px;
+  transform: translateY(-50%);
+}
+.board-tool {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.board-tool svg {
+  width: 18px;
+  height: 18px;
+}
+.board-popover {
+  position: absolute;
+  z-index: 30;
+  top: 50%;
+  left: 68px;
+  display: grid;
+  gap: 2px;
+  width: 240px;
+  padding: 6px;
+  transform: translateY(-50%);
+}
+.board-palette {
+  max-height: calc(100% - 24px);
+  overflow: auto;
+}
+.board-palette > div {
+  display: grid;
+  gap: 2px;
+}
+.board-palette-title {
+  margin: 6px 9px 2px;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.board-palette button[draggable='true'] {
+  cursor: grab;
+}
+.board-popover button {
+  padding: 7px 9px;
+  border-radius: 6px;
+  text-align: left;
+  font-size: 13px;
+}
+.board-popover button:hover {
+  background: #2a3142;
+}
+.board-help {
+  padding: 12px 14px;
+  color: #c7cddb;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.flowchart-board > .board-toast {
+  top: auto;
+  bottom: 12px;
+}
+.flowchart-canvas .react-flow__panel.bottom.right {
+  margin: 12px;
+}
+.board-zoom {
+  min-width: 52px;
+  padding: 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Панель блока: вход, что внутри и выходы по шагам */
+.insp {
+  --tone: #8a96ab;
+  font-size: 13px;
+  color: var(--color-ink, #e6e9f0);
+}
+.insp.tone-event,
+.insp .tone-event {
+  --tone: #8a96ab;
+}
+.insp.tone-decision,
+.insp .tone-decision {
+  --tone: #e0a93a;
+}
+.insp.tone-buy,
+.insp .tone-buy {
+  --tone: #3cc184;
+}
+.insp.tone-sell,
+.insp .tone-sell {
+  --tone: #f07a5c;
+}
+.insp.tone-cancel,
+.insp .tone-cancel {
+  --tone: #d968a3;
+}
+.insp-head {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: grid;
+  gap: 2px;
+  padding: 10px 10px 10px 16px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-panel-2);
+}
+.insp-kind {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  color: var(--tone);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.insp-close {
+  margin-left: auto;
+}
+.insp-sq {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--tone);
+}
+.insp-name {
+  width: 100%;
+  margin: 0 0 0 -6px;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 17px;
+  font-weight: 600;
+}
+.insp-name:hover {
+  border-color: var(--color-line);
+}
+.insp-name:focus {
+  border-color: var(--color-accent);
+  outline: none;
+  background: var(--color-canvas);
+}
+.insp-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding: 14px 16px 18px;
+}
+.insp-step {
+  display: flex;
+  gap: 12px;
+}
+.insp-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.insp-num {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #2c3140;
+  font-size: 12px;
+  font-weight: 600;
+}
+.insp-num.is-accent {
+  background: var(--tone);
+  color: #14161c;
+}
+.insp-line {
+  flex-grow: 1;
+  width: 2px;
+  min-height: 12px;
+  background: #2c3140;
+}
+.insp-body {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  gap: 8px;
+  min-width: 0;
+  padding: 2px 0 16px;
+}
+.insp-title {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.insp-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.insp-group + .insp-group {
+  margin-top: 6px;
+}
+.insp-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.insp-muted,
+.insp-hint {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.insp-hint {
+  margin: 0;
+  line-height: 1.45;
+}
+.insp-hint.is-block {
+  display: block;
+}
+.insp-text {
+  margin: 0;
+  color: #b8bdca;
+  line-height: 1.45;
+}
+.insp-join {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.insp-select {
+  padding: 2px 6px;
+  border: 1px solid #3a4152;
+  border-radius: 6px;
+  background: var(--color-canvas);
+  color: var(--color-ink, #e6e9f0);
+  font-size: 12px;
+}
+.insp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 7px 10px;
+  border: 1px solid #2c3140;
+  border-radius: 8px;
+  background: #1d2029;
+}
+.insp-card.is-open {
+  border-color: var(--tone);
+  background: #1f2230;
+}
+.insp-card.is-error {
+  border-color: var(--color-danger, #fb7185);
+}
+.insp-formula {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  line-height: 1.6;
+}
+.insp-push {
+  margin-left: auto;
+}
+.insp-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #2c3140;
+  color: var(--color-muted);
+  font-size: 11px;
+}
+.insp-arrow {
+  color: #6b7283;
+}
+.insp-token {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 7px;
+  border: 1px solid #343a4a;
+  border-radius: 6px;
+  background: #262b37;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.insp-token.is-value {
+  border-color: #5d86c8;
+  color: #cfe0ff;
+}
+.insp-token.is-parameter {
+  border-color: #8d6fd1;
+  color: #dccfff;
+}
+.insp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.insp-chips.is-column {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.insp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 2px 8px;
+  border: 1px solid #343a4a;
+  border-radius: 6px;
+  background: #262b37;
+  font-size: 12px;
+  text-align: left;
+}
+.insp-chip:hover {
+  border-color: var(--tone);
+}
+.insp-link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #7fb0ff;
+  font-size: 12px;
+}
+.insp-link:hover {
+  color: #a9c9ff;
+}
+.insp-link.is-danger {
+  color: #f09a86;
+}
+.insp-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  color: var(--color-muted);
+}
+.insp-icon:hover:not(:disabled) {
+  background: #2c3140;
+  color: inherit;
+}
+.insp-icon:disabled {
+  opacity: 0.35;
+}
+.insp-button {
+  align-self: flex-start;
+  padding: 3px 12px;
+  border: 1px solid #3a4152;
+  border-radius: 6px;
+  background: #3a4152;
+  font-size: 12px;
+}
+.insp-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.insp-edit-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.insp-edit-title {
+  flex-grow: 1;
+  color: var(--tone);
+  font-size: 12px;
+  font-weight: 600;
+}
+.insp-edit-head .insp-link {
+  margin-left: 8px;
+  align-self: center;
+}
+.insp-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.insp-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid #3a4152;
+  border-radius: 7px;
+  background: #20242f;
+}
+.insp-seg label {
+  padding: 2px 10px;
+  border-radius: 5px;
+  color: #b8bdca;
+  font-size: 12px;
+  cursor: pointer;
+}
+.insp-seg label.is-on {
+  background: #3a4152;
+  color: #fff;
+}
+.insp-seg label:has(:focus-visible) {
+  outline: 2px solid var(--color-accent);
+}
+.insp-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.insp-edit.is-field,
+.insp-row.is-indent {
+  padding-left: 72px;
+}
+.insp-label {
+  width: 64px;
+  flex-shrink: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+.insp-summary {
+  padding: 9px 12px;
+  border: 1px solid #2c3140;
+  border-radius: 8px;
+  background: #1d2029;
+  color: #c9cdd8;
+  line-height: 1.55;
+}
+.insp-summary b {
+  color: #fff;
+  font-weight: 600;
+}
+.insp-saved {
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-line);
+}
+.insp-options {
+  display: grid;
+  gap: 5px;
+}
+.insp-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid #2c3140;
+  border-radius: 8px;
+  background: #1d2029;
+  cursor: pointer;
+}
+.insp-option.is-on {
+  border-color: var(--tone);
+  background: #232733;
+}
+.insp-option input {
+  margin-top: 3px;
+  accent-color: var(--tone);
+}
+.insp-menu {
+  display: grid;
+  gap: 1px;
+  padding: 4px;
+  border: 1px solid #343a4a;
+  border-radius: 8px;
+  background: var(--color-panel);
+}
+.insp-menu button {
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-size: 12.5px;
+  text-align: left;
+}
+.insp-menu button:hover {
+  background: #283043;
+}
+.insp-exit {
+  display: grid;
+  grid-template-columns: 104px 14px minmax(0, 1fr);
+  gap: 6px;
+  align-items: start;
+}
+.insp-exit-name {
+  line-height: 1.3;
+}
+.insp-exit .insp-hint {
+  font-size: 11px;
+}
+.insp-warn {
+  margin: 0;
+  color: #fcd34d;
+  font-size: 12px;
+}
+.insp-error {
+  margin: 0;
+  color: #fca5a5;
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .board-sheet,
+  .board-sheet.beside-inspector {
+    right: 0;
+    left: 0;
+  }
+  .board-inspector {
+    top: auto;
+    height: 50%;
+    width: auto;
+    left: 0;
+  }
+  .board-state {
+    display: none;
+  }
+}

@@ -60,6 +60,9 @@ npm run build
 - Frontend: `npm run dev` in `frontend/` on `localhost:5273` (`strictPort`); `/api` and `/ws` are proxied to the API.
   Regenerate the API client with `npm run generate:api` while the API runs.
 - Development PostgreSQL: `docker compose -f docker-compose.dev.yml up -d --wait` on `localhost:5435`.
+- End-to-end tests: `npm run test:e2e` in `frontend/` with the test PostgreSQL running. Playwright starts its own API
+  (`127.0.0.1:5293`) and frontend (`127.0.0.1:5275`) against a disposable `profitgraph_e2e_<hex>` database on 5436
+  with a per-run Owner password, and drops the database afterwards; it never touches 5435.
 - Stop temporary instances started for checks; do not leave stray processes.
 
 ## Architecture and code style
