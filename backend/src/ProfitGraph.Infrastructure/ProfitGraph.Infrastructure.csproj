@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <PackageReference Include="FluentValidation.DependencyInjectionExtensions"/>
+        <InternalsVisibleTo Include="ProfitGraph.Tests.Unit"/>
+        <InternalsVisibleTo Include="ProfitGraph.Tests.Integration"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\ProfitGraph.Application\ProfitGraph.Application.csproj"/>
+    </ItemGroup>
+
+</Project>

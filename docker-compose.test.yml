@@ -1,0 +1,29 @@
+name: profitgraph-test
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: profitgraph-postgres-test
+    environment:
+      POSTGRES_DB: profitgraph_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5436:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    command:
+      - "postgres"
+      - "-c"
+      - "fsync=off"
+      - "-c"
+      - "full_page_writes=off"
+      - "-c"
+      - "synchronous_commit=off"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d profitgraph_test" ]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 3s
+    restart: "no"

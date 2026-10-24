@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <PackageReference Include="MediatR"/>
+        <PackageReference Include="FluentValidation"/>
+        <InternalsVisibleTo Include="ProfitGraph.Tests.Unit"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\ProfitGraph.Domain\ProfitGraph.Domain.csproj"/>
+    </ItemGroup>
+
+</Project>
