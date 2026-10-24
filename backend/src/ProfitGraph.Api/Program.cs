@@ -36,6 +36,13 @@ public class Program
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             })
             .ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = HttpErrors.InvalidModel);
+
+        // The OpenAPI document reads HTTP JSON options; without Strict every integer is described as "number | string".
+        builder.Services.ConfigureHttpJsonOptions(options =>
+        {
+            options.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
+            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        });
         builder.Services.AddOpenApi();
         builder.Services.AddHealthChecks();
         builder.Services.AddSingleton(TimeProvider.System);
@@ -63,7 +70,7 @@ public class Program
 
         app.UseProfitGraphAuthentication();
 
-        if (app.Environment.IsDevelopment())
+        if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
         {
             app.MapOpenApi().AllowAnonymous();
         }

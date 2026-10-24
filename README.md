@@ -51,8 +51,8 @@ npm ci
 npm run dev
 ```
 
-Интерфейс открывается на `http://localhost:5273`; запросы `/api` проксируются в API на `localhost:5291`, поэтому
-главная страница показывает состояние API. Проверки фронтенда: `npm run lint`, `npm run format:check`,
+Интерфейс открывается на `http://localhost:5273`; запросы `/api` проксируются в API на `localhost:5291`. Без входа
+открывается страница входа: войдите учётной записью Owner из user-secrets, после входа откроется список стратегий. Проверки фронтенда: `npm run lint`, `npm run format:check`,
 `npm run typecheck`, `npm test`, `npm run build`. Клиент API перегенерируется командой `npm run generate:api`
 при запущенном API.
 

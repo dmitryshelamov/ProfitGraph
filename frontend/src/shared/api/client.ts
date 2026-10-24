@@ -4,8 +4,14 @@ import type { components, paths } from './generated/schema';
 
 export type Schemas = components['schemas'];
 
-/** The only HTTP client. The base URL is empty: in development requests go through the Vite proxy. */
-export const api = createClient<paths>({ baseUrl: '' });
+/**
+ * The only HTTP client. Requests go to the page's own origin; in development the Vite proxy forwards them to the API.
+ * `fetch` is resolved on every call, so a replaced global (tests, instrumentation) is honoured.
+ */
+export const api = createClient<paths>({
+  baseUrl: globalThis.location?.origin ?? '',
+  fetch: (request) => globalThis.fetch(request),
+});
 
 /** A normalized API error built from the backend Problem Details (`code`, `errors`). */
 export class ApiError extends Error {

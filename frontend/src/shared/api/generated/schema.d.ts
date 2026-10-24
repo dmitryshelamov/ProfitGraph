@@ -3,10 +3,813 @@
  * Do not make direct changes to the file.
  */
 
-export type paths = Record<string, never>;
+export interface paths {
+    "/api/block-catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BlockCatalogResponse"];
+                        "application/json": components["schemas"]["BlockCatalogResponse"];
+                        "text/json": components["schemas"]["BlockCatalogResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/strategies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["StrategySummaryResponse"][];
+                        "application/json": components["schemas"]["StrategySummaryResponse"][];
+                        "text/json": components["schemas"]["StrategySummaryResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateStrategyRequest"];
+                    "text/json": components["schemas"]["CreateStrategyRequest"];
+                    "application/*+json": components["schemas"]["CreateStrategyRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["StrategyResponse"];
+                        "application/json": components["schemas"]["StrategyResponse"];
+                        "text/json": components["schemas"]["StrategyResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/strategies/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["StrategyResponse"];
+                        "application/json": components["schemas"]["StrategyResponse"];
+                        "text/json": components["schemas"]["StrategyResponse"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SaveStrategyRequest"];
+                    "text/json": components["schemas"]["SaveStrategyRequest"];
+                    "application/*+json": components["schemas"]["SaveStrategyRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["StrategyResponse"];
+                        "application/json": components["schemas"]["StrategyResponse"];
+                        "text/json": components["schemas"]["StrategyResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/strategies/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["StrategyVersionSummaryResponse"][];
+                        "application/json": components["schemas"]["StrategyVersionSummaryResponse"][];
+                        "text/json": components["schemas"]["StrategyVersionSummaryResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/strategies/{id}/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    version: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["StrategyVersionResponse"];
+                        "application/json": components["schemas"]["StrategyVersionResponse"];
+                        "text/json": components["schemas"]["StrategyVersionResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/strategies/{id}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: {
+                    version?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": null | components["schemas"]["ValidateStrategyRequest"];
+                    "text/json": null | components["schemas"]["ValidateStrategyRequest"];
+                    "application/*+json": null | components["schemas"]["ValidateStrategyRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["StrategyValidationResponse"];
+                        "application/json": components["schemas"]["StrategyValidationResponse"];
+                        "text/json": components["schemas"]["StrategyValidationResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/strategy-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["StrategyTemplateResponse"][];
+                        "application/json": components["schemas"]["StrategyTemplateResponse"][];
+                        "text/json": components["schemas"]["StrategyTemplateResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SignInRequest"];
+                    "text/json": components["schemas"]["SignInRequest"];
+                    "application/*+json": components["schemas"]["SignInRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["UserResponse"];
+                        "application/json": components["schemas"]["UserResponse"];
+                        "text/json": components["schemas"]["UserResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["UserResponse"];
+                        "application/json": components["schemas"]["UserResponse"];
+                        "text/json": components["schemas"]["UserResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateUserRequest"];
+                    "text/json": components["schemas"]["CreateUserRequest"];
+                    "application/*+json": components["schemas"]["CreateUserRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["UserResponse"];
+                        "application/json": components["schemas"]["UserResponse"];
+                        "text/json": components["schemas"]["UserResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{id}/block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+}
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        BlockCatalogEntryResponse: {
+            key: string;
+            label: string;
+            operands: components["schemas"]["BlockCatalogOperandResponse"][];
+            outputType?: null | string;
+            choices?: null | string[];
+            fields?: null | components["schemas"]["BlockCatalogOperandResponse"][];
+            sides?: null | string[];
+            sizeModes?: null | string[];
+            orderKinds?: null | string[];
+            minimumOrderPolicies?: null | string[];
+        };
+        BlockCatalogOperandResponse: {
+            key: string;
+            label: string;
+            valueTypes: string[];
+            required: boolean;
+        };
+        BlockCatalogResponse: {
+            blockKinds: components["schemas"]["BlockCatalogEntryResponse"][];
+            eventSources: components["schemas"]["BlockCatalogEntryResponse"][];
+            checkTypes: components["schemas"]["BlockCatalogEntryResponse"][];
+            orderKinds: components["schemas"]["BlockCatalogEntryResponse"][];
+            valueSources: components["schemas"]["BlockCatalogEntryResponse"][];
+        };
+        CreateStrategyRequest: {
+            name: string;
+            definition: components["schemas"]["StrategyDefinitionRequest"];
+            layout: components["schemas"]["GraphLayoutRequest"];
+        };
+        CreateUserRequest: {
+            login: null | string;
+            password: null | string;
+            role: components["schemas"]["UserRole"];
+        };
+        GraphLayoutRequest: {
+            positions: {
+                [key: string]: components["schemas"]["NodePositionRequest"];
+            };
+        };
+        GraphLayoutResponse: {
+            positions: {
+                [key: string]: components["schemas"]["NodePositionResponse"];
+            };
+        };
+        NodePositionRequest: {
+            /** Format: double */
+            x: number;
+            /** Format: double */
+            y: number;
+        };
+        NodePositionResponse: {
+            /** Format: double */
+            x: number;
+            /** Format: double */
+            y: number;
+        };
+        SaveStrategyRequest: {
+            /** Format: int32 */
+            expectedVersion: number;
+            name: string;
+            definition: components["schemas"]["StrategyDefinitionRequest"];
+            layout: components["schemas"]["GraphLayoutRequest"];
+        };
+        SignInRequest: {
+            login: null | string;
+            password: null | string;
+        };
+        StrategyBlockRequest: {
+            id: string;
+            kind: string;
+            displayName?: null | string;
+            source?: null | string;
+            join?: null | string;
+            checks?: null | components["schemas"]["StrategyCheckRequest"][];
+            orderKind?: null | string;
+            side?: null | string;
+            tag?: null | components["schemas"]["ValueExpressionRequest"];
+            amount?: null | components["schemas"]["ValueExpressionRequest"];
+            quantity?: null | components["schemas"]["ValueExpressionRequest"];
+            price?: null | components["schemas"]["ValueExpressionRequest"];
+            sizeMode?: null | string;
+            minimumOrderPolicy?: null | string;
+        };
+        StrategyBlockResponse: {
+            id: string;
+            kind: string;
+            displayName?: null | string;
+            source?: null | string;
+            join?: null | string;
+            checks?: null | components["schemas"]["StrategyCheckResponse"][];
+            orderKind?: null | string;
+            side?: null | string;
+            tag?: null | components["schemas"]["ValueExpressionResponse"];
+            amount?: null | components["schemas"]["ValueExpressionResponse"];
+            quantity?: null | components["schemas"]["ValueExpressionResponse"];
+            price?: null | components["schemas"]["ValueExpressionResponse"];
+            sizeMode?: null | string;
+            minimumOrderPolicy?: null | string;
+        };
+        StrategyCheckRequest: {
+            type: string;
+            operation?: null | string;
+            operands?: null | {
+                [key: string]: components["schemas"]["ValueExpressionRequest"];
+            };
+            tag?: null | components["schemas"]["ValueExpressionRequest"];
+            side?: null | string;
+            orderKind?: null | string;
+            sizeMode?: null | string;
+            minimumOrderPolicy?: null | string;
+        };
+        StrategyCheckResponse: {
+            type: string;
+            operation?: null | string;
+            operands?: null | {
+                [key: string]: components["schemas"]["ValueExpressionResponse"];
+            };
+            tag?: null | components["schemas"]["ValueExpressionResponse"];
+            side?: null | string;
+            orderKind?: null | string;
+            sizeMode?: null | string;
+            minimumOrderPolicy?: null | string;
+        };
+        StrategyDefinitionRequest: {
+            parameters: components["schemas"]["StrategyParameterRequest"][];
+            values: components["schemas"]["StrategyValueRequest"][];
+            blocks: components["schemas"]["StrategyBlockRequest"][];
+            wires: components["schemas"]["StrategyWireRequest"][];
+            templateKind?: null | string;
+        };
+        StrategyDefinitionResponse: {
+            parameters: components["schemas"]["StrategyParameterResponse"][];
+            values: components["schemas"]["StrategyValueResponse"][];
+            blocks: components["schemas"]["StrategyBlockResponse"][];
+            wires: components["schemas"]["StrategyWireResponse"][];
+            templateKind?: null | string;
+        };
+        StrategyDiagnosticResponse: {
+            code: string;
+            message: string;
+            blockId: null | string;
+            valueName: null | string;
+            parameterName: null | string;
+            setting: null | string;
+            /** Format: int32 */
+            checkIndex?: null | number;
+        };
+        StrategyExitRequest: {
+            block: string;
+            exit: string;
+        };
+        StrategyExitResponse: {
+            block: string;
+            exit: string;
+        };
+        StrategyParameterRequest: {
+            name: string;
+            valueType: string;
+            defaultValue: string;
+            displayUnit?: null | string;
+        };
+        StrategyParameterResponse: {
+            name: string;
+            valueType: string;
+            defaultValue: string;
+            displayUnit?: null | string;
+        };
+        StrategyResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: int32 */
+            currentVersion: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            definition: components["schemas"]["StrategyDefinitionResponse"];
+            layout: components["schemas"]["GraphLayoutResponse"];
+        };
+        StrategySummaryResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: int32 */
+            currentVersion: number;
+            /** Format: date-time */
+            updatedAt: string;
+            templateKind: null | string;
+        };
+        StrategyTemplateResponse: {
+            kind: string;
+            name: string;
+            description: string;
+            definition: components["schemas"]["StrategyDefinitionResponse"];
+            layout: components["schemas"]["GraphLayoutResponse"];
+        };
+        StrategyValidationResponse: {
+            isValid: boolean;
+            /** Format: int32 */
+            version: null | number;
+            diagnostics: components["schemas"]["StrategyDiagnosticResponse"][];
+        };
+        StrategyValueRequest: {
+            name: string;
+            expression: components["schemas"]["ValueExpressionRequest"];
+        };
+        StrategyValueResponse: {
+            name: string;
+            expression: components["schemas"]["ValueExpressionResponse"];
+        };
+        StrategyVersionResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            strategyId: string;
+            /** Format: int32 */
+            number: number;
+            /** Format: date-time */
+            createdAt: string;
+            definition: components["schemas"]["StrategyDefinitionResponse"];
+            layout: components["schemas"]["GraphLayoutResponse"];
+        };
+        StrategyVersionSummaryResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int32 */
+            number: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        StrategyWireRequest: {
+            from: components["schemas"]["StrategyExitRequest"];
+            to: string;
+        };
+        StrategyWireResponse: {
+            from: components["schemas"]["StrategyExitResponse"];
+            to: string;
+        };
+        UserResponse: {
+            /** Format: uuid */
+            id: string;
+            login: string;
+            role: components["schemas"]["UserRole"];
+            status: components["schemas"]["UserStatus"];
+        };
+        /** @enum {unknown} */
+        UserRole: "Owner" | "User";
+        /** @enum {unknown} */
+        UserStatus: "Active" | "Blocked";
+        ValidateStrategyRequest: {
+            definition: components["schemas"]["StrategyDefinitionRequest"];
+        };
+        ValueExpressionRequest: {
+            kind: string;
+            valueType?: null | string;
+            number?: null | string;
+            text?: null | string;
+            name?: null | string;
+            field?: null | string;
+            operation?: null | string;
+            arguments?: null | {
+                [key: string]: components["schemas"]["ValueExpressionRequest"];
+            };
+        };
+        ValueExpressionResponse: {
+            kind: string;
+            valueType?: null | string;
+            number?: null | string;
+            text?: null | string;
+            name?: null | string;
+            field?: null | string;
+            operation?: null | string;
+            arguments?: null | {
+                [key: string]: components["schemas"]["ValueExpressionResponse"];
+            };
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;

@@ -149,6 +149,11 @@ src/
   `index.ts`) and `shared`, never `app` or another page; `app` may import anything.
 - **State.** Server state lives in TanStack Query; client UI state lives in Zustand. Do not copy server data into
   Zustand stores.
+- **Session.** The signed-in user is server state: `modules/accounts` loads `/api/auth/me` into TanStack Query (null
+  without a session). The router's `_authenticated` layout route guards every screen except `/sign-in` in
+  `beforeLoad` and redirects there with `returnTo`. Sign-in and sign-out clear the whole query cache, so no data of a
+  previous user survives; any 401 from a query or mutation means the session expired and sends the user back to sign
+  in. Only same-application paths are accepted as `returnTo`.
 - **API client.** `shared/api/client.ts` is the only HTTP client. Its types come from
   `shared/api/generated/schema.d.ts`, generated from the API's OpenAPI document with `npm run generate:api` and never
   edited by hand. Failures surface as `ApiError` built from Problem Details.
@@ -166,6 +171,11 @@ src/
   state. `PROFITGRAPH_TEST_POSTGRES` overrides the server; development ports 5433 and 5435 are refused.
 - Shouldly for assertions, NUnit for attributes and lifecycle; await asynchronous exception assertions.
 - Live code is tested with mocked venue clients only.
+- Frontend flows are tested through the whole application (`src/test/renderApp.tsx`: real router, guards and queries)
+  against a routing table that replaces `fetch` (`src/test/fakeApi.ts`); unrouted requests answer 404. These tests
+  live under `src/app`, the only layer allowed to import the router.
+- `OpenApiDocumentTests` keep the OpenAPI document exact (integers are `integer`, enums are names), because the
+  frontend types are generated from it.
 
 ## Code Style
 
