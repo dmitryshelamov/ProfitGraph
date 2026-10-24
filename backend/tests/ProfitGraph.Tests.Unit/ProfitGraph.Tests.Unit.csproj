@@ -26,4 +26,8 @@
         <ProjectReference Include="..\..\src\ProfitGraph.Infrastructure\ProfitGraph.Infrastructure.csproj"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <None Include="Snapshots\Composites\*.json" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
 </Project>

@@ -1,0 +1,49 @@
+{
+  "typeKey": "NoActiveOrders",
+  "schemaVersion": 1,
+  "inputs": [],
+  "outputs": [
+    {
+      "Key": "out",
+      "kind": "Condition",
+      "valueType": "Boolean",
+      "Label": "Условие"
+    }
+  ],
+  "parameters": [],
+  "engineInputs": [],
+  "graph": {
+    "nodes": [
+      {
+        "Id": "active",
+        "TypeKey": "HasActiveOrders",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "noActive",
+        "TypeKey": "Not",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      }
+    ],
+    "connections": [
+      {
+        "source": "active.out",
+        "target": "noActive.in"
+      }
+    ]
+  },
+  "inputMappings": [],
+  "outputMappings": [
+    {
+      "key": "out",
+      "source": "noActive.out"
+    }
+  ],
+  "parameterMappings": []
+}

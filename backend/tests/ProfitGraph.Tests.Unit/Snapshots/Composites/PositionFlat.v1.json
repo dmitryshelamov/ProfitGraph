@@ -1,0 +1,250 @@
+{
+  "typeKey": "PositionFlat",
+  "schemaVersion": 1,
+  "inputs": [],
+  "outputs": [
+    {
+      "Key": "out",
+      "kind": "Condition",
+      "valueType": "Boolean",
+      "Label": "Условие"
+    }
+  ],
+  "parameters": [],
+  "engineInputs": [],
+  "graph": {
+    "nodes": [
+      {
+        "Id": "BelowMinNotional",
+        "TypeKey": "Constant",
+        "SchemaVersion": 2,
+        "declaredValueType": "RejectionReason",
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "value",
+            "value": "reason:BelowMinNotional"
+          }
+        ]
+      },
+      {
+        "Id": "BelowMinQuantity",
+        "TypeKey": "Constant",
+        "SchemaVersion": 2,
+        "declaredValueType": "RejectionReason",
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "value",
+            "value": "reason:BelowMinQuantity"
+          }
+        ]
+      },
+      {
+        "Id": "ZeroQuantity",
+        "TypeKey": "Constant",
+        "SchemaVersion": 2,
+        "declaredValueType": "RejectionReason",
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "value",
+            "value": "reason:ZeroQuantity"
+          }
+        ]
+      },
+      {
+        "Id": "balance",
+        "TypeKey": "Balance",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "dust",
+        "TypeKey": "Or",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "dustFirst",
+        "TypeKey": "Or",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "flat",
+        "TypeKey": "Or",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "isBelowMinNotional",
+        "TypeKey": "Compare",
+        "SchemaVersion": 2,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "op",
+            "value": "text:="
+          }
+        ]
+      },
+      {
+        "Id": "isBelowMinQuantity",
+        "TypeKey": "Compare",
+        "SchemaVersion": 2,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "op",
+            "value": "text:="
+          }
+        ]
+      },
+      {
+        "Id": "isZeroQuantity",
+        "TypeKey": "Compare",
+        "SchemaVersion": 2,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "op",
+            "value": "text:="
+          }
+        ]
+      },
+      {
+        "Id": "position",
+        "TypeKey": "Position",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "sellPreview",
+        "TypeKey": "OrderSizePreview",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "side",
+            "value": "text:Sell"
+          },
+          {
+            "key": "type",
+            "value": "text:Market"
+          }
+        ]
+      },
+      {
+        "Id": "zeroBase",
+        "TypeKey": "Constant",
+        "SchemaVersion": 2,
+        "declaredValueType": "BaseAmount",
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "value",
+            "value": "decimal:0"
+          }
+        ]
+      },
+      {
+        "Id": "zeroPosition",
+        "TypeKey": "Compare",
+        "SchemaVersion": 2,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "op",
+            "value": "text:="
+          }
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "source": "BelowMinNotional.out",
+        "target": "isBelowMinNotional.b"
+      },
+      {
+        "source": "BelowMinQuantity.out",
+        "target": "isBelowMinQuantity.b"
+      },
+      {
+        "source": "ZeroQuantity.out",
+        "target": "isZeroQuantity.b"
+      },
+      {
+        "source": "balance.baseAvailable",
+        "target": "sellPreview.quantity"
+      },
+      {
+        "source": "dust.out",
+        "target": "flat.b"
+      },
+      {
+        "source": "dustFirst.out",
+        "target": "dust.a"
+      },
+      {
+        "source": "isBelowMinNotional.out",
+        "target": "dust.b"
+      },
+      {
+        "source": "isBelowMinQuantity.out",
+        "target": "dustFirst.b"
+      },
+      {
+        "source": "isZeroQuantity.out",
+        "target": "dustFirst.a"
+      },
+      {
+        "source": "position.quantity",
+        "target": "zeroPosition.a"
+      },
+      {
+        "source": "sellPreview.reason",
+        "target": "isBelowMinNotional.a"
+      },
+      {
+        "source": "sellPreview.reason",
+        "target": "isBelowMinQuantity.a"
+      },
+      {
+        "source": "sellPreview.reason",
+        "target": "isZeroQuantity.a"
+      },
+      {
+        "source": "zeroBase.out",
+        "target": "zeroPosition.b"
+      },
+      {
+        "source": "zeroPosition.out",
+        "target": "flat.a"
+      }
+    ]
+  },
+  "inputMappings": [],
+  "outputMappings": [
+    {
+      "key": "out",
+      "source": "flat.out"
+    }
+  ],
+  "parameterMappings": []
+}

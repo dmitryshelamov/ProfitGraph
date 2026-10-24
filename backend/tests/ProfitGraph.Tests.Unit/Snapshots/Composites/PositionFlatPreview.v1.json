@@ -1,0 +1,279 @@
+{
+  "typeKey": "PositionFlatPreview",
+  "schemaVersion": 1,
+  "inputs": [
+    {
+      "Key": "quantity",
+      "kind": "Series",
+      "valueType": "BaseAmount",
+      "Label": "Количество актива"
+    }
+  ],
+  "outputs": [
+    {
+      "Key": "out",
+      "kind": "Condition",
+      "valueType": "Boolean",
+      "Label": "Условие"
+    },
+    {
+      "Key": "valid",
+      "kind": "Condition",
+      "valueType": "Boolean",
+      "Label": "Продажа возможна"
+    }
+  ],
+  "parameters": [],
+  "engineInputs": [],
+  "graph": {
+    "nodes": [
+      {
+        "Id": "flat",
+        "TypeKey": "Or",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "flatBelowMinNotional",
+        "TypeKey": "Constant",
+        "SchemaVersion": 2,
+        "declaredValueType": "RejectionReason",
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "value",
+            "value": "reason:BelowMinNotional"
+          }
+        ]
+      },
+      {
+        "Id": "flatBelowMinQuantity",
+        "TypeKey": "Constant",
+        "SchemaVersion": 2,
+        "declaredValueType": "RejectionReason",
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "value",
+            "value": "reason:BelowMinQuantity"
+          }
+        ]
+      },
+      {
+        "Id": "flatDust",
+        "TypeKey": "Or",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "flatDustFirst",
+        "TypeKey": "Or",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "flatInvalid",
+        "TypeKey": "Not",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "flatInvalidDust",
+        "TypeKey": "And",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "flatIsBelowMinNotional",
+        "TypeKey": "Compare",
+        "SchemaVersion": 2,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "op",
+            "value": "text:="
+          }
+        ]
+      },
+      {
+        "Id": "flatIsBelowMinQuantity",
+        "TypeKey": "Compare",
+        "SchemaVersion": 2,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "op",
+            "value": "text:="
+          }
+        ]
+      },
+      {
+        "Id": "flatIsZeroQuantity",
+        "TypeKey": "Compare",
+        "SchemaVersion": 2,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "op",
+            "value": "text:="
+          }
+        ]
+      },
+      {
+        "Id": "flatZero",
+        "TypeKey": "Compare",
+        "SchemaVersion": 2,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "op",
+            "value": "text:="
+          }
+        ]
+      },
+      {
+        "Id": "flatZeroQuantity",
+        "TypeKey": "Constant",
+        "SchemaVersion": 2,
+        "declaredValueType": "RejectionReason",
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "value",
+            "value": "reason:ZeroQuantity"
+          }
+        ]
+      },
+      {
+        "Id": "wholePreview",
+        "TypeKey": "OrderSizePreview",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "side",
+            "value": "text:Sell"
+          },
+          {
+            "key": "type",
+            "value": "text:Market"
+          }
+        ]
+      },
+      {
+        "Id": "zeroBase",
+        "TypeKey": "Constant",
+        "SchemaVersion": 2,
+        "declaredValueType": "BaseAmount",
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "value",
+            "value": "decimal:0"
+          }
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "source": "flatBelowMinNotional.out",
+        "target": "flatIsBelowMinNotional.b"
+      },
+      {
+        "source": "flatBelowMinQuantity.out",
+        "target": "flatIsBelowMinQuantity.b"
+      },
+      {
+        "source": "flatDust.out",
+        "target": "flatInvalidDust.b"
+      },
+      {
+        "source": "flatDustFirst.out",
+        "target": "flatDust.a"
+      },
+      {
+        "source": "flatInvalid.out",
+        "target": "flatInvalidDust.a"
+      },
+      {
+        "source": "flatInvalidDust.out",
+        "target": "flat.b"
+      },
+      {
+        "source": "flatIsBelowMinNotional.out",
+        "target": "flatDust.b"
+      },
+      {
+        "source": "flatIsBelowMinQuantity.out",
+        "target": "flatDustFirst.b"
+      },
+      {
+        "source": "flatIsZeroQuantity.out",
+        "target": "flatDustFirst.a"
+      },
+      {
+        "source": "flatZero.out",
+        "target": "flat.a"
+      },
+      {
+        "source": "flatZeroQuantity.out",
+        "target": "flatIsZeroQuantity.b"
+      },
+      {
+        "source": "wholePreview.reason",
+        "target": "flatIsBelowMinNotional.a"
+      },
+      {
+        "source": "wholePreview.reason",
+        "target": "flatIsBelowMinQuantity.a"
+      },
+      {
+        "source": "wholePreview.reason",
+        "target": "flatIsZeroQuantity.a"
+      },
+      {
+        "source": "wholePreview.valid",
+        "target": "flatInvalid.in"
+      },
+      {
+        "source": "zeroBase.out",
+        "target": "flatZero.b"
+      }
+    ]
+  },
+  "inputMappings": [
+    {
+      "key": "quantity",
+      "targets": [
+        "flatZero.a",
+        "wholePreview.quantity"
+      ]
+    }
+  ],
+  "outputMappings": [
+    {
+      "key": "out",
+      "source": "flat.out"
+    },
+    {
+      "key": "valid",
+      "source": "wholePreview.valid"
+    }
+  ],
+  "parameterMappings": []
+}

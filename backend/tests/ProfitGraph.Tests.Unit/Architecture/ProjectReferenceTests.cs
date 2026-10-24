@@ -20,7 +20,7 @@ public sealed class ProjectReferenceTests
 
     private static readonly Dictionary<string, string[]> AllowedPackages = new Dictionary<string, string[]>
     {
-        ["ProfitGraph.Engine"] = [],
+        ["ProfitGraph.Engine"] = ["FacioQuo.Stock.Indicators"],
         ["ProfitGraph.Domain"] = ["MediatR.Contracts"]
     };
 
