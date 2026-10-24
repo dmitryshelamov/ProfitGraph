@@ -5,7 +5,7 @@ namespace ProfitGraph.Engine.Graphs;
 /// <summary>
 ///     Shared exact decimal grid arithmetic for optimization enumeration and engine parameter selection.
 /// </summary>
-internal static class ExactDecimalGrid
+public static class ExactDecimalGrid
 {
     public static int Scale(decimal value)
     {

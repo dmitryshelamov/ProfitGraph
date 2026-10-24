@@ -5,6 +5,7 @@ public static class BacktestErrorCodes
     public const string RunNotFound = "backtest_not_found";
     public const string StrategyInvalid = "strategy_invalid";
     public const string UnknownParameter = "unknown_parameter";
+    public const string ParameterFixedAndRanged = "parameter_fixed_and_ranged";
     public const string InvalidSplit = "invalid_split";
 
     /// <summary>
