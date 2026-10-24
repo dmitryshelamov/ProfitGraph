@@ -19,7 +19,8 @@ namespace ProfitGraph.Tests.Integration.Optimization;
 [NonParallelizable]
 public sealed class OptimizationResumeTests
 {
-    private const int TrialCount = 180;
+    // Large enough that a pause or a Worker restart lands while the search still runs, even on a fast machine.
+    private const int TrialCount = 760;
     private ProfitGraphApiFactory _application = null!;
     private HttpClient _client = null!;
     private Guid _userId;
@@ -156,9 +157,21 @@ public sealed class OptimizationResumeTests
 
     private async Task<JsonNode[]> Trials(Guid id)
     {
-        var page = (await _client.GetFromJsonAsync<JsonNode>($"/api/optimizations/{id}/trials?limit=500"))!;
+        var trials = new List<JsonNode>();
+        long after = 0;
 
-        return [.. page["items"]!.AsArray().Select(item => item!)];
+        while (true)
+        {
+            JsonNode page = (await _client.GetFromJsonAsync<JsonNode>($"/api/optimizations/{id}/trials?after={after}&limit=500"))!;
+            trials.AddRange(page["items"]!.AsArray().Select(item => item!));
+
+            if (page["next"]?.GetValue<long>() is not { } next)
+            {
+                return [.. trials];
+            }
+
+            after = next;
+        }
     }
 
     private async Task<JsonNode> Post(Guid id, string action)
@@ -178,8 +191,8 @@ public sealed class OptimizationResumeTests
                 backtest = BacktestScenario.Request(strategyId, _symbol),
                 ranges = new Dictionary<string, object>
                 {
-                    ["fastPeriod"] = new { min = "2", max = "10", step = "1" },
-                    ["slowPeriod"] = new { min = "11", max = "30", step = "1" }
+                    ["fastPeriod"] = new { min = "2", max = "20", step = "1" },
+                    ["slowPeriod"] = new { min = "21", max = "60", step = "1" }
                 },
                 method = "grid",
                 seed = "3",
@@ -195,7 +208,7 @@ public sealed class OptimizationResumeTests
     {
         DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(15);
 
-        while ((await Trials(id)).Length == 0)
+        while ((await _client.GetFromJsonAsync<JsonNode>($"/api/optimizations/{id}/trials?limit=1"))!["items"]!.AsArray().Count == 0)
         {
             DateTimeOffset.UtcNow.ShouldBeLessThan(deadline, $"Optimization {id} stored no trial.");
             await Task.Delay(millisecondsDelay: 10);
