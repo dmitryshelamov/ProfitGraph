@@ -9,6 +9,17 @@ public sealed class BybitOptions
     public const string SectionName = "Venues:Bybit";
 
     public string BaseAddress { get; init; } = "https://api.bybit.com/";
+
+    /// <summary>
+    ///     The public Spot WebSocket of live klines; it is never authenticated.
+    /// </summary>
+    public string PublicSpotStreamAddress { get; init; } = "wss://stream.bybit.com/v5/public/spot";
+
+    /// <summary>
+    ///     How much longer than its timeframe a live feed may stay silent before it counts as stalled.
+    /// </summary>
+    public TimeSpan LiveFeedStallMargin { get; init; } = TimeSpan.FromSeconds(60);
+
     public int MaxRetryAttempts { get; init; } = 3;
     public TimeSpan RetryBaseDelay { get; init; } = TimeSpan.FromSeconds(1);
     public TimeSpan AttemptTimeout { get; init; } = TimeSpan.FromSeconds(10);
@@ -31,6 +42,8 @@ public sealed class BybitOptions
     public bool IsValid()
     {
         return IsValidBaseAddress(BaseAddress) &&
+            Uri.TryCreate(PublicSpotStreamAddress, UriKind.Absolute, out Uri? stream) && stream.Scheme is "wss" or "ws" &&
+            LiveFeedStallMargin > TimeSpan.Zero &&
             MaxRetryAttempts is > 0 and <= 10 &&
             RetryBaseDelay > TimeSpan.Zero && RetryBaseDelay <= TotalTimeout &&
             AttemptTimeout > TimeSpan.Zero && TotalTimeout >= AttemptTimeout && TotalTimeout <= TimeSpan.FromDays(1) &&

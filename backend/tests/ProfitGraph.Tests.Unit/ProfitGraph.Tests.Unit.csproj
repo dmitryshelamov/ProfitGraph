@@ -11,6 +11,7 @@
         <PackageReference Include="NUnit.Analyzers"/>
         <PackageReference Include="NUnit3TestAdapter"/>
         <PackageReference Include="NSubstitute"/>
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing"/>
         <PackageReference Include="Shouldly"/>
     </ItemGroup>
 

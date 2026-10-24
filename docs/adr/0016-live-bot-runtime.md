@@ -94,3 +94,14 @@ gateway amend it in later stage 5 pull requests.
   the cap must cover cost basis plus reserved quote (`allocation_below_committed`) and the edited graph must compile
   (`409 parameters_incompatible`). Risk limits change at any time; the foreign-orders policy only while stopped.
 - A credential that a bot uses cannot be deleted (`409 exchange_credential_in_use`).
+
+## Amendment: live candles (stage 5.5)
+
+- **Port.** `ILiveCandleSource` is a venue port: a subscription yields confirmed closed candles of one series in
+  open-time order without gaps; a subscriber that names its last candle first receives the gap from public history.
+- **Bybit.** `Venues.Bybit` reads the public Spot WebSocket topic `kline.{interval}.{symbol}`, never authenticated, with
+  one feed per series in a process shared by its subscribers. A candle newer than the last is published once. A feed
+  silent for its timeframe plus `Venues:Bybit:LiveFeedStallMargin` (60 s) reconnects, reports itself stale, fills the
+  gap from REST history and reports itself healthy at the next candle. A REST fill with a gap is an error.
+- **Stale feed.** The venue module sends `MarkFeedStaleCommand`, which sets or clears `StaleFeed` on the bots that should
+  run on the series.
