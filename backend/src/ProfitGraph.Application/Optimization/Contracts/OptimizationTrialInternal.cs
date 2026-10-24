@@ -2,7 +2,9 @@ namespace ProfitGraph.Application.Optimization.Contracts;
 
 /// <summary>
 ///     A stored trial. <paramref name="Sequence" /> is its delivery order, from 1, and the cursor of trial pages;
-///     <paramref name="TrialIndex" /> is its position in the search. Parameters are the ranged values by name.
+///     <paramref name="TrialIndex" /> is its position in the search and <paramref name="Stage" /> the coarse-to-fine or TPE
+///     stage that proposed it. Parameters are the ranged values by name. <paramref name="Neighborhood" /> is stored once
+///     the search ends.
 /// </summary>
 public sealed record OptimizationTrialInternal(
     long Sequence,
@@ -15,4 +17,6 @@ public sealed record OptimizationTrialInternal(
     decimal? TotalPnl,
     decimal? MaxDrawdownPercent,
     long Executions,
-    long ElapsedMs);
+    long ElapsedMs,
+    int Stage = 1,
+    OptimizationNeighborhoodInternal? Neighborhood = null);

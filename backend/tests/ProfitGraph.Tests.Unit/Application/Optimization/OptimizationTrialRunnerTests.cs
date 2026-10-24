@@ -339,7 +339,251 @@ public sealed class OptimizationTrialRunnerTests
             trial.Metrics?.TotalPnl,
             trial.Metrics?.MaxDrawdownPercent,
             trial.Metrics?.Executions ?? 0,
-            trial.ElapsedMs);
+            trial.ElapsedMs,
+            trial.Trial.Stage);
+    }
+
+    [TestCase(OptimizationSearchMethod.Grid, arg2: 1)]
+    [TestCase(OptimizationSearchMethod.Random, arg2: 1)]
+    [TestCase(OptimizationSearchMethod.CoarseToFine, arg2: 1)]
+    [TestCase(OptimizationSearchMethod.CoarseToFine, arg2: 2)]
+    public async Task InterruptedSearchResumesToIdenticalTrialsRankingAndScores(OptimizationSearchMethod method, int interruptedStage)
+    {
+        OptimizationRunInputInternal input = OptimizationRunnerFixture.Sma(maxFast: 15, maxSlow: 16) with { Method = method, Budget = 100, Seed = 771 };
+        OptimizationRunResultInternal uninterrupted = await Runner(workers: 1).RunAsync(input, _ => ValueTask.CompletedTask);
+        var persisted = new List<OptimizationTrialInternal>();
+        using var cancellation = new CancellationTokenSource();
+        var stageReceived = 0;
+        OptimizationRunResultInternal interrupted = await Runner(workers: 1)
+            .RunAsync(
+                input,
+                trial =>
+                {
+                    persisted.Add(Persisted(trial));
+
+                    if (trial.Trial.Stage == interruptedStage && ++stageReceived == 2)
+                    {
+                        cancellation.Cancel();
+                    }
+
+                    return ValueTask.CompletedTask;
+                },
+                cancellationToken: cancellation.Token);
+        interrupted.IsCancelled.ShouldBeTrue();
+        int[] previouslyStored = persisted.Select(trial => trial.TrialIndex).ToArray();
+        var delivered = new List<int>();
+        OptimizationRunResultInternal resumed = await Runner(workers: 8)
+            .RunAsync(
+                input,
+                trial =>
+                {
+                    delivered.Add(trial.Trial.Index);
+                    persisted.Add(Persisted(trial));
+
+                    return ValueTask.CompletedTask;
+                },
+                persistedTrials: persisted.ToArray());
+
+        delivered.Intersect(previouslyStored).ShouldBeEmpty();
+        persisted.Select(trial => trial.TrialIndex).Distinct().Count().ShouldBe(persisted.Count);
+        persisted.OrderBy(trial => trial.TrialIndex)
+            .Select(StoredKey)
+            .ShouldBe(uninterrupted.Ranking.Select(Persisted).OrderBy(trial => trial.TrialIndex).Select(StoredKey));
+        resumed.Ranking.Select(trial => (trial.Trial.Index, trial.Trial.GridIndex, trial.Trial.Stage, trial.Status, trial.ObjectiveValue))
+            .ShouldBe(uninterrupted.Ranking.Select(trial => (trial.Trial.Index, trial.Trial.GridIndex, trial.Trial.Stage, trial.Status, trial.ObjectiveValue)));
+        resumed.NeighborhoodScores.OrderBy(pair => pair.Key).ShouldBe(uninterrupted.NeighborhoodScores.OrderBy(pair => pair.Key));
+        resumed.CompletedTrials.ShouldBe(uninterrupted.CompletedTrials);
+        resumed.TotalTrials.ShouldBe(uninterrupted.TotalTrials);
+        resumed.RejectedByTemplate.ShouldBe(uninterrupted.RejectedByTemplate);
+    }
+
+    [TestCase(arg1: 1, arg2: false)]
+    [TestCase(arg1: 8, arg2: false)]
+    [TestCase(arg1: 1, arg2: true)]
+    [TestCase(arg1: 8, arg2: true)]
+    public async Task TpeResumesAfterStartupOrFirstGuidedBatchWithIdenticalTrials(int workers, bool afterGuidedBatch)
+    {
+        OptimizationRunInputInternal input = OptimizationRunnerFixture.Sma(maxFast: 15, maxSlow: 16) with
+        {
+            Method = OptimizationSearchMethod.Tpe,
+            Budget = 100,
+            Seed = 771
+        };
+        OptimizationTpePlan.TryCreate(input.SearchSpace, input.Budget, out OptimizationTpePlan? plan).ShouldBeTrue();
+        OptimizationRunResultInternal sequential = await Runner(workers: 1).RunAsync(input, _ => ValueTask.CompletedTask);
+        OptimizationRunResultInternal parallel = await Runner(workers: 8).RunAsync(input, _ => ValueTask.CompletedTask);
+        var persisted = new List<OptimizationTrialInternal>();
+        using var cancellation = new CancellationTokenSource();
+        int stopAfter = plan!.StartupCount + (afterGuidedBatch ? plan.BatchSize : 0);
+        var evaluated = 0;
+        OptimizationRunResultInternal interrupted = await Runner(workers)
+            .RunAsync(
+                input,
+                result =>
+                {
+                    persisted.Add(Persisted(result));
+
+                    if (result.Status != OptimizationTrialStatus.RejectedByTemplate && ++evaluated == stopAfter)
+                    {
+                        cancellation.Cancel();
+                    }
+
+                    return ValueTask.CompletedTask;
+                },
+                cancellationToken: cancellation.Token);
+        interrupted.IsCancelled.ShouldBeTrue();
+        evaluated.ShouldBe(stopAfter);
+        interrupted.NeighborhoodScores.ShouldBeEmpty();
+        int[] previouslyStored = persisted.Select(trial => trial.TrialIndex).ToArray();
+        var newlyDelivered = new List<int>();
+        OptimizationRunResultInternal resumed = await Runner(workers == 1 ? 8 : 1)
+            .RunAsync(
+                input,
+                result =>
+                {
+                    newlyDelivered.Add(result.Trial.Index);
+                    persisted.Add(Persisted(result));
+
+                    return ValueTask.CompletedTask;
+                },
+                persistedTrials: persisted.ToArray());
+
+        newlyDelivered.Intersect(previouslyStored).ShouldBeEmpty();
+        persisted.OrderBy(trial => trial.TrialIndex)
+            .Select(StoredKey)
+            .ShouldBe(sequential.Ranking.Select(Persisted).OrderBy(trial => trial.TrialIndex).Select(StoredKey));
+        parallel.Ranking.Select(Persisted)
+            .OrderBy(trial => trial.TrialIndex)
+            .Select(StoredKey)
+            .ShouldBe(persisted.OrderBy(trial => trial.TrialIndex).Select(StoredKey));
+        resumed.NeighborhoodScores.OrderBy(pair => pair.Key).ShouldBe(sequential.NeighborhoodScores.OrderBy(pair => pair.Key));
+        parallel.NeighborhoodScores.OrderBy(pair => pair.Key).ShouldBe(sequential.NeighborhoodScores.OrderBy(pair => pair.Key));
+        resumed.CompletedTrials.ShouldBe(input.Budget);
+        resumed.TotalTrials.ShouldBe(input.Budget);
+        resumed.Ranking.Where(result => result.Status != OptimizationTrialStatus.RejectedByTemplate)
+            .Count(result => result.Trial.Stage == 1)
+            .ShouldBe(plan.StartupCount);
+        resumed.Ranking.ShouldContain(result => result.Trial.Stage == 2 && result.Status == OptimizationTrialStatus.RejectedByTemplate);
+        resumed.Ranking.Select(result => result.Trial.GridIndex).Distinct().Count().ShouldBe(resumed.Ranking.Count);
+    }
+
+    [Test]
+    public async Task CancellationAfterStageOneDoesNotStartRefinementOrScoreTrials()
+    {
+        OptimizationRunInputInternal input = OptimizationRunnerFixture.Sma(maxFast: 15, maxSlow: 16) with
+        {
+            Budget = 100,
+            Method = OptimizationSearchMethod.CoarseToFine
+        };
+        OptimizationCoarseToFinePlan.TryCreate(input.SearchSpace, input.Budget, out OptimizationCoarseToFinePlan? plan).ShouldBeTrue();
+        using var cancellation = new CancellationTokenSource();
+        var received = 0;
+        OptimizationRunResultInternal result = await Runner(workers: 8)
+            .RunAsync(
+                input,
+                _ =>
+                {
+                    if (++received == (int)plan!.CoarseGridSize)
+                    {
+                        cancellation.Cancel();
+                    }
+
+                    return ValueTask.CompletedTask;
+                },
+                cancellationToken: cancellation.Token);
+
+        result.IsCancelled.ShouldBeTrue();
+        result.Ranking.ShouldAllBe(trial => trial.Trial.Stage == 1);
+        result.NeighborhoodScores.ShouldBeEmpty();
+    }
+
+    [Test]
+    public async Task CoarseToFineRunsBothStagesAndScoresSameTrialsWithOneAndEightWorkers()
+    {
+        OptimizationRunInputInternal input = OptimizationRunnerFixture.Sma(maxFast: 15, maxSlow: 16) with
+        {
+            Budget = 100,
+            Method = OptimizationSearchMethod.CoarseToFine
+        };
+        OptimizationRunResultInternal sequential = await Runner(workers: 1).RunAsync(input, _ => ValueTask.CompletedTask);
+        OptimizationRunResultInternal parallel = await Runner(workers: 8).RunAsync(input, _ => ValueTask.CompletedTask);
+
+        sequential.IsCancelled.ShouldBeFalse();
+        sequential.Ranking.ShouldContain(trial => trial.Trial.Stage == 1);
+        sequential.Ranking.ShouldContain(trial => trial.Trial.Stage == 2);
+        sequential.Ranking.Select(trial => (trial.Trial.Index, trial.Trial.GridIndex, trial.Trial.Stage, trial.Status, trial.ObjectiveValue))
+            .ShouldBe(parallel.Ranking.Select(trial => (trial.Trial.Index, trial.Trial.GridIndex, trial.Trial.Stage, trial.Status, trial.ObjectiveValue)));
+        sequential.NeighborhoodScores.OrderBy(pair => pair.Key).ShouldBe(parallel.NeighborhoodScores.OrderBy(pair => pair.Key));
+        sequential.NeighborhoodScores.Count.ShouldBe(sequential.CompletedTrials);
+        sequential.Ranking.Where(trial => trial.Status == OptimizationTrialStatus.RejectedByTemplate)
+            .ShouldAllBe(trial => !sequential.NeighborhoodScores.ContainsKey(trial.Trial.Index));
+        sequential.Ranking.Where(trial => trial.Trial.Stage == 2).ShouldContain(trial => trial.Status == OptimizationTrialStatus.RejectedByTemplate);
+    }
+
+    [Test]
+    public async Task PersistedHolesAndEntireStageOneAreRestoredWithoutReexecutingThem()
+    {
+        OptimizationRunInputInternal input = OptimizationRunnerFixture.Sma(maxFast: 15, maxSlow: 16) with
+        {
+            Method = OptimizationSearchMethod.CoarseToFine,
+            Budget = 100
+        };
+        OptimizationRunResultInternal expected = await Runner(workers: 1).RunAsync(input, _ => ValueTask.CompletedTask);
+        OptimizationTrialInternal[] persisted = expected.Ranking.Where(trial => trial.Trial.Stage == 1 || trial.Trial.Index % 2 == 0).Select(Persisted).ToArray();
+        var delivered = new List<int>();
+        var reported = new List<OptimizationProgressInternal>();
+        var progress = Substitute.For<IProgress<OptimizationProgressInternal>>();
+        progress.When(reporter => reporter.Report(Arg.Any<OptimizationProgressInternal>()))
+            .Do(call => reported.Add(call.Arg<OptimizationProgressInternal>().ShouldNotBeNull()));
+        OptimizationRunResultInternal resumed = await Runner(workers: 8)
+            .RunAsync(
+                input,
+                result =>
+                {
+                    delivered.Add(result.Trial.Index);
+
+                    return ValueTask.CompletedTask;
+                },
+                progress,
+                persistedTrials: persisted)
+            .WaitAsync(TimeSpan.FromSeconds(10));
+
+        reported[0].Completed.ShouldBe(persisted.Count(trial => trial.Status != OptimizationNames.TrialStatus(OptimizationTrialStatus.RejectedByTemplate)));
+        reported.ShouldAllBe(item => item.Completed <= item.Total);
+        reported.Select(item => item.Completed).ShouldBe(reported.Select(item => item.Completed).Order());
+        delivered.Order().ShouldBe(expected.Ranking.Select(trial => trial.Trial.Index).Except(persisted.Select(trial => trial.TrialIndex)).Order());
+        resumed.Ranking.Select(trial => (trial.Trial.Index, trial.ObjectiveValue)).ShouldBe(expected.Ranking.Select(trial => (trial.Trial.Index, trial.ObjectiveValue)));
+        resumed.NeighborhoodScores.OrderBy(pair => pair.Key).ShouldBe(expected.NeighborhoodScores.OrderBy(pair => pair.Key));
+    }
+
+    [Test]
+    public async Task TpeRejectsMismatchedPersistedGuidedTrial()
+    {
+        OptimizationRunInputInternal input = OptimizationRunnerFixture.Sma(maxFast: 15, maxSlow: 16) with
+        {
+            Method = OptimizationSearchMethod.Tpe,
+            Budget = 100,
+            Seed = 771
+        };
+        OptimizationRunResultInternal expected = await Runner(workers: 1).RunAsync(input, _ => ValueTask.CompletedTask);
+        OptimizationTrialResult guided = expected.Ranking.First(result => result.Trial.Stage == 2);
+        OptimizationTrialInternal[] stored = expected.Ranking.Select(Persisted)
+            .Select(trial => trial.TrialIndex == guided.Trial.Index ? trial with { Stage = 1 } : trial)
+            .ToArray();
+        var failure = await Should.ThrowAsync<OptimizationException>(() => Runner(workers: 8)
+            .RunAsync(input, _ => ValueTask.CompletedTask, persistedTrials: stored));
+        failure.Code.ShouldBe("persisted_trial_mismatch");
+    }
+
+    private static OptimizationTrialInternal Persisted(OptimizationTrialResult trial)
+    {
+        return Persisted(sequence: 0, trial);
+    }
+
+    private static object StoredKey(OptimizationTrialInternal trial)
+    {
+        return (trial.TrialIndex, trial.Stage, trial.Status, trial.FailureCode, trial.ReturnPercent, trial.TotalPnl, trial.MaxDrawdownPercent, trial.Objective,
+            trial.Executions, string.Join(";", trial.Parameters.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => $"{pair.Key}:{pair.Value}")));
     }
 
     private static OptimizationTrialRunner Runner(int workers)

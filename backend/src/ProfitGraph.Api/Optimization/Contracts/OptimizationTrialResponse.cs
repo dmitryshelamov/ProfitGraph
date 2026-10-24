@@ -11,4 +11,6 @@ public sealed record OptimizationTrialResponse(
     string? TotalPnl,
     string? MaxDrawdownPercent,
     long Executions,
-    long ElapsedMs);
+    long ElapsedMs,
+    int Stage,
+    OptimizationNeighborhoodResponse? Neighborhood);

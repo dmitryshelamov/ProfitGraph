@@ -7,8 +7,9 @@ namespace ProfitGraph.Application.Optimization.StartOptimization;
 
 /// <summary>
 ///     Freezes a parameter search around a backtest and queues it (ADR 0013). Ranges are by parameter name; the backtest's
-///     parameters stay fixed. The method <c>auto</c> enumerates a grid within the budget and samples a larger one; the
-///     defaults are a budget of 2000, three finalists, at least one execution and at most 50 % drawdown.
+///     parameters stay fixed. The method <c>auto</c> enumerates a grid within the budget; the
+///     defaults are a budget of 2000, three finalists, at least one execution and at most 50 % drawdown. A larger grid
+///     is searched coarse-to-fine when that applies, else by TPE, else by random sampling (Profit Fox Designer ADR 0033).
 /// </summary>
 public sealed record StartOptimizationCommand(
     StartBacktestCommand Backtest,

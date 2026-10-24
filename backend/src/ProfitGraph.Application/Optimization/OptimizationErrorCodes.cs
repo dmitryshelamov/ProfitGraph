@@ -21,6 +21,11 @@ public static class OptimizationErrorCodes
     public const string TrialException = "trial_exception";
 
     /// <summary>
+    ///     The search method cannot run on this space and budget, for example coarse-to-fine on a space too small.
+    /// </summary>
+    public const string MethodNotApplicable = "optimization_method_not_applicable";
+
+    /// <summary>
     ///     A stored trial does not match the candidate the frozen search enumerates at its index.
     /// </summary>
     public const string PersistedTrialMismatch = "persisted_trial_mismatch";

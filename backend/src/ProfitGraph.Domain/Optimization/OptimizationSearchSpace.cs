@@ -139,7 +139,7 @@ public sealed class OptimizationSearchSpace
         return new OptimizationTrial(index, gridIndex, Selections(gridIndex), stage);
     }
 
-    private static void ValidateBudget(int budget)
+    internal static void ValidateBudget(int budget)
     {
         if (budget is < 1 or > MaximumBudget)
         {

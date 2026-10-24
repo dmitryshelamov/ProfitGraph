@@ -19,6 +19,8 @@ internal static class OptimizationTrialDbConverter
             row.TotalPnl,
             row.MaxDrawdownPercent,
             row.Executions,
-            row.ElapsedMs);
+            row.ElapsedMs,
+            row.Stage,
+            row.NeighborsEvaluated is { } evaluated ? new OptimizationNeighborhoodInternal(evaluated, row.NeighborsEligible!.Value, row.NeighborhoodMean) : null);
     }
 }

@@ -144,6 +144,28 @@ public sealed class OptimizationRunTests
         searching["status"]!.GetValue<string>().ShouldBe("Running");
     }
 
+    [TestCase("auto", "coarse_to_fine")]
+    [TestCase("tpe", "tpe")]
+    public async Task ALargeGridIsSearchedInStages_AndStoresTheNeighborhoodOfEveryEvaluatedTrial(string method, string expected)
+    {
+        using IHost worker = await StartWorker();
+        Guid strategyId = await BacktestScenario.CreateStrategy(_application, _userId);
+        Guid id = await Start(Request(strategyId, Ranges("40", slowFrom: "41", slowTo: "100"), method, budget: 60));
+
+        JsonNode job = await JobScenario.WaitFor(_client, id, BacktestScenario.Finished);
+        await worker.StopAsync();
+
+        job["status"]!.GetValue<string>().ShouldBe("Completed", job.ToJsonString());
+        var optimization = (await _client.GetFromJsonAsync<JsonNode>($"/api/optimizations/{id}"))!;
+        JsonNode[] trials = [.. (await _client.GetFromJsonAsync<JsonNode>($"/api/optimizations/{id}/trials?limit=500"))!["items"]!.AsArray().Select(item => item!)];
+        optimization["configuration"]!["method"]!.GetValue<string>().ShouldBe(expected);
+        trials.Select(trial => trial["stage"]!.GetValue<int>()).Distinct().Order().ShouldBe([1, 2]);
+        trials.Where(trial => trial["status"]!.GetValue<string>() != "rejected_by_template").ShouldAllBe(trial => trial["neighborhood"] != null);
+        int executed = trials.Count(trial => trial["status"]!.GetValue<string>() != "rejected_by_template");
+        executed.ShouldBeLessThanOrEqualTo(60);
+        optimization["plannedTrials"]!.GetValue<int>().ShouldBe(executed);
+    }
+
     [TestCase("grid", "200", "Budget", "invalid_optimization")]
     [TestCase("auto", "5", "Ranges.missing", "unknown_parameter")]
     [TestCase("auto", "5", "Ranges.buyAmount", "parameter_fixed_and_ranged")]

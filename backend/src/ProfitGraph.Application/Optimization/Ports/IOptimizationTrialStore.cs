@@ -12,6 +12,11 @@ public interface IOptimizationTrialStore
     Task Write(OptimizationId id, IReadOnlyList<OptimizationTrialInternal> trials, CancellationToken cancellationToken);
 
     /// <summary>
+    ///     Stores the neighborhood scores of a finished search by trial index.
+    /// </summary>
+    Task WriteScores(OptimizationId id, IReadOnlyDictionary<int, OptimizationNeighborhoodScore> scores, CancellationToken cancellationToken);
+
+    /// <summary>
     ///     Every stored trial of an optimization, in delivery order.
     /// </summary>
     Task<IReadOnlyList<OptimizationTrialInternal>> ReadAll(OptimizationId id, CancellationToken cancellationToken);

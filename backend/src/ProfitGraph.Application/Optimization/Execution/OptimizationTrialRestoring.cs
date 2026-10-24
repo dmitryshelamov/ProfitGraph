@@ -20,7 +20,7 @@ internal static class OptimizationTrialRestoring
         OptimizationTrialStatus status = OptimizationNames.ParseTrialStatus(stored.Status);
         IReadOnlyDictionary<PortReference, decimal> selections = trial.Selections.OptimizedValues;
 
-        if (stored.TrialIndex != trial.Index || status == OptimizationTrialStatus.RejectedByTemplate != rejectedByTemplate ||
+        if (stored.TrialIndex != trial.Index || stored.Stage != trial.Stage || status == OptimizationTrialStatus.RejectedByTemplate != rejectedByTemplate ||
             stored.Parameters.Count != selections.Count ||
             selections.Any(pair => !stored.Parameters.TryGetValue(pair.Key.NodeId, out decimal value) || value != pair.Value))
         {

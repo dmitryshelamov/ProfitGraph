@@ -87,7 +87,15 @@ internal sealed class RunOptimizationCommandHandler(
         if (optimization.Stage == OptimizationStage.Searching)
         {
             optimization.CompleteSearch();
-            await Save(optimization, CancellationToken.None);
+            await transactions.ExecuteAsync(
+                async () =>
+                {
+                    await trials.WriteScores(optimization.Id, result.NeighborhoodScores, CancellationToken.None);
+                    await optimizations.Save(optimization, CancellationToken.None);
+
+                    return true;
+                },
+                CancellationToken.None);
         }
 
         OptimizationTrialResult[] finalists = [.. result.Ranking.Where(trial => trial.Status == OptimizationTrialStatus.Completed).Take(configuration.FinalistCount)];
@@ -191,7 +199,7 @@ internal sealed class RunOptimizationCommandHandler(
             await Flush();
         }
 
-        if (optimization.PlannedTrials is null && !result.IsCancelled)
+        if (optimization.PlannedTrials != result.TotalTrials && !result.IsCancelled)
         {
             optimization.PlanTrials(result.TotalTrials);
             await Save(optimization, CancellationToken.None);
@@ -211,7 +219,7 @@ internal sealed class RunOptimizationCommandHandler(
                     batch.Where(trial => trial is { Status: OptimizationTrialStatus.Completed, ObjectiveValue: not null }).Append(best).OfType<OptimizationTrialResult>())
                 .FirstOrDefault();
 
-            if (optimization.PlannedTrials is null && planned.Total is { } total)
+            if (planned.Total is { } total && total != optimization.PlannedTrials)
             {
                 optimization.PlanTrials(total);
             }
@@ -331,7 +339,8 @@ internal sealed class RunOptimizationCommandHandler(
             trial.Metrics?.TotalPnl,
             trial.Metrics?.MaxDrawdownPercent,
             trial.Metrics?.Executions ?? 0,
-            trial.ElapsedMs);
+            trial.ElapsedMs,
+            trial.Trial.Stage);
     }
 
     private Task<bool> Save(OptimizationRun optimization, CancellationToken cancellationToken)
