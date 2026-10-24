@@ -25,7 +25,8 @@ public sealed class InstrumentTests
     [OneTimeSetUp]
     public void StartApi()
     {
-        _application = new ProfitGraphApiFactory();
+        // Sub-microsecond ticks, which the database cannot keep, as Linux clocks produce them.
+        _application = new ProfitGraphApiFactory(new TestClock { Now = new DateTimeOffset(ticks: 639_000_000_000_000_007, TimeSpan.Zero) });
         _instruments = _application.Services.GetRequiredService<FakeInstrumentSource>();
     }
 

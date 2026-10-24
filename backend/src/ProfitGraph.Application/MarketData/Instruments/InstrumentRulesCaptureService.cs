@@ -28,7 +28,11 @@ public sealed class InstrumentRulesCaptureService(
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        var snapshot = new InstrumentRulesSnapshotInternal(Guid.NewGuid(), definition, clock.GetUtcNow());
+
+        // The database keeps microseconds; truncating here makes the returned snapshot equal to the stored one.
+        long now = clock.GetUtcNow().UtcTicks;
+        var capturedAt = new DateTimeOffset(now - now % TimeSpan.TicksPerMicrosecond, TimeSpan.Zero);
+        var snapshot = new InstrumentRulesSnapshotInternal(Guid.NewGuid(), definition, capturedAt);
 
         return await transactions.ExecuteAsync(
             async () =>
