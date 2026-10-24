@@ -10,6 +10,7 @@ using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Infrastructure.Accounts.Repositories;
 using ProfitGraph.Infrastructure.Accounts.Security;
+using ProfitGraph.Infrastructure.Backtesting;
 using ProfitGraph.Infrastructure.Common.Messaging;
 using ProfitGraph.Infrastructure.Common.NodeTypes;
 using ProfitGraph.Infrastructure.Common.Postgres;
@@ -43,6 +44,7 @@ public static class DependencyInjection
         services.AddNodeTypes();
         services.AddMarketData(configuration);
         services.AddBackgroundJobs(configuration);
+        services.AddBacktesting(configuration);
 
         return services;
     }

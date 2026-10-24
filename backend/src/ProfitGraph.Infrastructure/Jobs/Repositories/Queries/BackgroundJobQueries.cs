@@ -46,6 +46,12 @@ internal static class BackgroundJobQueries
         WHERE id = @Id AND status = 'Running' AND completed <= @Completed;
         """;
 
+    public const string RestartProgress =
+        """
+        UPDATE background_jobs SET completed = @Completed, total = @Total, updated_at = @Now
+        WHERE id = @Id AND status = 'Running';
+        """;
+
     public const string IsCancelRequested = "SELECT cancel_requested FROM background_jobs WHERE id = @Id AND status = 'Running';";
 
     public const string InterruptRunning =

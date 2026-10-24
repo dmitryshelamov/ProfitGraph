@@ -45,13 +45,14 @@ internal static class HistoryDownloadRules
                 {
                     if (boundary is { } value && (value.Offset != TimeSpan.Zero || value < DateTimeOffset.UnixEpoch || !series.Timeframe.IsAligned(value)))
                     {
-                        context.AddFailure(field, "Use a UTC time on the timeframe grid, at or after 1970-01-01.");
+                        context.AddFailure(
+                            new ValidationFailure(field, "Use a UTC time on the timeframe grid, at or after 1970-01-01.") { ErrorCode = "invalid_request" });
                     }
                 }
 
                 if (start is not null && end is not null && end <= start)
                 {
-                    context.AddFailure("To", "The end must come after the start.");
+                    context.AddFailure(new ValidationFailure("To", "The end must come after the start.") { ErrorCode = "invalid_request" });
                 }
             });
     }

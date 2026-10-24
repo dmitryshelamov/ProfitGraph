@@ -61,6 +61,12 @@ cannot change a prepared history.
 The identity of what a compiled strategy executes under the engine's execution policy. Editing labels, display names
 or display units keeps it; changing any semantic value changes it.
 
+### Backtest Run
+
+One backtest of a strategy version with frozen parameters, period, settings and holdout. It is executed by a
+background job with the same identifier and stores its ledger, one observation per replayed candle and its
+diagnostics as immutable facts. See [ADR 0012](docs/adr/0012-backtest-runs.md).
+
 ### Background Job
 
 Durable work that runs in the Worker after the request that started it has returned, such as a history download
