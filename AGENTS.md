@@ -43,7 +43,7 @@ dotnet test backend/ProfitGraph.sln
 docker compose -f docker-compose.test.yml down
 ```
 
-Frontend checks run in `frontend/` (Node `^22.13.0 || >=24`; CI uses Node 24):
+Frontend checks run in `frontend/` (Node `^22.22.2 || ^24.15.0 || >=26`; CI uses Node 24):
 
 ```bash
 npm ci

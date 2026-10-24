@@ -32,7 +32,7 @@ dotnet run --project backend/src/ProfitGraph.Api --launch-profile http
 
 Проверка: `curl http://localhost:5291/api/health` возвращает `Healthy`.
 
-Фронтенд (Node `^22.13.0 || >=24`):
+Фронтенд (Node `^22.22.2 || ^24.15.0 || >=26`):
 
 ```bash
 cd frontend
