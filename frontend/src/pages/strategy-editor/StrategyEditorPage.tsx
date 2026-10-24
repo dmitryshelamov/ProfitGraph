@@ -1,6 +1,7 @@
 import { getRouteApi, Link, useBlocker } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
+import { StrategyRuns } from '@/modules/backtests';
 import {
   authoringDiagnosticLabel,
   FlowchartEditor,
@@ -48,7 +49,7 @@ export function StrategyEditorPage() {
     withResolver: true,
   });
   const [focusRequest, setFocusRequest] = useState<{ nodeId: string; sequence: number }>();
-  const [activePanel, setActivePanel] = useState<'diagnostics' | 'values' | null>(null);
+  const [activePanel, setActivePanel] = useState<'diagnostics' | 'values' | 'runs' | null>(null);
   const [hasChecked, setHasChecked] = useState(false);
   useEffect(() => () => useEditorStore.getState().select(null), [strategyId]);
   useEffect(() => {
@@ -226,6 +227,7 @@ export function StrategyEditorPage() {
                   [
                     ['values', 'Параметры и значения'],
                     ['diagnostics', hasChecked ? `Ошибки (${diagnosticCount})` : 'Ошибки'],
+                    ['runs', 'Прогоны'],
                   ] as const
                 ).map(([panel, label]) => (
                   <button
@@ -329,6 +331,11 @@ export function StrategyEditorPage() {
                   catalog={catalog.data}
                   diagnostics={diagnostics}
                 />
+              )}
+              {activePanel === 'runs' && (
+                <section aria-label="Прогоны стратегии" className="px-4 py-2 text-sm">
+                  <StrategyRuns strategyId={strategyId} />
+                </section>
               )}
               {activePanel === 'diagnostics' && (
                 <section aria-label="Результаты проверки" className="px-4 py-2 text-sm">

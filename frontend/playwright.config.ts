@@ -9,20 +9,32 @@ process.env.PROFITGRAPH_E2E_PASSWORD ??= randomBytes(18).toString('base64url');
 const database = process.env.PROFITGRAPH_E2E_DATABASE;
 const apiPort = 5293;
 const webPort = 5275;
+const bybitPort = 5296;
+const shared = [
+  `ConnectionStrings__Postgres="Host=localhost;Port=5436;Database=${database};Username=postgres;Password=postgres"`,
+  // Tests never reach Bybit: its public API is served by e2e/bybit-stub.ts.
+  `Venues__Bybit__BaseAddress=http://127.0.0.1:${bybitPort}/`,
+];
 const api = [
   'ASPNETCORE_ENVIRONMENT=Testing',
-  `ConnectionStrings__Postgres="Host=localhost;Port=5436;Database=${database};Username=postgres;Password=postgres"`,
+  ...shared,
   'Postgres__RunMigrationsOnStartup=true',
   'Auth__BootstrapOwner__Login=e2e-owner',
   `Auth__BootstrapOwner__Password="$PROFITGRAPH_E2E_PASSWORD"`,
-  // Tests never reach Bybit: a closed local port makes pair search answer "venue unavailable".
-  'Venues__Bybit__BaseAddress=http://127.0.0.1:9/',
   `dotnet run --no-launch-profile --project ../backend/src/ProfitGraph.Api --urls http://127.0.0.1:${apiPort}`,
+].join(' ');
+// The Worker starts once the API has applied the migrations, and polls quickly so runs finish within a test.
+const worker = [
+  `until curl -sf http://127.0.0.1:${apiPort}/api/health > /dev/null; do sleep 1; done;`,
+  'DOTNET_ENVIRONMENT=Testing',
+  ...shared,
+  'BackgroundJobs__PollingInterval=00:00:00.200',
+  'dotnet run --no-launch-profile --project ../backend/src/ProfitGraph.Worker',
 ].join(' ');
 
 /**
- * End-to-end tests run the real API against a disposable database on the test PostgreSQL (5436) with a bootstrap
- * Owner whose password is generated per run, and drop the database afterwards.
+ * End-to-end tests run the real API and Worker against a disposable database on the test PostgreSQL (5436) with a
+ * bootstrap Owner whose password is generated per run, and drop the database afterwards. Bybit is a local stub.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -52,8 +64,19 @@ export default defineConfig({
   ],
   webServer: [
     {
+      command: `node e2e/bybit-stub.ts ${bybitPort}`,
+      url: `http://127.0.0.1:${bybitPort}/health`,
+      reuseExistingServer: false,
+    },
+    {
       command: `node e2e/database.ts create ${database} && ${api}`,
       url: `http://127.0.0.1:${apiPort}/api/health`,
+      reuseExistingServer: false,
+      timeout: 180_000,
+    },
+    {
+      command: worker,
+      wait: { stdout: /Application started/ },
       reuseExistingServer: false,
       timeout: 180_000,
     },

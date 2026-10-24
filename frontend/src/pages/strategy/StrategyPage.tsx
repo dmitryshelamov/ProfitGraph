@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { getRouteApi, Link } from '@tanstack/react-router';
 
+import { StrategyRuns } from '@/modules/backtests';
 import { strategyQuery, strategyTemplateLabel } from '@/modules/strategies';
 import { ApiError } from '@/shared/api/client';
 import { buttonClassName } from '@/shared/ui/Button';
+import { Card } from '@/shared/ui/Card';
 import { DateTime } from '@/shared/ui/DateTime';
 import { PageHeader } from '@/shared/ui/PageHeader';
 
@@ -87,6 +89,9 @@ export function StrategyPage() {
         <div className="space-y-6">
           <StrategyValidationCard strategyId={strategyId} version={current.currentVersion} />
           <StrategyParameters definition={current.definition} />
+          <Card title="Прогоны">
+            <StrategyRuns strategyId={strategyId} />
+          </Card>
         </div>
         <StrategyVersions strategyId={strategyId} currentVersion={current.currentVersion} />
       </div>

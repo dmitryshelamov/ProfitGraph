@@ -11,6 +11,11 @@ export default defineConfig({
   resolve: {
     alias: { '@': new URL('./src', import.meta.url).pathname },
   },
+  // Routes load these libraries lazily; pre-bundling them up front keeps the dev server from re-optimizing and
+  // reloading the page in the middle of a session, which would also break end-to-end tests on a cold start.
+  optimizeDeps: {
+    include: ['@microsoft/signalr', 'lightweight-charts'],
+  },
   server: {
     port: 5273,
     strictPort: true,

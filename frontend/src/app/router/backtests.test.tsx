@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import { queuedRun } from '@/test/backtestFixtures';
 import blockCatalog from '@/test/blockCatalog.fixture.json';
 import { fakeApi, json } from '@/test/fakeApi';
 import { owner, strategy } from '@/test/fixtures';
@@ -34,6 +35,9 @@ function routes(start: (request: Request) => Response | Promise<Response>) {
     'GET /api/market-data/instruments': () => json([]),
     'POST /api/backtests': start,
     'GET /api/jobs/run-1': () => json(queued),
+    'GET /api/backtests/run-1': () => json({ ...queuedRun, id: 'run-1' }),
+    'GET /api/backtests/run-1/observations?after=0&limit=100': () =>
+      json({ items: [], next: null }),
   };
 }
 
@@ -77,7 +81,7 @@ describe('backtest setup', () => {
     await userEvent.type(drop, '2');
     await userEvent.click(within(form).getByRole('button', { name: 'Запустить прогон' }));
 
-    expect(await screen.findByText('Прогон поставлен в очередь')).toBeInTheDocument();
+    await waitFor(() => expect(history.location.pathname).toBe('/backtests/run-1'));
     expect(await screen.findByText('В очереди')).toBeInTheDocument();
     expect(bodies).toEqual([
       {
@@ -96,9 +100,6 @@ describe('backtest setup', () => {
         outOfSampleFraction: '0.2',
       },
     ]);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Настроить ещё один' }));
-    expect(await screen.findByRole('form', { name: 'Настройка прогона' })).toBeInTheDocument();
   });
 
   it('explains invalid settings without starting a run', async () => {

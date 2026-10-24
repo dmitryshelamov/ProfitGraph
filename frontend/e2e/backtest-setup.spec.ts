@@ -30,7 +30,7 @@ test('the Owner imports candles from CSV', async ({ page }) => {
   expect((await stored.json()) as unknown[]).toHaveLength(3);
 });
 
-test('a run of a template is set up from the strategy page and queued', async ({ page }) => {
+test('a run of a template is set up from the editor with its exact settings', async ({ page }) => {
   await page.goto('/strategies');
   await page.getByRole('button', { name: 'Новая стратегия' }).first().click();
   await page
@@ -42,7 +42,9 @@ test('a run of a template is set up from the strategy page and queued', async ({
   await expect(page).toHaveURL(/\/strategies\/[0-9a-f-]+\/edit$/);
   const strategyPath = new URL(page.url()).pathname.replace(/\/edit$/, '');
 
-  await page.getByRole('link', { name: 'Прогон' }).click();
+  // The editor loads lazily; the shell's "Прогоны" link must not be mistaken for its run button.
+  await expect(page.getByRole('region', { name: 'Блок-схема стратегии' })).toBeVisible();
+  await page.getByRole('link', { name: 'Прогон', exact: true }).click();
   await expect(page).toHaveURL(`${strategyPath}/backtest`);
   const form = page.getByRole('form', { name: 'Настройка прогона' });
   await expect(form.getByLabel('Площадка')).toHaveValue('bybit');
@@ -51,9 +53,7 @@ test('a run of a template is set up from the strategy page and queued', async ({
   await form.getByLabel('Начальный капитал, в валюте котировки').fill('500');
   await form.getByRole('button', { name: 'Запустить прогон' }).click();
 
-  await expect(page.getByText('Прогон поставлен в очередь')).toBeVisible();
-  // End-to-end tests run no Worker, so the run stays queued with its frozen settings.
-  await expect(page.getByText('В очереди')).toBeVisible();
+  await expect(page).toHaveURL(/\/backtests\/[0-9a-f-]+$/);
   const runs = (await (
     await page.request.get(`/api${strategyPath}/backtests`)
   ).json()) as components['schemas']['BacktestSummaryPageResponse'];

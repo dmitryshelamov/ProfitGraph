@@ -1,4 +1,10 @@
-import { fractionToPercent, isBackendDecimal, isDecimalString, percentToFraction } from './decimal';
+import {
+  fractionToPercent,
+  isBackendDecimal,
+  isDecimalString,
+  percentToFraction,
+  roundDecimal,
+} from './decimal';
 
 describe('decimal strings', () => {
   it('accepts canonical decimals only', () => {
@@ -37,5 +43,21 @@ describe('decimal strings', () => {
     expect(isBackendDecimal('79228162514264337593543950336')).toBe(false);
     expect(isBackendDecimal('7922816251426433759354395033.6')).toBe(false);
     expect(isBackendDecimal('abc')).toBe(false);
+  });
+});
+
+describe('roundDecimal', () => {
+  it('rounds half away from zero without floating point', () => {
+    expect(roundDecimal('1.005', 2)).toBe('1.01');
+    expect(roundDecimal('-1.005', 2)).toBe('-1.01');
+    expect(roundDecimal('2.344999999999999999999', 2)).toBe('2.34');
+    expect(roundDecimal('0.004', 2)).toBe('0');
+    expect(roundDecimal('-0.004', 2)).toBe('0');
+  });
+
+  it('keeps shorter values and rejects malformed ones', () => {
+    expect(roundDecimal('12.5', 2)).toBe('12.5');
+    expect(roundDecimal('7', 2)).toBe('7');
+    expect(roundDecimal('1e3', 2)).toBeNull();
   });
 });
