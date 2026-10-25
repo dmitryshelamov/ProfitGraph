@@ -4,8 +4,8 @@ namespace ProfitGraph.Domain.Bots;
 
 /// <summary>
 ///     A bot's working order that its venue holds locally (ADR 0023, TC4): why, since when, until when if known, and the
-///     price bounds that keep it when a price band holds it. A change of reason is reported; the same reason with new
-///     details is not.
+///     price bounds that keep it when a price band holds it. A change of reason ends the current wait and starts a new
+///     one, both reported; the same reason with new details is not reported.
 /// </summary>
 public sealed class BotOrderWaiting : AggregateRoot
 {
@@ -45,7 +45,8 @@ public sealed class BotOrderWaiting : AggregateRoot
     }
 
     /// <summary>
-    ///     Records the current reason; returns whether anything changed. A new reason starts a new wait and is reported.
+    ///     Records the current reason; returns whether anything changed. A new reason ends the current wait and starts a new
+    ///     one, reported in that order.
     /// </summary>
     public bool Change(OrderWaitingCode code, DateTimeOffset now, DateTimeOffset? until, decimal? low, decimal? high)
     {
@@ -56,6 +57,7 @@ public sealed class BotOrderWaiting : AggregateRoot
 
         if (code != Code)
         {
+            AddDomainEvent(new BotOrderWaitingEnded(BotId, EngineOrderId, Code, now));
             AddDomainEvent(new BotOrderWaitingStarted(BotId, EngineOrderId, code, until, low, high, now));
             Since = now;
         }

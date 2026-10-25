@@ -1,10 +1,11 @@
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Common;
 
 namespace ProfitGraph.Tests.Unit.Domain.Bots;
 
 /// <summary>
-///     A working order its venue holds locally (ADR 0023, TC4): a new reason is reported, new details of the same reason are
-///     not, and the end is reported once.
+///     A working order its venue holds locally (ADR 0023, TC4): a new reason ends the current wait and starts a new one,
+///     new details of the same reason are not reported, and the end is reported once.
 /// </summary>
 public sealed class BotOrderWaitingTests
 {
@@ -24,7 +25,7 @@ public sealed class BotOrderWaitingTests
     }
 
     [Test]
-    public void NewBoundsOfTheSameReasonChangeQuietly_AndANewReasonIsReported()
+    public void NewBoundsOfTheSameReasonChangeQuietly_AndANewReasonEndsTheOldWaitFirst()
     {
         BotOrderWaiting waiting = BotOrderWaiting.Start(BotId.New(), engineOrderId: 3, OrderWaitingCode.PriceBand, At, until: null, low: 90m, high: 110m);
         waiting.ClearDomainEvents();
@@ -38,7 +39,10 @@ public sealed class BotOrderWaitingTests
 
         waiting.Since.ShouldBe(At.AddHours(9));
         waiting.Low.ShouldBeNull();
-        waiting.DomainEvents.ShouldHaveSingleItem().ShouldBeOfType<BotOrderWaitingStarted>().Code.ShouldBe(OrderWaitingCode.CarryOver);
+        IDomainEvent[] events = [.. waiting.DomainEvents];
+        events.Length.ShouldBe(2);
+        events[0].ShouldBeOfType<BotOrderWaitingEnded>().Code.ShouldBe(OrderWaitingCode.PriceBand);
+        events[1].ShouldBeOfType<BotOrderWaitingStarted>().Code.ShouldBe(OrderWaitingCode.CarryOver);
     }
 
     [Test]

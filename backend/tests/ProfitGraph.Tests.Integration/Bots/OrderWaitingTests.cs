@@ -4,17 +4,19 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 using ProfitGraph.Application.Bots.Contracts;
+using ProfitGraph.Application.Bots.GetBotFeed;
 using ProfitGraph.Application.Bots.GetBotWaitingOrders;
 using ProfitGraph.Application.Bots.RecordOrderWaiting;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Engine.Accounting;
+using ProfitGraph.Infrastructure.Common.Outbox;
 using ProfitGraph.Tests.Integration.Common;
 
 namespace ProfitGraph.Tests.Integration.Bots;
 
 /// <summary>
-///     Working orders a venue holds locally (ADR 0023, TC4): the module sets and clears the reason, only the owner reads it,
+///     Working orders a venue holds locally (ADR 0023, TC4): the module sets, changes and clears the reason, only the owner reads it,
 ///     and an order the engine no longer has working ends its wait at the next root.
 /// </summary>
 [NonParallelizable]
@@ -64,6 +66,37 @@ public sealed class OrderWaitingTests
     }
 
     [Test]
+    public async Task ANewReasonEndsTheCurrentWaitAndStartsAnother_AndARepeatIsQuiet()
+    {
+        var scenario = new RuntimeScenario();
+        using IHost worker = scenario.Worker();
+        Bot bot = await RuntimeScenario.RunningLadder(worker);
+        DateTimeOffset unlock = DateTimeOffset.UtcNow.AddDays(7);
+
+        await Send(worker, new RecordOrderWaitingCommand(bot.Id.Value, EngineOrderId: 1, OrderWaitingCode.SettlementHold, unlock));
+        await Send(worker, new RecordOrderWaitingCommand(bot.Id.Value, EngineOrderId: 1, OrderWaitingCode.AwaitingConfirmation));
+        await Send(worker, new RecordOrderWaitingCommand(bot.Id.Value, EngineOrderId: 1, OrderWaitingCode.AwaitingConfirmation));
+
+        BotOrderWaitingInternal waiting = (await Waiting(worker, bot)).ShouldHaveSingleItem();
+        waiting.ShouldSatisfyAllConditions(
+            () => waiting.Code.ShouldBe(OrderWaitingCode.AwaitingConfirmation),
+            () => waiting.Until.ShouldBeNull());
+
+        using IHost outbox = BotTestHost.Create(services => services.AddOutboxDispatcher());
+        await outbox.StartAsync();
+        await RuntimeScenario.Until(async () => (await WaitingFeed(worker, bot)).Length == 3, "the waits reach the feed");
+        await outbox.StopAsync();
+        BotFeedEntryInternal[] feed = await WaitingFeed(worker, bot);
+        feed.Select(entry => (entry.Kind, entry.Details["code"]))
+            .ShouldBe(
+            [
+                (BotFeedKind.OrderWaiting, nameof(OrderWaitingCode.SettlementHold)),
+                (BotFeedKind.OrderWaitingEnded, nameof(OrderWaitingCode.SettlementHold)),
+                (BotFeedKind.OrderWaiting, nameof(OrderWaitingCode.AwaitingConfirmation))
+            ]);
+    }
+
+    [Test]
     public async Task AFilledOrderEndsItsWait()
     {
         var scenario = new RuntimeScenario();
@@ -96,5 +129,19 @@ public sealed class OrderWaitingTests
     private static Task<IReadOnlyList<BotOrderWaitingInternal>> Waiting(IHost host, Bot bot)
     {
         return Query(host, new GetBotWaitingOrdersQuery(bot.OwnerId.Value, bot.Id.Value));
+    }
+
+    private static async Task<BotFeedEntryInternal[]> WaitingFeed(IHost host, Bot bot)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        BotFeedPageInternal page = await scope.ServiceProvider.GetRequiredService<ISender>()
+            .Send(new GetBotFeedQuery(bot.OwnerId.Value, bot.Id.Value, Before: null, Limit: 100));
+
+        return
+        [
+            .. page.Items
+                .Where(entry => entry.Kind is BotFeedKind.OrderWaiting or BotFeedKind.OrderWaitingEnded)
+                .OrderBy(entry => entry.Sequence)
+        ];
     }
 }
