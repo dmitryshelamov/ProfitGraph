@@ -12,6 +12,7 @@ using ProfitGraph.Infrastructure;
 using ProfitGraph.Infrastructure.Common;
 using ProfitGraph.Infrastructure.Common.Postgres;
 using ProfitGraph.Venues.Bybit;
+using ProfitGraph.Venues.Steam;
 
 using Serilog;
 using Serilog.Formatting.Json;
@@ -53,6 +54,7 @@ public class Program
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddProfitGraphInfrastructure(builder.Configuration);
         builder.Services.AddBybitVenue(builder.Configuration);
+        builder.Services.AddSteamVenue(builder.Configuration);
         builder.Services.AddScoped<CsvImportLimitsFilter>();
         builder.Services.AddSignalR();
         builder.Services.AddSingleton<BacktestProgressSubscriptions>();
