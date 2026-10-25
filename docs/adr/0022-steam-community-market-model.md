@@ -116,6 +116,11 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   the confirmation whose type and creator match a journal entry, backoff 3 s to 2 min. Unmatched confirmations are never
   touched. The engine sees `Accepted` once the listing or buy order is active; an order still awaiting confirmation after
   15 minutes raises an alert and keeps waiting. Owner-selected confirmations of foreign listings are not included.
+  The approval is journaled before and after it is sent (`Approving`, `Approved`), one confirmation at a time (no batch
+  operation); a buy confirms with type 12 and a listing with type 3, as Profit Fox Designer observed. An approved buy is
+  sent again with `confirmation=<creator>`, and only the new buy order's ID proves it; any unclear approval or finalize
+  leaves the entry `Unknown` for reconciliation, so a restart never approves or finalizes twice. A buy awaiting its
+  confirmation cancels locally and is never approved afterwards.
 - **Fills need positive evidence.** A buy fill comes from the buy order's counters and a matching purchase in market
   history; a sale and its price come only from a sale event in `myhistory/render` (Profit Fox Designer ADR 0087: cursor,
   overlap, write-once attribution). A missing listing or asset never proves a fill or a cancel. A returned item with a

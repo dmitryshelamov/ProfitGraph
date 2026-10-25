@@ -23,6 +23,17 @@ internal enum SteamOrderJournalState
     AwaitingConfirmation,
 
     /// <summary>
+    ///     The approval of the entry's confirmation may have left the process; until its answer is recorded, nobody knows
+    ///     whether Steam approved it.
+    /// </summary>
+    Approving,
+
+    /// <summary>
+    ///     Steam approved the entry's confirmation; a buy is finalized next.
+    /// </summary>
+    Approved,
+
+    /// <summary>
     ///     Steam has the order under its own ID.
     /// </summary>
     Active,

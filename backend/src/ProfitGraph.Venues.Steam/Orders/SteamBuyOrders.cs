@@ -131,6 +131,58 @@ internal sealed class SteamBuyOrders(
         }
     }
 
+    /// <summary>
+    ///     Sends a buy whose mobile confirmation was approved again with the confirmation's creator, as Steam's own page does,
+    ///     so Steam creates the buy order. Only the new buy order's ID proves it; any other answer leaves the entry unknown, as
+    ///     in Profit Fox Designer, and a request that never left keeps it approved.
+    /// </summary>
+    public async Task Finalize(Guid ownerId, SteamOrderJournalEntry entry, CancellationToken cancellationToken)
+    {
+        if (entry is not { Side: OrderSide.Buy, State: SteamOrderJournalState.Approved, ConfirmationCreator: { } creator })
+        {
+            throw new ArgumentException("Only a buy whose confirmation was approved is finalized.", nameof(entry));
+        }
+
+        DateTimeOffset now = clock.GetUtcNow();
+        SteamOrderJournalEntry placing = entry with { State = SteamOrderJournalState.Placing, UpdatedAt = now };
+        await Store(placing, SteamOrderJournalState.Approved, cancellationToken);
+        SteamWriteReceipt receipt = await client.Create(
+            sessions.For(ownerId, entry.CredentialId),
+            Instrument(entry),
+            entry.Quantity,
+            entry.PriceMinorUnits,
+            creator,
+            cancellationToken);
+        DateTimeOffset answered = clock.GetUtcNow();
+
+        switch (receipt.Kind)
+        {
+            case SteamWriteReceiptKind.Accepted when receipt.SteamOrderId is { } steamOrderId:
+                await Store(
+                    placing with
+                    {
+                        State = SteamOrderJournalState.Active,
+                        WaitingCode = null,
+                        SteamOrderId = steamOrderId,
+                        Deadline = entry.Type == OrderType.Market ? answered + options.Value.MarketBuyDeadline : null,
+                        UpdatedAt = answered
+                    },
+                    SteamOrderJournalState.Placing,
+                    cancellationToken);
+                updates.Publish(entry.BotId, ExternalOrderUpdate.Accept(entry.EngineOrderId));
+
+                return;
+            case SteamWriteReceiptKind.NotSent:
+                await Store(placing with { State = SteamOrderJournalState.Approved, UpdatedAt = answered }, SteamOrderJournalState.Placing, cancellationToken);
+
+                return;
+            default:
+                await Store(placing with { State = SteamOrderJournalState.Unknown, UpdatedAt = answered }, SteamOrderJournalState.Placing, cancellationToken);
+
+                return;
+        }
+    }
+
     private async Task<(SteamOrderJournalEntry? Entry, ExternalOrderUpdate? Rejection)> Plan(
         SteamBotAccount bot,
         string clientOrderId,
@@ -383,7 +435,8 @@ internal sealed class SteamBuyOrders(
     {
         ExternalOrderUpdate? update = entry.State switch
         {
-            SteamOrderJournalState.Waiting or SteamOrderJournalState.AwaitingConfirmation => ExternalOrderUpdate.AcceptLocally(entry.EngineOrderId),
+            SteamOrderJournalState.Waiting or SteamOrderJournalState.AwaitingConfirmation or SteamOrderJournalState.Approving or SteamOrderJournalState.Approved =>
+                ExternalOrderUpdate.AcceptLocally(entry.EngineOrderId),
             SteamOrderJournalState.Active or SteamOrderJournalState.Cancelling => ExternalOrderUpdate.Accept(entry.EngineOrderId),
             SteamOrderJournalState.Done when entry.Outcome == SteamOrderOutcome.Cancelled => ExternalOrderUpdate.ConfirmCancel(entry.EngineOrderId),
             SteamOrderJournalState.Done when entry.Outcome == SteamOrderOutcome.Rejected => Rejection(entry),
