@@ -13,10 +13,10 @@ namespace ProfitGraph.Application.MarketData.StartCandleDownload;
 ///     Rejects a start at or after the latest closed candle at once, so the user gets 400 instead of a failed job; the
 ///     Worker repeats the check with its own clock reading. The queued request carries the canonical series.
 /// </summary>
-internal sealed class StartCandleDownloadCommandHandler(VenueRegistry venues, BackgroundJobQueue queue, TimeProvider clock)
+internal sealed class StartCandleDownloadCommandHandler(VenueRegistry venues, MarketDataCredentials credentials, BackgroundJobQueue queue, TimeProvider clock)
     : IRequestHandler<StartCandleDownloadCommand, BackgroundJobInternal>
 {
-    public Task<BackgroundJobInternal> Handle(StartCandleDownloadCommand request, CancellationToken cancellationToken)
+    public async Task<BackgroundJobInternal> Handle(StartCandleDownloadCommand request, CancellationToken cancellationToken)
     {
         CandleSeries series = venues.ResolveSeries(request.Venue, request.Symbol, request.Timeframe);
 
@@ -25,8 +25,16 @@ internal sealed class StartCandleDownloadCommandHandler(VenueRegistry venues, Ba
             throw new ApplicationValidationException([new InputError("invalid_request", "From", "The start must come before the latest closed candle.")]);
         }
 
-        var download = new DownloadCandlesCommand(series.Venue.Value, series.Symbol.Value, series.Timeframe.Key, request.From, request.To);
+        await credentials.Check(request.UserId, request.CredentialId, series.Venue, cancellationToken);
+        var download = new DownloadCandlesCommand(
+            series.Venue.Value,
+            series.Symbol.Value,
+            series.Timeframe.Key,
+            request.From,
+            request.To,
+            request.UserId,
+            request.CredentialId);
 
-        return queue.Enqueue(new UserId(request.UserId), download, cancellationToken);
+        return await queue.Enqueue(new UserId(request.UserId), download, cancellationToken);
     }
 }

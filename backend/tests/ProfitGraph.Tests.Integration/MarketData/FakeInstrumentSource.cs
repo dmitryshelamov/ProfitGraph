@@ -1,3 +1,4 @@
+using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Application.MarketData.Ports;
@@ -25,10 +26,17 @@ public sealed class FakeInstrumentSource : IInstrumentRulesSource, IInstrumentCa
 
     public Exception? SearchFailure { get; set; }
 
+    /// <summary>
+    ///     The market data access of the latest search (ADR 0023, TC6).
+    /// </summary>
+    public ExchangeCredentialSecretsInternal? SearchAccess { get; private set; }
+
     public VenueId Venue { get; } = new VenueId(TestHistoryVenue.WithHistory);
 
     public Task<IReadOnlyList<InstrumentInternal>> Search(string query, int limit, CancellationToken cancellationToken)
     {
+        SearchAccess = MarketDataAccess.Current;
+
         if (SearchFailure is not null)
         {
             throw SearchFailure;

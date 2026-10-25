@@ -7,6 +7,7 @@ using ProfitGraph.Application.Backtesting.Ports;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Application.Jobs.Ports;
+using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Domain.Backtesting;
 using ProfitGraph.Domain.Strategies;
@@ -26,6 +27,7 @@ internal sealed class RunBacktestCommandHandler(
     IStrategyRepository strategies,
     BacktestCompiler compiler,
     BacktestHistoryLoader history,
+    MarketDataCredentials credentials,
     IBacktestFactStore facts,
     ITransactionExecutor transactions,
     IBackgroundJobProgress progress,
@@ -40,7 +42,13 @@ internal sealed class RunBacktestCommandHandler(
         run.BeginLoadingHistory();
         await Save(run, cancellationToken);
 
-        LoadedBacktestHistory loaded = await history.Load(configuration, cancellationToken);
+        LoadedBacktestHistory loaded;
+
+        using (MarketDataAccess.Use(await credentials.ReadIfStillThere(run.OwnerId.Value, request.CredentialId, configuration.Series.Venue, cancellationToken)))
+        {
+            loaded = await history.Load(configuration, cancellationToken);
+        }
+
         run.AttachHistory(loaded.Info);
         await Save(run, cancellationToken);
 

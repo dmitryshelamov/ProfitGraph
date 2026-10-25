@@ -3,6 +3,7 @@ using System.Text.Json;
 using MediatR;
 
 using ProfitGraph.Application.Accounts;
+using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Backtesting;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.Converters;
@@ -47,9 +48,17 @@ internal sealed class CreateBotCommandHandler(
         ExchangeCredential credential = await credentials.GetOwned(command.CredentialId, command.OwnerId, cancellationToken);
         CandleSeries series = venues.ResolveSeries(credential.Venue.Value, command.Symbol, command.Timeframe);
         IVenueFeeRateReader reader = feeReaders.Find(series.Venue) ?? throw new VenueFeeRatesUnavailableException("This venue cannot run bots in this deployment.");
-        await (rules.Find(series.Venue) ?? throw new VenueFeeRatesUnavailableException("The venue has no instrument rules.")).Get(series.Symbol, cancellationToken);
+        IInstrumentRulesSource source = rules.Find(series.Venue) ?? throw new VenueFeeRatesUnavailableException("The venue has no instrument rules.");
+        ExchangeCredentialSecretsInternal secrets = protector.Decrypt(credential);
+
+        // A venue without anonymous market data reads the rules with the bot's own credential (ADR 0023, TC6).
+        using (MarketDataAccess.Use(secrets))
+        {
+            await source.Get(series.Symbol, cancellationToken);
+        }
+
         BotVenueSettings settings = Settings(series.Venue, command.VenueSettings);
-        VenueFeeRatesInternal rates = await reader.Read(protector.Decrypt(credential), series.Symbol, cancellationToken);
+        VenueFeeRatesInternal rates = await reader.Read(secrets, series.Symbol, cancellationToken);
         DateTimeOffset now = clock.GetUtcNow();
         var bot = Bot.Create(
             BotId.New(),
