@@ -201,7 +201,13 @@ public sealed class SteamConfirmationsTests
         var buys = new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, options, _harness.Clock);
         IServiceScopeFactory scopes = _harness.Scopes();
 
-        return (buys, new SteamConfirmations(_journal, _harness.Sessions(), new SteamConfirmationClient(scopes), buys, _harness.Clock));
+        return (buys, new SteamConfirmations(
+            _journal,
+            _harness.Sessions(),
+            new SteamConfirmationClient(scopes),
+            buys,
+            new SteamSellSettlement(_journal, _updates, _harness.Clock),
+            _harness.Clock));
     }
 
     private async Task Submit(SteamBuyOrders buys)

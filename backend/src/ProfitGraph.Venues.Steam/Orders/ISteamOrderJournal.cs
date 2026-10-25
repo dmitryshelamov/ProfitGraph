@@ -23,4 +23,22 @@ internal interface ISteamOrderJournal
     ///     The account's entries that are not done, oldest first.
     /// </summary>
     Task<IReadOnlyList<SteamOrderJournalEntry>> Open(Guid credentialId, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Records a sell with the assets it reserves, all or nothing. False when the entry exists already or an asset is
+    ///     reserved by another open sell of the account.
+    /// </summary>
+    Task<bool> AddSell(SteamOrderJournalEntry entry, IReadOnlyList<SteamAssetReservation> reservations, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<SteamAssetReservation>> Reservations(string clientOrderId, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     The account's open reservations of every sell.
+    /// </summary>
+    Task<IReadOnlyList<SteamAssetReservation>> Reserved(Guid credentialId, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Replaces a reservation when its state is still <paramref name="expected" />.
+    /// </summary>
+    Task<bool> Transition(SteamAssetReservation next, SteamReservationState expected, CancellationToken cancellationToken);
 }

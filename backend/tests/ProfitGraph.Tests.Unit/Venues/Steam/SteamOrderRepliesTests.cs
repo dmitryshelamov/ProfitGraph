@@ -94,6 +94,29 @@ public sealed class SteamOrderRepliesTests
         SteamPriceText.MinorUnits(text, Kzt).ShouldBeNull();
     }
 
+    [Test]
+    public void ReadsListingsAndThoseAwaitingConfirmation()
+    {
+        string html =
+            "<div id=\\\"mylisting_501\\\"><a href=\\\"javascript:RemoveMarketListing('mylisting', '501', 730, '2', '1001')\\\"></a><span id=\\\"mylisting_501_name\\\"></span></div>" +
+            "<div id=\\\"mylisting_502\\\"><a href=\\\"javascript:CancelMarketListingConfirmation('mylisting', '502', 730, '2', '1002')\\\"></a></div>";
+        byte[] body = Encoding.UTF8.GetBytes("{\"success\":true,\"pagesize\":100,\"total_count\":2,\"results_html\":\"" + html + "\"}");
+
+        SteamListingsParser.Page(body)!.Listings.ShouldBe(
+        [
+            new SteamListing("501", AppId: 730, "2", "1001", AwaitingConfirmation: false),
+            new SteamListing("502", AppId: 730, "2", "1002", AwaitingConfirmation: true)
+        ]);
+    }
+
+    [TestCase("""{"success":true,"pagesize":100,"total_count":1,"results_html":"<div id=\"mylisting_501\"></div>"}""")]
+    [TestCase("""{"success":true,"pagesize":100,"results_html":""}""")]
+    [TestCase("""{"success":false,"pagesize":100,"total_count":0,"results_html":""}""")]
+    public void AListingRowWithoutItsControlOrTotalsIsUnreadable(string json)
+    {
+        SteamListingsParser.Page(Encoding.UTF8.GetBytes(json)).ShouldBeNull();
+    }
+
     private static SteamWriteReceipt Read(SteamRequestOutcome outcome, string body, int[]? rejectionCodes = null)
     {
         var response = new SteamHttpResponse(StatusCode: 200, Encoding.UTF8.GetBytes(body), "application/json", [], Location: null);

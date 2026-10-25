@@ -87,6 +87,11 @@ internal sealed class MockSteam : HttpMessageHandler
     /// </summary>
     public string IdentitySecret { get; set; } = "aWRlbnRpdHktbm90LXJlYWw=";
 
+    /// <summary>
+    ///     The account's listings; a new one waits for its mobile confirmation, as on an account with Steam Guard.
+    /// </summary>
+    public List<MockSteamListing> Listings { get; } = new List<MockSteamListing>();
+
     public int Count(string path)
     {
         lock (_requests)
@@ -134,6 +139,9 @@ internal sealed class MockSteam : HttpMessageHandler
             ("community.steam.invalid", "/market/cancelbuyorder/") => CancelBuyOrder(form),
             ("community.steam.invalid", "/market/getbuyorderstatus/") => BuyOrderStatus(request.RequestUri),
             ("community.steam.invalid", "/mobileconf/getlist") => ConfirmationList(request.RequestUri),
+            ("community.steam.invalid", "/market/sellitem/") => SellItem(form),
+            ("community.steam.invalid", "/market/mylistings/") => MyListings(),
+            ("community.steam.invalid", var removal) when removal.StartsWith("/market/removelisting/", StringComparison.Ordinal) => RemoveListing(removal),
             ("community.steam.invalid", "/mobileconf/ajaxop") => ApproveConfirmation(request.RequestUri),
             _ => new HttpResponseMessage(HttpStatusCode.NotFound)
         };
@@ -236,7 +244,59 @@ internal sealed class MockSteam : HttpMessageHandler
             Confirmations.Remove(confirmation);
             Approved.Add(confirmation.CreatorId);
 
+            foreach (MockSteamListing listing in Listings.Where(listing => confirmation.Type == 3 && listing.Id == confirmation.CreatorId))
+            {
+                listing.Confirmed = true;
+            }
+
             return Json("""{"success":true}""");
+        }
+    }
+
+    private HttpResponseMessage SellItem(string form)
+    {
+        Dictionary<string, string> fields = Fields(form);
+
+        lock (BuyOrders)
+        {
+            if (Listings.Any(listing => listing.AssetId == fields["assetid"]) || fields["amount"] != "1")
+            {
+                return Json("""{"success":false}""");
+            }
+
+            var id = (8800 + Listings.Count + 1).ToString(CultureInfo.InvariantCulture);
+            Listings.Add(
+                new MockSteamListing(
+                    id,
+                    int.Parse(fields["appid"], CultureInfo.InvariantCulture),
+                    fields["contextid"],
+                    fields["assetid"],
+                    long.Parse(fields["price"], CultureInfo.InvariantCulture)));
+            Confirmations.Add(new MockSteamConfirmation("66" + id, "77" + id, Type: 3, id));
+
+            return Json("""{"success":true,"requires_confirmation":1,"needs_mobile_confirmation":true,"needs_email_confirmation":false,"email_domain":""}""");
+        }
+    }
+
+    private HttpResponseMessage RemoveListing(string path)
+    {
+        string id = path["/market/removelisting/".Length..];
+
+        lock (BuyOrders)
+        {
+            return Listings.RemoveAll(listing => listing.Id == id) == 1 ? Json("""{"success":true}""") : Json("""{"success":false}""");
+        }
+    }
+
+    private HttpResponseMessage MyListings()
+    {
+        lock (BuyOrders)
+        {
+            string rows = string.Concat(
+                Listings.Select(listing =>
+                    $"""<div class="market_listing_row" id="mylisting_{listing.Id}"><a href="javascript:{(listing.Confirmed ? "RemoveMarketListing" : "CancelMarketListingConfirmation")}('mylisting', '{listing.Id}', {listing.AppId}, '{listing.ContextId}', '{listing.AssetId}')">Remove</a><span id="mylisting_{listing.Id}_name">item</span></div>"""));
+
+            return Json(JsonSerializer.Serialize(new { success = true, pagesize = 100, total_count = Listings.Count, start = 0, results_html = rows }));
         }
     }
 

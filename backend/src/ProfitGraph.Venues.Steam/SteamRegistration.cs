@@ -56,6 +56,8 @@ public static class SteamRegistration
         services.AddSingleton<SteamBuyOrderClient>();
         services.AddSingleton<SteamOrderUpdates>();
         services.AddSingleton<SteamBuyOrders>();
+        services.AddSingleton<SteamListingClient>();
+        services.AddSingleton<SteamSellSettlement>();
         services.AddSingleton<SteamConfirmationClient>();
         services.AddSingleton<SteamConfirmations>();
         services.AddSingleton<IHistoricalCandleSource, SteamHistoricalCandleSource>();

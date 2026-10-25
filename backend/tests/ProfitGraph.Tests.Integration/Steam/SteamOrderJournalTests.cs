@@ -84,6 +84,43 @@ public sealed class SteamOrderJournalTests
         (await journal.Get(first.ClientOrderId, CancellationToken.None))!.State.ShouldBe(SteamOrderJournalState.Approved);
     }
 
+    [Test]
+    public async Task AnAssetIsReservedByOneOpenSellOnly()
+    {
+        Bot bot = await AddBot();
+        var journal = new SteamOrderJournalRepository(_dataSource);
+        SteamOrderJournalEntry first = Entry(bot, "pg-e-" + Guid.NewGuid().ToString("N")[..8], price: 50000) with { Side = OrderSide.Sell };
+        SteamOrderJournalEntry second = Entry(bot, "pg-f-" + Guid.NewGuid().ToString("N")[..8], price: 50000) with { Side = OrderSide.Sell };
+        SteamAssetReservation asset = Reservation(first, "1001");
+
+        (await journal.AddSell(first, [asset, Reservation(first, "1002")], CancellationToken.None)).ShouldBeTrue();
+        (await journal.AddSell(second, [Reservation(second, "1003"), Reservation(second, "1001")], CancellationToken.None)).ShouldBeFalse();
+        (await journal.Get(second.ClientOrderId, CancellationToken.None)).ShouldBeNull();
+
+        SteamAssetReservation released = asset with { State = SteamReservationState.Released };
+        (await journal.Transition(released, SteamReservationState.Reserved, CancellationToken.None)).ShouldBeTrue();
+        (await journal.AddSell(second, [Reservation(second, "1001")], CancellationToken.None)).ShouldBeTrue();
+        (await journal.Reserved(bot.CredentialId.Value, CancellationToken.None)).Select(item => (item.ClientOrderId, item.AssetId))
+            .ShouldBe([(first.ClientOrderId, "1002"), (second.ClientOrderId, "1001")], ignoreOrder: true);
+        (await journal.Reservations(first.ClientOrderId, CancellationToken.None)).Single(item => item.AssetId == "1001").ShouldBe(released);
+    }
+
+    private static SteamAssetReservation Reservation(SteamOrderJournalEntry entry, string assetId)
+    {
+        return new SteamAssetReservation(
+            entry.ClientOrderId,
+            entry.CredentialId,
+            AppId: 730,
+            "2",
+            assetId,
+            BotSeed.Now,
+            SellerMinorUnits: 43478,
+            SteamReservationState.Reserved,
+            ListingId: null,
+            BotSeed.Now,
+            BotSeed.Now);
+    }
+
     private static SteamOrderJournalEntry Entry(Bot bot, string clientOrderId, long price)
     {
         return new SteamOrderJournalEntry(

@@ -136,6 +136,12 @@ public sealed class SteamOptions
     /// </summary>
     public TimeSpan MarketBuyDeadline { get; init; } = TimeSpan.FromMinutes(2);
 
+    /// <summary>
+    ///     The most pages of 100 listings read of one account; an account with more is not read, and nothing is decided from part
+    ///     of its listings.
+    /// </summary>
+    public int ListingPagesMaximum { get; init; } = 10;
+
     public bool IsValid()
     {
         (string Address, string Host)[] origins =
@@ -151,7 +157,8 @@ public sealed class SteamOptions
             SoftResumeWindow > TimeSpan.Zero && CandleCloseDelay >= TimeSpan.Zero && HistoryReuse >= TimeSpan.Zero && WalletReuse >= TimeSpan.Zero &&
             DefaultAppId > 0 && MarkPriceInterval > TimeSpan.Zero && InventoryPageSize is > 0 and <= 5000 && InventoryMaximumPages > 0 &&
             DefiniteRejectionCodes.All(code => code > 1) && MarketBuySlippage is >= 0m and <= 0.1m &&
-            MarketBuyDeadline > TimeSpan.Zero && MarketBuyDeadline <= TimeSpan.FromHours(1);
+            MarketBuyDeadline > TimeSpan.Zero && MarketBuyDeadline <= TimeSpan.FromHours(1) &&
+            ListingPagesMaximum is > 0 and <= 100;
 
         return timings && origins.All(origin => Enabled
             ? IsAllowedOrigin(origin.Address, origin.Host)
