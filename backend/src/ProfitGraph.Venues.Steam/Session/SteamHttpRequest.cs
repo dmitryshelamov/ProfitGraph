@@ -2,7 +2,9 @@ namespace ProfitGraph.Venues.Steam.Session;
 
 /// <summary>
 ///     One request to a Steam host. A request with a form is a POST and a write unless <see cref="IsRead" /> says
-///     otherwise (Steam answers some reads, such as server time, only to POST).
+///     otherwise (Steam answers some reads, such as server time, only to POST). A request that
+///     <see cref="ExpectsRedirect" /> takes a redirect elsewhere than the login page as its answer, as the market eligibility
+///     check gives one.
 /// </summary>
 internal sealed record SteamHttpRequest(
     SteamEndpoint Endpoint,
@@ -10,7 +12,8 @@ internal sealed record SteamHttpRequest(
     IReadOnlyDictionary<string, string>? Form = null,
     bool IsRead = true,
     bool Multipart = false,
-    SteamRequestClass? Class = null)
+    SteamRequestClass? Class = null,
+    bool ExpectsRedirect = false)
 {
     /// <summary>
     ///     The queue class: as given, otherwise a write or a status read.

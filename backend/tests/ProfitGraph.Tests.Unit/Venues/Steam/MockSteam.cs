@@ -102,6 +102,11 @@ internal sealed class MockSteam : HttpMessageHandler
     /// </summary>
     public List<MockSteamHistoryEvent> History { get; } = new List<MockSteamHistoryEvent>();
 
+    /// <summary>
+    ///     Where the market eligibility check redirects an eligible account; null answers with a page, as for a restricted one.
+    /// </summary>
+    public string? EligibilityRedirect { get; set; } = "/market/";
+
     public int Count(string path)
     {
         lock (_requests)
@@ -152,6 +157,7 @@ internal sealed class MockSteam : HttpMessageHandler
             ("community.steam.invalid", "/market/sellitem/") => SellItem(form),
             ("community.steam.invalid", "/market/mylistings/") => MyListings(),
             ("community.steam.invalid", "/market/myhistory/render/") => MyHistory(request.RequestUri),
+            ("community.steam.invalid", "/market/eligibilitycheck/") => Eligibility(),
             ("community.steam.invalid", var removal) when removal.StartsWith("/market/removelisting/", StringComparison.Ordinal) => RemoveListing(removal),
             ("community.steam.invalid", "/mobileconf/ajaxop") => ApproveConfirmation(request.RequestUri),
             _ => new HttpResponseMessage(HttpStatusCode.NotFound)
@@ -309,6 +315,19 @@ internal sealed class MockSteam : HttpMessageHandler
 
             return Json(JsonSerializer.Serialize(new { success = true, pagesize = 100, total_count = Listings.Count, start = 0, results_html = rows }));
         }
+    }
+
+    private HttpResponseMessage Eligibility()
+    {
+        if (EligibilityRedirect is null)
+        {
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("<html>market unavailable</html>", Encoding.UTF8, "text/html") };
+        }
+
+        var redirect = new HttpResponseMessage(HttpStatusCode.Found);
+        redirect.Headers.Location = new Uri(EligibilityRedirect, UriKind.Relative);
+
+        return redirect;
     }
 
     private HttpResponseMessage MyHistory(Uri address)

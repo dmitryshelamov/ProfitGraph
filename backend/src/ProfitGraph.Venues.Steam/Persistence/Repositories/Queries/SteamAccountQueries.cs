@@ -8,6 +8,20 @@ internal static class SteamAccountQueries
                                 FROM steam_accounts WHERE credential_id = @credentialId
                                 """;
 
+    internal const string Due = """
+                                SELECT credential_id AS CredentialId, account_fingerprint AS AccountFingerprint, guard_status AS GuardStatus,
+                                       next_check_at AS NextCheckAt, created_at AS CreatedAt, updated_at AS UpdatedAt
+                                FROM steam_accounts
+                                WHERE guard_status = 'Checking' AND next_check_at <= @now
+                                ORDER BY next_check_at, credential_id
+                                """;
+
+    internal const string Record = """
+                                   UPDATE steam_accounts
+                                   SET guard_status = @status, next_check_at = @nextCheckAt, updated_at = @at
+                                   WHERE credential_id = @credentialId AND guard_status = @expected
+                                   """;
+
     internal const string AnyFingerprint = "SELECT EXISTS (SELECT 1 FROM steam_accounts WHERE account_fingerprint = ANY(@fingerprints))";
 
     internal const string Insert = """

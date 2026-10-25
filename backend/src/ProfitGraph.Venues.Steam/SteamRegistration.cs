@@ -86,7 +86,8 @@ public static class SteamRegistration
     }
 
     /// <summary>
-    ///     Registers Steam order execution: the order gateway and the worker that moves accounts with open orders along. Only a
+    ///     Registers Steam order execution: the order gateway, the worker that moves accounts with open orders along and the
+    ///     worker that checks accounts awaiting their eligibility check. Only a
     ///     Worker with the live role calls it, and only when <c>Live:Trading:Enabled</c> is true; every committed setting keeps
     ///     it false, and <c>Venues:Steam:Enabled</c> still holds back every request (ADR 0022).
     /// </summary>
@@ -94,6 +95,8 @@ public static class SteamRegistration
     {
         services.AddSingleton<IOrderGateway, SteamOrderGateway>();
         services.AddHostedService<SteamOrderWorker>();
+        services.AddSingleton<SteamEligibility>();
+        services.AddHostedService<SteamEligibilityWorker>();
 
         return services;
     }

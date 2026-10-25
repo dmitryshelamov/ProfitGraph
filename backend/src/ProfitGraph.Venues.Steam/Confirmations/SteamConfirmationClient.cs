@@ -32,6 +32,39 @@ internal sealed class SteamConfirmationClient(IServiceScopeFactory scopes)
     }
 
     /// <summary>
+    ///     Whether Steam accepts the account's signed confirmation requests: true when it lists them, false when it answers that
+    ///     it does not, null when the answer says neither.
+    /// </summary>
+    public async Task<bool?> Probe(SteamAccountSession session, Guid credentialId, CancellationToken cancellationToken)
+    {
+        string query = await Signed(session, credentialId, SteamConfirmationKey.ListTag, [], cancellationToken);
+        SteamRequestResult result = await session.Execute(SteamHttpRequest.Get(SteamEndpoint.Community, "/mobileconf/getlist?" + query), cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            return null;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(result.Response!.Body);
+
+            return document.RootElement.ValueKind == JsonValueKind.Object && document.RootElement.TryGetProperty("success", out JsonElement success)
+                ? success.ValueKind switch
+                {
+                    JsonValueKind.True => true,
+                    JsonValueKind.False => false,
+                    _ => null
+                }
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     ///     Approves one confirmation. Only Steam's <c>success</c> proves it; anything else may or may not have approved it,
     ///     and the next list tells.
     /// </summary>
