@@ -56,6 +56,7 @@ public static class SteamRegistration
         services.AddSingleton<ILiveCandleSource, SteamLiveCandleSource>();
         services.AddSingleton<ILiveMarkPriceSource, SteamLiveMarkPriceSource>();
         services.AddSingleton<IVenueFeeRateReader, SteamFeeRateReader>();
+        services.AddSingleton<IAccountBalanceReader, SteamAccountBalanceReader>();
         services.AddOptions<SteamOptions>()
             .Bind(configuration.GetSection(SteamOptions.SectionName))
             .Validate(options => options.IsValid(), "Venues:Steam needs the official HTTPS origins of Community, login and Web API when it is enabled.")

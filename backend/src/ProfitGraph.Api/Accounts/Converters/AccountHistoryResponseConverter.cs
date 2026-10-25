@@ -16,8 +16,9 @@ internal static class AccountHistoryResponseConverter
             [
                 .. history.Snapshots.Select(snapshot => new AccountSnapshotResponse(
                     snapshot.CapturedAt,
-                    ExactGraphNumberParser.Format(snapshot.TotalValueUsd),
-                    snapshot.AvailableValueUsd is { } available ? ExactGraphNumberParser.Format(available) : null,
+                    ExactGraphNumberParser.Format(snapshot.TotalValue),
+                    snapshot.ValueCurrency,
+                    snapshot.AvailableValue is { } available ? ExactGraphNumberParser.Format(available) : null,
                     [
                         .. snapshot.Coins.Select(coin => new AccountCoinBalanceResponse(
                             coin.Coin,

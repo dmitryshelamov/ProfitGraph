@@ -6,7 +6,8 @@ internal sealed class AccountSnapshotDb
     public Guid CredentialId { get; init; }
     public DateTimeOffset CapturedAt { get; init; }
     public DateTimeOffset BucketStart { get; init; }
-    public decimal TotalValueUsd { get; init; }
-    public decimal? AvailableValueUsd { get; init; }
+    public decimal TotalValue { get; init; }
+    public string ValueCurrency { get; init; } = string.Empty;
+    public decimal? AvailableValue { get; init; }
     public string Coins { get; init; } = "[]";
 }

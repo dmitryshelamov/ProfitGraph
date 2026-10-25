@@ -2675,8 +2675,9 @@ export interface components {
         AccountSnapshotResponse: {
             /** Format: date-time */
             capturedAt: string;
-            totalValueUsd: string;
-            availableValueUsd: null | string;
+            totalValue: string;
+            valueCurrency: string;
+            availableValue: null | string;
             coins: components["schemas"]["AccountCoinBalanceResponse"][];
         };
         BackgroundJobFailureResponse: {

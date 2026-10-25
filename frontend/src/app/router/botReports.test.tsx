@@ -188,14 +188,16 @@ describe('account overview', () => {
           snapshots: [
             {
               capturedAt: '2026-10-24T09:55:00Z',
-              totalValueUsd: '150.5',
-              availableValueUsd: null,
+              totalValue: '150.5',
+              valueCurrency: 'USD',
+              availableValue: null,
               coins: [],
             },
             {
               capturedAt: '2026-10-24T10:00:00Z',
-              totalValueUsd: '160.25',
-              availableValueUsd: '100',
+              totalValue: '160.25',
+              valueCurrency: 'USD',
+              availableValue: '100',
               coins: [{ coin: 'USDT', balance: '100', usdValue: '100' }],
             },
           ],

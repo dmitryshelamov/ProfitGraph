@@ -24,8 +24,9 @@ internal sealed class GetAccountHistoryQueryHandler(
             [
                 .. history.Select(snapshot => new AccountSnapshotInternal(
                     snapshot.CapturedAt,
-                    snapshot.TotalValueUsd,
-                    snapshot.AvailableValueUsd,
+                    snapshot.TotalValue,
+                    snapshot.ValueCurrency,
+                    snapshot.AvailableValue,
                     [.. snapshot.Coins.Select(coin => new AccountCoinBalanceInternal(coin.Coin, coin.Balance, coin.UsdValue))]))
             ]);
     }
