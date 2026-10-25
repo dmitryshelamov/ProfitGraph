@@ -27,7 +27,16 @@ small pull requests; a stage is done when its acceptance criterion holds.
   corrections, synthetic candles for empty intervals. Confirms that venue ports need no core changes.
 - Telegram bot control on top of the wave 1 alerts.
 
-## Wave 3
+## Wave 3: Steam
 
-- `Venues.Steam` with its own model (marketplace fees, holding periods, mobile confirmations). Starts with an ADR
-  describing the model and the venue ports it uses.
+`Venues.Steam` with its own model: marketplace fees, holding periods and mobile confirmations
+([ADR 0022](adr/0022-steam-community-market-model.md)). The owner moved it ahead of stage 6 and wave 2. Unlike the
+T-Invest goal of wave 2, Steam changes the core where ADR 0022 lists it (C1–C9), each change in its own pull request
+with Bybit's fingerprints and pinned replay hashes unchanged. Trading stays disabled throughout.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| Model | ADR 0022 | The owner accepted the model | Done |
+| Core | Instrument symbols with spaces, the engine fee model and settlement hold with partial fills, venue execution defaults, named credential fields, venue-owned tables, venue bot settings, account protection | Each change has its tests; Bybit's pinned values are byte-identical | Planned |
+| Backtests | Steam descriptor, mock Steam, account session and request scheduler, credential import and authenticator enrollment, median history, item search, backtest UI | A Ladder backtest on Steam medians runs from item selection to result charts with Steam fees and the trade hold | Planned |
+| Live | Wallet and inventory reads, live candles and display price, order journal, buy orders, listings and confirmations, history receipts, reconciliation, bot UI | A ladder bot passes its scenarios against the mock Steam: holds and unlocks, a restart during a confirmation, an expired session, a background 429, a returned item with a new ID and a CAPTCHA | Planned |
