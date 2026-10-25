@@ -57,7 +57,7 @@ internal sealed class CreateBotCommandHandler(
             new BotParameters(parameters),
             command.AllocationCap,
             new BotRiskLimits(command.MaxOrderQuote, command.DailyLossLimitQuote),
-            new BotFeeRates(rates.MakerRate, rates.TakerRate, now),
+            new BotFeeRates(rates.MakerRate, rates.TakerRate, now, rates.SellerFees),
             now);
 
         if (command.AllowForeignOrders)

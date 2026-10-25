@@ -7,7 +7,7 @@ internal static class BotQueries
                                    exchange_credential_id AS ExchangeCredentialId, venue AS Venue, symbol AS Symbol, timeframe AS Timeframe,
                                    parameters::text AS Parameters, allocation_cap AS AllocationCap, max_order_quote AS MaxOrderQuote,
                                    daily_loss_limit_quote AS DailyLossLimitQuote, limit_fee_rate AS LimitFeeRate, market_fee_rate AS MarketFeeRate,
-                                   fee_rates_read_at AS FeeRatesReadAt, allow_foreign_orders AS AllowForeignOrders, desired_state AS DesiredState,
+                                   fee_rates_read_at AS FeeRatesReadAt, seller_fees::text AS SellerFees, allow_foreign_orders AS AllowForeignOrders, desired_state AS DesiredState,
                                    runtime_status AS RuntimeStatus, status_reason AS StatusReason, diagnostics AS Diagnostics,
                                    restart_attempts AS RestartAttempts, next_restart_at AS NextRestartAt, has_run AS HasRun,
                                    first_started_at AS FirstStartedAt, day_start_utc::timestamp AS DayStartUtc, day_start_equity AS DayStartEquity,
@@ -38,14 +38,14 @@ internal static class BotQueries
     internal const string Insert = """
                                    INSERT INTO bots (
                                        id, user_id, strategy_id, strategy_version_id, exchange_credential_id, venue, symbol, timeframe, parameters,
-                                       allocation_cap, max_order_quote, daily_loss_limit_quote, limit_fee_rate, market_fee_rate, fee_rates_read_at,
+                                       allocation_cap, max_order_quote, daily_loss_limit_quote, limit_fee_rate, market_fee_rate, fee_rates_read_at, seller_fees,
                                        allow_foreign_orders, desired_state, runtime_status, status_reason, diagnostics, restart_attempts,
                                        next_restart_at, has_run, first_started_at, day_start_utc, day_start_equity, rejected_version_id,
                                        created_at, updated_at)
                                    VALUES (
                                        @Id, @UserId, @StrategyId, @StrategyVersionId, @ExchangeCredentialId, @Venue, @Symbol, @Timeframe,
                                        CAST(@Parameters AS jsonb), @AllocationCap, @MaxOrderQuote, @DailyLossLimitQuote, @LimitFeeRate, @MarketFeeRate,
-                                       @FeeRatesReadAt, @AllowForeignOrders, @DesiredState, @RuntimeStatus, @StatusReason, @Diagnostics,
+                                       @FeeRatesReadAt, CAST(@SellerFees AS jsonb), @AllowForeignOrders, @DesiredState, @RuntimeStatus, @StatusReason, @Diagnostics,
                                        @RestartAttempts, @NextRestartAt, @HasRun, @FirstStartedAt, CAST(@DayStartUtc AS date), @DayStartEquity,
                                        @RejectedVersionId, @CreatedAt, @UpdatedAt)
                                    """;
@@ -54,7 +54,7 @@ internal static class BotQueries
                                    UPDATE bots SET
                                        strategy_version_id = @StrategyVersionId, parameters = CAST(@Parameters AS jsonb), allocation_cap = @AllocationCap,
                                        max_order_quote = @MaxOrderQuote, daily_loss_limit_quote = @DailyLossLimitQuote, limit_fee_rate = @LimitFeeRate,
-                                       market_fee_rate = @MarketFeeRate, fee_rates_read_at = @FeeRatesReadAt, allow_foreign_orders = @AllowForeignOrders,
+                                       market_fee_rate = @MarketFeeRate, fee_rates_read_at = @FeeRatesReadAt, seller_fees = CAST(@SellerFees AS jsonb), allow_foreign_orders = @AllowForeignOrders,
                                        desired_state = @DesiredState, runtime_status = @RuntimeStatus, status_reason = @StatusReason,
                                        diagnostics = @Diagnostics, restart_attempts = @RestartAttempts, next_restart_at = @NextRestartAt,
                                        has_run = @HasRun, first_started_at = @FirstStartedAt, day_start_utc = CAST(@DayStartUtc AS date),

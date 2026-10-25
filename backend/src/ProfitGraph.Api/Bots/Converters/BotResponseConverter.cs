@@ -1,3 +1,4 @@
+using ProfitGraph.Api.Backtesting.Contracts;
 using ProfitGraph.Api.Bots.Contracts;
 using ProfitGraph.Api.Common.Parsing;
 using ProfitGraph.Application.Bots.Contracts;
@@ -32,6 +33,9 @@ internal static class BotResponseConverter
             bot.NextRestartAt,
             bot.HasRun,
             bot.CreatedAt,
-            bot.UpdatedAt);
+            bot.UpdatedAt,
+            bot.SellerFees is { } fees
+                ? new SellerFeeScheduleResponse([.. fees.Rates.Select(ExactGraphNumberParser.Format)], ExactGraphNumberParser.Format(fees.Minimum))
+                : null);
     }
 }

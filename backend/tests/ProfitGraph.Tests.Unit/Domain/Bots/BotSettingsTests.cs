@@ -1,5 +1,6 @@
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Strategies;
+using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Tests.Unit.Domain.Bots;
 
@@ -89,6 +90,22 @@ public sealed class BotSettingsTests
     public void FeeRateIsAFractionWithAtMostTwelveDecimals(decimal rate)
     {
         Should.Throw<BotRuleException>(() => new BotFeeRates(rate, marketRate: 0.001m, Now));
+    }
+
+    [Test]
+    public void SellerFeesReplaceTheRatesAndCountAsAChange()
+    {
+        var schedule = new SellerFeeSchedule([0.05m, 0.10m], minimum: 0.01m);
+        Bot bot = BotFixture.Running();
+
+        Should.Throw<BotRuleException>(() => new BotFeeRates(limitRate: 0.001m, marketRate: 0m, Now, schedule)).Code.ShouldBe(BotRuleException.InvalidSettings);
+        bot.ChangeFeeRates(new BotFeeRates(limitRate: 0m, marketRate: 0m, Now, schedule), Now);
+        bot.FeeRates.SellerFees.ShouldBe(schedule);
+        bot.DomainEvents.ShouldBe([new BotFeeRatesChanged(bot.Id, Now)]);
+
+        bot.ClearDomainEvents();
+        bot.ChangeFeeRates(new BotFeeRates(limitRate: 0m, marketRate: 0m, Now, new SellerFeeSchedule([0.05m, 0.10m], minimum: 0.01m)), Now);
+        bot.DomainEvents.ShouldBeEmpty();
     }
 
     [Test]

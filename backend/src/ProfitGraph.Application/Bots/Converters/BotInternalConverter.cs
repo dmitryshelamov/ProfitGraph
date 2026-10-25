@@ -1,3 +1,4 @@
+using ProfitGraph.Application.Backtesting.Contracts;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Domain.Bots;
 
@@ -31,6 +32,7 @@ public static class BotInternalConverter
             bot.NextRestartAt,
             bot.HasRun,
             bot.CreatedAt,
-            bot.UpdatedAt);
+            bot.UpdatedAt,
+            bot.FeeRates.SellerFees is { } fees ? new SellerFeeScheduleInternal([.. fees.Rates], fees.Minimum) : null);
     }
 }

@@ -5,8 +5,10 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 
 using ProfitGraph.Application.Bots;
+using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Integration.Common;
 using ProfitGraph.Tests.Integration.MarketData;
 
@@ -50,6 +52,28 @@ public sealed class BotEndpointTests
         bot.GetProperty("allocationCap").GetString().ShouldBe("100");
         bot.GetProperty("parameters").GetProperty("buyAmount").GetString().ShouldBe("10");
         _factory.Services.GetRequiredService<FakeFeeRateReader>().LastApiKey.ShouldBe(BotApi.ApiKey);
+    }
+
+    [Test]
+    public async Task CreatedBotKeepsTheVenuesSellerFees()
+    {
+        var reader = _factory.Services.GetRequiredService<FakeFeeRateReader>();
+        reader.Rates = new VenueFeeRatesInternal(MakerRate: 0m, TakerRate: 0m, new SellerFeeSchedule([0.05m, 0.10m], minimum: 0.01m));
+        BotOwner owner = await BotApi.NewOwner(_factory);
+
+        try
+        {
+            Guid id = await BotApi.Create(owner);
+            JsonElement bot = await BotApi.Json(await owner.Client.GetAsync($"{BotApi.Path}/{id}"));
+
+            bot.GetProperty("limitFeeRate").GetString().ShouldBe("0");
+            bot.GetProperty("sellerFees").GetProperty("rates").EnumerateArray().Select(rate => rate.GetString()).ShouldBe(["0.05", "0.1"]);
+            bot.GetProperty("sellerFees").GetProperty("minimum").GetString().ShouldBe("0.01");
+        }
+        finally
+        {
+            reader.Rates = FakeFeeRateReader.DefaultRates;
+        }
     }
 
     [Test]

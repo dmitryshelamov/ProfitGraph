@@ -19,5 +19,19 @@ public sealed class VenuesEndpointTests
         venue["id"]!.GetValue<string>().ShouldBe("bybit");
         venue["name"]!.GetValue<string>().ShouldBe("Bybit");
         venue["timeframes"]!.AsArray().Select(item => item!.GetValue<string>()).ShouldContain("1h");
+        venue["executionDefaults"].ShouldBeNull();
+    }
+
+    [Test]
+    public async Task ShowsAVenuesExecutionDefaults()
+    {
+        await using var application = new ProfitGraphApiFactory();
+        using HttpClient client = await application.CreateSignedInClient();
+
+        var venues = (await client.GetFromJsonAsync<JsonArray>("/api/market-data/venues"))!;
+
+        JsonNode fees = venues.Single(item => item!["id"]!.GetValue<string>() == TestHistoryVenue.WithHistory)!["executionDefaults"]!["sellerFees"]!;
+        fees["rates"]!.AsArray().Select(rate => rate!.GetValue<string>()).ShouldBe(["0.05", "0.1"]);
+        fees["minimum"]!.GetValue<string>().ShouldBe("0.01");
     }
 }

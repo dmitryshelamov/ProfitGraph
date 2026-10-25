@@ -1,3 +1,4 @@
+using ProfitGraph.Api.Backtesting.Contracts;
 using ProfitGraph.Domain.Bots;
 
 namespace ProfitGraph.Api.Bots.Contracts;
@@ -29,4 +30,5 @@ public sealed record BotResponse(
     DateTimeOffset? NextRestartAt,
     bool HasRun,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    SellerFeeScheduleResponse? SellerFees);

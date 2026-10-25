@@ -42,7 +42,9 @@ public sealed class BotEngineSessionFactory(
             ?? throw new InvalidOperationException("The bot's strategy version does not exist.");
         CompiledTradingGraph plan = compiler.Compile(version.Definition, applied.Values);
         InstrumentRules instrument = (await Port(rules, bot).Get(bot.Series.Symbol, cancellationToken)).Rules;
-        var settings = new ExecutionSettings(bot.AllocationCap, slippage: 0m, bot.FeeRates.LimitRate, bot.FeeRates.MarketRate);
+        ExecutionSettings settings = bot.FeeRates.SellerFees is { } sellerFees
+            ? new ExecutionSettings(bot.AllocationCap, slippage: 0m, sellerFees)
+            : new ExecutionSettings(bot.AllocationCap, slippage: 0m, bot.FeeRates.LimitRate, bot.FeeRates.MarketRate);
         Timeframe timeframe = bot.Series.Timeframe;
         DateTimeOffset to = timeframe.FloorToGrid(clock.GetUtcNow());
         DateTimeOffset from = stored is null
