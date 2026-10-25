@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"/>
+        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions"/>
+        <InternalsVisibleTo Include="ProfitGraph.Tests.Unit"/>
+        <InternalsVisibleTo Include="ProfitGraph.Tests.Integration"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\ProfitGraph.Application\ProfitGraph.Application.csproj"/>
+    </ItemGroup>
+
+</Project>

@@ -20,6 +20,9 @@ public sealed class VenuesEndpointTests
         venue["name"]!.GetValue<string>().ShouldBe("Bybit");
         venue["timeframes"]!.AsArray().Select(item => item!.GetValue<string>()).ShouldContain("1h");
         venue["executionDefaults"].ShouldBeNull();
+        JsonNode steam = venues.Single(item => item!["id"]!.GetValue<string>() == "steam")!;
+        steam["timeframes"]!.AsArray().Select(item => item!.GetValue<string>()).ShouldBe(["1h", "1d"]);
+        steam["executionDefaults"]!["sellerFees"]!["minimum"]!.GetValue<string>().ShouldBe("0.01");
     }
 
     [Test]
