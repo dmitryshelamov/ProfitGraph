@@ -26,6 +26,8 @@ internal sealed class BacktestRunDb : IBacktestHistoryDb
     public DateTimeOffset? ReplayTo { get; init; }
     public int? WarmupCount { get; init; }
     public int? ReplayCount { get; init; }
+    public int WarmupClosedIntervals { get; init; }
+    public int ReplayClosedIntervals { get; init; }
     public Guid? RulesSnapshotId { get; init; }
     public string? BaseAsset { get; init; }
     public string? QuoteAsset { get; init; }

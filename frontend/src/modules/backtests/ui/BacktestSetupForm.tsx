@@ -19,6 +19,7 @@ import {
   type BacktestSetupValues,
   withVenueDefaults,
 } from '../model/backtestSetup';
+import { BacktestLimits } from './BacktestLimits';
 
 function Checked({
   label,
@@ -147,13 +148,7 @@ export function BacktestSetupForm({
             {text('from', 'С (UTC), пусто — с начала истории', undefined)}
             {text('to', 'По (UTC), пусто — до последней закрытой свечи', undefined)}
           </div>
-          {values.series.venue === 'tinvest' && (
-            <p className="text-sm text-muted">
-              Ночи и выходные — закрытия рынка, их нет в истории. Пустые минуты сессии — свечи без
-              сделок по последней цене: на них ордера не исполняются. Ценовой коридор и статус
-              торгов не моделируются, размер ордера — целыми лотами.
-            </p>
-          )}
+          <BacktestLimits venue={values.series.venue} />
         </div>
       </Card>
       <Card title="Счёт и исполнение">

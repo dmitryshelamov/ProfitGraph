@@ -11,9 +11,13 @@ namespace ProfitGraph.Tests.Integration.Common;
 
 /// <summary>
 ///     Hosts the API in the Testing environment against this run's disposable database, applying migrations on startup.
-///     The test kind of background work and the test history venues are registered next to the real ones.
+///     The test kind of background work and the test history venues are registered next to the real ones, and a test may
+///     add or replace services, such as a venue's mock transport.
 /// </summary>
-public sealed class ProfitGraphApiFactory(IReadOnlyDictionary<string, string>? settings = null, TimeProvider? clock = null) : WebApplicationFactory<Program>
+public sealed class ProfitGraphApiFactory(
+    IReadOnlyDictionary<string, string>? settings = null,
+    TimeProvider? clock = null,
+    Action<IServiceCollection>? services = null) : WebApplicationFactory<Program>
 {
     public ProfitGraphApiFactory(TimeProvider clock)
         : this(settings: null, clock)
@@ -31,15 +35,17 @@ public sealed class ProfitGraphApiFactory(IReadOnlyDictionary<string, string>? s
             builder.UseSetting(key, value);
         }
 
-        builder.ConfigureTestServices(services =>
+        builder.ConfigureTestServices(testServices =>
         {
-            services.AddTestJob();
-            services.AddTestHistory();
+            testServices.AddTestJob();
+            testServices.AddTestHistory();
 
             if (clock is not null)
             {
-                services.AddSingleton(clock);
+                testServices.AddSingleton(clock);
             }
+
+            services?.Invoke(testServices);
         });
     }
 }

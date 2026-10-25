@@ -7,6 +7,7 @@ import { Card } from '@/shared/ui/Card';
 import { DateTime } from '@/shared/ui/DateTime';
 
 import type { BacktestRun } from '../model/types';
+import { BacktestLimits } from './BacktestLimits';
 
 function percent(fraction: string): string {
   return `${fractionToPercent(fraction) ?? fraction}%`;
@@ -17,7 +18,7 @@ function holdLabel(seconds: number): string {
   return seconds % 86_400 === 0 ? `${seconds / 86_400} дн.` : `${Math.round(seconds / 3_600)} ч`;
 }
 
-/** What the run froze when it started, and the history it was given. */
+/** What the run froze when it started, the history it was given, and what its venue's backtests approximate. */
 export function RunConfiguration({ run }: { run: BacktestRun }) {
   const configuration = run.configuration;
   const rows: [string, ReactNode][] = [
@@ -72,6 +73,7 @@ export function RunConfiguration({ run }: { run: BacktestRun }) {
           </div>
         ))}
       </dl>
+      <BacktestLimits venue={configuration.venue} />
     </Card>
   );
 }

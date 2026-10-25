@@ -98,6 +98,22 @@ public sealed class BacktestRunTests
     }
 
     [Test]
+    public void HistoryOfAMarketThatClosesCountsItsClosedIntervalsBesideItsCandles()
+    {
+        BacktestRun run = Run(warmup: 2);
+        run.BeginLoadingHistory();
+        BacktestHistoryInfo closing = History() with { WarmupCount = 1, ReplayCount = 3, WarmupClosedIntervals = 1, ReplayClosedIntervals = 1 };
+
+        Should.Throw<BacktestRunRuleException>(() => run.AttachHistory(closing with { ReplayClosedIntervals = 0 }))
+            .Code.ShouldBe(BacktestRunRuleException.InvalidHistory);
+        Should.Throw<BacktestRunRuleException>(() => run.AttachHistory(closing with { WarmupClosedIntervals = -1, WarmupCount = 3 }))
+            .Code.ShouldBe(BacktestRunRuleException.InvalidHistory);
+        run.AttachHistory(closing);
+
+        run.History.ShouldBe(closing);
+    }
+
+    [Test]
     public void OmittedBoundsResolveToTheVenueStartAndTheLatestClosedCandle()
     {
         BacktestRun run = Run(openPeriod: true);

@@ -33,7 +33,7 @@ disabled throughout.
 |---|---|---|---|
 | Model | ADR 0023 | The owner accepted the model | Done |
 | Core | Market closures in history and live, candles without trades, waiting codes and fee corrections in the bot runtime, choosing a venue account for a credential, market data with the caller's credential | Each change has its tests; Bybit's and Steam's pinned values are byte-identical | Done |
-| Backtests | T-Invest module and mock, credential form with account selection, share search and rules, history with a reference share, backtest UI | A Ladder backtest on minute candles of a MOEX share runs from share selection to result charts with closures, candles without trades, lots and rouble fees | Planned |
+| Backtests | T-Invest module and mock, credential form with account selection, share search and rules, history with a reference share, backtest UI | A Ladder backtest on minute candles of a MOEX share runs from share selection to result charts with closures, candles without trades, lots and rouble fees | Done (T6–T8, T16; proven by `TInvestBacktestTests`) |
 | Live | Fee rates, account value, trading status, price band, live candles, order attempts, carry-over, late commissions, bot UI | A ladder bot passes its scenarios against the mock T-Invest: band waiting, a closed session, a day order carried over a night with a partial fill, a late commission, a restart at night and an unknown submit outcome | Done on the mock (T9–T15); trading stays disabled until the owner checks of ADR 0023 pass |
 
 Telegram bot control on top of the wave 1 alerts is also part of wave 2.

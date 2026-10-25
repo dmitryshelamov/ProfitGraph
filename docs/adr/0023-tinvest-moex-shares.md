@@ -356,3 +356,28 @@ withdrawals); and that the endpoint certificate is still issued by the Russian T
   no market data access and are unaffected.
 - Before trading, the owner checks listed above still apply. So do the checks added with T13, and the observation that
   the order state stream's messages carry `order_request_id`.
+
+## Amendment: backtest milestone (T16)
+
+- **Core fix found by the end-to-end run.** A backtest's history check (`BacktestConfiguration.CheckHistory`) required
+  warm-up and replay counts to equal the grid intervals of their ranges. Market closures (TC1) make candles fewer than
+  intervals, so every T-Invest backtest and optimization failed with `invalid_backtest_history` after preparing history.
+  The engine replay itself was correct.
+  - `BacktestHistoryInfo` now carries the closed intervals of each range, counted from the prepared history's
+    closures. They are stored with runs and optimizations (migration `202610250048`, default 0), and the check counts
+    candles plus closed intervals.
+  - Bybit and Steam have no closures, so their values are 0 and nothing else changes.
+- **The run says so.** `IVenueDescriptor.BacktestLimits` (default empty) names what a venue's backtests do not model as
+  stable codes, and `GET /api/market-data/venues` returns them. T-Invest lists six: `reference_calendar`,
+  `holiday_sessions`, `price_band`, `trading_status`, `gap_fills_at_limit` and `no_trades_fill_nothing`. The backtest
+  setup form and the run's parameters card show them as fixed Russian texts, replacing the form's hard-coded T-Invest
+  note.
+- **Proof of the milestone** ("a Ladder backtest on minute candles of a MOEX share runs from share selection to result
+  charts with closures, candles without trades, lots and rouble fees"):
+  - `TInvestBacktestTests.ALadderBacktestOfAMoexShareRunsFromShareSelectionToItsResults` runs through the API and a job
+    Worker with the real module against the mock. A key with its account is added, the share is found with the key, a
+    Ladder backtest runs over a week of minutes and completes, and the results are read back. Nights and the weekend are
+    closures, no fill lands on a candle without trades, every fill is whole lots, fees are in roubles, and the chart has
+    points.
+  - The frontend router test "starts a T-Invest run with the user's key and says what it approximates" covers the form.
+  - The engine-level `TInvestMarketDataTests.ALadderReplaysAWeekOfMinutesDeterministically` remains.

@@ -4048,6 +4048,7 @@ export interface components {
             timeframes: string[];
             executionDefaults: null | components["schemas"]["VenueExecutionDefaultsResponse"];
             botSettings: null | components["schemas"]["JsonElement"];
+            backtestLimits: string[];
         };
         WalkForwardDiagnosticResponse: {
             code: string;
