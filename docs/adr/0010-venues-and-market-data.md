@@ -117,3 +117,17 @@ every venue, and CSV import could be called by anyone sharing the workspace.
   explicit correction (ADR 0023, live candles).
 - The history identity adds a `no-trades` marker after a flagged candle only, so identities of histories without such
   candles keep their bytes.
+
+## Amendment: market data with the caller's credential (ADR 0023, TC6)
+
+- A venue without anonymous market data reads history, instrument search and rules with the caller's own credential of
+  that venue. Downloads (`POST /api/historical-data/downloads`), backtests and optimizations (`credentialId` in the
+  backtest request) and the instrument search (`credentialId` query parameter) may name one; the start checks that it is
+  the user's and of the series' venue (`404 exchange_credential_not_found`, `400 credential_venue_mismatch`).
+- The job request (`DownloadCandlesCommand`, `RunBacktestCommand`, `RunOptimizationCommand`, and the finalists an
+  optimization starts) keeps the credential's identifier; the frozen configuration, the compilation fingerprint and the
+  history identity never contain it. The Worker decrypts it only around the use case's venue reads
+  (`MarketDataAccess.Use`, which flows through that use case's awaited calls and nowhere else). A credential deleted
+  since the job was queued gives no access, so a run whose history is complete in the cache still runs.
+- Venue ports keep their signatures: a module that needs access reads `MarketDataAccess.Current`; Bybit and Steam ignore
+  it. Bot creation reads the rules with the bot's credential; live reads follow with live closures (TC3).

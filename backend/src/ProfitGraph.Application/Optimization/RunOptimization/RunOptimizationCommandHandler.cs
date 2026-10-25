@@ -7,6 +7,7 @@ using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Application.Jobs;
 using ProfitGraph.Application.Jobs.Ports;
+using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.Optimization.Contracts;
 using ProfitGraph.Application.Optimization.Execution;
 using ProfitGraph.Application.Optimization.Ports;
@@ -38,6 +39,7 @@ internal sealed class RunOptimizationCommandHandler(
     IStrategyRepository strategies,
     BacktestCompiler compiler,
     BacktestHistoryLoader history,
+    MarketDataCredentials credentials,
     OptimizationTrialRunner runner,
     WalkForwardRunner walkForward,
     OptimizationTrialRunnerOptions options,
@@ -63,7 +65,19 @@ internal sealed class RunOptimizationCommandHandler(
                 "The strategy no longer compiles with these ranges to what was frozen when the optimization started; start a new one.");
         }
 
-        (PreparedReplay replay, InstrumentRules rules) = await PrepareHistory(optimization, cancellationToken);
+        PreparedReplay replay;
+        InstrumentRules rules;
+
+        using (MarketDataAccess.Use(
+                   await credentials.ReadIfStillThere(
+                       optimization.OwnerId.Value,
+                       request.CredentialId,
+                       optimization.Configuration.Backtest.Series.Venue,
+                       cancellationToken)))
+        {
+            (replay, rules) = await PrepareHistory(optimization, cancellationToken);
+        }
+
         var input = new OptimizationRunInputInternal(
             version.Definition.TemplateKind,
             plan,
@@ -96,7 +110,7 @@ internal sealed class RunOptimizationCommandHandler(
 
         for (var index = 0; index < finalists.Count; index++)
         {
-            await StartFinalist(optimization, version, finalists[index], started, cancellationToken);
+            await StartFinalist(optimization, version, finalists[index], started, request.CredentialId, cancellationToken);
             await progress.Report(index + 1, finalists.Count, cancellationToken);
         }
 
@@ -292,6 +306,7 @@ internal sealed class RunOptimizationCommandHandler(
         StrategyVersion version,
         EngineExecutionInputs finalist,
         IReadOnlyList<IReadOnlyDictionary<string, decimal>> started,
+        Guid? credentialId,
         CancellationToken cancellationToken)
     {
         BacktestConfiguration backtest = optimization.Configuration.Backtest;
@@ -334,7 +349,7 @@ internal sealed class RunOptimizationCommandHandler(
         await transactions.ExecuteAsync(
             async () =>
             {
-                await queue.Enqueue(jobId, optimization.OwnerId, new RunBacktestCommand(jobId.Value), cancellationToken);
+                await queue.Enqueue(jobId, optimization.OwnerId, new RunBacktestCommand(jobId.Value, credentialId), cancellationToken);
                 await backtests.Add(run, cancellationToken);
 
                 return true;

@@ -24,6 +24,7 @@ internal sealed class StartBacktestCommandHandler(
     IBacktestRunRepository runs,
     VenueRegistry venues,
     BacktestCompiler compiler,
+    MarketDataCredentials credentials,
     BackgroundJobQueue queue,
     TimeProvider clock) : IRequestHandler<StartBacktestCommand, BackgroundJobInternal>
 {
@@ -38,11 +39,12 @@ internal sealed class StartBacktestCommandHandler(
         IReadOnlyDictionary<string, decimal> parameters = request.Parameters ?? new Dictionary<string, decimal>();
         CompiledTradingGraph plan = compiler.Compile(version.Definition, parameters);
         CandleSeries series = venues.ResolveSeries(request.Venue, request.Symbol, request.Timeframe);
+        await credentials.Check(request.UserId, request.CredentialId, series.Venue, cancellationToken);
         BacktestConfiguration configuration = BacktestFreezing.Freeze(request, series, parameters, plan, clock.GetUtcNow());
         var owner = new UserId(request.UserId);
         var jobId = BackgroundJobId.New();
         var run = BacktestRun.Create(new BacktestRunId(jobId), owner, strategy.Id, version.Number, configuration, configuration.ObservedAt);
-        BackgroundJobInternal job = await queue.Enqueue(jobId, owner, new RunBacktestCommand(jobId.Value), cancellationToken);
+        BackgroundJobInternal job = await queue.Enqueue(jobId, owner, new RunBacktestCommand(jobId.Value, request.CredentialId), cancellationToken);
         await runs.Add(run, cancellationToken);
 
         return job;

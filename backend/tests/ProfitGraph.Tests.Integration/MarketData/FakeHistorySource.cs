@@ -1,3 +1,5 @@
+using ProfitGraph.Application.Accounts.Contracts;
+using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.MarketData;
@@ -29,6 +31,11 @@ public sealed class FakeHistorySource : IHistoricalCandleSource
 
     public List<(DateTimeOffset From, DateTimeOffset To)> Requests { get; } = [];
 
+    /// <summary>
+    ///     The market data access of each history request (ADR 0023, TC6).
+    /// </summary>
+    public List<ExchangeCredentialSecretsInternal?> Accesses { get; } = [];
+
     public VenueId Venue { get; } = new VenueId(TestHistoryVenue.WithHistory);
 
     public string Source => "test";
@@ -48,6 +55,7 @@ public sealed class FakeHistorySource : IHistoricalCandleSource
         lock (Requests)
         {
             Requests.Add((from, to));
+            Accesses.Add(MarketDataAccess.Current);
         }
 
         if (BeforeGet is not null)
@@ -68,6 +76,7 @@ public sealed class FakeHistorySource : IHistoricalCandleSource
         lock (Requests)
         {
             Requests.Clear();
+            Accesses.Clear();
         }
     }
 

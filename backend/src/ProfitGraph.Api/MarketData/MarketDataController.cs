@@ -2,6 +2,7 @@ using MediatR;
 
 using Microsoft.AspNetCore.Mvc;
 
+using ProfitGraph.Api.Common.Authentication;
 using ProfitGraph.Api.MarketData.Contracts;
 using ProfitGraph.Api.MarketData.Converters;
 using ProfitGraph.Application.MarketData.Contracts;
@@ -30,10 +31,12 @@ public sealed class MarketDataController(ISender sender) : ControllerBase
         [FromQuery] string? venue,
         CancellationToken cancellationToken,
         [FromQuery] string? query = "",
-        [FromQuery] int limit = 20)
+        [FromQuery] int limit = 20,
+        [FromQuery] Guid? credentialId = null)
     {
+        Guid userId = AuthenticationSetup.UserId(User) ?? throw new InvalidOperationException("An authorized request has no user identifier.");
         IReadOnlyList<InstrumentInternal> instruments = await sender.Send(
-            new GetInstrumentsQuery(venue ?? string.Empty, query ?? string.Empty, limit),
+            new GetInstrumentsQuery(venue ?? string.Empty, query ?? string.Empty, limit, userId, credentialId),
             cancellationToken);
 
         return instruments.Select(instrument => instrument.ToResponse()).ToArray();

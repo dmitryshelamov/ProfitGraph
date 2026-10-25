@@ -47,7 +47,8 @@ public static class StartBacktestRequestConverter
             marketFeeRate!.Value,
             outOfSampleFraction,
             sellerFees,
-            request.SettlementHoldSeconds);
+            request.SettlementHoldSeconds,
+            request.CredentialId);
     }
 
     private static decimal? Number(string? value, string field, List<InputError> errors)

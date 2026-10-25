@@ -56,6 +56,12 @@ A candle of an open market in which nothing traded: flat at the last real close,
 candle-close work treat it as any candle, but a backtest fills no order on it; orders wait for a real candle. Only the
 venue marks a candle so, and a CSV file cannot replace one.
 
+### Market Data Access
+
+The user's own credential that a venue without anonymous market data reads history, instrument search and rules with.
+A download, backtest, optimization or search may name one; only its identifier travels with the job, never into a
+run's frozen configuration, and a run whose history is already cached needs none.
+
 ### Instrument Rules Snapshot
 
 The trading rules of one instrument (quantity step, price tick, minimums, asset precisions) as the venue reported

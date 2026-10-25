@@ -32,6 +32,7 @@ internal sealed class StartOptimizationCommandHandler(
     IOptimizationRunRepository optimizations,
     VenueRegistry venues,
     BacktestCompiler compiler,
+    MarketDataCredentials credentials,
     BackgroundJobQueue queue,
     TimeProvider clock) : IRequestHandler<StartOptimizationCommand, BackgroundJobInternal>
 {
@@ -76,6 +77,7 @@ internal sealed class StartOptimizationCommandHandler(
             () => new OptimizationConstraints(request.MinExecutions ?? 1, request.MaxDrawdownPercent ?? 50m),
             "MaxDrawdownPercent");
         CandleSeries series = venues.ResolveSeries(backtest.Venue, backtest.Symbol, backtest.Timeframe);
+        await credentials.Check(backtest.UserId, backtest.CredentialId, series.Venue, cancellationToken);
         BacktestConfiguration frozen = BacktestFreezing.Freeze(backtest, series, parameters, plan, clock.GetUtcNow());
         WalkForwardSettings? walkForward = request.WalkForward is { } requested ? WalkForward(requested, frozen) : null;
         var configuration = new OptimizationConfiguration(
@@ -95,7 +97,7 @@ internal sealed class StartOptimizationCommandHandler(
         var owner = new UserId(backtest.UserId);
         var jobId = BackgroundJobId.New();
         var optimization = OptimizationRun.Create(new OptimizationId(jobId), owner, strategy.Id, version.Number, configuration, frozen.ObservedAt);
-        BackgroundJobInternal job = await queue.Enqueue(jobId, owner, new RunOptimizationCommand(jobId.Value), cancellationToken);
+        BackgroundJobInternal job = await queue.Enqueue(jobId, owner, new RunOptimizationCommand(jobId.Value, backtest.CredentialId), cancellationToken);
         await optimizations.Add(optimization, cancellationToken);
 
         return job;

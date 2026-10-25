@@ -68,7 +68,8 @@ public sealed class HistoricalDataController(ISender sender) : ControllerBase
                 request.Symbol ?? string.Empty,
                 request.Timeframe ?? string.Empty,
                 request.From,
-                request.To),
+                request.To,
+                request.CredentialId),
             cancellationToken);
 
         return AcceptedAtAction(nameof(JobsController.Get), "Jobs", new { id = job.Id }, job.ToResponse());

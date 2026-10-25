@@ -40,6 +40,7 @@ internal static class MarketDataRegistration
         services.AddScoped(provider => provider.GetRequiredService<IOptionsMonitor<HistoryDownloadOptions>>().CurrentValue);
         services.AddScoped(typeof(VenuePorts<>));
         services.AddScoped<CandleDownloadService>();
+        services.AddScoped<MarketDataCredentials>();
         services.AddBackgroundJob<DownloadCandlesCommand, HistoricalDownloadInternal>();
         services.AddScoped<IInstrumentRulesRepository, InstrumentRulesRepository>();
         services.AddScoped<InstrumentRulesCaptureService>();
