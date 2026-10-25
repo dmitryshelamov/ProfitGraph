@@ -70,7 +70,11 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
                 body,
                 response.Content.Headers.ContentType?.MediaType,
                 response.Headers.TryGetValues("Set-Cookie", out IEnumerable<string>? setCookies) ? [.. setCookies] : [],
-                response.Headers.Location);
+                response.Headers.Location,
+                response.Headers.TryGetValues("x-eresult", out IEnumerable<string>? results) &&
+                int.TryParse(results.FirstOrDefault(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out int result)
+                    ? result
+                    : null);
 
             return new SteamRequestResult(Classify(response, body, request), payload, RetryAfter(response.Headers.RetryAfter));
         }

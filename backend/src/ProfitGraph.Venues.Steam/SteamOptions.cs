@@ -158,6 +158,17 @@ public sealed class SteamOptions
 
     public TimeSpan ClockTolerance { get; init; } = TimeSpan.FromMinutes(10);
 
+    /// <summary>
+    ///     How long a pending link of a new authenticator lives after its last step, how long a new authenticator is expected
+    ///     to age before Steam lets the account sell (Profit Fox Designer's estimate: 15 days), and how many times its
+    ///     activation is sent when Steam wants another code.
+    /// </summary>
+    public TimeSpan EnrollmentLifetime { get; init; } = TimeSpan.FromMinutes(10);
+
+    public TimeSpan CoolingDownEstimate { get; init; } = TimeSpan.FromDays(15);
+
+    public int ActivationAttempts { get; init; } = 3;
+
     public bool IsValid()
     {
         (string Address, string Host)[] origins =
@@ -175,7 +186,9 @@ public sealed class SteamOptions
             DefiniteRejectionCodes.All(code => code > 1) &&
             ListingPagesMaximum is > 0 and <= 100 && HistoryPageSize is > 0 and <= 100 && HistoryMaximumPages is > 0 and <= 100 &&
             HistoryOverlap > 0 && HistoryOverlap < HistoryPageSize && OrderWorkerInterval >= TimeSpan.FromSeconds(1) &&
-            EligibilityInterval >= TimeSpan.FromSeconds(1) && EligibilityRecheck > TimeSpan.Zero && ClockTolerance > TimeSpan.Zero;
+            EligibilityInterval >= TimeSpan.FromSeconds(1) && EligibilityRecheck > TimeSpan.Zero && ClockTolerance > TimeSpan.Zero &&
+            EnrollmentLifetime > TimeSpan.Zero && EnrollmentLifetime <= TimeSpan.FromHours(1) && CoolingDownEstimate >= TimeSpan.Zero &&
+            CoolingDownEstimate <= TimeSpan.FromDays(30) && ActivationAttempts is >= 1 and <= 5;
 
         return timings && origins.All(origin => Enabled
             ? IsAllowedOrigin(origin.Address, origin.Host)

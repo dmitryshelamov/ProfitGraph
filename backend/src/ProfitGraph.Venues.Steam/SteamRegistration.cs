@@ -11,6 +11,7 @@ using ProfitGraph.Application.Common.Operations;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Venues.Steam.Accounts;
 using ProfitGraph.Venues.Steam.Confirmations;
+using ProfitGraph.Venues.Steam.Enrollment;
 using ProfitGraph.Venues.Steam.History;
 using ProfitGraph.Venues.Steam.Inventory;
 using ProfitGraph.Venues.Steam.LiveData;
@@ -53,6 +54,9 @@ public static class SteamRegistration
         services.AddSingleton<SteamAccountProtection>();
         services.AddSingleton<IVenueAccountProtection>(provider => provider.GetRequiredService<SteamAccountProtection>());
         services.AddSingleton<IVenueAuthenticatorCodes, SteamAuthenticatorCodes>();
+        services.AddSingleton<ISteamEnrollmentStore, SteamEnrollmentRepository>();
+        services.AddSingleton<SteamEnrollmentClient>();
+        services.AddSingleton<IVenueCredentialEnrollment, SteamCredentialEnrollment>();
         services.AddSingleton<SteamAccountSessions>();
         services.AddSingleton<SteamMarketDataAccount>();
         services.AddSingleton<SteamInventoryReader>();

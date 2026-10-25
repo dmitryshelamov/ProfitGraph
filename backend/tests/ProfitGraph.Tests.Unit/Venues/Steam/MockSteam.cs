@@ -107,6 +107,11 @@ internal sealed class MockSteam : HttpMessageHandler
     /// </summary>
     public string? EligibilityRedirect { get; set; } = "/market/";
 
+    /// <summary>
+    ///     Answers sign-in and authenticator linking when a test sets it.
+    /// </summary>
+    public MockSteamEnrollment? Enrollment { get; set; }
+
     public int Count(string path)
     {
         lock (_requests)
@@ -137,6 +142,11 @@ internal sealed class MockSteam : HttpMessageHandler
 
         string form = request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
 
+        if (Enrollment?.Answer(request, path, await FormOf(request, form, cancellationToken)) is { } enrolled)
+        {
+            return enrolled;
+        }
+
         return (request.RequestUri.Host, path) switch
         {
             ("login.steam.invalid", "/jwt/finalizelogin") when form.Contains(RefreshToken, StringComparison.Ordinal) => Json(
@@ -162,6 +172,23 @@ internal sealed class MockSteam : HttpMessageHandler
             ("community.steam.invalid", "/mobileconf/ajaxop") => ApproveConfirmation(request.RequestUri),
             _ => new HttpResponseMessage(HttpStatusCode.NotFound)
         };
+    }
+
+    private static async Task<IReadOnlyDictionary<string, string>> FormOf(HttpRequestMessage request, string form, CancellationToken cancellationToken)
+    {
+        if (request.Content is not MultipartFormDataContent multipart)
+        {
+            return form.Length == 0 ? new Dictionary<string, string>() : Fields(form);
+        }
+
+        var fields = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (HttpContent part in multipart)
+        {
+            fields[part.Headers.ContentDisposition!.Name!.Trim('"')] = await part.ReadAsStringAsync(cancellationToken);
+        }
+
+        return fields;
     }
 
     private static Dictionary<string, string> Fields(string form)

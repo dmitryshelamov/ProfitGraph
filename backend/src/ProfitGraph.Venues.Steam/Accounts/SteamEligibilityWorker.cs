@@ -8,7 +8,8 @@ using ProfitGraph.Domain.Accounts;
 namespace ProfitGraph.Venues.Steam.Accounts;
 
 /// <summary>
-///     Checks accounts in <see cref="SteamGuardStatus.Checking" /> whose check is due, every
+///     Checks accounts in <see cref="SteamGuardStatus.Checking" />, or a new authenticator's account in
+///     <see cref="SteamGuardStatus.CoolingDown" /> once its expected aging passed, whose check is due, every
 ///     <see cref="SteamOptions.EligibilityInterval" />. The attempt is recorded before Steam is asked, so a failed or
 ///     concurrent check waits <see cref="SteamOptions.EligibilityRecheck" />; an account still unconfirmed is checked again
 ///     after that, and a ready or restricted one is left to its owner. Failures are logged by kind only.
@@ -52,7 +53,7 @@ internal sealed class SteamEligibilityWorker(
                 if (await credentials.Get(new ExchangeCredentialId(account.CredentialId), cancellationToken) is not { } credential ||
                     !await store.Record(
                         account.CredentialId,
-                        SteamGuardStatus.Checking,
+                        account.GuardStatus,
                         SteamGuardStatus.Checking,
                         now + options.Value.EligibilityRecheck,
                         now,
