@@ -41,6 +41,11 @@ public static class Program
         {
             builder.Services.AddOutboxDispatcher();
             builder.Services.AddBotRuntime();
+
+            if (builder.Configuration.GetValue<bool>("Live:Trading:Enabled"))
+            {
+                builder.Services.AddBybitTrading();
+            }
         }
 
         builder.Services.AddBybitVenue(builder.Configuration);

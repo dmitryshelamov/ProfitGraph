@@ -8,13 +8,14 @@ using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Venues.Bybit.Instruments;
 using ProfitGraph.Venues.Bybit.LiveData;
 using ProfitGraph.Venues.Bybit.MarketData;
+using ProfitGraph.Venues.Bybit.Trading;
 
 namespace ProfitGraph.Venues.Bybit;
 
 public static class BybitRegistration
 {
     /// <summary>
-    ///     Registers Bybit Spot: its descriptor, public history, live candles, tradable pairs and instrument rules. Every request is public; no credentials are used.
+    ///     Registers Bybit Spot: its descriptor, public history, live candles, tradable pairs, instrument rules and the read-only fee rates of a credential. No order can be sent.
     /// </summary>
     public static IServiceCollection AddBybitVenue(this IServiceCollection services, IConfiguration configuration)
     {
@@ -40,6 +41,23 @@ public static class BybitRegistration
         services.AddHttpClient<IInstrumentCatalog, BybitInstrumentCatalog>(Configure);
         services.AddSingleton<IBybitPublicStreamTransport, BybitPublicWebSocketTransport>();
         services.AddSingleton<ILiveCandleSource, BybitLiveCandleSource>();
+        services.AddSingleton(_ => new BybitServerClock(TimeProvider.System));
+        services.AddHttpClient<BybitReadClient>(Configure).RemoveAllLoggers();
+        services.AddTransient<IVenueFeeRateReader, BybitFeeRateReader>();
+
+        return services;
+    }
+
+    /// <summary>
+    ///     Registers Bybit Spot order execution. Only a Worker with the live role calls it, and only when
+    ///     <c>Live:Trading:Enabled</c> is true; every committed setting keeps it false (ADR 0017).
+    /// </summary>
+    public static IServiceCollection AddBybitTrading(this IServiceCollection services)
+    {
+        services.AddHttpClient<BybitTradeClient>(Configure).RemoveAllLoggers();
+        services.AddSingleton<BybitOrderUpdates>();
+        services.AddSingleton<BybitBotContexts>();
+        services.AddTransient<IOrderGateway, BybitOrderGateway>();
 
         return services;
     }
