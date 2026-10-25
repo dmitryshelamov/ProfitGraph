@@ -78,3 +78,16 @@ requires the owner to enter credentials again, so nothing is imported. Stage 5 p
   `202610250024`, which also renamed `total_value_usd` and `available_value_usd` to `total_value` and `available_value`).
   Bybit values in USD; Steam values a wallet in the wallet's currency and converts nothing. A coin's USD value stays
   optional. The API returns `totalValue`, `valueCurrency` and `availableValue`.
+
+## Amendment: choosing a venue account (ADR 0023, TC5)
+
+- A venue whose credential selects one of several accounts registers `IVenueAccountDirectory` with the field that names
+  the account. `POST /api/exchange-credentials/accounts` takes the venue and every declared field but the account and
+  lists the accounts with whether a bot may trade through each (`credential_accounts_unsupported` for another venue,
+  `503 venue_accounts_unavailable` when the venue cannot answer). The fields are used for that request only.
+- `POST /api/exchange-credentials` takes such a venue's declared `fields`; Bybit keeps `apiKey` and `apiSecret`. Saving runs
+  outside the request transaction: it lists the accounts again and stores the credential only for an eligible account
+  (`venue_account_ineligible`), with the account identifier's last four characters as the public hint.
+- The credential records a keyed fingerprint of `{venue}:{account}` from `ISecretProtector.Fingerprints`
+  (`exchange_credentials.account_fingerprint`, unique per venue): one venue account is stored once, for any user
+  (`409 exchange_credential_account_exists`).

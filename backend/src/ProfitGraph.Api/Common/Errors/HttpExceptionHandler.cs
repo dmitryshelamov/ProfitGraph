@@ -31,6 +31,7 @@ internal sealed class HttpExceptionHandler(IProblemDetailsService problemDetails
             StateConflictException conflict => (409, "State conflict", conflict.Code),
             CredentialsUnavailableException unavailable => (503, "Credentials unavailable", unavailable.Code),
             VenueFeeRatesUnavailableException fees => (503, "Venue unavailable", fees.Code),
+            VenueAccountsUnavailableException accounts => (503, "Venue unavailable", accounts.Code),
             BotRuleException { Code: BotRuleException.MustBeStopped or BotRuleException.TradingHalted or BotRuleException.NotRunning } bot =>
                 (409, "State conflict", bot.Code),
             DomainException domain => (422, "Domain rule violation", domain.Code),

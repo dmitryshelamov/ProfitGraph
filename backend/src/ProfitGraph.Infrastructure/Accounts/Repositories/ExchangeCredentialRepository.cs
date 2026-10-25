@@ -3,6 +3,7 @@ using Dapper;
 using Npgsql;
 
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Infrastructure.Accounts.Repositories.Contracts;
 using ProfitGraph.Infrastructure.Accounts.Repositories.Converters;
 using ProfitGraph.Infrastructure.Accounts.Repositories.Queries;
@@ -27,10 +28,18 @@ internal sealed class ExchangeCredentialRepository(NpgsqlConnection connection, 
         return [.. rows.Select(row => row.ToDomain())];
     }
 
-    public async Task Add(ExchangeCredential credential, CancellationToken cancellationToken)
+    public async Task<bool> Add(ExchangeCredential credential, CancellationToken cancellationToken)
     {
-        await connection.ExecuteAsync(Command(ExchangeCredentialQueries.Insert, credential.ToDb(), cancellationToken));
+        int added = await connection.ExecuteAsync(Command(ExchangeCredentialQueries.Insert, credential.ToDb(), cancellationToken));
         transactions.RegisterDomainEventClear(credential);
+
+        return added == 1;
+    }
+
+    public async Task<bool> AnyAccountFingerprint(VenueId venue, IReadOnlyList<string> fingerprints, CancellationToken cancellationToken)
+    {
+        return await connection.ExecuteScalarAsync<bool>(
+            Command(ExchangeCredentialQueries.AnyAccountFingerprint, new { venue = venue.Value, fingerprints = fingerprints.ToArray() }, cancellationToken));
     }
 
     public async Task<bool> Delete(ExchangeCredentialId id, UserId ownerId, CancellationToken cancellationToken)
