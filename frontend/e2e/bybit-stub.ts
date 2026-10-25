@@ -116,6 +116,19 @@ createServer((request, response) => {
     send(response, klines(url));
   } else if (url.pathname === '/v5/market/instruments-info') {
     send(response, instrumentsInfo(url));
+  } else if (url.pathname === '/v5/market/time') {
+    send(response, { retCode: 0, retMsg: 'OK', result: {}, time: Date.now() });
+  } else if (url.pathname === '/v5/account/fee-rate') {
+    // Signed in production; the stub checks nothing, because the e2e key is invented.
+    send(response, {
+      retCode: 0,
+      retMsg: 'OK',
+      result: {
+        list: [
+          { symbol: url.searchParams.get('symbol'), makerFeeRate: '0.001', takerFeeRate: '0.001' },
+        ],
+      },
+    });
   } else {
     send(response, { retCode: 10001, retMsg: `Not stubbed: ${url.pathname}`, result: {} }, 404);
   }

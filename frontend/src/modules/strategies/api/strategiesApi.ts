@@ -96,15 +96,22 @@ export interface SaveStrategyInput {
   readonly name: string;
   readonly definition: StrategyDefinition;
   readonly layout: StrategyLayout;
+
+  /** Confirms that running bots of the strategy switch to the new version on their next root. */
+  readonly confirmLiveImpact?: boolean;
 }
 
-/** Saves the next version; fails with `strategy_changed` when someone saved a newer version first. */
+/**
+ * Saves the next version; fails with `strategy_changed` when someone saved a newer version first, and with
+ * `live_impact` while bots of the strategy run and the save does not confirm it.
+ */
 export async function saveStrategy(input: SaveStrategyInput): Promise<Strategy> {
   const body = {
     expectedVersion: input.expectedVersion,
     name: input.name,
     definition: input.definition,
     layout: input.layout,
+    confirmLiveImpact: input.confirmLiveImpact ?? false,
   } as Schemas['SaveStrategyRequest'];
 
   return unwrap(

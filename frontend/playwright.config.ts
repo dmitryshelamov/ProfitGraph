@@ -5,6 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
 // The runner evaluates this file once and workers inherit its environment, so every process shares one run identity.
 process.env.PROFITGRAPH_E2E_DATABASE ??= `profitgraph_e2e_${randomBytes(6).toString('hex')}`;
 process.env.PROFITGRAPH_E2E_PASSWORD ??= randomBytes(18).toString('base64url');
+process.env.PROFITGRAPH_E2E_MASTER_KEY ??= randomBytes(32).toString('base64');
 
 const database = process.env.PROFITGRAPH_E2E_DATABASE;
 const apiPort = 5293;
@@ -14,6 +15,9 @@ const shared = [
   `ConnectionStrings__Postgres="Host=localhost;Port=5436;Database=${database};Username=postgres;Password=postgres"`,
   // Tests never reach Bybit: its public API is served by e2e/bybit-stub.ts.
   `Venues__Bybit__BaseAddress=http://127.0.0.1:${bybitPort}/`,
+  // Exchange keys in e2e are invented; the master key that encrypts them is generated per run.
+  'Secrets__ActiveKeyId=e2e',
+  `Secrets__MasterKeys__e2e="$PROFITGRAPH_E2E_MASTER_KEY"`,
 ];
 const api = [
   'ASPNETCORE_ENVIRONMENT=Testing',

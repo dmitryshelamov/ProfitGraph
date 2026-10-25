@@ -145,6 +145,27 @@ const historicalDataRoute = createRoute({
   ),
 });
 
+const botsRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/bots',
+  component: lazyRouteComponent(() => import('@/pages/bots/BotsPage'), 'BotsPage'),
+});
+
+const botRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/bots/$botId',
+  component: lazyRouteComponent(() => import('@/pages/bot/BotPage'), 'BotPage'),
+});
+
+const credentialsRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/credentials',
+  component: lazyRouteComponent(
+    () => import('@/pages/credentials/CredentialsPage'),
+    'CredentialsPage',
+  ),
+});
+
 const strategyEditorRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/strategies/$strategyId/edit',
@@ -168,6 +189,9 @@ const routeTree = rootRoute.addChildren([
       optimizationRoute,
       compareRoute,
       historicalDataRoute,
+      botsRoute,
+      botRoute,
+      credentialsRoute,
     ]),
     strategyEditorRoute,
   ]),

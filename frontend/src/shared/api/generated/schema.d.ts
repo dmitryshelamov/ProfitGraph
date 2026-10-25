@@ -4,6 +4,117 @@
  */
 
 export interface paths {
+    "/api/trading-halt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["TradingHaltResponse"];
+                        "application/json": components["schemas"]["TradingHaltResponse"];
+                        "text/json": components["schemas"]["TradingHaltResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trading-halt/halt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["TradingHaltResponse"];
+                        "application/json": components["schemas"]["TradingHaltResponse"];
+                        "text/json": components["schemas"]["TradingHaltResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trading-halt/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["TradingHaltResponse"];
+                        "application/json": components["schemas"]["TradingHaltResponse"];
+                        "text/json": components["schemas"]["TradingHaltResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/block-catalog": {
         parameters: {
             query?: never;
@@ -166,6 +277,45 @@ export interface paths {
                 };
             };
         };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/strategies/{id}/live-impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LiveImpactBotResponse"][];
+                        "application/json": components["schemas"]["LiveImpactBotResponse"][];
+                        "text/json": components["schemas"]["LiveImpactBotResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -661,6 +811,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/profile/telegram": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["TelegramLinkResponse"];
+                        "application/json": components["schemas"]["TelegramLinkResponse"];
+                        "text/json": components["schemas"]["TelegramLinkResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/telegram/link-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["TelegramLinkCodeResponse"];
+                        "application/json": components["schemas"]["TelegramLinkCodeResponse"];
+                        "text/json": components["schemas"]["TelegramLinkCodeResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/historical-data/csv": {
         parameters: {
             query?: never;
@@ -944,6 +1185,693 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    unacknowledgedOnly?: boolean;
+                    everyUser?: boolean;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotAlertResponse"][];
+                        "application/json": components["schemas"]["BotAlertResponse"][];
+                        "text/json": components["schemas"]["BotAlertResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    unacknowledgedOnly?: boolean;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotAlertResponse"][];
+                        "application/json": components["schemas"]["BotAlertResponse"][];
+                        "text/json": components["schemas"]["BotAlertResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alerts/{id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotAlertResponse"];
+                        "application/json": components["schemas"]["BotAlertResponse"];
+                        "text/json": components["schemas"]["BotAlertResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotResponse"][];
+                        "application/json": components["schemas"]["BotResponse"][];
+                        "text/json": components["schemas"]["BotResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateBotRequest"];
+                    "text/json": components["schemas"]["CreateBotRequest"];
+                    "application/*+json": components["schemas"]["CreateBotRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotResponse"];
+                        "application/json": components["schemas"]["BotResponse"];
+                        "text/json": components["schemas"]["BotResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotResponse"];
+                        "application/json": components["schemas"]["BotResponse"];
+                        "text/json": components["schemas"]["BotResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotResponse"];
+                        "application/json": components["schemas"]["BotResponse"];
+                        "text/json": components["schemas"]["BotResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotResponse"];
+                        "application/json": components["schemas"]["BotResponse"];
+                        "text/json": components["schemas"]["BotResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}/kill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotResponse"];
+                        "application/json": components["schemas"]["BotResponse"];
+                        "text/json": components["schemas"]["BotResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}/manual-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SubmitManualOrderRequest"];
+                    "text/json": components["schemas"]["SubmitManualOrderRequest"];
+                    "application/*+json": components["schemas"]["SubmitManualOrderRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ManualOrderResponse"];
+                        "application/json": components["schemas"]["ManualOrderResponse"];
+                        "text/json": components["schemas"]["ManualOrderResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}/manual-orders/{orderId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    orderId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ManualOrderResponse"];
+                        "application/json": components["schemas"]["ManualOrderResponse"];
+                        "text/json": components["schemas"]["ManualOrderResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}/fills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    before?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotFillPageResponse"];
+                        "application/json": components["schemas"]["BotFillPageResponse"];
+                        "text/json": components["schemas"]["BotFillPageResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    before?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotFeedPageResponse"];
+                        "application/json": components["schemas"]["BotFeedPageResponse"];
+                        "text/json": components["schemas"]["BotFeedPageResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}/position": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    cycles?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotPositionResponse"];
+                        "application/json": components["schemas"]["BotPositionResponse"];
+                        "text/json": components["schemas"]["BotPositionResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}/parameters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ChangeBotParametersRequest"];
+                    "text/json": components["schemas"]["ChangeBotParametersRequest"];
+                    "application/*+json": components["schemas"]["ChangeBotParametersRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotResponse"];
+                        "application/json": components["schemas"]["BotResponse"];
+                        "text/json": components["schemas"]["BotResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}/risk-limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ChangeBotRiskLimitsRequest"];
+                    "text/json": components["schemas"]["ChangeBotRiskLimitsRequest"];
+                    "application/*+json": components["schemas"]["ChangeBotRiskLimitsRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotResponse"];
+                        "application/json": components["schemas"]["BotResponse"];
+                        "text/json": components["schemas"]["BotResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}/foreign-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ChangeBotForeignOrdersRequest"];
+                    "text/json": components["schemas"]["ChangeBotForeignOrdersRequest"];
+                    "application/*+json": components["schemas"]["ChangeBotForeignOrdersRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotResponse"];
+                        "application/json": components["schemas"]["BotResponse"];
+                        "text/json": components["schemas"]["BotResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1423,6 +2351,148 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/exchange-credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ExchangeCredentialResponse"][];
+                        "application/json": components["schemas"]["ExchangeCredentialResponse"][];
+                        "text/json": components["schemas"]["ExchangeCredentialResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateExchangeCredentialRequest"];
+                    "text/json": components["schemas"]["CreateExchangeCredentialRequest"];
+                    "application/*+json": components["schemas"]["CreateExchangeCredentialRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ExchangeCredentialResponse"];
+                        "application/json": components["schemas"]["ExchangeCredentialResponse"];
+                        "text/json": components["schemas"]["ExchangeCredentialResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/exchange-credentials/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/exchange-credentials/{id}/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    from?: string;
+                    to?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["AccountHistoryResponse"];
+                        "application/json": components["schemas"]["AccountHistoryResponse"];
+                        "text/json": components["schemas"]["AccountHistoryResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users": {
         parameters: {
             query?: never;
@@ -1505,6 +2575,28 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AccountCoinBalanceResponse: {
+            coin: string;
+            balance: string;
+            usdValue: null | string;
+        };
+        AccountHistoryResponse: {
+            /** Format: date-time */
+            lastAttemptAt: null | string;
+            /** Format: date-time */
+            lastSuccessAt: null | string;
+            failureReason: null | string;
+            /** Format: date-time */
+            nextAttemptAt: null | string;
+            snapshots: components["schemas"]["AccountSnapshotResponse"][];
+        };
+        AccountSnapshotResponse: {
+            /** Format: date-time */
+            capturedAt: string;
+            totalValueUsd: string;
+            availableValueUsd: null | string;
+            coins: components["schemas"]["AccountCoinBalanceResponse"][];
+        };
         BackgroundJobFailureResponse: {
             code: string;
             message: string;
@@ -1791,6 +2883,128 @@ export interface components {
             orderKinds: components["schemas"]["BlockCatalogEntryResponse"][];
             valueSources: components["schemas"]["BlockCatalogEntryResponse"][];
         };
+        /** @enum {unknown} */
+        BotAlertKind: "Degraded" | "Killed" | "RiskRejection" | "ExchangeUnavailable" | "GraphChangeRejected";
+        BotAlertResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            botId: string;
+            kind: components["schemas"]["BotAlertKind"];
+            reason: null | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            acknowledgedAt: null | string;
+        };
+        /** @enum {unknown} */
+        BotDesiredState: "Stopped" | "Running";
+        BotFeedEntryResponse: {
+            /** Format: int64 */
+            sequence: number;
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["BotFeedKind"];
+            details: {
+                [key: string]: string;
+            };
+            /** Format: date-time */
+            occurredAt: string;
+        };
+        /** @enum {unknown} */
+        BotFeedKind: "Started" | "Stopped" | "Killed" | "Degraded" | "Recovered" | "RuntimeStopped" | "RunRestarted" | "GraphVersionApplied" | "GraphChangeRejected" | "FeedStalled" | "FeedRecovered" | "ExchangeUnavailable" | "SubmitHeld" | "OrderPlaced" | "OrderRejected" | "OrderFailed" | "Fill" | "PositionOpened" | "PositionClosed" | "SettingsChanged";
+        BotFeedPageResponse: {
+            items: components["schemas"]["BotFeedEntryResponse"][];
+            /** Format: int64 */
+            next: null | number;
+        };
+        BotFillPageResponse: {
+            items: components["schemas"]["BotFillResponse"][];
+            /** Format: int64 */
+            next: null | number;
+        };
+        BotFillResponse: {
+            /** Format: int64 */
+            sequence: number;
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            engineOrderId: number;
+            side: components["schemas"]["OrderSide"];
+            tag: null | string;
+            grossBase: string;
+            grossQuote: string;
+            fee: string;
+            feeAsset: components["schemas"]["FeeAsset"];
+            price: string;
+            /** Format: date-time */
+            filledAt: string;
+        };
+        BotPositionCycleResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            openedAt: string;
+            /** Format: date-time */
+            closedAt: null | string;
+            realizedPnl: null | string;
+        };
+        BotPositionResponse: {
+            baseTotal: string;
+            quoteTotal: string;
+            costBasis: string;
+            averageCost: null | string;
+            realizedPnl: string;
+            /** Format: date-time */
+            openedAt: null | string;
+            markPrice: null | string;
+            /** Format: date-time */
+            markPriceObservedAt: null | string;
+            markPriceSource: null | components["schemas"]["MarkPriceSource"];
+            unrealizedPnl: null | string;
+            cycles: components["schemas"]["BotPositionCycleResponse"][];
+        };
+        BotResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            strategyId: string;
+            /** Format: uuid */
+            strategyVersionId: string;
+            /** Format: uuid */
+            credentialId: string;
+            venue: string;
+            symbol: string;
+            timeframe: string;
+            parameters: {
+                [key: string]: string;
+            };
+            allocationCap: string;
+            maxOrderQuote: string;
+            dailyLossLimitQuote: string;
+            limitFeeRate: string;
+            marketFeeRate: string;
+            /** Format: date-time */
+            feeRatesReadAt: string;
+            allowForeignOrders: boolean;
+            desiredState: components["schemas"]["BotDesiredState"];
+            runtimeStatus: components["schemas"]["BotRuntimeStatus"];
+            statusReason: null | components["schemas"]["BotStatusReason"];
+            diagnostics: string[];
+            /** Format: int32 */
+            restartAttempts: number;
+            /** Format: date-time */
+            nextRestartAt: null | string;
+            hasRun: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /** @enum {unknown} */
+        BotRuntimeStatus: "Created" | "Starting" | "Running" | "Degraded" | "Stopped";
+        /** @enum {unknown} */
+        BotStatusReason: "RuntimeFailure" | "NoGateway" | "UnknownVenue" | "IntentFailed" | "UnresolvedOrder" | "ForeignOrder" | "KeyPermissions" | "UnsupportedFeeAsset" | "InsufficientBalance" | "HistoryDataCorrection" | "Killed" | "DailyLossLimit" | null;
         CandleImportResponse: {
             venue: string;
             symbol: string;
@@ -1811,6 +3025,40 @@ export interface components {
             close: string;
             volume: string;
         };
+        ChangeBotForeignOrdersRequest: {
+            allowForeignOrders: boolean;
+        };
+        ChangeBotParametersRequest: {
+            parameters: null | {
+                [key: string]: string;
+            };
+            allocationCap: null | string;
+        };
+        ChangeBotRiskLimitsRequest: {
+            maxOrderQuote: null | string;
+            dailyLossLimitQuote: null | string;
+        };
+        CreateBotRequest: {
+            /** Format: uuid */
+            strategyId: string;
+            /** Format: uuid */
+            credentialId: string;
+            symbol: null | string;
+            timeframe: null | string;
+            parameters: null | {
+                [key: string]: string;
+            };
+            allocationCap: null | string;
+            maxOrderQuote: null | string;
+            dailyLossLimitQuote: null | string;
+            allowForeignOrders: boolean;
+        };
+        CreateExchangeCredentialRequest: {
+            venue: null | string;
+            label: null | string;
+            apiKey: null | string;
+            apiSecret: null | string;
+        };
         CreateStrategyRequest: {
             name: string;
             definition: components["schemas"]["StrategyDefinitionRequest"];
@@ -1830,6 +3078,17 @@ export interface components {
             /** Format: date-time */
             to: null | string;
         };
+        ExchangeCredentialResponse: {
+            /** Format: uuid */
+            id: string;
+            venue: string;
+            label: string;
+            apiKeyLast4: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @enum {unknown} */
+        FeeAsset: "Base" | "Quote";
         GraphLayoutRequest: {
             positions: {
                 [key: string]: components["schemas"]["NodePositionRequest"];
@@ -1859,6 +3118,36 @@ export interface components {
             quotePrecision: number;
         };
         JsonElement: unknown;
+        LiveImpactBotResponse: {
+            /** Format: uuid */
+            botId: string;
+            venue: string;
+            symbol: string;
+            timeframe: string;
+            /** Format: uuid */
+            strategyVersionId: string;
+            runtimeStatus: components["schemas"]["BotRuntimeStatus"];
+        };
+        ManualOrderResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            botId: string;
+            side: components["schemas"]["OrderSide"];
+            amount: string;
+            status: components["schemas"]["ManualOrderStatus"];
+            /** Format: int64 */
+            engineOrderId: null | number;
+            rejectionReason: null | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            resolvedAt: null | string;
+        };
+        /** @enum {unknown} */
+        ManualOrderStatus: "Pending" | "Submitted" | "Rejected";
+        /** @enum {unknown} */
+        MarkPriceSource: "Ticker" | "Candle" | null;
         NodePositionRequest: {
             /** Format: double */
             x: number;
@@ -2022,6 +3311,8 @@ export interface components {
             diagnostics: components["schemas"]["WalkForwardDiagnosticResponse"][];
             equity: components["schemas"]["WalkForwardEquityPointResponse"][];
         };
+        /** @enum {unknown} */
+        OrderSide: "Buy" | "Sell";
         SampleMetricsResponse: {
             /** Format: int32 */
             startIndex: number;
@@ -2047,6 +3338,8 @@ export interface components {
             name: string;
             definition: components["schemas"]["StrategyDefinitionRequest"];
             layout: components["schemas"]["GraphLayoutRequest"];
+            /** @default false */
+            confirmLiveImpact: boolean;
         };
         SignInRequest: {
             login: null | string;
@@ -2262,6 +3555,29 @@ export interface components {
         StrategyWireResponse: {
             from: components["schemas"]["StrategyExitResponse"];
             to: string;
+        };
+        SubmitManualOrderRequest: {
+            side: components["schemas"]["OrderSide"];
+            amount: null | string;
+        };
+        TelegramLinkCodeResponse: {
+            code: string;
+            /** Format: date-time */
+            expiresAt: string;
+            startLink: null | string;
+        };
+        TelegramLinkResponse: {
+            enabled: boolean;
+            linked: boolean;
+            /** Format: date-time */
+            linkedAt: null | string;
+            blocked: boolean;
+            botUsername: null | string;
+        };
+        TradingHaltResponse: {
+            isHalted: boolean;
+            /** Format: date-time */
+            updatedAt: string;
         };
         UserResponse: {
             /** Format: uuid */

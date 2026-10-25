@@ -15,6 +15,23 @@ const routerNavigation = vi.hoisted((): { request: (to: string) => void } => ({
   request: vi.fn(),
 }));
 
+vi.mock('@/modules/bots', () => ({
+  liveImpactQuery: (strategyId: string) => ({
+    queryKey: ['strategies', strategyId, 'live-impact'],
+    queryFn: () =>
+      Promise.resolve([
+        {
+          botId: 'b1',
+          venue: 'bybit',
+          symbol: 'BTCUSDT',
+          timeframe: '1h',
+          strategyVersionId: 'v1',
+          runtimeStatus: 'Running',
+        },
+      ]),
+  }),
+}));
+
 vi.mock('@tanstack/react-router', async () => {
   const { useState } = await import('react');
   return {
@@ -286,6 +303,25 @@ describe('cached editor', () => {
     );
     expect(screen.getByText('Все изменения сохранены')).toBeInTheDocument();
     expect(navigate).not.toHaveBeenCalled();
+    client.clear();
+  });
+  it('lists the running bots and saves again once the switch is confirmed', async () => {
+    vi.mocked(saveStrategy)
+      .mockRejectedValueOnce(new ApiError(409, 'live_impact', 'Running bots switch'))
+      .mockResolvedValueOnce({ ...strategy, name: 'Changed', currentVersion: 2 });
+    const client = renderCachedEditor();
+    fireEvent.change(screen.getByLabelText('Название стратегии'), { target: { value: 'Changed' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const prompt = await screen.findByRole('alertdialog', { name: 'Работающие боты' });
+    await waitFor(() => expect(prompt).toHaveTextContent('BTCUSDT 1h'));
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить и переключить ботов' }));
+
+    await waitFor(() => expect(screen.getByText('v2')).toBeInTheDocument());
+    expect(vi.mocked(saveStrategy)).toHaveBeenLastCalledWith(
+      expect.objectContaining({ confirmLiveImpact: true }),
+    );
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     client.clear();
   });
   it('keeps the draft when someone saved a newer version', async () => {

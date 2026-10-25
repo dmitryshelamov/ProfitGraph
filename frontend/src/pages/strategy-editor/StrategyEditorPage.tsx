@@ -1,7 +1,9 @@
+import { useQuery } from '@tanstack/react-query';
 import { getRouteApi, Link, useBlocker } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 import { StrategyRuns } from '@/modules/backtests';
+import { liveImpactQuery } from '@/modules/bots';
 import {
   authoringDiagnosticLabel,
   FlowchartEditor,
@@ -24,6 +26,8 @@ export function StrategyEditorPage() {
     catalog,
     editor,
     conflict,
+    liveImpact,
+    cancelLiveImpact,
     unsupportedFormat,
     notice,
     diagnostics,
@@ -282,6 +286,14 @@ export function StrategyEditorPage() {
               {notice}
             </p>
           )}
+          {liveImpact && (
+            <LiveImpactPrompt
+              strategyId={strategyId}
+              saving={saving}
+              onConfirm={() => void save(true)}
+              onCancel={cancelLiveImpact}
+            />
+          )}
           {conflict && (
             <div role="alert" className="board-toast board-conflict">
               <span>Стратегия изменилась в другом окне. Загрузка заменит текущий черновик.</span>
@@ -385,6 +397,39 @@ export function StrategyEditorPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Running bots switch to a saved version on their next root, so the save asks to confirm after listing them. */
+function LiveImpactPrompt({
+  strategyId,
+  saving,
+  onConfirm,
+  onCancel,
+}: {
+  strategyId: string;
+  saving: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const bots = useQuery(liveImpactQuery(strategyId));
+
+  return (
+    <div role="alertdialog" aria-label="Работающие боты" className="board-toast board-conflict">
+      <span>
+        Работающие боты перейдут на новую версию на следующей свече
+        {bots.data &&
+          bots.data.length > 0 &&
+          `: ${bots.data.map((bot) => `${bot.symbol} ${bot.timeframe}`).join(', ')}`}
+        .
+      </span>
+      <button type="button" disabled={saving} onClick={onConfirm} className="board-button">
+        Сохранить и переключить ботов
+      </button>
+      <button type="button" onClick={onCancel} className="board-button">
+        Отмена
+      </button>
     </div>
   );
 }
