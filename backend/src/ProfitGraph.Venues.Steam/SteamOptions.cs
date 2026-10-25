@@ -112,6 +112,14 @@ public sealed class SteamOptions
     /// </summary>
     public TimeSpan MarkPriceInterval { get; init; } = TimeSpan.FromMinutes(1);
 
+    /// <summary>
+    ///     Items per inventory page (Profit Fox read 2000) and the most pages read of one context; an inventory that does not
+    ///     end within them is incomplete, and nothing is listed from it.
+    /// </summary>
+    public int InventoryPageSize { get; init; } = 2000;
+
+    public int InventoryMaximumPages { get; init; } = 20;
+
     public bool IsValid()
     {
         (string Address, string Host)[] origins =
@@ -125,7 +133,7 @@ public sealed class SteamOptions
             InitialCooldown > TimeSpan.Zero && MaximumCooldown >= InitialCooldown && ReadRetries is >= 0 and <= 5 && ProtectionThreshold > 0 &&
             ProtectionErrorRatio is > 0 and <= 1 && ProtectionErrorSample > 0 && SoftResumeDelay > TimeSpan.Zero && SoftResumeLimit >= 0 &&
             SoftResumeWindow > TimeSpan.Zero && CandleCloseDelay >= TimeSpan.Zero && HistoryReuse >= TimeSpan.Zero && WalletReuse >= TimeSpan.Zero &&
-            DefaultAppId > 0 && MarkPriceInterval > TimeSpan.Zero;
+            DefaultAppId > 0 && MarkPriceInterval > TimeSpan.Zero && InventoryPageSize is > 0 and <= 5000 && InventoryMaximumPages > 0;
 
         return timings && origins.All(origin => Enabled
             ? IsAllowedOrigin(origin.Address, origin.Host)

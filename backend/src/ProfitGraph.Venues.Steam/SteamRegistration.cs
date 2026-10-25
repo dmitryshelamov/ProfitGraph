@@ -10,6 +10,7 @@ using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.Common.Operations;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Venues.Steam.Accounts;
+using ProfitGraph.Venues.Steam.Inventory;
 using ProfitGraph.Venues.Steam.LiveData;
 using ProfitGraph.Venues.Steam.MarketData;
 using ProfitGraph.Venues.Steam.Persistence.Repositories;
@@ -48,6 +49,7 @@ public static class SteamRegistration
         services.AddSingleton<IVenueAccountProtection>(provider => provider.GetRequiredService<SteamAccountProtection>());
         services.AddSingleton<SteamAccountSessions>();
         services.AddSingleton<SteamMarketDataAccount>();
+        services.AddSingleton<SteamInventoryReader>();
         services.AddSingleton<IHistoricalCandleSource, SteamHistoricalCandleSource>();
         services.AddSingleton<IInstrumentRulesSource, SteamInstrumentRulesSource>();
         services.AddSingleton<IInstrumentCatalog, SteamInstrumentCatalog>();

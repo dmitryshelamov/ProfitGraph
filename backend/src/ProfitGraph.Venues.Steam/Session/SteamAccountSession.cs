@@ -35,6 +35,7 @@ internal sealed class SteamAccountSession(
     private readonly SemaphoreSlim _renewal = new SemaphoreSlim(initialCount: 1, maxCount: 1);
     private readonly SemaphoreSlim _clockRefresh = new SemaphoreSlim(initialCount: 1, maxCount: 1);
     private SteamSessionSnapshot? _current;
+    private string? _steamId;
     private SteamServerClock? _serverClock;
     private long _generation;
 
@@ -67,6 +68,16 @@ internal sealed class SteamAccountSession(
         {
             return new SteamRequestResult(exception.Outcome);
         }
+    }
+
+    /// <summary>
+    ///     The account's Steam ID, known once the session signed in; it addresses the account's inventory.
+    /// </summary>
+    public async Task<string> SteamId(CancellationToken cancellationToken)
+    {
+        await Ensure(cancellationToken);
+
+        return Volatile.Read(ref _steamId)!;
     }
 
     /// <summary>
@@ -148,6 +159,7 @@ internal sealed class SteamAccountSession(
 
             (string steamId, string refreshToken) = await ReadCredential(cancellationToken);
             SteamSessionSnapshot renewed = await Renew(steamId, refreshToken, cancellationToken);
+            Volatile.Write(ref _steamId, steamId);
             Volatile.Write(ref _current, renewed);
 
             return renewed;
