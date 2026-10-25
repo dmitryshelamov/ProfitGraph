@@ -67,6 +67,11 @@ internal sealed class MemoryTInvestOrderAttempts : ITInvestOrderAttempts
                 WaitingCode = next.WaitingCode,
                 BandLow = next.BandLow,
                 BandHigh = next.BandHigh,
+                CancelledBy = next.CancelledBy,
+                CarriedFrom = next.CarriedFrom,
+                ExecutedLots = next.ExecutedLots,
+                ExecutedQuote = next.ExecutedQuote,
+                ExecutedFee = next.ExecutedFee,
                 UpdatedAt = next.UpdatedAt
             };
 
@@ -81,6 +86,27 @@ internal sealed class MemoryTInvestOrderAttempts : ITInvestOrderAttempts
             IReadOnlyList<TInvestOrderAttempt> waiting = [.. _rows.Values.Where(row => row.WaitingCode is not null).OrderBy(row => row.EngineOrderId)];
 
             return Task.FromResult(waiting);
+        }
+    }
+
+    public Task<IReadOnlyList<TInvestOrderAttempt>> Working(CancellationToken cancellationToken)
+    {
+        lock (_rows)
+        {
+            IReadOnlyList<TInvestOrderAttempt> working = [.. _rows.Values.Where(row => row.State == TInvestOrderAttemptState.Active).OrderBy(row => row.EngineOrderId)];
+
+            return Task.FromResult(working);
+        }
+    }
+
+    public Task<IReadOnlyList<TInvestOrderAttempt>> ForOrder(Guid botId, long engineOrderId, CancellationToken cancellationToken)
+    {
+        lock (_rows)
+        {
+            IReadOnlyList<TInvestOrderAttempt> attempts =
+                [.. _rows.Values.Where(row => row.BotId == botId && row.EngineOrderId == engineOrderId).OrderBy(row => row.Attempt)];
+
+            return Task.FromResult(attempts);
         }
     }
 

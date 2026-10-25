@@ -98,6 +98,40 @@ public sealed class TInvestOrderAttemptTests
         (await attempts.ByRequestId(planned.RequestId, CancellationToken.None)).ShouldBe(sent);
     }
 
+    [Test]
+    public async Task ACarriedAttemptKeepsWhoCancelledIt_ItsExecution_AndTheDateItWasCarriedFrom()
+    {
+        Bot bot = await AddBot();
+        var attempts = new TInvestOrderAttemptRepository(_dataSource);
+        TInvestOrderAttempt first = Attempt(bot, engineOrderId: 7, attempt: 1, OrderType.Limit, price: 100m);
+        await attempts.Add(first, CancellationToken.None);
+        TInvestOrderAttempt active = first with { State = TInvestOrderAttemptState.Active, ExchangeOrderId = "7000001" };
+        await attempts.Transition(active, TInvestOrderAttemptState.Planned, CancellationToken.None);
+        (await attempts.Working(CancellationToken.None)).ShouldContain(active);
+
+        var tuesday = new DateOnly(year: 2026, month: 10, day: 27);
+        TInvestOrderAttempt carried = active with
+        {
+            State = TInvestOrderAttemptState.Final,
+            CancelledBy = TInvestCancelReason.CarryOver,
+            CarriedFrom = tuesday,
+            ExecutedLots = 1,
+            ExecutedQuote = 995m,
+            ExecutedFee = 0.5m
+        };
+        (await attempts.Transition(carried, TInvestOrderAttemptState.Active, CancellationToken.None)).ShouldBeTrue();
+        TInvestOrderAttempt remainder = Attempt(bot, engineOrderId: 7, attempt: 2, OrderType.Limit, price: 100m) with
+        {
+            Lots = 2,
+            WaitingCode = OrderWaitingCode.CarryOver,
+            CarriedFrom = tuesday
+        };
+        await attempts.Add(remainder, CancellationToken.None);
+
+        (await attempts.ForOrder(bot.Id.Value, engineOrderId: 7, CancellationToken.None)).ShouldBe([carried, remainder]);
+        (await attempts.Working(CancellationToken.None)).ShouldNotContain(attempt => attempt.BotId == bot.Id.Value);
+    }
+
     private static TInvestOrderAttempt Attempt(Bot bot, long engineOrderId, int attempt, OrderType type, decimal? price)
     {
         return new TInvestOrderAttempt(

@@ -2,6 +2,7 @@ using FluentMigrator.Runner;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Accounts.Ports;
@@ -69,6 +70,14 @@ public static class TInvestRegistration
         services.AddSingleton<TInvestTradingStatuses>();
         services.AddSingleton(provider => new TInvestPriceBands(provider.GetRequiredService<TInvestTransport>(), TimeProvider.System));
         services.AddSingleton<ITInvestOrderWaits, TInvestOrderWaits>();
+        services.AddSingleton(provider => new TInvestOrderProgress(
+            provider.GetRequiredService<ITInvestOrderAttempts>(),
+            provider.GetRequiredService<ITInvestOrderWaits>(),
+            TimeProvider.System));
+        services.AddSingleton(provider => new TInvestSchedules(
+            provider.GetRequiredService<TInvestTransport>(),
+            TimeProvider.System,
+            provider.GetRequiredService<ILogger<TInvestSchedules>>()));
         services.AddSingleton<TInvestOrderGateway>();
         services.AddSingleton<IOrderGateway>(provider => provider.GetRequiredService<TInvestOrderGateway>());
         services.AddHostedService<TInvestWaitingOrdersWorker>();

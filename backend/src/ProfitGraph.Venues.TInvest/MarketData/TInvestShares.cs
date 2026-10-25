@@ -76,6 +76,7 @@ internal sealed class TInvestShares(TInvestTransport transport, TimeProvider clo
             share.Lot,
             increment,
             share.First1MinCandleDate?.ToUtc(),
-            share.First1DayCandleDate?.ToUtc());
+            share.First1DayCandleDate?.ToUtc(),
+            share.Exchange);
     }
 }

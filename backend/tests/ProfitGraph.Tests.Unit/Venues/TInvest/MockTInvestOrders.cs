@@ -11,7 +11,8 @@ using Tinkoff.InvestApi.V1;
 namespace ProfitGraph.Tests.Unit.Venues.TInvest;
 
 /// <summary>
-///     An invented brokerage account behind the mock Invest API: its accounts, the last price, the trading status, the price band, <c>PostOrder</c>,
+///     An invented brokerage account behind the mock Invest API: its accounts, the last price, the trading status, the price band, the trading schedule,
+///     <c>PostOrder</c>,
 ///     <c>GetOrderState</c> and <c>CancelOrder</c> by request ID, <c>GetOrders</c> and an <c>OrderStateStream</c> that confirms
 ///     its subscription and then signals every change. Orders are kept by request ID like T-Invest's idempotency key, so a
 ///     repeated send would not place a second order, and the test can see how many were sent.
@@ -51,6 +52,11 @@ internal sealed class MockTInvestOrders
 
     public int BookReads { get; private set; }
 
+    /// <summary>
+    ///     The calendar's trading days with their interval tokens, as <c>TradingSchedules</c> returns them.
+    /// </summary>
+    public List<(DateOnly Date, List<(string Type, DateTimeOffset From, DateTimeOffset To)> Intervals)> Schedule { get; } = [];
+
     public MockTInvestOrders(MockTInvestApi api, string accountId)
     {
         AccountId = accountId;
@@ -62,6 +68,7 @@ internal sealed class MockTInvestOrders
         api.On<CancelOrderRequest, CancelOrderResponse>(OrdersService.Descriptor, "CancelOrder", Cancel);
         api.On<GetTradingStatusRequest, GetTradingStatusResponse>(MarketDataService.Descriptor, "GetTradingStatus", Status);
         api.On<GetOrderBookRequest, GetOrderBookResponse>(MarketDataService.Descriptor, "GetOrderBook", Book);
+        api.On<TradingSchedulesRequest, TradingSchedulesResponse>(InstrumentsService.Descriptor, "TradingSchedules", Schedules);
         api.OnStream<OrderStateStreamRequest, OrderStateStreamResponse>(OrdersStreamService.Descriptor, "OrderStateStream", Stream);
     }
 
@@ -89,6 +96,22 @@ internal sealed class MockTInvestOrders
             order.ExecutionReportStatus = order.LotsExecuted == order.LotsRequested
                 ? OrderExecutionReportStatus.ExecutionReportStatusFill
                 : OrderExecutionReportStatus.ExecutionReportStatusPartiallyfill;
+        }
+
+        Signal(order);
+    }
+
+    /// <summary>
+    ///     The exchange cancels the order by itself, as at the end of a DAY order's trading day.
+    /// </summary>
+    public void Expire(string requestId)
+    {
+        OrderState order;
+
+        lock (_orders)
+        {
+            order = _orders[requestId];
+            order.ExecutionReportStatus = OrderExecutionReportStatus.ExecutionReportStatusCancelled;
         }
 
         Signal(order);
@@ -152,6 +175,29 @@ internal sealed class MockTInvestOrders
             MarketOrderAvailableFlag = TradingOpen,
             TradingStatus = TradingOpen ? SecurityTradingStatus.NormalTrading : SecurityTradingStatus.NotAvailableForTrading
         };
+    }
+
+    private TradingSchedulesResponse Schedules(TradingSchedulesRequest request)
+    {
+        var schedule = new TradingSchedule { Exchange = request.Exchange.ToUpperInvariant() };
+
+        foreach ((DateOnly date, List<(string Type, DateTimeOffset From, DateTimeOffset To)> intervals) in Schedule)
+        {
+            var day = new TradingDay { Date = Timestamp.FromDateTime(date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)), IsTradingDay = intervals.Count > 0 };
+            day.Intervals.AddRange(
+                intervals.Select(interval => new TradingInterval
+                {
+                    Type = interval.Type,
+                    Interval = new TradingInterval.Types.TimeInterval
+                    {
+                        StartTs = Timestamp.FromDateTimeOffset(interval.From),
+                        EndTs = Timestamp.FromDateTimeOffset(interval.To)
+                    }
+                }));
+            schedule.Days.Add(day);
+        }
+
+        return new TradingSchedulesResponse { Exchanges = { schedule } };
     }
 
     private GetOrderBookResponse Book(GetOrderBookRequest request)
@@ -252,7 +298,8 @@ internal sealed class MockTInvestOrders
                 throw failure;
             }
 
-            if (request.OrderIdType != OrderIdType.Request || !_orders.TryGetValue(request.OrderId, out order!))
+            if (request.OrderIdType != OrderIdType.Request || !_orders.TryGetValue(request.OrderId, out order!) ||
+                order.ExecutionReportStatus is not (OrderExecutionReportStatus.ExecutionReportStatusNew or OrderExecutionReportStatus.ExecutionReportStatusPartiallyfill))
             {
                 throw MockTInvestApi.Refusal(StatusCode.NotFound, "30059");
             }

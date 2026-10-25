@@ -35,4 +35,14 @@ internal sealed class TInvestOrderAttemptDb
     public decimal? BandLow { get; init; }
 
     public decimal? BandHigh { get; init; }
+
+    public string? CancelledBy { get; init; }
+
+    public DateTime? CarriedFrom { get; init; }
+
+    public long ExecutedLots { get; init; }
+
+    public decimal ExecutedQuote { get; init; }
+
+    public decimal ExecutedFee { get; init; }
 }

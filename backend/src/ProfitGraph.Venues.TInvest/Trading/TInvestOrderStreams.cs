@@ -23,8 +23,8 @@ internal sealed class TInvestOrderStreams(
     TInvestOrderReads reads,
     ITInvestOrderAttempts attempts,
     TInvestOrderUpdates updates,
+    TInvestOrderProgress progress,
     IOptions<TInvestOptions> options,
-    TimeProvider clock,
     ILogger<TInvestOrderStreams> logger)
 {
     private readonly ConcurrentDictionary<BotId, TInvestOrderStream> _streams = new ConcurrentDictionary<BotId, TInvestOrderStream>();
@@ -130,7 +130,6 @@ internal sealed class TInvestOrderStreams(
         }
 
         OrderState state = await reads.ByRequestId(context, attempt.RequestId, cancellationToken) ?? throw new TInvestOrderUnresolvedException();
-        await TInvestAttemptStates.Record(attempts, attempt, state, clock.GetUtcNow(), cancellationToken);
-        updates.Publish(context.BotId, TInvestOrderTranslation.Updates(attempt.EngineOrderId, state, context.Share.Lot));
+        updates.Publish(context.BotId, await progress.Apply(context, attempt, state, cancellationToken));
     }
 }

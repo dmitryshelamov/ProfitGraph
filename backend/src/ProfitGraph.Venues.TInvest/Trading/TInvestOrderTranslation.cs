@@ -1,3 +1,5 @@
+using ProfitGraph.Application.Bots.Runtime;
+using ProfitGraph.Domain.Bots;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Venues.TInvest.MarketData;
 
@@ -6,54 +8,61 @@ using Tinkoff.InvestApi.V1;
 namespace ProfitGraph.Venues.TInvest.Trading;
 
 /// <summary>
-///     Turns T-Invest's order state (<c>OrdersService/GetOrderState</c>) into cumulative engine updates in the order the
-///     engine accepts (ADR 0023). Executed base is the executed lots times the lot; executed quote is the sum of the trade
-///     stages, each a price per share times its lots times the lot, so no average is trusted. The fee is the executed
-///     commission in roubles; a fill whose commission is still zero is reported as pending. Anything that cannot be
-///     accounted exactly, such as stages that disagree with the executed lots or another currency, is unresolved.
+///     Turns T-Invest's state of an attempt (<c>OrdersService/GetOrderState</c>) into cumulative engine updates of its engine
+///     order in the order the engine accepts (ADR 0023). An attempt's executed base is its executed lots times the lot; its
+///     executed quote is the sum of its trade stages, each a price per share times its lots times the lot, so no average is
+///     trusted; its fee is the executed commission in roubles. Earlier attempts of the same engine order, closed by a
+///     carry-over or a band refusal, are added, so the engine always hears the order's totals. A fill whose commission is
+///     still zero is reported as pending. A cancellation ends the engine order only when the owner or the strategy asked for
+///     it; one for a carry-over keeps it working; one nobody asked for is <see cref="BotStatusReason.UnresolvedOrder" />.
+///     Anything that cannot be accounted exactly is unresolved.
 /// </summary>
 internal static class TInvestOrderTranslation
 {
-    public static IReadOnlyList<ExternalOrderUpdate> Updates(long engineOrderId, OrderState state, decimal lot)
+    public static IReadOnlyList<ExternalOrderUpdate> Updates(TInvestOrderAttempt attempt, OrderState state, decimal lot, TInvestExecution earlier)
     {
+        long engineOrderId = attempt.EngineOrderId;
+
         if (state.ExecutionReportStatus == OrderExecutionReportStatus.ExecutionReportStatusRejected)
         {
-            return [ExternalOrderUpdate.Reject(engineOrderId, RejectionReason.BrokerRejected, "T-Invest rejected the order.")];
+            return earlier.Lots == 0
+                ? [ExternalOrderUpdate.Reject(engineOrderId, RejectionReason.BrokerRejected, "T-Invest rejected the order.")]
+                : throw new TInvestOrderUnresolvedException();
         }
 
-        long stageLots = state.Stages.Sum(stage => stage.Quantity);
-
-        if (stageLots != state.LotsExecuted || state.Stages.Any(stage => stage.Price is null || !Roubles(stage.Price)) ||
-            (state.ExecutedCommission is { } reported && !Roubles(reported)))
-        {
-            throw new TInvestOrderUnresolvedException();
-        }
-
-        decimal grossBase = state.LotsExecuted * lot;
-        decimal grossQuote = state.Stages.Sum(stage => stage.Price.ToDecimal() * stage.Quantity * lot);
-        decimal fee = state.ExecutedCommission?.ToDecimal() ?? 0m;
-        bool pending = grossBase > 0m && fee == 0m;
+        TInvestExecution own = Executed(state, lot);
+        TInvestExecution total = earlier.Add(own);
+        decimal grossBase = total.Lots * lot;
+        bool pending = own.Lots > 0 && own.Fee == 0m;
         List<ExternalOrderUpdate> updates = [ExternalOrderUpdate.Accept(engineOrderId)];
 
         switch (state.ExecutionReportStatus)
         {
             case OrderExecutionReportStatus.ExecutionReportStatusFill:
-                updates.Add(ExternalOrderUpdate.Final(engineOrderId, grossBase, grossQuote, fee, pending));
+                updates.Add(ExternalOrderUpdate.Final(engineOrderId, grossBase, total.Quote, total.Fee, pending));
 
                 break;
             case OrderExecutionReportStatus.ExecutionReportStatusCancelled:
-                if (grossBase > 0m)
+                if (attempt.CancelledBy is null)
                 {
-                    updates.Add(ExternalOrderUpdate.Partial(engineOrderId, grossBase, grossQuote, fee, pending));
+                    throw new OrderGatewaySafetyException(BotStatusReason.UnresolvedOrder, "T-Invest cancelled an order nobody asked to cancel.");
                 }
 
-                updates.Add(ExternalOrderUpdate.ConfirmCancel(engineOrderId));
+                if (grossBase > 0m)
+                {
+                    updates.Add(ExternalOrderUpdate.Partial(engineOrderId, grossBase, total.Quote, total.Fee, pending));
+                }
+
+                if (attempt.CancelledBy == TInvestCancelReason.Owner)
+                {
+                    updates.Add(ExternalOrderUpdate.ConfirmCancel(engineOrderId));
+                }
 
                 break;
             case OrderExecutionReportStatus.ExecutionReportStatusNew or OrderExecutionReportStatus.ExecutionReportStatusPartiallyfill:
                 if (grossBase > 0m)
                 {
-                    updates.Add(ExternalOrderUpdate.Partial(engineOrderId, grossBase, grossQuote, fee, pending));
+                    updates.Add(ExternalOrderUpdate.Partial(engineOrderId, grossBase, total.Quote, total.Fee, pending));
                 }
 
                 break;
@@ -62,6 +71,25 @@ internal static class TInvestOrderTranslation
         }
 
         return updates;
+    }
+
+    /// <summary>
+    ///     The attempt's own execution, checked: stages must add up to the executed lots, in roubles.
+    /// </summary>
+    public static TInvestExecution Executed(OrderState state, decimal lot)
+    {
+        long stageLots = state.Stages.Sum(stage => stage.Quantity);
+
+        if (stageLots != state.LotsExecuted || state.Stages.Any(stage => stage.Price is null || !Roubles(stage.Price)) ||
+            (state.ExecutedCommission is { } reported && !Roubles(reported)))
+        {
+            throw new TInvestOrderUnresolvedException();
+        }
+
+        return new TInvestExecution(
+            state.LotsExecuted,
+            state.Stages.Sum(stage => stage.Price.ToDecimal() * stage.Quantity * lot),
+            state.ExecutedCommission?.ToDecimal() ?? 0m);
     }
 
     /// <summary>

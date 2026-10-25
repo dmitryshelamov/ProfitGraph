@@ -274,3 +274,36 @@ withdrawals); and that the endpoint certificate is still issued by the Russian T
   the next request ID (`SessionClosed` or `PriceBand`), and the engine hears no rejection.
 - Still to come in T12b: carry-over of DAY orders before the last session ends, re-reading at the scheduled opening, and
   holiday intervals of today's schedule.
+
+## Amendment: schedules and carry-over (T12b)
+
+- **Schedule.** `TradingSchedules` for the share's own exchange (now kept on the share), from now through the next
+  week, kept five minutes per exchange (thirty seconds after a failure). Intervals are classified with Profit Fox
+  Designer ADR 0090's exact table (`tinvest-schedule/v1`):
+  - Specific exchange tokens and `holiday_*` tokens are exchange time.
+  - `dealer_*` tokens are never exchange time.
+  - The generic `opening_auction`, `regular_trading_session` and `closing_auction` count only when a specific token
+    covers exactly the same interval.
+  - Any other token makes its day unknown.
+  A day ends at the close of its last exchange interval, and the current trading day is the first day that has not
+  ended. A schedule never authorizes a send. Today's `holiday_*` intervals count as closed even while the status is
+  open; a schedule that cannot be read blocks nothing but carry-over.
+- **Carry-over.** From `Venues:TInvest:CarryOverLead` (5 minutes, at most an hour) before the current day's end, the
+  worker carries over each working DAY limit attempt of a reading bot:
+  - It records `cancelled_by = CarryOver` and the trading date, then sends `CancelOrder` by request ID and reads the
+    final state.
+  - The engine order stays working, and fills found are reported cumulatively.
+  - A cancelled attempt with whole lots left becomes the next attempt for exactly the remainder, waiting with
+    `CarryOver` until the current trading day is later than the date it was carried from and the status allows it.
+  - A fully filled attempt ends the order.
+  - A carry-over that is not final yet is tried again at the next round.
+- **Cumulative fills across attempts.** Each final attempt stores its own executed lots, quote and fee
+  (migration `202610250047`), and an attempt's updates add those of the order's earlier final attempts. A rejection
+  after fills of an earlier attempt is unresolved.
+- **Who cancelled.** An owner or strategy cancel records `cancelled_by = Owner` before its request and wins over a
+  carry-over in progress. Its cancellation ends the engine order, and a cancel of a waiting remainder stays local. A
+  cancellation with no recorded reason, such as a DAY order the exchange expired, is `UnresolvedOrder`.
+- **Unknown days.** A day with an unknown token, or no schedule, plans no carry-over. Its DAY orders expire at the
+  exchange, so the bot degrades with `UnresolvedOrder`, which alerts the owner. There is no separate schedule alert.
+- **Not modelled.** No separate read at the scheduled opening: the 30-second recheck covers it. Holiday weekday
+  sessions without `holiday_*` tokens are not recognised.
