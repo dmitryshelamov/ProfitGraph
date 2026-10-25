@@ -121,7 +121,7 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
 - **Credentials, core change C6.** `ExchangeCredential` stores named encrypted fields that the venue declares
   (`IVenueCredentialSchema`; Bybit: `apiKey`, `apiSecret`). Steam's fields (Steam ID, refresh token, shared secret,
   identity secret, device ID) enter in one of two ways, as in Profit Fox Designer: a one-time offline console command
-  run by the owner with the authenticator file on stdin (there is no web import), or enrollment of a new authenticator
+  run by the owner with the authenticator file on stdin (`--run steam-import` on the Worker; there is no web import), or enrollment of a new authenticator
   on the web (`start`, `recovery-saved`, `activate`): password sign-in with the email code, the recovery code shown once
   and never stored, email confirmation only, the pending session encrypted with a ten-minute TTL, then `CoolingDown`
   with a 15-day estimate until a real eligibility check says `Ready` or `Restricted`. The Owner can show the current
@@ -147,9 +147,8 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
 
 - **Core change C8, venue-owned tables.** `Venues.Steam` owns its tables (`steam_accounts`, `steam_account_protection`,
   `steam_order_journal`, `steam_asset_reservations`, `steam_market_receipts`, `steam_market_attributions`). Its migrations
-  live in the module, the runner scans registered venue migration assemblies, and the duplicate-version test covers them.
-  The module may reference Infrastructure's Postgres primitives; an architecture test allows that only for persistence
-  folders. Amends ADR 0006.
+  live in the module and join the shared runner; the module writes through the registered `NpgsqlDataSource` in short
+  statements of its own, without referencing Infrastructure (ADR 0006 amendment).
 - **Core change C9, venue bot settings.** The bot stores the module's typed, versioned settings (ADR 0003) as JSONB without
   interpreting them. Steam's: settlement-hold estimate (display), market-buy slippage and market-buy deadline.
 - **Waiting codes.** A `LocalAccepted` order may carry a neutral waiting code (`SettlementHold` with the unlock time,

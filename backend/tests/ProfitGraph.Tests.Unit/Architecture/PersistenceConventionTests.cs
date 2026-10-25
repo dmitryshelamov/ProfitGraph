@@ -3,8 +3,9 @@ using System.Text.RegularExpressions;
 namespace ProfitGraph.Tests.Unit.Architecture;
 
 /// <summary>
-///     Enforces the persistence layout from docs/architecture.md: all migrations live in Infrastructure/Common/Postgres/Migrations
-///     as {version}_{snake_case}.cs with a *Migration class, and repository row models in Repositories/Contracts end with Db.
+///     Enforces the persistence layout from docs/architecture.md: migrations live in Infrastructure/Common/Postgres/Migrations,
+///     or in Persistence/Migrations of the venue module that owns their tables (ADR 0022, C8), as {version}_{snake_case}.cs
+///     with a *Migration class, and repository row models in Repositories/Contracts end with Db.
 /// </summary>
 public sealed partial class PersistenceConventionTests
 {
@@ -46,12 +47,16 @@ public sealed partial class PersistenceConventionTests
         string folder = Path.GetRelativePath(RepositoryLayout.SourceDirectory, Path.GetDirectoryName(path)!).Replace(Path.DirectorySeparatorChar, newChar: '/');
         string source = File.ReadAllText(path);
 
-        return folder == MigrationFolder && MigrationFileName().IsMatch(file) && file.StartsWith(version + "_", StringComparison.Ordinal) &&
+        return (folder == MigrationFolder || VenueMigrationFolder().IsMatch(folder)) && MigrationFileName().IsMatch(file) &&
+            file.StartsWith(version + "_", StringComparison.Ordinal) &&
             MigrationClass().IsMatch(source);
     }
 
     [GeneratedRegex(@"\[Migration\((?<version>\d+)\)\]")]
     private static partial Regex MigrationAttribute();
+
+    [GeneratedRegex(@"^ProfitGraph\.Venues\.\w+/Persistence/Migrations$")]
+    private static partial Regex VenueMigrationFolder();
 
     [GeneratedRegex(@"^\d{12}_[a-z0-9]+(?:_[a-z0-9]+)*$")]
     private static partial Regex MigrationFileName();

@@ -75,6 +75,38 @@ internal sealed class AesGcmSecretProtector : ISecretProtector
         }
     }
 
+    /// <summary>
+    ///     HMAC-SHA256 of the value under a key derived from each master key with HKDF for the purpose, as lowercase hex.
+    /// </summary>
+    public IReadOnlyList<string> Fingerprints(string purpose, string value)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(purpose);
+        ArgumentException.ThrowIfNullOrEmpty(value);
+
+        if (!IsAvailable)
+        {
+            throw new CredentialsUnavailableException();
+        }
+
+        byte[] input = Encoding.UTF8.GetBytes(value);
+        byte[] info = Encoding.UTF8.GetBytes($"profitgraph-fingerprint/{purpose}");
+
+        try
+        {
+            return
+            [
+                .. _keys
+                    .OrderBy(pair => pair.Key == _activeKeyId ? 0 : 1)
+                    .ThenBy(pair => pair.Key, StringComparer.Ordinal)
+                    .Select(pair => Convert.ToHexStringLower(HMACSHA256.HashData(HKDF.DeriveKey(HashAlgorithmName.SHA256, pair.Value, MasterKeyLength, [], info), input)))
+            ];
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(input);
+        }
+    }
+
     public string Decrypt(ExchangeCredentialId credentialId, UserId ownerId, string field, EncryptedSecret secret)
     {
         ArgumentNullException.ThrowIfNull(secret);

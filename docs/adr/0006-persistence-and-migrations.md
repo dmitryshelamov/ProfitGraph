@@ -23,3 +23,14 @@ date-based migration versions.
 
 - Version collisions between parallel branches fail CI instead of failing at startup.
 - The ports do not collide with a Profit Fox Designer stack running on the same machine.
+
+## Amendment: tables of a venue module (ADR 0022, C8)
+
+- A venue module may own tables named after its venue (`steam_*`). Their migrations live in the module's
+  `Persistence/Migrations` folder with the same version scheme and naming; the module adds its assembly to the shared
+  migration runner, so the API applies them with every other migration, and the duplicate-version test covers them.
+- The module reads and writes them with Dapper through the registered `NpgsqlDataSource`, in short statements of its
+  own; it never joins a core transaction and does not reference Infrastructure. A row that needs a core row refers to
+  it by foreign key, and the core row is written first.
+- Operator commands (`--run {name}` on the Worker) let a module offer a one-time console task, such as importing a
+  credential, without migrations or background services.

@@ -4,20 +4,21 @@ using System.Reflection;
 using FluentMigrator;
 
 using ProfitGraph.Infrastructure;
+using ProfitGraph.Venues.Steam;
 
 namespace ProfitGraph.Tests.Unit.Architecture;
 
 /// <summary>
-///     Enforces ADR 0006: migration versions use yyyyMMddNNNN and never collide, so parallel branches fail in CI
-///     instead of at startup.
+///     Enforces ADR 0006: migration versions use yyyyMMddNNNN and never collide across Infrastructure and the venue modules
+///     that own tables (ADR 0022, C8), so parallel branches fail in CI instead of at startup.
 /// </summary>
 public sealed class MigrationVersionTests
 {
     [Test]
     public void MigrationVersionsAreUniqueAndDateBased()
     {
-        (string Type, long Version)[] migrations = typeof(DependencyInjection).Assembly
-            .GetTypes()
+        (string Type, long Version)[] migrations = new[] { typeof(DependencyInjection).Assembly, typeof(SteamRegistration).Assembly }
+            .SelectMany(assembly => assembly.GetTypes())
             .Select(type => (Type: type.FullName!, Attribute: type.GetCustomAttribute<MigrationAttribute>()))
             .Where(migration => migration.Attribute is not null)
             .Select(migration => (migration.Type, migration.Attribute!.Version))
