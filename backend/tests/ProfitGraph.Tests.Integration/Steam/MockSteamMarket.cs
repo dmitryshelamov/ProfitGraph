@@ -45,12 +45,12 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
     private const long HighestBuyOrder = 40000;
 
     private readonly Lock _gate = new Lock();
-    private readonly Dictionary<string, BuyOrder> _buyOrders = new Dictionary<string, BuyOrder>(StringComparer.Ordinal);
-    private readonly List<Confirmation> _confirmations = new List<Confirmation>();
+    private readonly Dictionary<string, MockSteamMarketBuyOrder> _buyOrders = new Dictionary<string, MockSteamMarketBuyOrder>(StringComparer.Ordinal);
+    private readonly List<MockSteamMarketConfirmation> _confirmations = new List<MockSteamMarketConfirmation>();
     private readonly HashSet<string> _approved = new HashSet<string>(StringComparer.Ordinal);
-    private readonly List<Listing> _listings = new List<Listing>();
-    private readonly List<HistoryEvent> _history = new List<HistoryEvent>();
-    private readonly List<Asset> _inventory = new List<Asset>();
+    private readonly List<MockSteamMarketListing> _listings = new List<MockSteamMarketListing>();
+    private readonly List<MockSteamMarketEvent> _history = new List<MockSteamMarketEvent>();
+    private readonly List<MockSteamMarketAsset> _inventory = new List<MockSteamMarketAsset>();
     private long _ids = 1000;
     private string? _session;
 
@@ -68,14 +68,14 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
         {
             var sold = 0;
 
-            foreach ((string _, BuyOrder order) in _buyOrders.Where(pair => pair.Value.Active))
+            foreach ((string _, MockSteamMarketBuyOrder order) in _buyOrders.Where(pair => pair.Value.Active))
             {
                 while (order.Remaining > 0)
                 {
                     string asset = NextId();
                     long fee = order.Price * 15 / 115;
-                    _history.Add(new HistoryEvent(BoughtEvent, NextId(), Now(), NextId(), asset, NextId(), order.Price - fee, fee, Received: 0));
-                    _inventory.Add(new Asset(asset, Minute(clock.GetUtcNow() + TradeHold)));
+                    _history.Add(new MockSteamMarketEvent(BoughtEvent, NextId(), Now(), NextId(), asset, NextId(), order.Price - fee, fee, Received: 0));
+                    _inventory.Add(new MockSteamMarketAsset(asset, Minute(clock.GetUtcNow() + TradeHold)));
                     order.Remaining--;
                     sold++;
                 }
@@ -94,11 +94,11 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
     {
         lock (_gate)
         {
-            Listing[] active = [.. _listings.Where(listing => listing.Confirmed)];
+            MockSteamMarketListing[] active = [.. _listings.Where(listing => listing.Confirmed)];
 
-            foreach (Listing listing in active)
+            foreach (MockSteamMarketListing listing in active)
             {
-                _history.Add(new HistoryEvent(SoldEvent, listing.Id, Now(), listing.AssetId, NewAssetId: null, NextId(), Paid: 0, Fee: 0, listing.SellerPrice));
+                _history.Add(new MockSteamMarketEvent(SoldEvent, listing.Id, Now(), listing.AssetId, NewAssetId: null, NextId(), Paid: 0, Fee: 0, listing.SellerPrice));
                 _listings.Remove(listing);
             }
 
@@ -271,7 +271,7 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
         if (!_approved.Contains(fields["confirmation"]))
         {
             string creator = NextId();
-            _confirmations.Add(new Confirmation(NextId(), NextId(), Type: 12, creator));
+            _confirmations.Add(new MockSteamMarketConfirmation(NextId(), NextId(), Type: 12, creator));
 
             return new HttpResponseMessage(HttpStatusCode.NotAcceptable)
             {
@@ -285,14 +285,14 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
         int quantity = int.Parse(fields["quantity"], CultureInfo.InvariantCulture);
         long total = long.Parse(fields["price_total"], CultureInfo.InvariantCulture);
         string id = NextId();
-        _buyOrders[id] = new BuyOrder(total / quantity, quantity);
+        _buyOrders[id] = new MockSteamMarketBuyOrder(total / quantity, quantity);
 
         return Json($$"""{"success":1,"buy_orderid":"{{id}}"}""");
     }
 
     private HttpResponseMessage CancelBuyOrder(Dictionary<string, string> fields)
     {
-        if (!_buyOrders.TryGetValue(fields["buy_orderid"], out BuyOrder? order))
+        if (!_buyOrders.TryGetValue(fields["buy_orderid"], out MockSteamMarketBuyOrder? order))
         {
             return Json("""{"success":8}""");
         }
@@ -304,7 +304,7 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
 
     private HttpResponseMessage BuyOrderStatus(Dictionary<string, string> query)
     {
-        return _buyOrders.TryGetValue(query["buy_orderid"], out BuyOrder? order)
+        return _buyOrders.TryGetValue(query["buy_orderid"], out MockSteamMarketBuyOrder? order)
             ? Json(
                 $$"""{"success":1,"active":{{(order.Active ? 1 : 0)}},"purchased":{{order.Quantity - order.Remaining}},"quantity":"{{order.Quantity}}","quantity_remaining":"{{order.Remaining}}","purchases":[]}""")
             : Json("""{"success":8}""");
@@ -334,7 +334,7 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
 
     private HttpResponseMessage ApproveConfirmation(Dictionary<string, string> query)
     {
-        Confirmation? confirmation = _confirmations.SingleOrDefault(item => item.Id == query["cid"] && item.Nonce == query["ck"]);
+        MockSteamMarketConfirmation? confirmation = _confirmations.SingleOrDefault(item => item.Id == query["cid"] && item.Nonce == query["ck"]);
 
         if (!Signed(query, "accept") || query["op"] != "allow" || confirmation is null)
         {
@@ -344,7 +344,7 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
         _confirmations.Remove(confirmation);
         _approved.Add(confirmation.CreatorId);
 
-        foreach (Listing listing in _listings.Where(listing => confirmation.Type == 3 && listing.Id == confirmation.CreatorId))
+        foreach (MockSteamMarketListing listing in _listings.Where(listing => confirmation.Type == 3 && listing.Id == confirmation.CreatorId))
         {
             listing.Confirmed = true;
         }
@@ -370,7 +370,7 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
 
     private HttpResponseMessage SellItem(Dictionary<string, string> fields)
     {
-        Asset? asset = _inventory.SingleOrDefault(item => item.Id == fields["assetid"]);
+        MockSteamMarketAsset? asset = _inventory.SingleOrDefault(item => item.Id == fields["assetid"]);
 
         if (asset is null || asset.UnlockAt > clock.GetUtcNow() || fields["amount"] != "1" || fields["contextid"] != Context)
         {
@@ -379,16 +379,16 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
 
         string id = NextId();
         _inventory.Remove(asset);
-        _listings.Add(new Listing(id, asset.Id, long.Parse(fields["price"], CultureInfo.InvariantCulture)));
-        _confirmations.Add(new Confirmation(NextId(), NextId(), Type: 3, id));
-        _history.Add(new HistoryEvent(ListedEvent, id, Now(), asset.Id, NewAssetId: null, PurchaseId: null, Paid: 0, Fee: 0, Received: 0));
+        _listings.Add(new MockSteamMarketListing(id, asset.Id, long.Parse(fields["price"], CultureInfo.InvariantCulture)));
+        _confirmations.Add(new MockSteamMarketConfirmation(NextId(), NextId(), Type: 3, id));
+        _history.Add(new MockSteamMarketEvent(ListedEvent, id, Now(), asset.Id, NewAssetId: null, PurchaseId: null, Paid: 0, Fee: 0, Received: 0));
 
         return Json("""{"success":true,"requires_confirmation":1,"needs_mobile_confirmation":true,"needs_email_confirmation":false,"email_domain":""}""");
     }
 
     private HttpResponseMessage RemoveListing(string id)
     {
-        Listing? listing = _listings.SingleOrDefault(item => item.Id == id);
+        MockSteamMarketListing? listing = _listings.SingleOrDefault(item => item.Id == id);
 
         if (listing is null)
         {
@@ -397,8 +397,8 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
 
         _listings.Remove(listing);
         _confirmations.RemoveAll(confirmation => confirmation.Type == 3 && confirmation.CreatorId == id);
-        _inventory.Add(new Asset(listing.AssetId, clock.GetUtcNow()));
-        _history.Add(new HistoryEvent(CancelledEvent, id, Now(), listing.AssetId, NewAssetId: null, PurchaseId: null, Paid: 0, Fee: 0, Received: 0));
+        _inventory.Add(new MockSteamMarketAsset(listing.AssetId, clock.GetUtcNow()));
+        _history.Add(new MockSteamMarketEvent(CancelledEvent, id, Now(), listing.AssetId, NewAssetId: null, PurchaseId: null, Paid: 0, Fee: 0, Received: 0));
 
         return Json("""{"success":true}""");
     }
@@ -416,12 +416,12 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
     {
         int start = int.Parse(query["start"], CultureInfo.InvariantCulture);
         int count = int.Parse(query["count"], CultureInfo.InvariantCulture);
-        HistoryEvent[] page = [.. Enumerable.Reverse(_history).Skip(start).Take(count)];
+        MockSteamMarketEvent[] page = [.. Enumerable.Reverse(_history).Skip(start).Take(count)];
         var listings = new Dictionary<string, object>(StringComparer.Ordinal);
         var purchases = new Dictionary<string, object>(StringComparer.Ordinal);
         var descriptions = new Dictionary<string, object>(StringComparer.Ordinal);
 
-        foreach (HistoryEvent item in page)
+        foreach (MockSteamMarketEvent item in page)
         {
             listings[item.ListingId] = new { listingid = item.ListingId, asset = new { appid = AppId, contextid = Context, id = item.AssetId, amount = "1" } };
             descriptions[item.AssetId] = new { market_hash_name = Item, amount = "1", original_amount = "1" };
@@ -515,41 +515,4 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
                     descriptions
                 }));
     }
-
-    private sealed class BuyOrder(long price, int quantity)
-    {
-        public long Price { get; } = price;
-
-        public int Quantity { get; } = quantity;
-
-        public int Remaining { get; set; } = quantity;
-
-        public bool Active { get; set; } = true;
-    }
-
-    private sealed class Listing(string id, string assetId, long sellerPrice)
-    {
-        public string Id { get; } = id;
-
-        public string AssetId { get; } = assetId;
-
-        public long SellerPrice { get; } = sellerPrice;
-
-        public bool Confirmed { get; set; }
-    }
-
-    private sealed record Confirmation(string Id, string Nonce, int Type, string CreatorId);
-
-    private sealed record Asset(string Id, DateTimeOffset UnlockAt);
-
-    private sealed record HistoryEvent(
-        int Type,
-        string ListingId,
-        long Seconds,
-        string AssetId,
-        string? NewAssetId,
-        string? PurchaseId,
-        long Paid,
-        long Fee,
-        long Received);
 }
