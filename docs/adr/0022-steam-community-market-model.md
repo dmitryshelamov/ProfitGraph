@@ -1,6 +1,7 @@
 # ADR 0022: Steam Community Market Model
 
-Status: Accepted, 2026-10-25. Wave 3 of the roadmap starts with this ADR; its code follows in later pull requests.
+Status: Accepted, 2026-10-25. Implemented in wave 3 of the roadmap; the owner's steps to trade live are in the
+[Steam owner checklist](../steam-owner-checklist.md).
 
 ## Context
 
