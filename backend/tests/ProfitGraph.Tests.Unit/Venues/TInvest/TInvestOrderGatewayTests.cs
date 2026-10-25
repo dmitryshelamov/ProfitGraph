@@ -1,20 +1,14 @@
 using Grpc.Core;
 
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Time.Testing;
-
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Engine.Accounting;
-using ProfitGraph.Venues.TInvest;
 using ProfitGraph.Venues.TInvest.MarketData;
 using ProfitGraph.Venues.TInvest.Trading;
-using ProfitGraph.Venues.TInvest.Transport;
 
 using Tinkoff.InvestApi.V1;
 
-using OrderType = ProfitGraph.Engine.Accounting.OrderType;
+using OrderType = Tinkoff.InvestApi.V1.OrderType;
 
 namespace ProfitGraph.Tests.Unit.Venues.TInvest;
 
@@ -26,46 +20,23 @@ namespace ProfitGraph.Tests.Unit.Venues.TInvest;
 /// </summary>
 public sealed class TInvestOrderGatewayTests
 {
-    private const string AccountId = "2000000001";
-    private const string ShareUid = "e6123145-9665-43e0-8413-cd61b8aa9b13";
+    private const string AccountId = TInvestGatewayHarness.AccountId;
+    private const string ShareUid = TInvestGatewayHarness.ShareUid;
 
-    private static readonly DateTimeOffset Now = new DateTimeOffset(year: 2026, month: 10, day: 27, hour: 8, minute: 0, second: 0, TimeSpan.Zero);
-
-    private readonly BotId _bot = new BotId(Guid.Parse("4f1d2c3b-5a69-4788-9a0b-1c2d3e4f5a6b"));
-
-    private MockTInvestApi _api = null!;
     private MemoryTInvestOrderAttempts _attempts = null!;
+    private BotId _bot;
     private TInvestOrderGateway _gateway = null!;
+    private TInvestGatewayHarness _harness = null!;
     private MockTInvestOrders _orders = null!;
-    private TInvestOrderUpdates _updates = null!;
 
     [SetUp]
     public void CreateGateway()
     {
-        _api = new MockTInvestApi();
-        _orders = new MockTInvestOrders(_api, AccountId);
-        _attempts = new MemoryTInvestOrderAttempts();
-        var clock = new FakeTimeProvider(Now);
-        IOptions<TInvestOptions> options = Options.Create(new TInvestOptions());
-        var transport = new TInvestTransport(
-            new MockTInvestInvokers(_api),
-            new TInvestRequestLimiter(new TInvestRequestLimits { MarketData = 1000, Instruments = 1000, Orders = 1000, Users = 1000 }, clock),
-            options);
-        var reads = new TInvestOrderReads(transport);
-        _updates = new TInvestOrderUpdates();
-        TInvestSymbol.TryParse("TQBR:SBER", out TInvestSymbol? symbol).ShouldBeTrue();
-        var share = new TInvestShare(symbol, ShareUid, "Invented SBER", Lot: 10m, PriceIncrement: 0.01m, FirstMinuteCandle: null, FirstDayCandle: null);
-        var context = new TInvestBotContext(_bot, new TInvestToken("t.invented-token"), AccountId, share);
-        _gateway = new TInvestOrderGateway(
-            new FixedTInvestBotContexts(context),
-            _attempts,
-            reads,
-            new TInvestOrderStreams(transport, reads, _attempts, _updates, options, clock, NullLogger<TInvestOrderStreams>.Instance),
-            _updates,
-            new TInvestPrices(transport),
-            transport,
-            options,
-            clock);
+        _harness = new TInvestGatewayHarness();
+        _bot = _harness.Bot;
+        _orders = _harness.Orders;
+        _attempts = _harness.Attempts;
+        _gateway = _harness.Gateway;
     }
 
     [Test]
@@ -95,7 +66,7 @@ public sealed class TInvestOrderGatewayTests
             () => posted.Quantity.ShouldBe(3),
             () => posted.Price.ToDecimal().ShouldBe(99.5m),
             () => posted.Direction.ShouldBe(OrderDirection.Buy),
-            () => posted.OrderType.ShouldBe(Tinkoff.InvestApi.V1.OrderType.Limit),
+            () => posted.OrderType.ShouldBe(OrderType.Limit),
             () => posted.TimeInForce.ShouldBe(TimeInForceType.TimeInForceDay));
         TInvestOrderAttempt attempt = _attempts.All.ShouldHaveSingleItem();
         attempt.State.ShouldBe(TInvestOrderAttemptState.Active);
@@ -189,7 +160,7 @@ public sealed class TInvestOrderGatewayTests
 
         PostOrderRequest posted = _orders.Posted.ShouldHaveSingleItem();
         posted.ShouldSatisfyAllConditions(
-            () => posted.OrderType.ShouldBe(Tinkoff.InvestApi.V1.OrderType.Market),
+            () => posted.OrderType.ShouldBe(OrderType.Market),
             () => posted.Quantity.ShouldBe(10),
             () => posted.Price.ShouldBeNull());
     }
@@ -322,76 +293,28 @@ public sealed class TInvestOrderGatewayTests
         return new OrderSubmitInternal(_bot, _gateway.ClientOrderIdFor(_bot, order.Id), order, mustLookUp);
     }
 
-    private async Task<IReadOnlyList<ExternalOrderUpdate>> Next(int count)
+    private Task<IReadOnlyList<ExternalOrderUpdate>> Next(int count)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        List<ExternalOrderUpdate> read = [];
-
-        await foreach (ExternalOrderUpdate update in _updates.Read(_bot, timeout.Token))
-        {
-            read.Add(update);
-
-            if (read.Count == count)
-            {
-                break;
-            }
-        }
-
-        return read;
+        return _harness.Next(count);
     }
 
-    private async Task<IReadOnlyList<ExternalOrderUpdate>> Until(Func<ExternalOrderUpdate, bool> last)
+    private Task<IReadOnlyList<ExternalOrderUpdate>> Until(Func<ExternalOrderUpdate, bool> last)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        List<ExternalOrderUpdate> read = [];
-
-        await foreach (ExternalOrderUpdate update in _updates.Read(_bot, timeout.Token))
-        {
-            read.Add(update);
-
-            if (last(update))
-            {
-                break;
-            }
-        }
-
-        return read;
+        return _harness.Until(last);
     }
 
     private static OrderSnapshot Limit(long id, OrderSide side, decimal quantity, decimal price)
     {
-        return new OrderSnapshot(
-            id,
-            Tag: null,
-            side,
-            OrderType.Limit,
-            quantity,
-            price,
-            QuoteBudget: null,
-            Reservation: 0m,
-            "node",
-            EligibleFromCandleIndex: 0,
-            OrderStatus.PendingSubmit);
+        return TInvestGatewayHarness.Limit(id, side, quantity, price);
     }
 
     private static OrderSnapshot MarketBuy(long id, decimal budget)
     {
-        return new OrderSnapshot(
-            id,
-            Tag: null,
-            OrderSide.Buy,
-            OrderType.Market,
-            Quantity: null,
-            LimitPrice: null,
-            budget,
-            budget,
-            "node",
-            EligibleFromCandleIndex: 0,
-            OrderStatus.PendingSubmit);
+        return TInvestGatewayHarness.MarketBuy(id, budget);
     }
 
     private static Task NoOp(CancellationToken cancellationToken)
     {
-        return Task.CompletedTask;
+        return TInvestGatewayHarness.NoOp(cancellationToken);
     }
 }

@@ -19,7 +19,8 @@ namespace ProfitGraph.Venues.TInvest.Trading;
 /// <summary>
 ///     T-Invest MOEX share execution for live bots (ADR 0023). Registered only by a Worker with the live role and trading
 ///     enabled. Each attempt of an engine order is recorded in the module's attempts table before the place request may
-///     leave the process and is sent as a DAY limit or a market order in whole lots under its deterministic request ID. An
+///     leave the process and is sent as a DAY limit or a market order in whole lots under its deterministic request ID, once
+///     the trading status allows it and a limit price fits the price band; until then it waits locally (T12). An
 ///     attempt that may have reached T-Invest is never sent again: it is resolved only by <c>GetOrderState</c> with its
 ///     request ID. Only a status whose description is a broker code rejects; every other failure is unknown, so the intent
 ///     retries and eventually degrades the bot. Reconciliation checks the account's access, subscribes to the account's
@@ -32,6 +33,9 @@ internal sealed class TInvestOrderGateway(
     TInvestOrderStreams streams,
     TInvestOrderUpdates updates,
     TInvestPrices prices,
+    TInvestTradingStatuses statuses,
+    TInvestPriceBands bands,
+    ITInvestOrderWaits waits,
     TInvestTransport transport,
     IOptions<TInvestOptions> options,
     TimeProvider clock) : IOrderGateway
@@ -104,7 +108,7 @@ internal sealed class TInvestOrderGateway(
         switch (attempt)
         {
             case { State: TInvestOrderAttemptState.Planned }:
-                return await Send(context, attempt, markPlaceStarted, cancellationToken);
+                return await Release(context, attempt, markPlaceStarted, cancellationToken);
             case { State: TInvestOrderAttemptState.Final, ExchangeOrderId: null, BrokerCode: { } code }:
                 return TInvestRejections.For(order.Id, code, order.Side);
             default:
@@ -207,14 +211,35 @@ internal sealed class TInvestOrderGateway(
         }
     }
 
-    private async Task<ExternalOrderUpdate?> Send(
+    /// <summary>
+    ///     Sends a planned attempt when the trading status and the price band allow it, and otherwise keeps it waiting
+    ///     locally: the engine sees a working order, the runtime the reason. Returns a definitive rejection, or null. The
+    ///     module's worker calls it again for waiting attempts once the bot may send.
+    /// </summary>
+    internal async Task<ExternalOrderUpdate?> Release(
         TInvestBotContext context,
         TInvestOrderAttempt planned,
         Func<CancellationToken, Task> markPlaceStarted,
         CancellationToken cancellationToken)
     {
+        TInvestSendDecision decision = await Decide(context, planned, cancellationToken);
+
+        if (decision.WaitingCode is { } code)
+        {
+            await Wait(context, planned, code, decision.Band, cancellationToken);
+
+            return null;
+        }
+
         await markPlaceStarted(cancellationToken);
-        TInvestOrderAttempt sent = planned with { State = TInvestOrderAttemptState.Sent, UpdatedAt = clock.GetUtcNow() };
+        TInvestOrderAttempt sent = planned with
+        {
+            State = TInvestOrderAttemptState.Sent,
+            WaitingCode = null,
+            BandLow = null,
+            BandHigh = null,
+            UpdatedAt = clock.GetUtcNow()
+        };
 
         if (!await attempts.Transition(sent, TInvestOrderAttemptState.Planned, cancellationToken))
         {
@@ -228,17 +253,24 @@ internal sealed class TInvestOrderGateway(
             response = await transport.Unary(
                 context.Token,
                 TInvestMethodGroup.Orders,
-                (invoker, callOptions) => new OrdersService.OrdersServiceClient(invoker).PostOrderAsync(Request(context, sent), callOptions),
+                (invoker, callOptions) => new OrdersService.OrdersServiceClient(invoker).PostOrderAsync(Request(context, sent, decision.Price), callOptions),
                 cancellationToken);
         }
-        catch (TInvestRpcException error) when (error is { Kind: TInvestFailureKind.Rejected, BrokerCode: { } code })
+        catch (TInvestRpcException error) when (error is { Kind: TInvestFailureKind.Rejected, BrokerCode: { } brokerCode })
         {
             await attempts.Transition(
-                sent with { State = TInvestOrderAttemptState.Final, BrokerCode = code, UpdatedAt = clock.GetUtcNow() },
+                sent with { State = TInvestOrderAttemptState.Final, BrokerCode = brokerCode, UpdatedAt = clock.GetUtcNow() },
                 sent.State,
                 cancellationToken);
 
-            return TInvestRejections.For(planned.EngineOrderId, code, planned.Side);
+            if (WaitingCodeOf(brokerCode) is not { } waiting)
+            {
+                return TInvestRejections.For(planned.EngineOrderId, brokerCode, planned.Side);
+            }
+
+            await Replan(context, sent, waiting, cancellationToken);
+
+            return null;
         }
         catch (TInvestRpcException)
         {
@@ -249,6 +281,12 @@ internal sealed class TInvestOrderGateway(
 
         TInvestOrderAttempt active = sent with { State = TInvestOrderAttemptState.Active, ExchangeOrderId = response.OrderId, UpdatedAt = clock.GetUtcNow() };
         await attempts.Transition(active, sent.State, cancellationToken);
+
+        if (planned.WaitingCode is not null)
+        {
+            await waits.Report(context.BotId, planned.EngineOrderId, code: null, low: null, high: null, cancellationToken);
+        }
+
         updates.Publish(context.BotId, [ExternalOrderUpdate.Accept(planned.EngineOrderId)]);
 
         if (response.LotsExecuted > 0 || response.ExecutionReportStatus != OrderExecutionReportStatus.ExecutionReportStatusNew)
@@ -257,6 +295,77 @@ internal sealed class TInvestOrderGateway(
         }
 
         return null;
+    }
+
+    /// <summary>
+    ///     Only the current trading status authorizes a send; a limit order must also fit the price band.
+    /// </summary>
+    private async Task<TInvestSendDecision> Decide(TInvestBotContext context, TInvestOrderAttempt attempt, CancellationToken cancellationToken)
+    {
+        if (!await statuses.Allows(context, attempt.Type, cancellationToken))
+        {
+            return TInvestSendDecision.Wait(OrderWaitingCode.SessionClosed, band: null);
+        }
+
+        return attempt.Price is { } price
+            ? TInvestSendDecisions.ForLimit(attempt.Side, price, await bands.Get(context, cancellationToken), context.Share.PriceIncrement)
+            : TInvestSendDecision.Send(price: null);
+    }
+
+    /// <summary>
+    ///     Keeps the attempt waiting with its reason. The engine hears a local acceptance when the attempt starts to wait; the
+    ///     runtime hears the reason whenever it or the band changed.
+    /// </summary>
+    private async Task Wait(TInvestBotContext context, TInvestOrderAttempt attempt, OrderWaitingCode code, TInvestPriceBand? band, CancellationToken cancellationToken)
+    {
+        TInvestOrderAttempt waiting = attempt with { WaitingCode = code, BandLow = band?.Low, BandHigh = band?.High, UpdatedAt = clock.GetUtcNow() };
+
+        if (attempt.WaitingCode == code && attempt.BandLow == band?.Low && attempt.BandHigh == band?.High)
+        {
+            return;
+        }
+
+        if (!await attempts.Transition(waiting, TInvestOrderAttemptState.Planned, cancellationToken))
+        {
+            throw new TInvestOrderUnresolvedException();
+        }
+
+        if (attempt.WaitingCode is null)
+        {
+            updates.Publish(context.BotId, [ExternalOrderUpdate.AcceptLocally(attempt.EngineOrderId)]);
+        }
+
+        await waits.Report(context.BotId, attempt.EngineOrderId, code, band?.Low, band?.High, cancellationToken);
+    }
+
+    /// <summary>
+    ///     A definitive <c>30098</c> or <c>30099</c> placed no order: the same engine order waits again as the next attempt,
+    ///     with the next request ID, and the engine hears no rejection.
+    /// </summary>
+    private async Task Replan(TInvestBotContext context, TInvestOrderAttempt refused, OrderWaitingCode code, CancellationToken cancellationToken)
+    {
+        int number = refused.Attempt + 1;
+        DateTimeOffset now = clock.GetUtcNow();
+        TInvestOrderAttempt next = refused with
+        {
+            Attempt = number,
+            RequestId = TInvestOrderRequestIds.For(context.BotId, refused.EngineOrderId, number),
+            State = TInvestOrderAttemptState.Planned,
+            ExchangeOrderId = null,
+            BrokerCode = null,
+            CreatedAt = now,
+            UpdatedAt = now,
+            WaitingCode = null,
+            BandLow = null,
+            BandHigh = null
+        };
+
+        if (!await attempts.Add(next, cancellationToken))
+        {
+            throw new TInvestOrderUnresolvedException();
+        }
+
+        await Wait(context, next, code, band: null, cancellationToken);
     }
 
     private async Task<BotReconciliationInternal> LookUp(TInvestBotContext context, BotReconcileInternal request, CancellationToken cancellationToken)
@@ -275,6 +384,12 @@ internal sealed class TInvestOrderGateway(
             {
                 case null when order.MayHaveReachedVenue:
                     return new BotReconciliationInternal(found, orders, BotStatusReason.UnresolvedOrder);
+                case { State: TInvestOrderAttemptState.Planned, WaitingCode: { } waiting }:
+                    found.Add(ExternalOrderUpdate.AcceptLocally(order.EngineOrderId));
+                    orders.Add(new ReconciledOrderInternal(order.ClientOrderId, IsFinal: false));
+                    await waits.Report(request.BotId, order.EngineOrderId, waiting, attempt.BandLow, attempt.BandHigh, cancellationToken);
+
+                    continue;
                 case null or { State: TInvestOrderAttemptState.Planned }:
                     continue;
                 case { State: TInvestOrderAttemptState.Final, ExchangeOrderId: null, BrokerCode: { } code }:
@@ -334,7 +449,17 @@ internal sealed class TInvestOrderGateway(
             account.AccessLevel == AccessLevel.AccountAccessLevelFullAccess);
     }
 
-    private static PostOrderRequest Request(TInvestBotContext context, TInvestOrderAttempt attempt)
+    private static OrderWaitingCode? WaitingCodeOf(int brokerCode)
+    {
+        return brokerCode switch
+        {
+            30098 => OrderWaitingCode.SessionClosed,
+            30099 => OrderWaitingCode.PriceBand,
+            _ => null
+        };
+    }
+
+    private static PostOrderRequest Request(TInvestBotContext context, TInvestOrderAttempt attempt, decimal? price)
     {
         var request = new PostOrderRequest
         {
@@ -346,9 +471,9 @@ internal sealed class TInvestOrderGateway(
             OrderType = attempt.Type == OrderType.Limit ? Tinkoff.InvestApi.V1.OrderType.Limit : Tinkoff.InvestApi.V1.OrderType.Market
         };
 
-        if (attempt.Price is { } price)
+        if (price is { } limit)
         {
-            request.Price = price.ToQuotation();
+            request.Price = limit.ToQuotation();
             request.TimeInForce = TimeInForceType.TimeInForceDay;
         }
 

@@ -66,7 +66,12 @@ public static class TInvestRegistration
         services.AddSingleton<TInvestOrderReads>();
         services.AddSingleton<TInvestOrderUpdates>();
         services.AddSingleton<TInvestOrderStreams>();
-        services.AddSingleton<IOrderGateway, TInvestOrderGateway>();
+        services.AddSingleton<TInvestTradingStatuses>();
+        services.AddSingleton(provider => new TInvestPriceBands(provider.GetRequiredService<TInvestTransport>(), TimeProvider.System));
+        services.AddSingleton<ITInvestOrderWaits, TInvestOrderWaits>();
+        services.AddSingleton<TInvestOrderGateway>();
+        services.AddSingleton<IOrderGateway>(provider => provider.GetRequiredService<TInvestOrderGateway>());
+        services.AddHostedService<TInvestWaitingOrdersWorker>();
 
         return services;
     }

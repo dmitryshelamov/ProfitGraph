@@ -3,9 +3,11 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
+using ProfitGraph.Application.Bots.AuthorizeWaitingRelease;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.GetBotFeed;
 using ProfitGraph.Application.Bots.GetBotWaitingOrders;
+using ProfitGraph.Application.Bots.KillBot;
 using ProfitGraph.Application.Bots.RecordOrderWaiting;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Domain.Bots;
@@ -17,7 +19,8 @@ namespace ProfitGraph.Tests.Integration.Bots;
 
 /// <summary>
 ///     Working orders a venue holds locally (ADR 0023, TC4): the module sets, changes and clears the reason, only the owner reads it,
-///     and an order the engine no longer has working ends its wait at the next root.
+///     an order the engine no longer has working ends its wait at the next root, and a module may release a waiting order
+///     only while the bot may submit.
 /// </summary>
 [NonParallelizable]
 public sealed class OrderWaitingTests
@@ -111,6 +114,34 @@ public sealed class OrderWaitingTests
         scenario.Gateway.Push(bot.Id, ExternalOrderUpdate.Final(orderId: 1, grossBase: 0.1m, grossQuote: 10m, fee: 0.0001m));
         await RuntimeScenario.Until(async () => (await Waiting(worker, bot)).Count == 0, "the filled order's wait ends");
         await worker.StopAsync();
+    }
+
+    [Test]
+    public async Task AWaitingOrderMayBeReleasedOnlyWhileTheBotMaySubmit()
+    {
+        var scenario = new RuntimeScenario();
+        using IHost worker = scenario.Worker();
+        Bot bot = await RuntimeScenario.RunningLadder(worker);
+
+        (await MayRelease(worker, bot)).ShouldBeFalse();
+
+        await worker.StartAsync();
+        await RuntimeScenario.Until(() => MayRelease(worker, bot), "the runner opens its submit gate");
+
+        using (IServiceScope scope = worker.Services.CreateScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<ISender>().Send(new KillBotCommand(bot.OwnerId.Value, bot.Id.Value));
+        }
+
+        (await MayRelease(worker, bot)).ShouldBeFalse();
+        await worker.StopAsync();
+    }
+
+    private static async Task<bool> MayRelease(IHost host, Bot bot)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+
+        return await scope.ServiceProvider.GetRequiredService<ISender>().Send(new AuthorizeWaitingReleaseCommand(bot.Id.Value));
     }
 
     private static async Task Send(IHost host, IRequest command)

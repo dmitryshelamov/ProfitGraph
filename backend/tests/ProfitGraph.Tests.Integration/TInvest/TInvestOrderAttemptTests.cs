@@ -15,7 +15,8 @@ namespace ProfitGraph.Tests.Integration.TInvest;
 
 /// <summary>
 ///     The T-Invest attempts table in PostgreSQL (ADR 0023): one row per attempt of an engine order under its request ID,
-///     changes that apply only from the state they expect, and the owners of request IDs for the foreign-order check.
+///     changes that apply only from the state they expect, the reason a planned attempt waits, and the owners of request
+///     IDs for the foreign-order check.
 /// </summary>
 public sealed class TInvestOrderAttemptTests
 {
@@ -77,6 +78,24 @@ public sealed class TInvestOrderAttemptTests
 
         owners.ShouldBe(new Dictionary<Guid, Guid> { [attempt.RequestId] = bot.Id.Value });
         (await attempts.Owners([], CancellationToken.None)).ShouldBeEmpty();
+    }
+
+    [Test]
+    public async Task AWaitingAttemptKeepsItsReasonAndBand_UntilItIsSent()
+    {
+        Bot bot = await AddBot();
+        var attempts = new TInvestOrderAttemptRepository(_dataSource);
+        TInvestOrderAttempt planned = Attempt(bot, engineOrderId: 5, attempt: 1, OrderType.Limit, price: 80m);
+        await attempts.Add(planned, CancellationToken.None);
+
+        TInvestOrderAttempt waiting = planned with { WaitingCode = OrderWaitingCode.PriceBand, BandLow = 90m, BandHigh = 110m };
+        (await attempts.Transition(waiting, TInvestOrderAttemptState.Planned, CancellationToken.None)).ShouldBeTrue();
+        (await attempts.Waiting(CancellationToken.None)).ShouldContain(waiting);
+
+        TInvestOrderAttempt sent = waiting with { State = TInvestOrderAttemptState.Sent, WaitingCode = null, BandLow = null, BandHigh = null };
+        (await attempts.Transition(sent, TInvestOrderAttemptState.Planned, CancellationToken.None)).ShouldBeTrue();
+        (await attempts.Waiting(CancellationToken.None)).ShouldNotContain(attempt => attempt.RequestId == planned.RequestId);
+        (await attempts.ByRequestId(planned.RequestId, CancellationToken.None)).ShouldBe(sent);
     }
 
     private static TInvestOrderAttempt Attempt(Bot bot, long engineOrderId, int attempt, OrderType type, decimal? price)

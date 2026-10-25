@@ -11,7 +11,7 @@ using Tinkoff.InvestApi.V1;
 namespace ProfitGraph.Tests.Unit.Venues.TInvest;
 
 /// <summary>
-///     An invented brokerage account behind the mock Invest API: its accounts, the last price, <c>PostOrder</c>,
+///     An invented brokerage account behind the mock Invest API: its accounts, the last price, the trading status, the price band, <c>PostOrder</c>,
 ///     <c>GetOrderState</c> and <c>CancelOrder</c> by request ID, <c>GetOrders</c> and an <c>OrderStateStream</c> that confirms
 ///     its subscription and then signals every change. Orders are kept by request ID like T-Invest's idempotency key, so a
 ///     repeated send would not place a second order, and the test can see how many were sent.
@@ -42,6 +42,15 @@ internal sealed class MockTInvestOrders
 
     public RpcException? NextCancelFailure { get; set; }
 
+    public bool TradingOpen { get; set; } = true;
+
+    /// <summary>
+    ///     The share's current price limits, or null when the order book reports none.
+    /// </summary>
+    public (decimal Low, decimal High)? Band { get; set; } = (50m, 150m);
+
+    public int BookReads { get; private set; }
+
     public MockTInvestOrders(MockTInvestApi api, string accountId)
     {
         AccountId = accountId;
@@ -51,6 +60,8 @@ internal sealed class MockTInvestOrders
         api.On<GetOrderStateRequest, OrderState>(OrdersService.Descriptor, "GetOrderState", State);
         api.On<GetOrdersRequest, GetOrdersResponse>(OrdersService.Descriptor, "GetOrders", Active);
         api.On<CancelOrderRequest, CancelOrderResponse>(OrdersService.Descriptor, "CancelOrder", Cancel);
+        api.On<GetTradingStatusRequest, GetTradingStatusResponse>(MarketDataService.Descriptor, "GetTradingStatus", Status);
+        api.On<GetOrderBookRequest, GetOrderBookResponse>(MarketDataService.Descriptor, "GetOrderBook", Book);
         api.OnStream<OrderStateStreamRequest, OrderStateStreamResponse>(OrdersStreamService.Descriptor, "OrderStateStream", Stream);
     }
 
@@ -129,6 +140,27 @@ internal sealed class MockTInvestOrders
         {
             LastPrices = { request.InstrumentId.Select(uid => new LastPrice { InstrumentUid = uid, Price = Quotation(LastPrice) }) }
         };
+    }
+
+    private GetTradingStatusResponse Status(GetTradingStatusRequest request)
+    {
+        return new GetTradingStatusResponse
+        {
+            InstrumentUid = request.InstrumentId,
+            ApiTradeAvailableFlag = TradingOpen,
+            LimitOrderAvailableFlag = TradingOpen,
+            MarketOrderAvailableFlag = TradingOpen,
+            TradingStatus = TradingOpen ? SecurityTradingStatus.NormalTrading : SecurityTradingStatus.NotAvailableForTrading
+        };
+    }
+
+    private GetOrderBookResponse Book(GetOrderBookRequest request)
+    {
+        BookReads++;
+
+        return Band is { } band
+            ? new GetOrderBookResponse { InstrumentUid = request.InstrumentId, Depth = 1, LimitDown = Quotation(band.Low), LimitUp = Quotation(band.High) }
+            : new GetOrderBookResponse { InstrumentUid = request.InstrumentId, Depth = 1 };
     }
 
     private PostOrderResponse Post(PostOrderRequest request)

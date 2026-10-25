@@ -4,6 +4,7 @@
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"/>
         <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions"/>
         <PackageReference Include="Tinkoff.InvestApi"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions"/>
         <PackageReference Include="Dapper"/>
         <PackageReference Include="FluentMigrator.Runner"/>
         <PackageReference Include="Npgsql"/>

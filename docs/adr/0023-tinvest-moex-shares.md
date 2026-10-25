@@ -252,3 +252,25 @@ withdrawals); and that the endpoint certificate is still issued by the Russian T
   `KeyPermissions`. The order state stream is subscribed before the lookups. An active order on the bot's share whose
   request ID is not one of the bot's attempts is `ForeignOrder` unless the bot allows them; foreign trades are checked
   with the operations cursor in T13.
+
+## Amendment: waiting for the session and the band (T12a)
+
+- **Before every send** the gateway reads `GetTradingStatus`: API trading and the order type's flag must both be
+  available, otherwise the attempt waits as `SessionClosed`. A limit attempt then needs the band from `GetOrderBook`
+  at depth 1, kept for five seconds per share. A buy below `limit_down` or a sell above `limit_up` waits as `PriceBand`
+  with the bounds. A buy above the band goes at `limit_up` rounded down to the tick, and a sell below it at `limit_down`
+  rounded up, or it waits if that lands outside the band. A missing band waits. A market order is not checked against
+  the band. The effective price is sent, not stored: the attempt keeps the engine's limit.
+- **Waiting** is a `Planned` attempt with `waiting_code` and `band_low`/`band_high` (migration `202610250046`). The
+  engine hears `LocalAccepted` when the attempt starts to wait; the runtime hears the reason (`RecordOrderWaitingCommand`)
+  whenever it or the band changes. Reconciliation reports a waiting attempt again as `LocalAccepted`, and a cancel of it
+  stays local.
+- **Release.** `TInvestWaitingOrdersWorker` re-reads the status and band of waiting attempts every
+  `Venues:TInvest:WaitingRecheckInterval` (30 s). It considers a bot only while its runner in this process reads updates,
+  and only when the core's `AuthorizeWaitingReleaseCommand` allows it: the bot should run and is healthy, no trading
+  halt, and a live lease with an open submit gate (ADR 0016 amendment). A stopped, killed or degraded bot never sends
+  because a band moved. Sending ends the wait. A definitive rejection found then reaches the engine through the updates.
+- **`30098` and `30099`** close the attempt with its code. The same engine order waits again as the next attempt with
+  the next request ID (`SessionClosed` or `PriceBand`), and the engine hears no rejection.
+- Still to come in T12b: carry-over of DAY orders before the last session ends, re-reading at the scheduled opening, and
+  holiday intervals of today's schedule.
