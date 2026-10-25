@@ -11,7 +11,8 @@ namespace ProfitGraph.Api.Backtesting.Realtime;
 /// <summary>
 ///     Turns the Worker's commit signals into hub messages (stage 3 plan, S3-11): for each followed run it reads the
 ///     observations committed after the last one sent and sends them in order, then <c>BacktestFinished</c> once the run
-///     has a result. Signals are handled one at a time, so a run's messages never overtake each other.
+///     has a result. Signals are handled one at a time, so a run's messages never overtake each other. The Worker stores
+///     the result only after the last observation, so a result read before the observations means none is left behind.
 /// </summary>
 public sealed class BacktestProgressPublisher(
     IBacktestProgressNotifications notifications,
@@ -56,6 +57,9 @@ public sealed class BacktestProgressPublisher(
         await using AsyncServiceScope scope = scopes.CreateAsyncScope();
         var reader = scope.ServiceProvider.GetRequiredService<IBacktestReader>();
         IClientProxy group = hub.Clients.Group(BacktestProgressSubscriptions.Group(runId.Value));
+
+        // Read before the observations: a result stored while they are sent would otherwise end the run without them.
+        BacktestRunStateInternal state = await reader.State(runId, cancellationToken);
         long? after = sent;
 
         while (after is { } cursor)
@@ -71,7 +75,7 @@ public sealed class BacktestProgressPublisher(
             after = page.Next;
         }
 
-        if (await reader.State(runId, cancellationToken) is { Outcome: { } outcome })
+        if (state.Outcome is { } outcome)
         {
             await group.SendAsync("BacktestFinished", new BacktestFinishedResponse(runId.Value, outcome), cancellationToken);
             subscriptions.Forget(runId.Value);
