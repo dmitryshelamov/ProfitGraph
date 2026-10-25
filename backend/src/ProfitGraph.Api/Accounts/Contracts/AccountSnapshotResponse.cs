@@ -1,3 +1,8 @@
 namespace ProfitGraph.Api.Accounts.Contracts;
 
-public sealed record AccountSnapshotResponse(DateTimeOffset CapturedAt, string TotalValueUsd, string? AvailableValueUsd, IReadOnlyList<AccountCoinBalanceResponse> Coins);
+public sealed record AccountSnapshotResponse(
+    DateTimeOffset CapturedAt,
+    string TotalValue,
+    string ValueCurrency,
+    string? AvailableValue,
+    IReadOnlyList<AccountCoinBalanceResponse> Coins);

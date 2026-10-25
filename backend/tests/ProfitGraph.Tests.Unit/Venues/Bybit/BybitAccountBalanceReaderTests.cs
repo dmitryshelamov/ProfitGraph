@@ -25,8 +25,8 @@ public sealed class BybitAccountBalanceReaderTests
         AccountBalanceReadInternal read = await Read();
 
         AccountBalanceObservationInternal observation = read.Observation.ShouldNotBeNull();
-        observation.TotalValueUsd.ShouldBe(1234.5m);
-        observation.AvailableValueUsd.ShouldBe(1000m);
+        observation.TotalValue.ShouldBe(1234.5m);
+        observation.AvailableValue.ShouldBe(1000m);
         observation.Coins.ShouldBe(
             [new AccountCoinBalanceInternal("USDT", Balance: 1000m, UsdValue: 1000m), new AccountCoinBalanceInternal("BTC", Balance: 0.0035m, UsdValue: 234.5m)]);
         _harness.Exchange.Requests.ShouldContain((HttpMethod.Get, "/v5/account/wallet-balance"));

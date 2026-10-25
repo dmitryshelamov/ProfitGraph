@@ -39,10 +39,12 @@ export function AccountOverview({ credentialId }: { credentialId: string }) {
       {latest ? (
         <>
           <p>
-            Стоимость счёта: <span className="font-mono">{latest.totalValueUsd}</span> USD
-            {latest.availableValueUsd && (
+            Стоимость счёта: <span className="font-mono">{latest.totalValue}</span>{' '}
+            {latest.valueCurrency}
+            {latest.availableValue && (
               <>
-                , доступно <span className="font-mono">{latest.availableValueUsd}</span> USD
+                , доступно <span className="font-mono">{latest.availableValue}</span>{' '}
+                {latest.valueCurrency}
               </>
             )}{' '}
             (<DateTime value={latest.capturedAt} />)
