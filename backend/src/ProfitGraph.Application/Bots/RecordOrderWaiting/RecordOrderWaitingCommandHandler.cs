@@ -1,30 +1,16 @@
 using MediatR;
 
-using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
 
 namespace ProfitGraph.Application.Bots.RecordOrderWaiting;
 
 /// <summary>
-///     Locks the order's wait and changes it in one transaction, so concurrent reports serialize and their events reach the
-///     outbox.
+///     Locks the order's wait and changes it. Like every command it runs in one transaction (the transaction behavior), so
+///     concurrent reports serialize and the wait's events reach the outbox with it.
 /// </summary>
-internal sealed class RecordOrderWaitingCommandHandler(IBotOrderWaitingRepository waiting, ITransactionExecutor transactions, TimeProvider clock)
-    : IRequestHandler<RecordOrderWaitingCommand>
+internal sealed class RecordOrderWaitingCommandHandler(IBotOrderWaitingRepository waiting, TimeProvider clock) : IRequestHandler<RecordOrderWaitingCommand>
 {
     public async Task Handle(RecordOrderWaitingCommand command, CancellationToken cancellationToken)
-    {
-        await transactions.ExecuteAsync(
-            async () =>
-            {
-                await Record(command, cancellationToken);
-
-                return true;
-            },
-            cancellationToken);
-    }
-
-    private async Task Record(RecordOrderWaitingCommand command, CancellationToken cancellationToken)
     {
         var botId = new BotId(command.BotId);
         DateTimeOffset now = clock.GetUtcNow();

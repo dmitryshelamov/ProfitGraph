@@ -46,6 +46,11 @@ internal sealed class MockTInvestOrders
     public bool TradingOpen { get; set; } = true;
 
     /// <summary>
+    ///     Lots of every new buy that execute at its price as soon as it is placed.
+    /// </summary>
+    public long BuyLotsFilledOnPost { get; set; }
+
+    /// <summary>
     ///     The share's current price limits, or null when the order book reports none.
     /// </summary>
     public (decimal Low, decimal High)? Band { get; set; } = (50m, 150m);
@@ -248,6 +253,18 @@ internal sealed class MockTInvestOrders
                     ExecutionReportStatus = OrderExecutionReportStatus.ExecutionReportStatusNew
                 };
                 _orders[request.OrderId] = order;
+
+                if (request.Direction == OrderDirection.Buy && BuyLotsFilledOnPost > 0 && request.Price is { } price)
+                {
+                    long lots = Math.Min(BuyLotsFilledOnPost, request.Quantity);
+                    order.Stages.Add(
+                        new OrderStage { Quantity = lots, Price = Money(price.Units + price.Nano / 1_000_000_000m), TradeId = Guid.NewGuid().ToString("N") });
+                    order.LotsExecuted = lots;
+                    order.ExecutedCommission = Money(0m);
+                    order.ExecutionReportStatus = lots == request.Quantity
+                        ? OrderExecutionReportStatus.ExecutionReportStatusFill
+                        : OrderExecutionReportStatus.ExecutionReportStatusPartiallyfill;
+                }
             }
 
             if (failure is not null)

@@ -50,7 +50,7 @@ public sealed class BotGraphFollower(
             IHistoricalCandleSource history = histories.Find(bot.Series.Venue) ?? throw new InvalidOperationException("The venue has no candle history.");
             IReadOnlyList<Candle> closed;
 
-            using (await access.Open(bot, cancellationToken))
+            using (MarketDataAccess.Use(await access.Read(bot, cancellationToken)))
             {
                 closed = (await LiveHistory.Read(
                     history,
