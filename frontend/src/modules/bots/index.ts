@@ -8,6 +8,7 @@ export {
   botPositionQuery,
   botQuery,
   botsQuery,
+  botWaitingOrdersQuery,
   createBot,
   liveImpactQuery,
   tradingHaltQuery,
@@ -22,6 +23,7 @@ export { BotPositionCard } from './ui/BotPositionCard';
 export { ForeignOrdersToggle, ParametersForm, RiskLimitsForm } from './ui/BotSettings';
 export { BotsTable } from './ui/BotsTable';
 export { BotStatusBadge } from './ui/BotStatusBadge';
+export { BotWaitingOrders } from './ui/BotWaitingOrders';
 export { CreateBotForm } from './ui/CreateBotForm';
 export { ManualOrderForm } from './ui/ManualOrderForm';
 export { TradingHaltBanner } from './ui/TradingHaltBanner';

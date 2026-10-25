@@ -121,6 +121,39 @@ describe('bot reports', () => {
     expect(screen.queryByRole('button', { name: 'Показать ещё сделки' })).not.toBeInTheDocument();
   });
 
+  it('shows working orders the venue holds locally and why', async () => {
+    fakeApi(
+      routes({
+        [`GET ${botPath}/waiting-orders`]: () =>
+          json([
+            {
+              engineOrderId: 3,
+              code: 'PriceBand',
+              since: '2026-10-24T10:00:00Z',
+              until: null,
+              low: '90',
+              high: '110',
+            },
+            {
+              engineOrderId: 4,
+              code: 'CarryOver',
+              since: '2026-10-24T20:45:00Z',
+              until: null,
+              low: null,
+              high: null,
+            },
+          ]),
+      }),
+    );
+    renderApp(`/bots/${bot.id}`);
+
+    const waiting = await screen.findByRole('list', { name: 'Ожидающие заявки' });
+    expect(
+      within(waiting).getByText('Ждёт ценового коридора (коридор 90–110)'),
+    ).toBeInTheDocument();
+    expect(within(waiting).getByText('Перенос на следующую торговую сессию')).toBeInTheDocument();
+  });
+
   it('shows the bot’s feed with readable events', async () => {
     fakeApi(
       routes({

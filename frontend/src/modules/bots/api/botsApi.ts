@@ -14,6 +14,7 @@ export const botKeys = {
   fills: (id: string) => ['bots', id, 'fills'] as const,
   feed: (id: string) => ['bots', id, 'feed'] as const,
   position: (id: string) => ['bots', id, 'position'] as const,
+  waiting: (id: string) => ['bots', id, 'waiting-orders'] as const,
 };
 
 /** A missing bot and a bot of another user are both 404; retrying cannot change that. */
@@ -180,6 +181,16 @@ export function liveImpactQuery(strategyId: string) {
 const pageSize = 50;
 
 /** The bot's fills, newest first, a page at a time. */
+/** The bot's working orders its venue holds locally, with why. */
+export function botWaitingOrdersQuery(id: string) {
+  return queryOptions({
+    queryKey: botKeys.waiting(id),
+    queryFn: async () =>
+      unwrap(await api.GET('/api/bots/{id}/waiting-orders', { params: { path: { id } } })),
+    refetchInterval: 15_000,
+  });
+}
+
 export function botFillsQuery(id: string) {
   return infiniteQueryOptions({
     queryKey: botKeys.fills(id),

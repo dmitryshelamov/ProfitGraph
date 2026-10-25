@@ -1661,6 +1661,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bots/{id}/waiting-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotOrderWaitingResponse"][];
+                        "application/json": components["schemas"]["BotOrderWaitingResponse"][];
+                        "text/json": components["schemas"]["BotOrderWaitingResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bots/{id}/feed": {
         parameters: {
             query?: never;
@@ -3174,7 +3213,7 @@ export interface components {
             occurredAt: string;
         };
         /** @enum {unknown} */
-        BotFeedKind: "Started" | "Stopped" | "Killed" | "Degraded" | "Recovered" | "RuntimeStopped" | "RunRestarted" | "GraphVersionApplied" | "GraphChangeRejected" | "FeedStalled" | "FeedRecovered" | "ExchangeUnavailable" | "SubmitHeld" | "OrderPlaced" | "OrderRejected" | "OrderFailed" | "Fill" | "PositionOpened" | "PositionClosed" | "SettingsChanged" | "FeeCorrected";
+        BotFeedKind: "Started" | "Stopped" | "Killed" | "Degraded" | "Recovered" | "RuntimeStopped" | "RunRestarted" | "GraphVersionApplied" | "GraphChangeRejected" | "FeedStalled" | "FeedRecovered" | "ExchangeUnavailable" | "SubmitHeld" | "OrderPlaced" | "OrderRejected" | "OrderFailed" | "Fill" | "PositionOpened" | "PositionClosed" | "SettingsChanged" | "FeeCorrected" | "OrderWaiting" | "OrderWaitingEnded";
         BotFeedPageResponse: {
             items: components["schemas"]["BotFeedEntryResponse"][];
             /** Format: int64 */
@@ -3201,6 +3240,17 @@ export interface components {
             price: string;
             /** Format: date-time */
             filledAt: string;
+        };
+        BotOrderWaitingResponse: {
+            /** Format: int64 */
+            engineOrderId: number;
+            code: components["schemas"]["OrderWaitingCode"];
+            /** Format: date-time */
+            since: string;
+            /** Format: date-time */
+            until: null | string;
+            low: null | string;
+            high: null | string;
         };
         BotPositionCycleResponse: {
             /** Format: uuid */
@@ -3609,6 +3659,8 @@ export interface components {
         };
         /** @enum {unknown} */
         OrderSide: "Buy" | "Sell";
+        /** @enum {unknown} */
+        OrderWaitingCode: "PriceBand" | "SessionClosed" | "CarryOver" | "SettlementHold" | "SingleBuyOrderSlot" | "AwaitingConfirmation" | "RateLimited";
         SampleMetricsResponse: {
             /** Format: int32 */
             startIndex: number;

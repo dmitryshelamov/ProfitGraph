@@ -5,6 +5,7 @@ import { DateTime } from '@/shared/ui/DateTime';
 
 import { botFeedQuery } from '../api/botsApi';
 import { feedLabel, reasonLabel } from '../model/botStatus';
+import { waitingReason } from '../model/orderWaiting';
 import type { BotFeedEntry } from '../model/types';
 
 const settingLabels: Record<string, string> = {
@@ -32,6 +33,10 @@ function details(entry: BotFeedEntry): string {
 
   if (entry.details.correctedFee) {
     return `заявка ${engineOrderId}: было ${entry.details.previousFee}, стало ${entry.details.correctedFee}`;
+  }
+
+  if (entry.details.code) {
+    return `заявка ${engineOrderId}: ${waitingReason(entry.details.code).toLowerCase()}`;
   }
 
   if (grossBase && grossQuote) {
