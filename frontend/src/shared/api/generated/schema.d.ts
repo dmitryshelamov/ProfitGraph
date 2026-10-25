@@ -2493,6 +2493,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/exchange-credentials/{id}/protection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["AccountProtectionResponse"];
+                        "application/json": components["schemas"]["AccountProtectionResponse"];
+                        "text/json": components["schemas"]["AccountProtectionResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/exchange-credentials/{id}/protection/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users": {
         parameters: {
             query?: never;
@@ -2590,6 +2664,14 @@ export interface components {
             nextAttemptAt: null | string;
             snapshots: components["schemas"]["AccountSnapshotResponse"][];
         };
+        AccountProtectionResponse: {
+            open: boolean;
+            reason: null | string;
+            /** Format: date-time */
+            since: null | string;
+            /** Format: date-time */
+            automaticResumeAt: null | string;
+        };
         AccountSnapshotResponse: {
             /** Format: date-time */
             capturedAt: string;
@@ -2669,6 +2751,9 @@ export interface components {
             outOfSampleFraction: string;
             /** Format: int32 */
             warmupCandles: number;
+            sellerFees: null | components["schemas"]["SellerFeeScheduleResponse"];
+            /** Format: int64 */
+            settlementHoldSeconds: null | number;
         };
         BacktestDiagnosticResponse: {
             /** Format: int64 */
@@ -3000,11 +3085,12 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+            sellerFees: null | components["schemas"]["SellerFeeScheduleResponse"];
         };
         /** @enum {unknown} */
         BotRuntimeStatus: "Created" | "Starting" | "Running" | "Degraded" | "Stopped";
         /** @enum {unknown} */
-        BotStatusReason: "RuntimeFailure" | "NoGateway" | "UnknownVenue" | "IntentFailed" | "UnresolvedOrder" | "ForeignOrder" | "KeyPermissions" | "UnsupportedFeeAsset" | "InsufficientBalance" | "HistoryDataCorrection" | "Killed" | "DailyLossLimit" | null;
+        BotStatusReason: "RuntimeFailure" | "NoGateway" | "UnknownVenue" | "IntentFailed" | "UnresolvedOrder" | "ForeignOrder" | "KeyPermissions" | "UnsupportedFeeAsset" | "InsufficientBalance" | "HistoryDataCorrection" | "VenueAccountProtection" | "Killed" | "DailyLossLimit" | null;
         CandleImportResponse: {
             venue: string;
             symbol: string;
@@ -3341,6 +3427,14 @@ export interface components {
             /** @default false */
             confirmLiveImpact: boolean;
         };
+        SellerFeeScheduleRequest: {
+            rates: null | string[];
+            minimum: null | string;
+        };
+        SellerFeeScheduleResponse: {
+            rates: string[];
+            minimum: string;
+        };
         SignInRequest: {
             login: null | string;
             password: null | string;
@@ -3365,6 +3459,9 @@ export interface components {
             limitFeeRate: null | string;
             marketFeeRate: null | string;
             outOfSampleFraction: null | string;
+            sellerFees?: null | components["schemas"]["SellerFeeScheduleRequest"];
+            /** Format: int64 */
+            settlementHoldSeconds?: null | number;
         };
         StartOptimizationRequest: {
             backtest: null | components["schemas"]["StartBacktestRequest"];
@@ -3617,10 +3714,16 @@ export interface components {
                 [key: string]: components["schemas"]["ValueExpressionResponse"];
             };
         };
+        VenueExecutionDefaultsResponse: {
+            sellerFees: null | components["schemas"]["SellerFeeScheduleResponse"];
+            /** Format: int64 */
+            settlementHoldSeconds: null | number;
+        };
         VenueResponse: {
             id: string;
             name: string;
             timeframes: string[];
+            executionDefaults: null | components["schemas"]["VenueExecutionDefaultsResponse"];
         };
         WalkForwardDiagnosticResponse: {
             code: string;

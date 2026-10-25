@@ -37,6 +37,7 @@ export const bot: Schemas['BotResponse'] = {
   hasRun: false,
   createdAt: '2026-10-24T08:00:00Z',
   updatedAt: '2026-10-24T08:00:00Z',
+  sellerFees: null,
 };
 
 export const flatPosition: Schemas['BotPositionResponse'] = {

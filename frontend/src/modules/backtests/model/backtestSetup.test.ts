@@ -1,10 +1,22 @@
+import type { Venue } from '@/modules/market-data';
 import type { StrategyDefinition } from '@/modules/strategies';
 
 import {
   backtestSetupDefaults,
   backtestSetupRequest,
   type BacktestSetupValues,
+  withVenueDefaults,
 } from './backtestSetup';
+
+const marketplace: Venue = {
+  id: 'steam',
+  name: 'Steam Community Market',
+  timeframes: ['1h', '1d'],
+  executionDefaults: {
+    sellerFees: { rates: ['0.05', '0.1'], minimum: '0.01' },
+    settlementHoldSeconds: 604_800,
+  },
+};
 
 const definition = {
   parameters: [
@@ -116,5 +128,67 @@ describe('backtest setup', () => {
     );
 
     expect(result).toMatchObject({ request: { limitFeeRate: '0.5', outOfSampleFraction: '0.9' } });
+  });
+
+  it('takes a marketplace venue’s seller fees and hold, and drops them for a venue without', () => {
+    const steam = withVenueDefaults(values(), marketplace);
+
+    expect(steam.sellerFees).toEqual({ percents: ['5', '10'], minimum: '0.01' });
+    expect(steam.holdDays).toBe('7');
+    expect(
+      withVenueDefaults(steam, {
+        id: 'bybit',
+        name: 'Bybit',
+        timeframes: ['1h'],
+        executionDefaults: null,
+      }),
+    ).toMatchObject({
+      sellerFees: null,
+      holdDays: null,
+    });
+  });
+
+  it('sends seller fees instead of the rates and the hold in seconds', () => {
+    const result = backtestSetupRequest('s', 1, definition, {
+      ...withVenueDefaults(values(), marketplace),
+      series: { venue: 'steam', symbol: 'KZT:730:Dreams & Nightmares Case', timeframe: '1d' },
+    });
+
+    expect(result).toMatchObject({
+      request: {
+        symbol: 'KZT:730:Dreams & Nightmares Case',
+        limitFeeRate: '0',
+        marketFeeRate: '0',
+        sellerFees: { rates: ['0.05', '0.1'], minimum: '0.01' },
+        settlementHoldSeconds: 604_800,
+      },
+    });
+  });
+
+  it('explains a seller fee, minimum or hold it cannot send', () => {
+    const steam = withVenueDefaults(values(), marketplace);
+    const result = backtestSetupRequest('s', 1, definition, {
+      ...steam,
+      sellerFees: { percents: ['5', '60'], minimum: '-1' },
+      holdDays: '1.5',
+    });
+
+    expect(result).toEqual({
+      errors: {
+        'sellerFeePercents.1': 'От 0 до 50%.',
+        sellerFeeMinimum: 'Укажите неотрицательную сумму.',
+        holdDays: 'Целое число дней от 0 до 3650.',
+      },
+    });
+  });
+
+  it('sends no hold when its field is left empty', () => {
+    const result = backtestSetupRequest('s', 1, definition, {
+      ...withVenueDefaults(values(), marketplace),
+      holdDays: '',
+    });
+
+    expect(result).toHaveProperty('request');
+    expect(result).not.toHaveProperty('request.settlementHoldSeconds');
   });
 });

@@ -1,4 +1,4 @@
-import type { SeriesSelection } from '@/modules/market-data';
+import type { SeriesSelection, Venue } from '@/modules/market-data';
 import { utcDayStart } from '@/modules/market-data';
 import { isPercentageParameter, type StrategyDefinition } from '@/modules/strategies';
 import type { Schemas } from '@/shared/api/client';
@@ -22,6 +22,10 @@ export interface BacktestSetupValues {
   readonly slippagePercent: string;
   readonly holdoutPercent: string;
   readonly parameters: Readonly<Record<string, string>>;
+  /** Fees the seller pays per unit instead of the two rates, as the venue's marketplace charges them; null for rates. */
+  readonly sellerFees: { readonly percents: readonly string[]; readonly minimum: string } | null;
+  /** Days before a bought unit may be sold; null when the venue has no such hold, empty for none. */
+  readonly holdDays: string | null;
 }
 
 export type BacktestSetupField =
@@ -32,6 +36,9 @@ export type BacktestSetupField =
   | 'marketFeePercent'
   | 'slippagePercent'
   | 'holdoutPercent'
+  | 'sellerFeeMinimum'
+  | 'holdDays'
+  | `sellerFeePercents.${number}`
   | `parameters.${string}`;
 
 export type BacktestSetupErrors = Partial<Record<BacktestSetupField, string>>;
@@ -47,6 +54,8 @@ export function backtestSetupDefaults(definition: StrategyDefinition): BacktestS
     marketFeePercent: '0.1',
     slippagePercent: '0',
     holdoutPercent: '20',
+    sellerFees: null,
+    holdDays: null,
     parameters: Object.fromEntries(
       definition.parameters.map((parameter) => [
         parameter.name,
@@ -55,6 +64,30 @@ export function backtestSetupDefaults(definition: StrategyDefinition): BacktestS
           : parameter.defaultValue,
       ]),
     ),
+  };
+}
+
+/**
+ * The venue's own execution defaults: a marketplace's seller fees and its hold, or the two rates and no hold. Kept
+ * values the user typed for rates stay as they are.
+ */
+export function withVenueDefaults(
+  values: BacktestSetupValues,
+  venue: Venue | undefined,
+): BacktestSetupValues {
+  const defaults = venue?.executionDefaults ?? null;
+  const fees = defaults?.sellerFees ?? null;
+  const hold = defaults?.settlementHoldSeconds ?? null;
+
+  return {
+    ...values,
+    sellerFees: fees
+      ? {
+          percents: fees.rates.map((rate) => fractionToPercent(rate) ?? rate),
+          minimum: fees.minimum,
+        }
+      : null,
+    holdDays: hold === null ? null : String(hold / 86_400),
   };
 }
 
@@ -122,8 +155,27 @@ export function backtestSetupRequest(
     errors.startingCapital = 'Укажите положительную сумму.';
   }
 
-  const limitFeeRate = fraction(values.limitFeePercent, 50);
-  const marketFeeRate = fraction(values.marketFeePercent, 50);
+  const limitFeeRate = values.sellerFees ? '0' : fraction(values.limitFeePercent, 50);
+  const marketFeeRate = values.sellerFees ? '0' : fraction(values.marketFeePercent, 50);
+  const sellerRates = values.sellerFees?.percents.map((percent) => fraction(percent, 50)) ?? [];
+  const sellerMinimum = values.sellerFees ? exact(values.sellerFees.minimum) : null;
+
+  sellerRates.forEach((rate, index) => {
+    if (rate === null) {
+      errors[`sellerFeePercents.${index}`] = 'От 0 до 50%.';
+    }
+  });
+
+  if (values.sellerFees && (sellerMinimum === null || sellerMinimum.startsWith('-'))) {
+    errors.sellerFeeMinimum = 'Укажите неотрицательную сумму.';
+  }
+
+  const holdText = values.holdDays?.trim() ?? '';
+  const holdDays = /^\d{1,4}$/.test(holdText) ? Number(holdText) : null;
+
+  if (holdText !== '' && (holdDays === null || holdDays > 3650)) {
+    errors.holdDays = 'Целое число дней от 0 до 3650.';
+  }
   const slippage = fraction(values.slippagePercent, 50);
   const outOfSampleFraction = fraction(values.holdoutPercent, 90);
 
@@ -178,6 +230,10 @@ export function backtestSetupRequest(
       limitFeeRate: limitFeeRate!,
       marketFeeRate: marketFeeRate!,
       outOfSampleFraction: outOfSampleFraction!,
+      ...(values.sellerFees
+        ? { sellerFees: { rates: sellerRates as string[], minimum: sellerMinimum! } }
+        : {}),
+      ...(holdDays === null ? {} : { settlementHoldSeconds: holdDays * 86_400 }),
     },
   };
 }
