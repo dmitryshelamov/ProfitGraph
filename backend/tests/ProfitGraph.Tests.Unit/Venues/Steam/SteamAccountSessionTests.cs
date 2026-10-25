@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -30,6 +31,75 @@ public sealed class SteamAccountSessionTests
         harness.Steam.Count("/login/settoken").ShouldBe(1);
         harness.Steam.Cookies.Single().ShouldContain("sessionid=");
         harness.Steam.Cookies.Single().ShouldContain("steamCountry=");
+    }
+
+    [Test]
+    public async Task AMarketPageGoesThroughTheEligibilityCheckOnceAndKeepsItsCookie()
+    {
+        var harness = new SteamSessionHarness();
+        harness.Steam.MarketGoesThroughEligibility = true;
+        SteamAccountSession session = harness.Session();
+
+        SteamRequestResult first = await session.ReadPage("/market/?l=english", SteamRequestClass.Account, CancellationToken.None);
+        SteamRequestResult second = await session.ReadPage("/market/?l=english", SteamRequestClass.Account, CancellationToken.None);
+
+        first.Response!.StatusCode.ShouldBe(200);
+        Encoding.UTF8.GetString(second.Response!.Body).ShouldContain("g_rgWalletInfo");
+        harness.Steam.Count("/market/eligibilitycheck/").ShouldBe(1);
+        harness.Steam.Count("/market/").ShouldBe(3);
+        harness.Steam.Cookies.Single().ShouldContain("webTradeEligibility=allowed-invented");
+    }
+
+    [Test]
+    public async Task APageCookieNeverReplacesTheSession()
+    {
+        var harness = new SteamSessionHarness();
+        harness.Steam.MarketGoesThroughEligibility = true;
+        harness.Steam.Override = request =>
+        {
+            if (request.RequestUri!.AbsolutePath != "/market/eligibilitycheck/")
+            {
+                return null;
+            }
+
+            var response = new HttpResponseMessage(HttpStatusCode.Found);
+            response.Headers.Location = new Uri("/market/", UriKind.Relative);
+            response.Headers.Add("Set-Cookie", "steamLoginSecure=forged; Path=/");
+            response.Headers.Add("Set-Cookie", "sessionid=forged; Path=/");
+            response.Headers.Add("Set-Cookie", "webTradeEligibility=allowed-invented; Path=/");
+
+            return response;
+        };
+
+        SteamRequestResult result = await harness.Session().ReadPage("/market/?l=english", SteamRequestClass.Account, CancellationToken.None);
+
+        result.Response!.StatusCode.ShouldBe(200);
+        harness.Steam.Cookies.Single().ShouldNotContain("forged");
+    }
+
+    [Test]
+    public async Task AChainOfMoreThanThreeRedirectsIsRefused()
+    {
+        var harness = new SteamSessionHarness();
+        SteamAccountSession session = harness.Session();
+        await session.SteamId(CancellationToken.None);
+        harness.Steam.Override = request =>
+        {
+            if (request.RequestUri!.AbsolutePath != "/market/")
+            {
+                return null;
+            }
+
+            var response = new HttpResponseMessage(HttpStatusCode.Found);
+            response.Headers.Location = new Uri("/market/?again", UriKind.Relative);
+
+            return response;
+        };
+
+        SteamRequestResult result = await session.ReadPage("/market/?l=english", SteamRequestClass.Account, CancellationToken.None);
+
+        result.Outcome.ShouldBe(SteamRequestOutcome.InvalidResponse);
+        harness.Steam.Count("/market/").ShouldBe(4);
     }
 
     [Test]

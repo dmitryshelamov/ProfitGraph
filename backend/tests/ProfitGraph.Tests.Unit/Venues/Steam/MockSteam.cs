@@ -108,6 +108,12 @@ internal sealed class MockSteam : HttpMessageHandler
     public string? EligibilityRedirect { get; set; } = "/market/";
 
     /// <summary>
+    ///     Sends a signed-in market page without the <c>webTradeEligibility</c> cookie through the eligibility check, which sets
+    ///     it, and back, as live Steam does (Profit Fox Designer <c>steam-protocol-assumptions</c>).
+    /// </summary>
+    public bool MarketGoesThroughEligibility { get; set; }
+
+    /// <summary>
     ///     Answers sign-in and authenticator linking when a test sets it.
     /// </summary>
     public MockSteamEnrollment? Enrollment { get; set; }
@@ -353,6 +359,7 @@ internal sealed class MockSteam : HttpMessageHandler
 
         var redirect = new HttpResponseMessage(HttpStatusCode.Found);
         redirect.Headers.Location = new Uri(EligibilityRedirect, UriKind.Relative);
+        redirect.Headers.Add("Set-Cookie", "webTradeEligibility=allowed-invented; Path=/; Secure");
 
         return redirect;
     }
@@ -473,6 +480,14 @@ internal sealed class MockSteam : HttpMessageHandler
     private HttpResponseMessage Market()
     {
         bool signedIn = ValidSession is not null && Cookies.Any(cookie => cookie.Contains($"steamLoginSecure={ValidSession}", StringComparison.Ordinal));
+
+        if (signedIn && MarketGoesThroughEligibility && !Cookies.Any(cookie => cookie.Contains("webTradeEligibility=allowed-invented", StringComparison.Ordinal)))
+        {
+            var check = new HttpResponseMessage(HttpStatusCode.Found);
+            check.Headers.Location = new Uri("/market/eligibilitycheck/?goto=%2Fmarket%2F", UriKind.Relative);
+
+            return check;
+        }
 
         if (signedIn)
         {

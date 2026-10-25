@@ -156,6 +156,12 @@ public sealed class SteamOptions
 
     public TimeSpan EligibilityRecheck { get; init; } = TimeSpan.FromMinutes(15);
 
+    /// <summary>
+    ///     How long a restricted account waits before it is checked again: Steam lifts many restrictions on its own, and a
+    ///     refusal is never reused for good (Profit Fox Designer's local policy reuses only a positive check).
+    /// </summary>
+    public TimeSpan RestrictedRecheck { get; init; } = TimeSpan.FromHours(1);
+
     public TimeSpan ClockTolerance { get; init; } = TimeSpan.FromMinutes(10);
 
     /// <summary>
@@ -186,7 +192,7 @@ public sealed class SteamOptions
             DefiniteRejectionCodes.All(code => code > 1) &&
             ListingPagesMaximum is > 0 and <= 100 && HistoryPageSize is > 0 and <= 100 && HistoryMaximumPages is > 0 and <= 100 &&
             HistoryOverlap > 0 && HistoryOverlap < HistoryPageSize && OrderWorkerInterval >= TimeSpan.FromSeconds(1) &&
-            EligibilityInterval >= TimeSpan.FromSeconds(1) && EligibilityRecheck > TimeSpan.Zero && ClockTolerance > TimeSpan.Zero &&
+            EligibilityInterval >= TimeSpan.FromSeconds(1) && EligibilityRecheck > TimeSpan.Zero && RestrictedRecheck > TimeSpan.Zero && ClockTolerance > TimeSpan.Zero &&
             EnrollmentLifetime > TimeSpan.Zero && EnrollmentLifetime <= TimeSpan.FromHours(1) && CoolingDownEstimate >= TimeSpan.Zero &&
             CoolingDownEstimate <= TimeSpan.FromDays(30) && ActivationAttempts is >= 1 and <= 5;
 

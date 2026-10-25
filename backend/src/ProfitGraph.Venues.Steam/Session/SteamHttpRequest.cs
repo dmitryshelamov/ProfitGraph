@@ -4,7 +4,8 @@ namespace ProfitGraph.Venues.Steam.Session;
 ///     One request to a Steam host. A request with a form is a POST and a write unless <see cref="IsRead" /> says
 ///     otherwise (Steam answers some reads, such as server time, only to POST). A request that
 ///     <see cref="ExpectsRedirect" /> takes a redirect elsewhere than the login page as its answer, as the market eligibility
-///     check gives one.
+///     check gives one. A request that <see cref="FollowsRedirects" /> is a page navigation: a redirect within the Community
+///     host is a step to follow, any other one an invalid response (Profit Fox Designer <c>SteamAccountSession.ReadPage</c>).
 /// </summary>
 internal sealed record SteamHttpRequest(
     SteamEndpoint Endpoint,
@@ -13,7 +14,8 @@ internal sealed record SteamHttpRequest(
     bool IsRead = true,
     bool Multipart = false,
     SteamRequestClass? Class = null,
-    bool ExpectsRedirect = false)
+    bool ExpectsRedirect = false,
+    bool FollowsRedirects = false)
 {
     /// <summary>
     ///     The queue class: as given, otherwise a write or a status read.

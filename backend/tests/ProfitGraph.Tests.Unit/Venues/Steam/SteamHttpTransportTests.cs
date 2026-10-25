@@ -141,6 +141,48 @@ public sealed class SteamHttpTransportTests
         (await Send(SteamHttpRequest.Get(SteamEndpoint.Community, "/market/eligibilitycheck/"), Market)).Outcome.ShouldBe(SteamRequestOutcome.InvalidResponse);
     }
 
+    [TestCase("/market/eligibilitycheck/?goto=%2Fmarket%2F", "Success")]
+    [TestCase("https://community.steam.invalid/market/", "Success")]
+    [TestCase("/login/home/?goto=market%2F", "Unauthorized")]
+    [TestCase("https://help.steam.invalid/market/", "InvalidResponse")]
+    [TestCase("https://someone@community.steam.invalid/market/", "InvalidResponse")]
+    [TestCase("/market/#elsewhere", "InvalidResponse")]
+    [TestCase("//help.steam.invalid/market/", "InvalidResponse")]
+    public async Task AFollowedRedirectStaysOnItsHost(string location, string expected)
+    {
+        SteamRequestResult result = await Send(
+            new SteamHttpRequest(SteamEndpoint.Community, "/market/?l=english", FollowsRedirects: true),
+            _ =>
+            {
+                var response = new HttpResponseMessage(HttpStatusCode.Found);
+                response.Headers.Location = new Uri(location, UriKind.RelativeOrAbsolute);
+
+                return response;
+            });
+
+        result.Outcome.ToString().ShouldBe(expected);
+    }
+
+    [Test]
+    public async Task TheEligibilityCheckAndPageNavigationsCarryNoAjaxHeaders()
+    {
+        var sent = new List<(string? Ajax, string Accept)>();
+
+        HttpResponseMessage Record(HttpRequestMessage request)
+        {
+            sent.Add(
+                (request.Headers.TryGetValues("X-Requested-With", out IEnumerable<string>? values) ? values.Single() : null,
+                    string.Join(",", request.Headers.Accept.Select(accept => accept.MediaType))));
+
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        }
+
+        await Send(new SteamHttpRequest(SteamEndpoint.Community, "/market/eligibilitycheck/?goto=%2Fmarket%2F", ExpectsRedirect: true), Record);
+        await Send(new SteamHttpRequest(SteamEndpoint.Community, "/market/eligibilitycheck/?goto=%2Fmarket%2F", FollowsRedirects: true), Record);
+
+        sent.ShouldBe([(null, "text/html,application/xhtml+xml"), (null, string.Empty)]);
+    }
+
     [Test]
     public async Task MarketRequestsCarryTheItemsReferrer()
     {

@@ -18,8 +18,9 @@ internal interface ISteamAccountStore
     Task<bool> Add(SteamAccount account, CancellationToken cancellationToken);
 
     /// <summary>
-    ///     The accounts in <see cref="SteamGuardStatus.Checking" />, or <see cref="SteamGuardStatus.CoolingDown" /> after their
-    ///     expected aging, whose next check is due.
+    ///     The accounts in <see cref="SteamGuardStatus.Checking" />, <see cref="SteamGuardStatus.CoolingDown" /> after their
+    ///     expected aging, or <see cref="SteamGuardStatus.Restricted" /> after their recheck wait or without one, whose next
+    ///     check is due.
     /// </summary>
     Task<IReadOnlyList<SteamAccount>> Due(DateTimeOffset now, CancellationToken cancellationToken);
 

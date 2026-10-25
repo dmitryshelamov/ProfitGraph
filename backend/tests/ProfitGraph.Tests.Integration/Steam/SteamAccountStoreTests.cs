@@ -49,4 +49,22 @@ public sealed class SteamAccountStoreTests
         (await store.Get(credential, CancellationToken.None))!.GuardStatus.ShouldBe(SteamGuardStatus.Ready);
         (await store.Due(BotSeed.Now.AddDays(1), CancellationToken.None)).Select(account => account.CredentialId).ShouldNotContain(credential);
     }
+
+    [Test]
+    public async Task ARestrictedAccountIsDueAfterItsRecheckOrWithoutOne()
+    {
+        Guid credential = (await BotSeed.NewBot()).CredentialId.Value;
+        var store = new SteamAccountRepository(_dataSource);
+        (await store.Add(SteamAccount.Imported(credential, Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N"), BotSeed.Now), CancellationToken.None))
+            .ShouldBeTrue();
+        (await store.Record(credential, SteamGuardStatus.Checking, SteamGuardStatus.Restricted, nextCheckAt: null, BotSeed.Now, CancellationToken.None)).ShouldBeTrue();
+
+        (await store.Due(BotSeed.Now, CancellationToken.None)).Select(account => account.CredentialId).ShouldContain(credential);
+
+        (await store.Record(credential, SteamGuardStatus.Restricted, SteamGuardStatus.Restricted, BotSeed.Now.AddHours(1), BotSeed.Now, CancellationToken.None))
+            .ShouldBeTrue();
+
+        (await store.Due(BotSeed.Now.AddMinutes(59), CancellationToken.None)).Select(account => account.CredentialId).ShouldNotContain(credential);
+        (await store.Due(BotSeed.Now.AddHours(1), CancellationToken.None)).Select(account => account.CredentialId).ShouldContain(credential);
+    }
 }
