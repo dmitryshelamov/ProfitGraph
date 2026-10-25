@@ -1,5 +1,6 @@
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.MarketData;
+using ProfitGraph.Domain.Strategies;
 
 namespace ProfitGraph.Domain.Bots;
 
@@ -22,6 +23,11 @@ public interface IBotRepository
     Task<IReadOnlyList<Bot>> ListByOwner(UserId ownerId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<BotId>> ListDesiredRunning(CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     The bots of a strategy that should run, oldest first: the bots a newly saved version reaches.
+    /// </summary>
+    Task<IReadOnlyList<Bot>> ListDesiredRunningOnStrategy(StrategyId strategyId, CancellationToken cancellationToken);
 
     /// <summary>
     ///     The bots that should run on one candle series.

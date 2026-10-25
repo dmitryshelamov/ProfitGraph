@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 
 using ProfitGraph.Api.Bots.Contracts;
+using ProfitGraph.Api.Strategies.Contracts;
 using ProfitGraph.Api.Trading.Contracts;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Accounts;
@@ -114,6 +115,42 @@ public sealed class BotControlEndpointTests
         acknowledged.Reason.ShouldBe("ForeignOrder");
         acknowledged.CreatedAt.ShouldBe(BotSeed.Now);
         unread.ShouldBeEmpty();
+    }
+
+    [Test]
+    public async Task SavingAStrategyOfARunningBotNeedsTheLiveImpactConfirmed()
+    {
+        BotOwner owner = await BotApi.NewOwner(_factory);
+        Guid id = await BotApi.Create(owner);
+        JsonElement started = await BotApi.Json(await owner.Client.PostAsync($"{BotApi.Path}/{id}/start", content: null));
+        JsonElement strategy = await BotApi.Json(await owner.Client.GetAsync($"/api/strategies/{owner.StrategyId}"));
+
+        LiveImpactBotResponse[] impact = (await owner.Client.GetFromJsonAsync<LiveImpactBotResponse[]>($"/api/strategies/{owner.StrategyId}/live-impact", WebJson))!;
+        HttpResponseMessage refused = await owner.Client.PutAsJsonAsync($"/api/strategies/{owner.StrategyId}", Save(strategy, confirm: false));
+        HttpResponseMessage saved = await owner.Client.PutAsJsonAsync($"/api/strategies/{owner.StrategyId}", Save(strategy, confirm: true));
+
+        LiveImpactBotResponse bot = impact.ShouldHaveSingleItem();
+        bot.BotId.ShouldBe(id);
+        bot.Venue.ShouldBe("test-history");
+        bot.Symbol.ShouldBe("BTCUSDT");
+        bot.Timeframe.ShouldBe("1h");
+        bot.StrategyVersionId.ShouldBe(started.GetProperty("strategyVersionId").GetGuid());
+        bot.RuntimeStatus.ShouldBe(BotRuntimeStatus.Created);
+        refused.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await BotApi.Code(refused)).ShouldBe("live_impact");
+        saved.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    private static object Save(JsonElement strategy, bool confirm)
+    {
+        return new
+        {
+            expectedVersion = strategy.GetProperty("currentVersion").GetInt32(),
+            name = strategy.GetProperty("name").GetString(),
+            definition = strategy.GetProperty("definition"),
+            layout = strategy.GetProperty("layout"),
+            confirmLiveImpact = confirm
+        };
     }
 
     private async Task<Guid> RaiseAlert(Guid botId, BotAlertKind kind, string reason)

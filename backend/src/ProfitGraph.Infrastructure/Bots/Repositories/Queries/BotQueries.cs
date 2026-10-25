@@ -22,6 +22,9 @@ internal static class BotQueries
 
     internal const string ListDesiredRunning = "SELECT id FROM bots WHERE desired_state = 'Running' ORDER BY id";
 
+    internal const string ListDesiredRunningOnStrategy =
+        $"SELECT {Columns} FROM bots WHERE strategy_id = @strategyId AND desired_state = 'Running' ORDER BY created_at, id";
+
     internal const string ListDesiredRunningOnSeries = """
                                                        SELECT id FROM bots
                                                        WHERE desired_state = 'Running' AND venue = @venue AND symbol = @symbol AND timeframe = @timeframe

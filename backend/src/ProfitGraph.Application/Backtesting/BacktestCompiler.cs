@@ -49,6 +49,17 @@ public sealed class BacktestCompiler(INodeTypeRegistry registry)
         ]);
     }
 
+    /// <summary>
+    ///     The graph a definition lowers to with fixed parameter values, and the block catalog it is compiled against: what a
+    ///     running live bot needs to change its graph (ADR 0019). Call <see cref="Compile" /> first to validate it.
+    /// </summary>
+    public LoweredStrategyGraph Lower(StrategyDefinition definition, IReadOnlyDictionary<string, decimal> parameters)
+    {
+        IReadOnlyList<INodeDefinition> catalog = registry.GetAll();
+
+        return new LoweredStrategyGraph(new StrategyDefinitionLowerer(catalog).Lower(Apply(definition, parameters)).Graph, catalog);
+    }
+
     private static void CheckRanges(
         StrategyDefinition definition,
         IReadOnlyDictionary<string, decimal> parameters,

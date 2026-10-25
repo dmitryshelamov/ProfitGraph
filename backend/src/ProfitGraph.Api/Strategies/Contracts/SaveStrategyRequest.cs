@@ -6,4 +6,5 @@ public sealed record SaveStrategyRequest(
     [Range(minimum: 1, int.MaxValue)] int ExpectedVersion,
     [Required] string Name,
     [Required] StrategyDefinitionRequest Definition,
-    [Required] GraphLayoutRequest Layout);
+    [Required] GraphLayoutRequest Layout,
+    bool ConfirmLiveImpact = false);

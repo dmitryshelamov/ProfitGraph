@@ -10,6 +10,7 @@ using ProfitGraph.Application.Strategies.Contracts;
 using ProfitGraph.Application.Strategies.CreateStrategy;
 using ProfitGraph.Application.Strategies.GetStrategies;
 using ProfitGraph.Application.Strategies.GetStrategy;
+using ProfitGraph.Application.Strategies.GetStrategyLiveImpact;
 using ProfitGraph.Application.Strategies.GetStrategyVersion;
 using ProfitGraph.Application.Strategies.GetStrategyVersions;
 using ProfitGraph.Application.Strategies.SaveStrategy;
@@ -51,9 +52,28 @@ public sealed class StrategiesController(ISender sender) : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<StrategyResponse>> Save(Guid id, SaveStrategyRequest request, CancellationToken cancellationToken)
     {
-        var command = new SaveStrategyCommand(UserId(), id, request.ExpectedVersion, request.Name, request.Definition.ToInternal(), request.Layout.ToInternal());
+        var command = new SaveStrategyCommand(
+            UserId(),
+            id,
+            request.ExpectedVersion,
+            request.Name,
+            request.Definition.ToInternal(),
+            request.Layout.ToInternal(),
+            request.ConfirmLiveImpact);
 
         return (await sender.Send(command, cancellationToken)).ToResponse();
+    }
+
+    /// <summary>
+    ///     The running bots a save would switch to the new version (ADR 0019); a save while any exists needs
+    ///     <c>confirmLiveImpact</c> and otherwise answers 409 <c>live_impact</c>.
+    /// </summary>
+    [HttpGet("{id:guid}/live-impact")]
+    public async Task<ActionResult<IReadOnlyList<LiveImpactBotResponse>>> LiveImpact(Guid id, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<LiveImpactBotInternal> bots = await sender.Send(new GetStrategyLiveImpactQuery(UserId(), id), cancellationToken);
+
+        return bots.Select(bot => new LiveImpactBotResponse(bot.BotId, bot.Venue, bot.Symbol, bot.Timeframe, bot.StrategyVersionId, bot.RuntimeStatus)).ToArray();
     }
 
     [HttpGet("{id:guid}/versions")]

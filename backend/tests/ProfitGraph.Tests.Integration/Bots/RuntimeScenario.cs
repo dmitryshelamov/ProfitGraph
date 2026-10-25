@@ -62,21 +62,34 @@ internal sealed class RuntimeScenario
     /// </summary>
     public static async Task<Bot> RunningLadder(IHost host)
     {
+        return (await RunningLadders(host, count: 1))[0];
+    }
+
+    /// <summary>
+    ///     Ladder bots of one owner on one strategy, each with its own invented credential, that should run.
+    /// </summary>
+    public static async Task<IReadOnlyList<Bot>> RunningLadders(IHost host, int count)
+    {
         var owner = UserId.New();
-        var credential = ExchangeCredentialId.New();
+        ExchangeCredentialId[] credentials = [.. Enumerable.Range(start: 0, count).Select(_ => ExchangeCredentialId.New())];
 
         await using (var connection = new NpgsqlConnection(TestDatabase.ConnectionString))
         {
             await connection.ExecuteAsync(
-                sql: """
-                     INSERT INTO users (id, login, password_hash, role, status, created_at, updated_at)
-                     VALUES (@owner, 'runtime-' || @owner, 'not-a-real-hash', 'User', 'Active', now(), now());
-                     INSERT INTO exchange_credentials (
-                         id, user_id, venue, label, api_key_last4, api_key_key_id, api_key_nonce, api_key_ciphertext, api_key_tag,
-                         api_secret_key_id, api_secret_nonce, api_secret_ciphertext, api_secret_tag, created_at)
-                     VALUES (@credential, @owner, 'test-history', 'invented', 'abcd', 'test', @nonce, @cipher, @tag, 'test', @nonce, @cipher, @tag, now());
-                     """,
-                new { owner = owner.Value, credential = credential.Value, nonce = new byte[12], cipher = new byte[] { 1 }, tag = new byte[16] });
+                "INSERT INTO users (id, login, password_hash, role, status, created_at, updated_at) VALUES (@owner, 'runtime-' || @owner, 'not-a-real-hash', 'User', 'Active', now(), now())",
+                new { owner = owner.Value });
+
+            foreach (ExchangeCredentialId credential in credentials)
+            {
+                await connection.ExecuteAsync(
+                    sql: """
+                         INSERT INTO exchange_credentials (
+                             id, user_id, venue, label, api_key_last4, api_key_key_id, api_key_nonce, api_key_ciphertext, api_key_tag,
+                             api_secret_key_id, api_secret_nonce, api_secret_ciphertext, api_secret_tag, created_at)
+                         VALUES (@credential, @owner, 'test-history', 'invented', 'abcd', 'test', @nonce, @cipher, @tag, 'test', @nonce, @cipher, @tag, now());
+                         """,
+                    new { owner = owner.Value, credential = credential.Value, nonce = new byte[12], cipher = new byte[] { 1 }, tag = new byte[16] });
+            }
         }
 
         StrategyDefinition definition = LadderStrategyBlockFactory.Create(buyAmount: 10m, allocationCap: 100m, drop: 0.05m, rise: 0.05m);
@@ -91,30 +104,41 @@ internal sealed class RuntimeScenario
         StrategyVersion version = (await scope.ServiceProvider.GetRequiredService<IStrategyRepository>()
             .GetVersion(new StrategyId(strategy.Id), new StrategyVersionNumber(strategy.CurrentVersion), CancellationToken.None))!;
         DateTimeOffset now = DateTimeOffset.UtcNow;
-        var bot = Bot.Create(
-            BotId.New(),
-            owner,
-            new StrategyId(strategy.Id),
-            version.Id,
-            credential,
-            new CandleSeries(new VenueId(TestHistoryVenue.WithHistory), new InstrumentSymbol("BTCUSDT"), Timeframe.Parse("1h")),
-            new BotParameters(definition.Parameters.ToDictionary(parameter => parameter.Name, parameter => parameter.DefaultValue)),
-            allocationCap: 100m,
-            new BotRiskLimits(maxOrderQuote: 20m, dailyLossLimitQuote: 10m),
-            new BotFeeRates(limitRate: 0.001m, marketRate: 0.001m, now),
-            now);
-        bot.Start(version.Id, hasCheckpoint: false, tradingHalted: false, now);
+        Bot[] bots =
+        [
+            .. credentials.Select(credential => Bot.Create(
+                BotId.New(),
+                owner,
+                new StrategyId(strategy.Id),
+                version.Id,
+                credential,
+                new CandleSeries(new VenueId(TestHistoryVenue.WithHistory), new InstrumentSymbol("BTCUSDT"), Timeframe.Parse("1h")),
+                new BotParameters(definition.Parameters.ToDictionary(parameter => parameter.Name, parameter => parameter.DefaultValue)),
+                allocationCap: 100m,
+                new BotRiskLimits(maxOrderQuote: 20m, dailyLossLimitQuote: 10m),
+                new BotFeeRates(limitRate: 0.001m, marketRate: 0.001m, now),
+                now))
+        ];
+
+        foreach (Bot bot in bots)
+        {
+            bot.Start(version.Id, hasCheckpoint: false, tradingHalted: false, now);
+        }
+
         await scope.ServiceProvider.GetRequiredService<ITransactionExecutor>()
             .ExecuteAsync(
                 async () =>
                 {
-                    await scope.ServiceProvider.GetRequiredService<IBotRepository>().Add(bot, CancellationToken.None);
+                    foreach (Bot bot in bots)
+                    {
+                        await scope.ServiceProvider.GetRequiredService<IBotRepository>().Add(bot, CancellationToken.None);
+                    }
 
                     return true;
                 },
                 CancellationToken.None);
 
-        return bot;
+        return bots;
     }
 
     /// <summary>
@@ -164,11 +188,28 @@ internal sealed class RuntimeScenario
         {
             if (DateTime.UtcNow > deadline)
             {
-                Assert.Fail($"Timed out waiting until {what}.");
+                Assert.Fail($"Timed out waiting until {what}. {await DatabaseState()}");
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(50));
         }
+    }
+
+    /// <summary>
+    ///     What may hold every bot back: the global halt, leases, and sessions that wait for a lock or sit in a transaction.
+    /// </summary>
+    private static async Task<string> DatabaseState()
+    {
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+        var halted = await connection.ExecuteScalarAsync<bool>("SELECT halted FROM trading_halt WHERE id");
+        var leases = await connection.ExecuteScalarAsync<int>("SELECT count(*) FROM bot_leases WHERE expires_at > now()");
+        IEnumerable<string> sessions = await connection.QueryAsync<string>(
+            """
+            SELECT state || ' ' || coalesce(wait_event_type, '-') || ' ' || left(query, 80) FROM pg_stat_activity
+            WHERE datname = current_database() AND pid <> pg_backend_pid() AND (wait_event_type = 'Lock' OR state LIKE 'idle in transaction%')
+            """);
+
+        return $"Halted: {halted}; live leases: {leases}; blocked or open sessions: [{string.Join("; ", sessions)}].";
     }
 
     private static Dictionary<string, string?> Settings()

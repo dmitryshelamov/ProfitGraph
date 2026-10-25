@@ -15,6 +15,7 @@ public static class BotRuntimeRegistration
     {
         services.AddScoped<BotEngineSessionFactory>();
         services.AddScoped<BotReconciler>();
+        services.AddScoped<BotGraphFollower>();
         services.AddSingleton<LiveRuntimeIdentity>();
         services.AddSingleton<IHostedService, BotRuntimeHost>();
         services.AddSingleton<IHostedService, OrderIntentDispatchHost>();

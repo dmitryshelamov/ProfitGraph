@@ -7,6 +7,7 @@ using ProfitGraph.Application.Strategies.GetStrategy;
 using ProfitGraph.Application.Strategies.GetStrategyVersion;
 using ProfitGraph.Application.Strategies.SaveStrategy;
 using ProfitGraph.Application.Strategies.ValidateStrategy;
+using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Tests.Unit.Common;
 
@@ -23,7 +24,7 @@ public sealed class StrategyCommandTests
         var fixture = new StrategyRepositoryFixture();
         IStrategyRepository repository = fixture.Repository;
         StrategyInternal created = await Create(repository);
-        var handler = new SaveStrategyCommandHandler(repository, Clock);
+        var handler = new SaveStrategyCommandHandler(repository, Substitute.For<IBotRepository>(), Clock);
         StrategyInternal saved = await handler.Handle(
             new SaveStrategyCommand(
                 Owner,
@@ -52,7 +53,7 @@ public sealed class StrategyCommandTests
         IStrategyRepository repository = fixture.Repository;
         StrategyInternal created = await Create(repository);
         fixture.RejectSave = conflictDuringSave;
-        var handler = new SaveStrategyCommandHandler(repository, Clock);
+        var handler = new SaveStrategyCommandHandler(repository, Substitute.For<IBotRepository>(), Clock);
 
         await Should.ThrowAsync<StateConflictException>(() => handler.Handle(
             new SaveStrategyCommand(
@@ -85,7 +86,7 @@ public sealed class StrategyCommandTests
 
         var read = await Should.ThrowAsync<ResourceNotFoundException>(() =>
             new GetStrategyQueryHandler(repository).Handle(new GetStrategyQuery(stranger, created.Id), CancellationToken.None));
-        var save = await Should.ThrowAsync<ResourceNotFoundException>(() => new SaveStrategyCommandHandler(repository, Clock).Handle(
+        var save = await Should.ThrowAsync<ResourceNotFoundException>(() => new SaveStrategyCommandHandler(repository, Substitute.For<IBotRepository>(), Clock).Handle(
             new SaveStrategyCommand(
                 stranger,
                 created.Id,
