@@ -2,7 +2,7 @@ import { queryOptions } from '@tanstack/react-query';
 
 import { api, unwrap } from '@/shared/api/client';
 
-import type { ExchangeCredential } from '../model/types';
+import type { ExchangeCredential, VenueAccount } from '../model/types';
 
 export const credentialKeys = {
   all: ['exchange-credentials'] as const,
@@ -16,16 +16,49 @@ export function credentialsQuery() {
   });
 }
 
-export interface CreateCredentialInput {
-  readonly venue: string;
-  readonly label: string;
-  readonly apiKey: string;
-  readonly apiSecret: string;
+/** An API key and secret, or for a venue whose key selects an account (T-Invest) its fields by name. */
+export type CreateCredentialInput =
+  | {
+      readonly venue: string;
+      readonly label: string;
+      readonly apiKey: string;
+      readonly apiSecret: string;
+    }
+  | {
+      readonly venue: string;
+      readonly label: string;
+      readonly fields: Readonly<Record<string, string>>;
+    };
+
+/** Stores a key encrypted on the server; the response shows only a four-character public hint. */
+export async function createCredential(input: CreateCredentialInput): Promise<ExchangeCredential> {
+  const body =
+    'fields' in input
+      ? {
+          venue: input.venue,
+          label: input.label,
+          apiKey: null,
+          apiSecret: null,
+          fields: { ...input.fields },
+        }
+      : { ...input };
+
+  return unwrap(await api.POST('/api/exchange-credentials', { body }));
 }
 
-/** Stores a key encrypted on the server; the response shows only the key's last four characters. */
-export async function createCredential(input: CreateCredentialInput): Promise<ExchangeCredential> {
-  return unwrap(await api.POST('/api/exchange-credentials', { body: { ...input } }));
+/**
+ * The accounts a key not saved yet can trade through. The fields go in this request only and are never cached: this is
+ * a plain call, not a query.
+ */
+export async function listVenueAccounts(
+  venue: string,
+  fields: Readonly<Record<string, string>>,
+): Promise<VenueAccount[]> {
+  return unwrap(
+    await api.POST('/api/exchange-credentials/accounts', {
+      body: { venue, fields: { ...fields } },
+    }),
+  );
 }
 
 /** Fails with `exchange_credential_in_use` while a bot uses the key. */

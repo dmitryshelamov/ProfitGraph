@@ -1085,6 +1085,7 @@ export interface paths {
                     venue?: string;
                     query?: string;
                     limit?: number;
+                    credentialId?: string;
                 };
                 header?: never;
                 path?: never;
@@ -3258,6 +3259,8 @@ export interface components {
             from: null | string;
             /** Format: date-time */
             to: null | string;
+            /** Format: uuid */
+            credentialId?: null | string;
         };
         ExchangeCredentialResponse: {
             /** Format: uuid */
@@ -3563,6 +3566,8 @@ export interface components {
             sellerFees?: null | components["schemas"]["SellerFeeScheduleRequest"];
             /** Format: int64 */
             settlementHoldSeconds?: null | number;
+            /** Format: uuid */
+            credentialId?: null | string;
         };
         StartOptimizationRequest: {
             backtest: null | components["schemas"]["StartBacktestRequest"];

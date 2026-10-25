@@ -257,4 +257,93 @@ describe('exchange keys', () => {
     ]);
     expect(screen.getByLabelText('API secret')).toHaveValue('');
   });
+
+  it('adds a T-Invest key by loading its accounts and choosing an eligible one', async () => {
+    const listed: unknown[] = [];
+    const stored: unknown[] = [];
+    const requests = fakeApi({
+      'GET /api/auth/me': () => json(user),
+      'GET /api/exchange-credentials': () => json([]),
+      'POST /api/exchange-credentials/accounts': async (request) => {
+        listed.push(await request.json());
+
+        return json([
+          {
+            id: '2000000001',
+            name: 'Брокерский',
+            kind: 'broker',
+            eligible: true,
+            ineligibility: null,
+          },
+          {
+            id: '2000000002',
+            name: 'Только чтение',
+            kind: 'broker',
+            eligible: false,
+            ineligibility: 'not_full_access',
+          },
+        ]);
+      },
+      'POST /api/exchange-credentials': async (request) => {
+        stored.push(await request.json());
+
+        return json({ ...credential, venue: 'tinvest', apiKeyLast4: '0001' }, 201);
+      },
+    });
+    renderApp('/credentials');
+
+    await userEvent.selectOptions(await screen.findByLabelText('Биржа'), 'tinvest');
+    await userEvent.type(screen.getByLabelText('Название ключа'), 'Брокер');
+    const save = screen.getByRole('button', { name: 'Сохранить ключ' });
+    expect(save).toBeDisabled();
+    await userEvent.type(screen.getByLabelText('Токен T-Invest'), 't.invented-token');
+    await userEvent.click(screen.getByRole('button', { name: 'Загрузить счета' }));
+
+    expect(await screen.findByRole('radio', { name: /Брокерский/ })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /Только чтение/ })).toBeDisabled();
+    expect(screen.getByText(/у токена нет полного доступа/)).toBeInTheDocument();
+    await userEvent.click(save);
+
+    await waitFor(() => expect(stored).toHaveLength(1));
+    expect(listed).toEqual([{ venue: 'tinvest', fields: { token: 't.invented-token' } }]);
+    expect(stored).toEqual([
+      {
+        venue: 'tinvest',
+        label: 'Брокер',
+        apiKey: null,
+        apiSecret: null,
+        fields: { token: 't.invented-token', accountId: '2000000001' },
+      },
+    ]);
+    expect(screen.getByLabelText('Токен T-Invest')).toHaveValue('');
+    expect(requests.some((request) => request.url.includes('t.invented-token'))).toBe(false);
+  });
+
+  it('forgets the loaded accounts when the token changes', async () => {
+    fakeApi({
+      'GET /api/auth/me': () => json(user),
+      'GET /api/exchange-credentials': () => json([]),
+      'POST /api/exchange-credentials/accounts': () =>
+        json([
+          {
+            id: '2000000001',
+            name: 'Брокерский',
+            kind: 'broker',
+            eligible: true,
+            ineligibility: null,
+          },
+        ]),
+    });
+    renderApp('/credentials');
+
+    await userEvent.selectOptions(await screen.findByLabelText('Биржа'), 'tinvest');
+    await userEvent.type(screen.getByLabelText('Токен T-Invest'), 't.first');
+    await userEvent.click(screen.getByRole('button', { name: 'Загрузить счета' }));
+    expect(await screen.findByRole('radio', { name: /Брокерский/ })).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText('Токен T-Invest'), '-changed');
+
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Сохранить ключ' })).toBeDisabled();
+  });
 });

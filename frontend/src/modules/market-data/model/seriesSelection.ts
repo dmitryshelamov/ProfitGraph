@@ -1,9 +1,16 @@
-/** A history the user picks: venue, pair as typed (the venue normalizes it) and timeframe. */
+/**
+ * A history the user picks: venue, pair as typed (the venue normalizes it) and timeframe, and the user's key of that venue
+ * that reads its market data when the venue has none anonymous (T-Invest).
+ */
 export interface SeriesSelection {
   readonly venue: string;
   readonly symbol: string;
   readonly timeframe: string;
+  readonly credentialId?: string;
 }
+
+/** Venues whose market data is read with the user's own key. */
+export const venuesReadWithKey: ReadonlySet<string> = new Set(['tinvest']);
 
 const timeframeLabels: Record<string, string> = {
   '1m': '1 минута',

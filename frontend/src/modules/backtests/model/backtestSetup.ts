@@ -234,6 +234,7 @@ export function backtestSetupRequest(
         ? { sellerFees: { rates: sellerRates as string[], minimum: sellerMinimum! } }
         : {}),
       ...(holdDays === null ? {} : { settlementHoldSeconds: holdDays * 86_400 }),
+      ...(values.series.credentialId ? { credentialId: values.series.credentialId } : {}),
     },
   };
 }

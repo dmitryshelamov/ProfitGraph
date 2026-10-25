@@ -96,6 +96,64 @@ describe('historical data', () => {
     ).toBe(true);
   });
 
+  it('reads a T-Invest history with the user’s T-Invest key', async () => {
+    const bodies: unknown[] = [];
+    const requests = fakeApi({
+      'GET /api/auth/me': () => json(owner),
+      'GET /api/market-data/venues': () =>
+        json([{ id: 'tinvest', name: 'T-Invest (MOEX)', timeframes: ['1m', '1h'] }]),
+      'GET /api/exchange-credentials': () =>
+        json([
+          {
+            id: 'key-b',
+            venue: 'bybit',
+            label: 'Bybit',
+            apiKeyLast4: 'bbbb',
+            createdAt: '2026-10-24T10:00:00Z',
+          },
+          {
+            id: 'key-t',
+            venue: 'tinvest',
+            label: 'Брокер',
+            apiKeyLast4: '0001',
+            createdAt: '2026-10-24T10:00:00Z',
+          },
+        ]),
+      'GET /api/market-data/instruments': () =>
+        json([{ venue: 'tinvest', symbol: 'TQBR:SBER', baseAsset: 'SBER', quoteAsset: 'RUB' }]),
+      'POST /api/historical-data/downloads': async (request) => {
+        bodies.push(await request.json());
+
+        return json(job('Queued'), 202);
+      },
+      'GET /api/jobs/job-1': () => json(job('Queued')),
+    });
+    renderApp('/historical-data');
+
+    const form = await screen.findByRole('form', { name: 'Загрузка истории' });
+    await waitFor(() =>
+      expect(within(form).getByLabelText('Ключ для данных')).toHaveValue('key-t'),
+    );
+    expect(within(form).queryByRole('option', { name: /Bybit/ })).not.toBeInTheDocument();
+    const pair = within(form).getByLabelText('Пара');
+    await userEvent.clear(pair);
+    await userEvent.type(pair, 'TQBR:SBER');
+    await userEvent.click(within(form).getByRole('button', { name: 'Загрузить историю' }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toMatchObject({
+      venue: 'tinvest',
+      symbol: 'TQBR:SBER',
+      credentialId: 'key-t',
+    });
+    expect(
+      requests.some(
+        (request) =>
+          request.url.includes('/instruments') && request.url.includes('credentialId=key-t'),
+      ),
+    ).toBe(true);
+  });
+
   it('cancels a queued download', async () => {
     fakeApi({
       'GET /api/auth/me': () => json(owner),

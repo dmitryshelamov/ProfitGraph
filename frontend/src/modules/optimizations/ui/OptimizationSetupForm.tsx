@@ -157,6 +157,7 @@ export function OptimizationSetupForm({
           <SeriesFields
             value={values.backtest.series}
             onChange={(series) => setBacktest('series', series)}
+            withKey
           />
           <div className="grid gap-4 sm:grid-cols-2">
             {backtestText('from', 'С (UTC), пусто — с начала истории')}
