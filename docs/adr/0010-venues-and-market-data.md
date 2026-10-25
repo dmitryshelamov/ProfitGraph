@@ -87,3 +87,9 @@ every venue, and CSV import could be called by anyone sharing the workspace.
   compilation fingerprint is SHA-256 of a canonical JSON description of the compiled graph under the engine's
   execution policy; labels, display names and display units are left out, and decimals are exact text. Neither
   reproduces the MVP's values: ProfitGraph has no runs from the MVP to compare against.
+
+## Amendment: instrument names in words (ADR 0022)
+
+- `InstrumentSymbol` allows up to 256 characters with single inner spaces, so that a venue can name instruments in
+  words (a Steam item is `KZT:730:Dreams & Nightmares Case`). Leading, trailing and repeated spaces, any other
+  whitespace and control characters stay invalid. Every `symbol` column is `varchar(256)`. Bybit's rule is unchanged.

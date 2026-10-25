@@ -1,5 +1,6 @@
 using FluentValidation;
 
+using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Market;
 
 namespace ProfitGraph.Application.Backtesting.GetBacktestRanking;
@@ -9,7 +10,7 @@ internal sealed class GetBacktestRankingQueryValidator : AbstractValidator<GetBa
     public GetBacktestRankingQueryValidator()
     {
         RuleFor(query => query.Quote).Matches("^[A-Z0-9]{1,32}$").WithErrorCode("invalid_quote").WithMessage("Give an upper-case quote asset.");
-        RuleFor(query => query.Symbol).MaximumLength(64).When(query => query.Symbol is not null);
+        RuleFor(query => query.Symbol).MaximumLength(InstrumentSymbol.MaxLength).When(query => query.Symbol is not null);
         RuleFor(query => query.Timeframe)
             .Must(IsSupported)
             .When(query => query.Timeframe is not null)
