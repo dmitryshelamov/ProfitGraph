@@ -28,4 +28,6 @@ public sealed record BotInternal(
     bool HasRun,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    SellerFeeScheduleInternal? SellerFees);
+    SellerFeeScheduleInternal? SellerFees,
+    int VenueSettingsVersion,
+    string VenueSettings);

@@ -28,6 +28,7 @@ public static class TestHistoryRegistration
         services.AddSingleton<IVenueCredentialSchema>(new TestCredentialSchema(TestHistoryVenue.WithoutHistory));
         services.AddSingleton<FakeFeeRateReader>();
         services.AddSingleton<IVenueFeeRateReader>(provider => provider.GetRequiredService<FakeFeeRateReader>());
+        services.AddSingleton<IVenueBotSettings, FakeVenueBotSettings>();
 
         return services;
     }

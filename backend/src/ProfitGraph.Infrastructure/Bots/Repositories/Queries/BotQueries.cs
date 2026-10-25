@@ -11,7 +11,8 @@ internal static class BotQueries
                                    runtime_status AS RuntimeStatus, status_reason AS StatusReason, diagnostics AS Diagnostics,
                                    restart_attempts AS RestartAttempts, next_restart_at AS NextRestartAt, has_run AS HasRun,
                                    first_started_at AS FirstStartedAt, day_start_utc::timestamp AS DayStartUtc, day_start_equity AS DayStartEquity,
-                                   rejected_version_id AS RejectedVersionId, created_at AS CreatedAt, updated_at AS UpdatedAt
+                                   rejected_version_id AS RejectedVersionId, created_at AS CreatedAt, updated_at AS UpdatedAt,
+                                   venue_settings_version AS VenueSettingsVersion, venue_settings::text AS VenueSettings
                                    """;
 
     internal const string GetById = $"SELECT {Columns} FROM bots WHERE id = @id";
@@ -44,13 +45,13 @@ internal static class BotQueries
                                        allocation_cap, max_order_quote, daily_loss_limit_quote, limit_fee_rate, market_fee_rate, fee_rates_read_at, seller_fees,
                                        allow_foreign_orders, desired_state, runtime_status, status_reason, diagnostics, restart_attempts,
                                        next_restart_at, has_run, first_started_at, day_start_utc, day_start_equity, rejected_version_id,
-                                       created_at, updated_at)
+                                       created_at, updated_at, venue_settings_version, venue_settings)
                                    VALUES (
                                        @Id, @UserId, @StrategyId, @StrategyVersionId, @ExchangeCredentialId, @Venue, @Symbol, @Timeframe,
                                        CAST(@Parameters AS jsonb), @AllocationCap, @MaxOrderQuote, @DailyLossLimitQuote, @LimitFeeRate, @MarketFeeRate,
                                        @FeeRatesReadAt, CAST(@SellerFees AS jsonb), @AllowForeignOrders, @DesiredState, @RuntimeStatus, @StatusReason, @Diagnostics,
                                        @RestartAttempts, @NextRestartAt, @HasRun, @FirstStartedAt, CAST(@DayStartUtc AS date), @DayStartEquity,
-                                       @RejectedVersionId, @CreatedAt, @UpdatedAt)
+                                       @RejectedVersionId, @CreatedAt, @UpdatedAt, @VenueSettingsVersion, CAST(@VenueSettings AS jsonb))
                                    """;
 
     internal const string Update = """

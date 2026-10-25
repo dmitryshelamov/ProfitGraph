@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using MediatR;
 
 using ProfitGraph.Application.Accounts;
@@ -29,6 +31,7 @@ internal sealed class CreateBotCommandHandler(
     VenueRegistry venues,
     VenuePorts<IInstrumentRulesSource> rules,
     VenuePorts<IVenueFeeRateReader> feeReaders,
+    VenuePorts<IVenueBotSettings> venueSettings,
     BacktestCompiler compiler,
     ITransactionExecutor transactions,
     TimeProvider clock) : IRequestHandler<CreateBotCommand, BotInternal>
@@ -45,6 +48,7 @@ internal sealed class CreateBotCommandHandler(
         CandleSeries series = venues.ResolveSeries(credential.Venue.Value, command.Symbol, command.Timeframe);
         IVenueFeeRateReader reader = feeReaders.Find(series.Venue) ?? throw new VenueFeeRatesUnavailableException("This venue cannot run bots in this deployment.");
         await (rules.Find(series.Venue) ?? throw new VenueFeeRatesUnavailableException("The venue has no instrument rules.")).Get(series.Symbol, cancellationToken);
+        BotVenueSettings settings = Settings(series.Venue, command.VenueSettings);
         VenueFeeRatesInternal rates = await reader.Read(protector.Decrypt(credential), series.Symbol, cancellationToken);
         DateTimeOffset now = clock.GetUtcNow();
         var bot = Bot.Create(
@@ -58,7 +62,8 @@ internal sealed class CreateBotCommandHandler(
             command.AllocationCap,
             new BotRiskLimits(command.MaxOrderQuote, command.DailyLossLimitQuote),
             new BotFeeRates(rates.MakerRate, rates.TakerRate, now, rates.SellerFees),
-            now);
+            now,
+            settings);
 
         if (command.AllowForeignOrders)
         {
@@ -75,5 +80,23 @@ internal sealed class CreateBotCommandHandler(
             cancellationToken);
 
         return bot.ToInternal();
+    }
+
+    /// <summary>
+    ///     The venue module checks the request's settings; a venue without settings refuses any.
+    /// </summary>
+    private BotVenueSettings Settings(VenueId venue, JsonElement? requested)
+    {
+        IVenueBotSettings? schema = venueSettings.Find(venue);
+        bool given = requested is { ValueKind: not (JsonValueKind.Null or JsonValueKind.Undefined) };
+
+        if (schema is null)
+        {
+            return given
+                ? throw new ApplicationValidationException([new InputError("invalid_value", "VenueSettings", "This venue has no bot settings.")])
+                : BotVenueSettings.None;
+        }
+
+        return given ? schema.Read(requested!.Value) : schema.Defaults;
     }
 }

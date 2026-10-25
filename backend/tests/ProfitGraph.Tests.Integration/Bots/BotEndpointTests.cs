@@ -77,6 +77,29 @@ public sealed class BotEndpointTests
     }
 
     [Test]
+    public async Task ABotStoresItsVenuesSettingsWithoutReadingThem()
+    {
+        BotOwner owner = await BotApi.NewOwner(_factory);
+        JsonElement request = JsonSerializer.SerializeToElement(BotApi.Request(owner));
+        var fields = request.Deserialize<Dictionary<string, JsonElement>>()!;
+        fields["venueSettings"] = JsonSerializer.SerializeToElement(new { level = "high" });
+
+        Guid defaulted = await BotApi.Create(owner);
+        HttpResponseMessage given = await owner.Client.PostAsJsonAsync(BotApi.Path, fields);
+        fields["venueSettings"] = JsonSerializer.SerializeToElement(new { level = "max" });
+        HttpResponseMessage refused = await owner.Client.PostAsJsonAsync(BotApi.Path, fields);
+
+        given.StatusCode.ShouldBe(HttpStatusCode.Created);
+        JsonElement stored = await BotApi.Json(await owner.Client.GetAsync($"{BotApi.Path}/{(await BotApi.Json(given)).GetProperty("id").GetGuid()}"));
+        stored.GetProperty("venueSettingsVersion").GetInt32().ShouldBe(3);
+        stored.GetProperty("venueSettings").GetProperty("level").GetString().ShouldBe("high");
+        JsonElement plain = await BotApi.Json(await owner.Client.GetAsync($"{BotApi.Path}/{defaulted}"));
+        plain.GetProperty("venueSettings").GetProperty("level").GetString().ShouldBe("low");
+        refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await BotApi.Json(refused)).GetProperty("errors").EnumerateArray().Select(error => error.GetProperty("field").GetString()).ShouldBe(["VenueSettings.level"]);
+    }
+
+    [Test]
     public async Task BotsArePrivateToTheirOwner()
     {
         BotOwner owner = await BotApi.NewOwner(_factory);

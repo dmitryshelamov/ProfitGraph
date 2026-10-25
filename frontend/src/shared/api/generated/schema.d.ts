@@ -3086,6 +3086,9 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             sellerFees: null | components["schemas"]["SellerFeeScheduleResponse"];
+            /** Format: int32 */
+            venueSettingsVersion: number;
+            venueSettings: components["schemas"]["JsonElement"];
         };
         /** @enum {unknown} */
         BotRuntimeStatus: "Created" | "Starting" | "Running" | "Degraded" | "Stopped";
@@ -3138,6 +3141,7 @@ export interface components {
             maxOrderQuote: null | string;
             dailyLossLimitQuote: null | string;
             allowForeignOrders: boolean;
+            venueSettings?: unknown;
         };
         CreateExchangeCredentialRequest: {
             venue: null | string;

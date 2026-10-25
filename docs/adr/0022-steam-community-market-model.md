@@ -153,6 +153,11 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   statements of its own, without referencing Infrastructure (ADR 0006 amendment).
 - **Core change C9, venue bot settings.** The bot stores the module's typed, versioned settings (ADR 0003) as JSONB without
   interpreting them. Steam's: settlement-hold estimate (display), market-buy slippage and market-buy deadline.
+  A venue declares them with the port `IVenueBotSettings` (current version, defaults, a check that names the refused
+  field); `POST /api/bots` takes `venueSettings`, a bot without it gets the defaults, and a venue without the port takes
+  none. The bot keeps `venue_settings_version` and `venue_settings`, fixed at creation. Steam's version 1 is
+  `{"settlementHoldDays":7,"marketBuySlippage":"0","marketBuyDeadlineSeconds":120}`: whole days up to 30, an exact
+  decimal string from 0 to 0.1, and whole seconds from 10 to 3600; unknown fields are refused.
 - **Waiting codes.** A `LocalAccepted` order may carry a neutral waiting code (`SettlementHold` with the unlock time,
   `SingleBuyOrderSlot`, `AwaitingConfirmation`, `RateLimited`) that the feed and the bot page show; texts are made at the
   boundary.

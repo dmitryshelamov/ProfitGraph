@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using ProfitGraph.Api.Backtesting.Contracts;
 using ProfitGraph.Api.Bots.Contracts;
 using ProfitGraph.Api.Common.Parsing;
@@ -36,6 +38,8 @@ internal static class BotResponseConverter
             bot.UpdatedAt,
             bot.SellerFees is { } fees
                 ? new SellerFeeScheduleResponse([.. fees.Rates.Select(ExactGraphNumberParser.Format)], ExactGraphNumberParser.Format(fees.Minimum))
-                : null);
+                : null,
+            bot.VenueSettingsVersion,
+            JsonElement.Parse(bot.VenueSettings));
     }
 }
