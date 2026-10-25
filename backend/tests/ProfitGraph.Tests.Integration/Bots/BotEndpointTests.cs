@@ -142,7 +142,7 @@ public sealed class BotEndpointTests
     [Test]
     public async Task VenueWithoutFeeRatesCannotRunBots()
     {
-        BotOwner owner = await NewOwner(venue: "bybit");
+        BotOwner owner = await NewOwner(venue: TestHistoryVenue.WithoutHistory);
 
         HttpResponseMessage response = await owner.Client.PostAsJsonAsync(Path, Request(owner));
 
