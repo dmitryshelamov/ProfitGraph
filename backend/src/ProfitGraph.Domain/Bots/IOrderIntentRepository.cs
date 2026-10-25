@@ -13,6 +13,11 @@ public interface IOrderIntentRepository
     Task<OrderIntent?> GetForUpdate(OrderIntentId id, CancellationToken cancellationToken);
 
     /// <summary>
+    ///     Reads an intent without locking it, so a writer can lock its bot's lease and bot first (ADR 0016: lease, bot, intent).
+    /// </summary>
+    Task<OrderIntent?> Get(OrderIntentId id, CancellationToken cancellationToken);
+
+    /// <summary>
     ///     The bot's intents in the order they were written.
     /// </summary>
     Task<IReadOnlyList<OrderIntent>> ListByBot(BotId botId, CancellationToken cancellationToken);

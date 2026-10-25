@@ -28,6 +28,13 @@ internal sealed class OrderIntentRepository(NpgsqlConnection connection, Postgre
         return row?.ToDomain();
     }
 
+    public async Task<OrderIntent?> Get(OrderIntentId id, CancellationToken cancellationToken)
+    {
+        var row = await connection.QuerySingleOrDefaultAsync<OrderIntentDb>(Command(OrderIntentQueries.Get, new { id = id.Value }, cancellationToken));
+
+        return row?.ToDomain();
+    }
+
     public async Task<IReadOnlyList<OrderIntent>> ListByBot(BotId botId, CancellationToken cancellationToken)
     {
         IEnumerable<OrderIntentDb> rows =

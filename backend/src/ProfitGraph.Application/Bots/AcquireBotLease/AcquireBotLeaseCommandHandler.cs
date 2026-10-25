@@ -11,14 +11,15 @@ internal sealed class AcquireBotLeaseCommandHandler(IBotRepository bots, IBotLea
         DateTimeOffset now = clock.GetUtcNow();
         var botId = new BotId(command.BotId);
         var holder = new LeaseHolderId(command.HolderId);
+
+        // Rows are locked lease, bot, intent everywhere (ADR 0016), so two writers never wait on each other in a cycle.
+        BotLease? lease = await leases.GetForUpdate(botId, cancellationToken);
         Bot? bot = await bots.GetForUpdate(botId, cancellationToken);
 
         if (bot is null || !bot.CanAcquireLease(now))
         {
             return null;
         }
-
-        BotLease? lease = await leases.GetForUpdate(botId, cancellationToken);
 
         if (lease is null)
         {

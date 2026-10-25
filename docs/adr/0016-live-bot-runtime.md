@@ -199,3 +199,11 @@ gateway amend it in later stage 5 pull requests.
 - Resuming the protection (`POST /api/exchange-credentials/{id}/protection/resume`, or the module by itself for transient
   noise) sends `RearmBotsForVenueAccountCommand`: those bots return to Created, and the runtime leases and reconciles them
   before any submit.
+
+## Amendment: lock order
+
+- Every transaction that locks more than one of a bot's rows locks them in one order: the lease, then the bot, then its
+  order intents. A writer that starts from an intent reads it unlocked to find its bot, locks the lease and the bot, and
+  only then locks the intent and checks it again. Opposite orders in the dispatcher's claim and failure paths and in
+  lease acquisition let two writers wait on each other, which Postgres broke as a deadlock and the runtime reported as a
+  runtime failure.
