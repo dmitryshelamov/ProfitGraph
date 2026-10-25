@@ -27,12 +27,15 @@ internal sealed class StartBotCommandHandler(
     public async Task<BotInternal> Handle(StartBotCommand command, CancellationToken cancellationToken)
     {
         DateTimeOffset now = clock.GetUtcNow();
+
+        // The lease is locked before the bot, as everywhere (ADR 0016); a missing or foreign bot then answers 404 as before.
+        BotLease? lease = command.Id == Guid.Empty ? null : await leases.GetForUpdate(new BotId(command.Id), cancellationToken);
         Bot bot = await bots.GetOwnedForUpdate(command.Id, command.OwnerId, cancellationToken);
         TradingHalt halt = await halts.Get(cancellationToken);
         StrategyVersion latest = await strategies.Latest(bot, cancellationToken);
         BotCheckpoint? checkpoint = await checkpoints.Get(bot.Id, cancellationToken);
 
-        if (checkpoint is not null && await CanForget(bot, checkpoint, now, cancellationToken))
+        if (checkpoint is not null && await CanForget(bot, checkpoint, lease, now, cancellationToken))
         {
             await checkpoints.Delete(bot.Id, cancellationToken);
             bot.ForgetUntradedRun(now);
@@ -59,15 +62,13 @@ internal sealed class StartBotCommandHandler(
         return bot.ToInternal();
     }
 
-    private async Task<bool> CanForget(Bot bot, BotCheckpoint checkpoint, DateTimeOffset now, CancellationToken cancellationToken)
+    private async Task<bool> CanForget(Bot bot, BotCheckpoint checkpoint, BotLease? lease, DateTimeOffset now, CancellationToken cancellationToken)
     {
         if (!bot.HasRun || bot.DesiredState != BotDesiredState.Stopped || bot.RuntimeStatus is BotRuntimeStatus.Starting or BotRuntimeStatus.Running ||
             !BotRuns.IsUntraded(checkpoint.Engine))
         {
             return false;
         }
-
-        BotLease? lease = await leases.GetForUpdate(bot.Id, cancellationToken);
 
         return (lease is null || lease.IsExpired(now)) && (await intents.ListByBot(bot.Id, cancellationToken)).Count == 0;
     }

@@ -137,17 +137,17 @@ internal sealed class DispatchOrderIntentCommandHandler(
 
                 foreach (OrderIntentId id in await intents.ListDeliveryCandidates(holder, gateways.Venues, now, CandidateLimit, cancellationToken))
                 {
-                    OrderIntent? intent = await intents.GetForUpdate(id, cancellationToken);
-
-                    if (intent is null || !intent.CanClaim(now))
+                    // Rows are locked lease, bot, intent everywhere; the intent is read unlocked first only to find its bot.
+                    if (await intents.Get(id, cancellationToken) is not { } candidate || !candidate.CanClaim(now))
                     {
                         continue;
                     }
 
-                    BotLease? lease = await leases.GetForUpdate(intent.BotId, cancellationToken);
-                    Bot? bot = await bots.GetForUpdate(intent.BotId, cancellationToken);
+                    BotLease? lease = await leases.GetForUpdate(candidate.BotId, cancellationToken);
+                    Bot? bot = await bots.GetForUpdate(candidate.BotId, cancellationToken);
+                    OrderIntent? intent = await intents.GetForUpdate(id, cancellationToken);
 
-                    if (bot is null)
+                    if (bot is null || intent is null || !intent.CanClaim(now))
                     {
                         continue;
                     }
@@ -237,6 +237,7 @@ internal sealed class DispatchOrderIntentCommandHandler(
             async () =>
             {
                 DateTimeOffset now = clock.GetUtcNow();
+                Bot? bot = await bots.GetForUpdate(claimed.BotId, cancellationToken);
                 OrderIntent? intent = await intents.GetForUpdate(claimed.Id, cancellationToken);
 
                 if (intent is not { Status: OrderIntentStatus.Sending })
@@ -247,8 +248,7 @@ internal sealed class DispatchOrderIntentCommandHandler(
                 intent.RecordFailure(now);
                 await intents.Update(intent, cancellationToken);
 
-                if (intent.Status == OrderIntentStatus.Failed && await bots.GetForUpdate(intent.BotId, cancellationToken) is { } bot &&
-                    bot.Degrade(BotStatusReason.IntentFailed, now))
+                if (intent.Status == OrderIntentStatus.Failed && bot is not null && bot.Degrade(BotStatusReason.IntentFailed, now))
                 {
                     await bots.Update(bot, cancellationToken);
                 }

@@ -12,6 +12,8 @@ internal static class OrderIntentQueries
 
     internal const string GetForUpdate = $"SELECT {Columns} FROM bot_order_intents WHERE id = @id FOR UPDATE";
 
+    internal const string Get = $"SELECT {Columns} FROM bot_order_intents WHERE id = @id";
+
     internal const string ListByBot = $"SELECT {Columns} FROM bot_order_intents WHERE bot_id = @botId ORDER BY sequence";
 
     internal const string Insert = """
