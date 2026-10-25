@@ -125,6 +125,43 @@ public sealed class SteamHttpTransportTests
             harness.Transport().Send(SteamHttpRequest.Get(SteamEndpoint.Community, "market/"), cookies: null, CancellationToken.None));
     }
 
+    [Test]
+    public async Task MarketRequestsCarryTheItemsReferrer()
+    {
+        var sent = new List<(string Path, string? Ajax, string? Referrer)>();
+
+        HttpResponseMessage Record(HttpRequestMessage request)
+        {
+            sent.Add(
+                (
+                    request.RequestUri!.AbsolutePath,
+                    request.Headers.TryGetValues("X-Requested-With", out IEnumerable<string>? values) ? values.Single() : null,
+                    request.Headers.Referrer?.AbsoluteUri));
+
+            return Json("{}");
+        }
+
+        await Send(
+            SteamHttpRequest.Write(
+                SteamEndpoint.Community,
+                "/market/createbuyorder/",
+                new Dictionary<string, string> { ["appid"] = "730", ["market_hash_name"] = "Dreams & Nightmares Case" }),
+            Record);
+        await Send(SteamHttpRequest.Get(SteamEndpoint.Community, "/market/priceoverview/?appid=730&market_hash_name=AK-47%20%7C%20Redline"), Record);
+        await Send(SteamHttpRequest.Get(SteamEndpoint.Community, "/market/mylistings/"), Record);
+        await Send(SteamHttpRequest.Get(SteamEndpoint.Community, "/mobileconf/getlist?p=x"), Record);
+        await Send(SteamHttpRequest.Get(SteamEndpoint.Community, "/market/"), Record);
+
+        sent.ShouldBe(
+        [
+            ("/market/createbuyorder/", "XMLHttpRequest", MockSteam.Community + "market/listings/730/Dreams%20%26%20Nightmares%20Case"),
+            ("/market/priceoverview/", "XMLHttpRequest", MockSteam.Community + "market/listings/730/AK-47%20%7C%20Redline"),
+            ("/market/mylistings/", "XMLHttpRequest", MockSteam.Community + "market/"),
+            ("/mobileconf/getlist", "XMLHttpRequest", MockSteam.Community + "mobileconf/conf"),
+            ("/market/", null, null)
+        ]);
+    }
+
     private static HttpResponseMessage Json(string body)
     {
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };

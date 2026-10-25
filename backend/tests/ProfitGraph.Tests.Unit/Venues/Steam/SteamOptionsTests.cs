@@ -64,6 +64,20 @@ public sealed class SteamOptionsTests
         new SteamOptions { CommunityBaseAddress = "https://proxy.example.net/" }.IsValid().ShouldBeFalse();
     }
 
+    [Test]
+    public void BoundsTheBuyPolicies()
+    {
+        new SteamOptions().ShouldSatisfyAllConditions(
+            options => options.DefiniteRejectionCodes.ShouldBeEmpty(),
+            options => options.MarketBuySlippage.ShouldBe(0m),
+            options => options.MarketBuyDeadline.ShouldBe(TimeSpan.FromMinutes(2)));
+        new SteamOptions { MarketBuySlippage = 0.11m }.IsValid().ShouldBeFalse();
+        new SteamOptions { MarketBuySlippage = -0.01m }.IsValid().ShouldBeFalse();
+        new SteamOptions { MarketBuyDeadline = TimeSpan.Zero }.IsValid().ShouldBeFalse();
+        new SteamOptions { DefiniteRejectionCodes = [1] }.IsValid().ShouldBeFalse();
+        new SteamOptions { DefiniteRejectionCodes = [29], MarketBuySlippage = 0.1m }.IsValid().ShouldBeTrue();
+    }
+
     private static SteamOptions Enabled(string community)
     {
         return new SteamOptions
