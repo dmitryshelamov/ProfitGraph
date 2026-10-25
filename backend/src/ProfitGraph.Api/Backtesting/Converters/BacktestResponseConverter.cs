@@ -57,7 +57,8 @@ public static class BacktestResponseConverter
             Text(configuration.LimitFeeRate),
             Text(configuration.MarketFeeRate),
             Text(configuration.OutOfSampleFraction),
-            configuration.WarmupCandles);
+            configuration.WarmupCandles,
+            configuration.SellerFees is { } fees ? new SellerFeeScheduleResponse([.. fees.Rates.Select(Text)], Text(fees.Minimum)) : null);
     }
 
     public static BacktestHistoryResponse ToResponse(this BacktestHistoryInternal history)

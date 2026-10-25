@@ -152,6 +152,12 @@ public sealed class OrderSizingService
         {
             price = OrderNormalizer.NormalizePrice(limitPrice.Value, rules);
 
+            // A seller-paid fee makes some prices unreachable; a sell is raised to the next reachable one, never lowered.
+            if (side == OrderSide.Sell && settings.SellerFees is { } sellerFees && price > 0m)
+            {
+                price = sellerFees.RaiseToRepresentable(price.Value, rules.QuotePrecision);
+            }
+
             if (price <= 0m)
             {
                 return new OrderSizingResult(quantity, price, reservation, RejectionReason.InvalidPrice);

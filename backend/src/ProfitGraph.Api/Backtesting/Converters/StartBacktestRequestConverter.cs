@@ -1,5 +1,6 @@
 using ProfitGraph.Api.Backtesting.Contracts;
 using ProfitGraph.Api.Common.Parsing;
+using ProfitGraph.Application.Backtesting.Contracts;
 using ProfitGraph.Application.Backtesting.StartBacktest;
 using ProfitGraph.Application.Common.Exceptions;
 
@@ -19,6 +20,11 @@ public static class StartBacktestRequestConverter
         decimal? limitFeeRate = Number(request.LimitFeeRate ?? "0", "LimitFeeRate", errors);
         decimal? marketFeeRate = Number(request.MarketFeeRate ?? "0", "MarketFeeRate", errors);
         decimal? outOfSampleFraction = request.OutOfSampleFraction is null ? null : Number(request.OutOfSampleFraction, "OutOfSampleFraction", errors);
+        SellerFeeScheduleInternal? sellerFees = request.SellerFees is { } fees
+            ? new SellerFeeScheduleInternal(
+                (fees.Rates ?? []).Select((rate, index) => Number(rate, $"SellerFees.Rates[{index}]", errors) ?? 0m).ToArray(),
+                Number(fees.Minimum, "SellerFees.Minimum", errors) ?? 0m)
+            : null;
 
         if (errors.Count > 0)
         {
@@ -39,7 +45,8 @@ public static class StartBacktestRequestConverter
             slippage!.Value,
             limitFeeRate!.Value,
             marketFeeRate!.Value,
-            outOfSampleFraction);
+            outOfSampleFraction,
+            sellerFees);
     }
 
     private static decimal? Number(string? value, string field, List<InputError> errors)

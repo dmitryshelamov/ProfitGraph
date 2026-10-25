@@ -13,4 +13,5 @@ public sealed record BacktestConfigurationInternal(
     decimal LimitFeeRate,
     decimal MarketFeeRate,
     decimal OutOfSampleFraction,
-    int WarmupCandles);
+    int WarmupCandles,
+    SellerFeeScheduleInternal? SellerFees);

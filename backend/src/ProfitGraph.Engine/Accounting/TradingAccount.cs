@@ -161,7 +161,11 @@ public sealed class TradingAccount : IGraphAccount
         }
 
         decimal grossQuote = grossBase * price;
-        decimal sellFee = Rules.ExactQuoteFees ? grossQuote * rate : FeeCalculator.Calculate(grossQuote, rate, Rules.QuotePrecision);
+        decimal sellFee = Settings.SellerFees is { } sellerFees
+            ? sellerFees.Fee(grossBase, price, Rules.QuotePrecision)
+            : Rules.ExactQuoteFees
+                ? grossQuote * rate
+                : FeeCalculator.Calculate(grossQuote, rate, Rules.QuotePrecision);
         decimal realized = Portfolio.Sell(grossBase, grossQuote, sellFee);
 
         return new OrderExecution(

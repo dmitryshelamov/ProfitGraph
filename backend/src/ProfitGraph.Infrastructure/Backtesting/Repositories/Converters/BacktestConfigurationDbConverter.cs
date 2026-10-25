@@ -26,6 +26,7 @@ internal static class BacktestConfigurationDbConverter
             MarketFeeRate = configuration.Settings.MarketFeeRate,
             OutOfSampleFraction = configuration.Split.Fraction,
             WarmupCandles = configuration.WarmupCandles,
+            SellerFees = configuration.Settings.SellerFees is { } fees ? new SellerFeeScheduleDb { Rates = [.. fees.Rates], Minimum = fees.Minimum } : null,
             ExecutionPolicy = configuration.ExecutionPolicy,
             Fingerprint = configuration.Fingerprint
         };
@@ -39,7 +40,9 @@ internal static class BacktestConfigurationDbConverter
             row.To?.ToUniversalTime(),
             row.ObservedAt.ToUniversalTime(),
             row.Parameters,
-            new ExecutionSettings(row.StartingCapital, row.Slippage, row.LimitFeeRate, row.MarketFeeRate),
+            row.SellerFees is { } fees
+                ? new ExecutionSettings(row.StartingCapital, row.Slippage, new SellerFeeSchedule(fees.Rates, fees.Minimum))
+                : new ExecutionSettings(row.StartingCapital, row.Slippage, row.LimitFeeRate, row.MarketFeeRate),
             OutOfSampleSplit.Create(row.OutOfSampleFraction),
             row.WarmupCandles,
             row.ExecutionPolicy,

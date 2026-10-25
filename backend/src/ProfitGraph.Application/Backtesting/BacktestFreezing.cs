@@ -40,11 +40,18 @@ internal static class BacktestFreezing
             request.To,
             now,
             parameters,
-            new ExecutionSettings(request.StartingCapital, request.Slippage, request.LimitFeeRate, request.MarketFeeRate),
+            Settings(request),
             split,
             plan.WarmupCandles,
             BacktestResult.ExecutionPolicyVersion,
             GraphCompilationFingerprint.Calculate(plan));
+    }
+
+    private static ExecutionSettings Settings(StartBacktestCommand request)
+    {
+        return request.SellerFees is { } fees
+            ? new ExecutionSettings(request.StartingCapital, request.Slippage, new SellerFeeSchedule(fees.Rates, fees.Minimum))
+            : new ExecutionSettings(request.StartingCapital, request.Slippage, request.LimitFeeRate, request.MarketFeeRate);
     }
 
     /// <summary>

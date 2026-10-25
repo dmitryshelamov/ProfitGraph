@@ -54,13 +54,15 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   minor units with a minimum of one minor unit (Profit Fox Designer ADR 0082 table and calculator).
 - **Representable prices.** Not every buyer price is reachable from a whole seller amount. A sell limit price that is
   not representable is raised to the next representable price at or above it, never lowered, in replay and live alike;
-  the raise is recorded on the order.
-- **Core change C2, engine fee model.** `ExecutionSettings` gets a venue-neutral `FeeModel`:
-  `Proportional(limitRate, marketRate)` (today's behavior, the default, serialized as today so Bybit fingerprints and
-  pinned replay hashes stay byte-identical) and `SellerComponents(rates[], minimum)` (per-unit, seller-paid, floored,
-  with representable-price normalization). Replay, sizing and the live account use the same calculator.
-- **Core change C3, fee model of a bot.** `BotFeeRates` (maker, taker) becomes a `FeeModel`; `IVenueFeeRateReader`
-  returns one. Bybit returns `Proportional`. Steam reads `wallet_fee_percent`, `wallet_publisher_fee_percent_default`
+  the order carries the raised price.
+- **Core change C2, engine fee model.** Fees are either the limit and market rates (today's behavior, the default) or a
+  venue-neutral `SellerFeeSchedule` on `ExecutionSettings` (component rates and a minimum; per unit, seller-paid,
+  floored in minor units of the quote asset, with representable-price normalization), in which case both rates are
+  zero. A stored configuration without a schedule keeps its shape, so Bybit fingerprints and pinned replay hashes stay
+  byte-identical. Replay, sizing and the live account use the same calculator; the schedule assumes a price tick equal
+  to the quote asset's minor unit.
+- **Core change C3, fee model of a bot.** `BotFeeRates` (maker, taker) may carry a seller fee schedule instead;
+  `IVenueFeeRateReader` returns either. Bybit returns `Proportional`. Steam reads `wallet_fee_percent`, `wallet_publisher_fee_percent_default`
   and the minimum from the wallet page with the bot's credential; missing evidence refuses the bot.
 - **Core change C4, venue execution defaults.** A new optional port `IVenueExecutionDefaults` gives the default fee
   model, settlement hold and whole-item sizing of a venue for a new backtest; `GET /api/market-data/venues` returns

@@ -213,6 +213,56 @@ public sealed class BacktestResultTests
         await compactor.StopAsync();
     }
 
+    [Test]
+    public async Task SellerFeesAreFrozenWithTheRunAndOmittedWithoutThem()
+    {
+        Guid strategyId = await BacktestScenario.CreateStrategy(_application, _userId);
+        Guid withFees = await CompletedRun(
+            new
+            {
+                strategyId,
+                venue = TestHistoryVenue.WithHistory,
+                symbol = _symbol,
+                timeframe = "1h",
+                from = BacktestScenario.From,
+                to = BacktestScenario.To,
+                parameters = new Dictionary<string, string> { ["buyAmount"] = "50" },
+                startingCapital = "1000",
+                slippage = "0.001",
+                outOfSampleFraction = "0.25",
+                sellerFees = new { rates = new[] { "0.05", "0.10" }, minimum = "0.01" }
+            });
+        Guid withRates = await CompletedRun(BacktestScenario.Request(strategyId, _symbol));
+
+        JsonNode configuration = (await Get($"/api/backtests/{withFees}"))["configuration"]!;
+        configuration["limitFeeRate"]!.GetValue<string>().ShouldBe("0");
+        configuration["sellerFees"]!["rates"]!.AsArray().Select(rate => rate!.GetValue<string>()).ShouldBe(["0.05", "0.1"]);
+        configuration["sellerFees"]!["minimum"]!.GetValue<string>().ShouldBe("0.01");
+        (await Get($"/api/backtests/{withRates}"))["configuration"]!["sellerFees"].ShouldBeNull();
+        (await Scalar<bool>("SELECT configuration ? 'sellerFees' FROM backtest_runs WHERE id = @id", new { id = withRates })).ShouldBeFalse();
+    }
+
+    [Test]
+    public async Task SellerFeesWithRatesAreRejected()
+    {
+        HttpResponseMessage response = await _client.PostAsJsonAsync(
+            "/api/backtests",
+            new
+            {
+                strategyId = await BacktestScenario.CreateStrategy(_application, _userId),
+                venue = TestHistoryVenue.WithHistory,
+                symbol = _symbol,
+                timeframe = "1h",
+                from = BacktestScenario.From,
+                to = BacktestScenario.To,
+                startingCapital = "1000",
+                limitFeeRate = "0.001",
+                sellerFees = new { rates = new[] { "0.05" }, minimum = "0.01" }
+            });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await response.Content.ReadAsStringAsync());
+    }
+
     private async Task<Guid> CompletedRun(object request)
     {
         using IHost worker = WorkerHost.Create(settings: CompactNever);
