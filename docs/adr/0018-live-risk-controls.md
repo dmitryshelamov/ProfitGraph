@@ -7,7 +7,7 @@ Status: Accepted, 2026-10-25.
 Live bots deliver orders through a venue gateway (ADRs 0016 and 0017). Profit Fox Designer ADR 0056 required, before
 trading may be enabled, a per-order limit, a daily loss limit, a kill switch per bot and a global halt. ProfitGraph
 already models the limits, the daily baseline, kills and the halt in its `Bot` and `TradingHalt` aggregates; this ADR
-decides how the runtime, the order delivery and the API apply them. Alerts and their delivery follow in later steps.
+decides how the runtime, the order delivery and the API apply them, and how the owner learns about them.
 
 ## Decision
 
@@ -31,6 +31,13 @@ decides how the runtime, the order delivery and the API apply them. Alerts and t
 - **Global halt.** The Owner halts (`POST /api/trading-halt/halt`) and resumes (`.../resume`); every user reads it
   (`GET /api/trading-halt`). A halt blocks every submit claim and every start (`trading_halted`) and kills every bot
   that should run. Resuming starts no bot.
+
+- **Alerts.** The outbox (ADR 0004) turns a degradation (`BotDegraded`), a kill or daily-loss kill (`BotKilled`), a
+  `RiskLimit` rejection and the first `ExchangeUnavailable` of a streak into one durable `bot_alerts` row for the bot's
+  owner. An alert names a kind and the status or rejection reason by name; it never holds credentials or venue
+  payloads. `GET /api/alerts` lists the user's alerts newest first (`unacknowledgedOnly`, `limit` up to 500; the Owner
+  may add `everyUser=true`), `GET /api/bots/{id}/alerts` one owned bot's, and `POST /api/alerts/{id}/acknowledge` marks
+  one read. Another user's alert or bot answers 404. Telegram delivery follows in stage 5.15.
 
 ## Consequences
 

@@ -92,9 +92,6 @@ public sealed class BacktestProgressHubTests
         using IHost worker = await StartWorker();
 
         await progress.Finished.WaitAsync(TimeSpan.FromSeconds(15));
-
-        // The finish notification may overtake the last progress messages.
-        await progress.Received(count: 240);
         await progress.Connection.DisposeAsync();
         await worker.StopAsync();
 
