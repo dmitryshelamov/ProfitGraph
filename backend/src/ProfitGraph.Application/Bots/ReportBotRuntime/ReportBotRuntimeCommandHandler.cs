@@ -25,6 +25,7 @@ internal sealed class ReportBotRuntimeCommandHandler(IBotRepository bots, IBotLe
             BotRuntimeReport.Stopped => bot.MarkRuntimeStopped(now),
             BotRuntimeReport.Failed => bot.RecordRuntimeFailure(now),
             BotRuntimeReport.Degraded => bot.Degrade(command.Reason ?? throw new ArgumentException("A degradation needs a reason."), now),
+            BotRuntimeReport.ExchangeUnavailable => bot.MarkExchangeUnavailable(unavailable: true, now),
             _ => throw new ArgumentOutOfRangeException(nameof(command), "Unknown runtime report.")
         };
 

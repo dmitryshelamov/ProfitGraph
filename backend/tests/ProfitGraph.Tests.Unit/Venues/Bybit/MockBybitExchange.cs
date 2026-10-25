@@ -19,7 +19,8 @@ internal sealed class MockBybitExchange : HttpMessageHandler
     public const string ApiSecret = "test-bybit-secret-not-real";
     public const long ServerTime = 1_793_000_000_000;
 
-    private readonly ConcurrentDictionary<string, Dictionary<string, string>> _orders = new ConcurrentDictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, Dictionary<string, string>> _orders =
+        new ConcurrentDictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
 
     public List<(HttpMethod Method, string Path)> Requests { get; } = [];
     public List<string> CreateBodies { get; } = [];
@@ -35,6 +36,23 @@ internal sealed class MockBybitExchange : HttpMessageHandler
     public bool CreateUnavailable { get; set; }
 
     public int? CancelCode { get; set; }
+
+    /// <summary>
+    ///     The key's answer to <c>/v5/user/query-api</c>.
+    /// </summary>
+    public bool KeyReadOnly { get; set; }
+
+    public bool KeyCanWithdraw { get; set; }
+
+    /// <summary>
+    ///     Client order IDs of executions on the symbol, as <c>/v5/execution/list</c> reports them.
+    /// </summary>
+    public List<string> Executions { get; } = [];
+
+    /// <summary>
+    ///     Answers execution lists with HTTP 503.
+    /// </summary>
+    public bool ListUnavailable { get; set; }
 
     public void AddOrder(string clientOrderId, string side, string status, decimal cumulativeBase, decimal cumulativeQuote, Dictionary<string, decimal> fees)
     {
@@ -71,9 +89,25 @@ internal sealed class MockBybitExchange : HttpMessageHandler
         {
             "/v5/order/create" => Create(body!),
             "/v5/order/cancel" => Cancel(body!),
+            "/v5/order/realtime" when HttpUtility.ParseQueryString(query)["orderLinkId"] is null => OpenOrders(),
             "/v5/order/realtime" => Lookup(query, open: true),
+            "/v5/execution/list" when ListUnavailable => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
+            "/v5/execution/list" => Json(new { retCode = 0, result = new { list = Executions.Select(id => new { orderLinkId = id, symbol = "BTCUSDT" }).ToArray() } }),
+            "/v5/user/query-api" => Json(
+                new
+                {
+                    retCode = 0,
+                    result = new
+                    {
+                        readOnly = KeyReadOnly ? 1 : 0,
+                        ips = new[] { "*" },
+                        permissions = new
+                            { Spot = new[] { "SpotTrade" }, Wallet = KeyCanWithdraw ? new[] { "AccountTransfer", "Withdraw" } : new[] { "AccountTransfer" } }
+                    }
+                }),
             "/v5/order/history" => Lookup(query, open: false),
-            "/v5/account/fee-rate" => Json(new { retCode = 0, result = new { list = new[] { new { symbol = "BTCUSDT", makerFeeRate = "0.0008", takerFeeRate = "0.001" } } } }),
+            "/v5/account/fee-rate" => Json(
+                new { retCode = 0, result = new { list = new[] { new { symbol = "BTCUSDT", makerFeeRate = "0.0008", takerFeeRate = "0.001" } } } }),
             _ => new HttpResponseMessage(HttpStatusCode.NotFound)
         };
     }
@@ -103,7 +137,14 @@ internal sealed class MockBybitExchange : HttpMessageHandler
             return Json(new { retCode = 110072, retMsg = "OrderLinkedID is duplicate" });
         }
 
-        _orders[clientOrderId] = Order(clientOrderId, "BTCUSDT", document.RootElement.GetProperty("side").GetString()!, "New", cumulativeBase: 0m, cumulativeQuote: 0m, []);
+        _orders[clientOrderId] = Order(
+            clientOrderId,
+            "BTCUSDT",
+            document.RootElement.GetProperty("side").GetString()!,
+            "New",
+            cumulativeBase: 0m,
+            cumulativeQuote: 0m,
+            []);
 
         return Json(new { retCode = 0, result = new { orderId = "1", orderLinkId = clientOrderId } });
     }
@@ -128,11 +169,18 @@ internal sealed class MockBybitExchange : HttpMessageHandler
         return Json(new { retCode = 0, result = new { orderId = "1", orderLinkId = clientOrderId } });
     }
 
+    private HttpResponseMessage OpenOrders()
+    {
+        object[] list = [.. _orders.Values.Where(order => order["orderStatus"] is "New" or "PartiallyFilled").Select(Shape)];
+
+        return Json(new { retCode = 0, result = new { list, nextPageCursor = string.Empty } });
+    }
+
     private HttpResponseMessage Lookup(string query, bool open)
     {
         string clientOrderId = HttpUtility.ParseQueryString(query)["orderLinkId"] ?? string.Empty;
         object[] list = _orders.TryGetValue(clientOrderId, out Dictionary<string, string>? order) &&
-            open == (order["orderStatus"] is "New" or "PartiallyFilled")
+            open == order["orderStatus"] is "New" or "PartiallyFilled"
                 ? [Shape(order)]
                 : [];
 
@@ -153,7 +201,14 @@ internal sealed class MockBybitExchange : HttpMessageHandler
         };
     }
 
-    private static Dictionary<string, string> Order(string clientOrderId, string symbol, string side, string status, decimal cumulativeBase, decimal cumulativeQuote, Dictionary<string, decimal> fees)
+    private static Dictionary<string, string> Order(
+        string clientOrderId,
+        string symbol,
+        string side,
+        string status,
+        decimal cumulativeBase,
+        decimal cumulativeQuote,
+        Dictionary<string, decimal> fees)
     {
         return new Dictionary<string, string>
         {
@@ -174,7 +229,8 @@ internal sealed class MockBybitExchange : HttpMessageHandler
         string? window = Header(request, "X-BAPI-RECV-WINDOW");
         string? signature = Header(request, "X-BAPI-SIGN");
 
-        if (key != ApiKey || timestamp is null || window is null || signature is null || Math.Abs(long.Parse(timestamp, CultureInfo.InvariantCulture) - ServerTime) > 5_000)
+        if (key != ApiKey || timestamp is null || window is null || signature is null ||
+            Math.Abs(long.Parse(timestamp, CultureInfo.InvariantCulture) - ServerTime) > 5_000)
         {
             return false;
         }

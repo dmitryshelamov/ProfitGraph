@@ -34,4 +34,11 @@ public interface IOrderGateway : IVenuePort
     ///     Requests cancellation of an order by its client order identifier; the outcome follows as an update.
     /// </summary>
     Task Cancel(BotId botId, ClientOrderId clientOrderId, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Establishes the bot's venue state before its submits may go: looks up each order, checks what else trades on the
+    ///     bot's symbol and whether its key may trade. Returns the updates of the orders it found and, when the bot must not
+    ///     trade, a safety reason. A venue that cannot answer now throws, and the runner tries again later.
+    /// </summary>
+    Task<BotReconciliationInternal> Reconcile(BotReconcileInternal request, CancellationToken cancellationToken);
 }

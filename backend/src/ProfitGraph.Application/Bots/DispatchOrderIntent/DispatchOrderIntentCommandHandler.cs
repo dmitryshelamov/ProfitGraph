@@ -14,7 +14,8 @@ namespace ProfitGraph.Application.Bots.DispatchOrderIntent;
 ///     Claims a due intent, delivers it through the venue's gateway and records the outcome (Profit Fox Designer ADRs
 ///     0054 and 0055). Before a submit may leave the process its place start is recorded; a submit that might have reached
 ///     the venue is looked up before any retry. A definitive rejection is stored, then handed to the bot's runner. A
-///     failure retries with backoff, and the tenth fails the intent and degrades the bot. Stopped bots hold their submits.
+///     failure retries with backoff, and the tenth fails the intent and degrades the bot. A safety reason from the venue
+///     degrades the bot at once and returns the intent for a later lookup. Stopped bots hold their submits.
 /// </summary>
 internal sealed class DispatchOrderIntentCommandHandler(
     IOrderIntentRepository intents,
@@ -74,13 +75,18 @@ internal sealed class DispatchOrderIntentCommandHandler(
         {
             await Release(intent, CancellationToken.None);
         }
+        catch (OrderGatewaySafetyException exception)
+        {
+            await Degrade(intent.BotId, exception.Reason, CancellationToken.None);
+            await Release(intent, CancellationToken.None);
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             await Release(intent, CancellationToken.None);
 
             throw;
         }
-        catch (Exception exception) when (exception is not OrderSubmitBlockedException)
+        catch (Exception exception) when (exception is not (OrderSubmitBlockedException or OrderGatewaySafetyException))
         {
             await Fail(intent, CancellationToken.None);
         }
@@ -206,6 +212,21 @@ internal sealed class DispatchOrderIntentCommandHandler(
 
                 if (intent.Status == OrderIntentStatus.Failed && await bots.GetForUpdate(intent.BotId, cancellationToken) is { } bot &&
                     bot.Degrade(BotStatusReason.IntentFailed, now))
+                {
+                    await bots.Update(bot, cancellationToken);
+                }
+
+                return true;
+            },
+            cancellationToken);
+    }
+
+    private Task Degrade(BotId botId, BotStatusReason reason, CancellationToken cancellationToken)
+    {
+        return transactions.ExecuteAsync(
+            async () =>
+            {
+                if (await bots.GetForUpdate(botId, cancellationToken) is { } bot && bot.Degrade(reason, clock.GetUtcNow()))
                 {
                     await bots.Update(bot, cancellationToken);
                 }

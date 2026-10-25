@@ -59,23 +59,60 @@ internal sealed class BybitGatewayHarness
         var rules = Substitute.For<IInstrumentRulesSource>();
         rules.Venue.Returns(new VenueId("bybit"));
         rules.Get(Arg.Any<InstrumentSymbol>(), Arg.Any<CancellationToken>())
-            .Returns(new InstrumentRulesDefinitionInternal("bybit", "test", "spot", "BTCUSDT", "BTC", "USDT", BasePrecisionIncrement: 0.0001m, QuotePrecisionIncrement: 0.01m, Rules));
+            .Returns(
+                new InstrumentRulesDefinitionInternal(
+                    "bybit",
+                    "test",
+                    "spot",
+                    "BTCUSDT",
+                    "BTC",
+                    "USDT",
+                    BasePrecisionIncrement: 0.0001m,
+                    QuotePrecisionIncrement: 0.01m,
+                    Rules));
         ServiceProvider services = new ServiceCollection().AddSingleton(bots).AddSingleton(sender).AddSingleton(rules).BuildServiceProvider();
         var http = new HttpClient(Exchange) { BaseAddress = new Uri("https://bybit.invalid/") };
         var clock = new BybitServerClock(TimeProvider.System);
         var read = new BybitReadClient(http, clock);
-        Gateway = new BybitOrderGateway(new BybitTradeClient(http, clock), read, new BybitBotContexts(services.GetRequiredService<IServiceScopeFactory>()), Updates);
+        Gateway = new BybitOrderGateway(
+            new BybitTradeClient(http, clock),
+            read,
+            new BybitOrderReads(read),
+            new BybitBotContexts(services.GetRequiredService<IServiceScopeFactory>()),
+            Updates);
         FeeRates = new BybitFeeRateReader(read);
     }
 
     public static OrderSnapshot MarketBuy(long id, decimal quoteBudget)
     {
-        return new OrderSnapshot(id, "entry", OrderSide.Buy, OrderType.Market, Quantity: null, LimitPrice: null, quoteBudget, quoteBudget, "entry", EligibleFromCandleIndex: 0, OrderStatus.PendingSubmit);
+        return new OrderSnapshot(
+            id,
+            "entry",
+            OrderSide.Buy,
+            OrderType.Market,
+            Quantity: null,
+            LimitPrice: null,
+            quoteBudget,
+            quoteBudget,
+            "entry",
+            EligibleFromCandleIndex: 0,
+            OrderStatus.PendingSubmit);
     }
 
     public static OrderSnapshot LimitSell(long id, decimal quantity, decimal price)
     {
-        return new OrderSnapshot(id, "exit", OrderSide.Sell, OrderType.Limit, quantity, price, QuoteBudget: null, quantity, "exit", EligibleFromCandleIndex: 0, OrderStatus.PendingSubmit);
+        return new OrderSnapshot(
+            id,
+            "exit",
+            OrderSide.Sell,
+            OrderType.Limit,
+            quantity,
+            price,
+            QuoteBudget: null,
+            quantity,
+            "exit",
+            EligibleFromCandleIndex: 0,
+            OrderStatus.PendingSubmit);
     }
 
     public async Task<List<ExternalOrderUpdate>> Published(int count)

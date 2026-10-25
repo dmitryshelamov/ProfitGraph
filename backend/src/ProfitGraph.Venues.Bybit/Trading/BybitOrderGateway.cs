@@ -13,9 +13,15 @@ namespace ProfitGraph.Venues.Bybit.Trading;
 ///     Bybit Spot order execution (ADR 0017, Profit Fox Designer ADR 0055). Registered only by a Worker with the live role
 ///     and trading enabled. A first attempt places; a later attempt, or a duplicate response, looks the order up by its
 ///     client ID and never places again on an empty answer. Only an explicit Bybit rejection rejects; every unknown
-///     outcome is an exception, so the intent retries and eventually degrades the bot.
+///     outcome is an exception, so the intent retries and eventually degrades the bot. Reconciliation checks the key and
+///     the symbol before a bot trades (ADR 0016, stage 5.8).
 /// </summary>
-internal sealed class BybitOrderGateway(BybitTradeClient trade, BybitReadClient read, BybitBotContexts contexts, BybitOrderUpdates updates) : IOrderGateway
+internal sealed class BybitOrderGateway(
+    BybitTradeClient trade,
+    BybitReadClient read,
+    BybitOrderReads reads,
+    BybitBotContexts contexts,
+    BybitOrderUpdates updates) : IOrderGateway
 {
     public VenueId Venue => BybitVenue.VenueId;
 
@@ -86,47 +92,58 @@ internal sealed class BybitOrderGateway(BybitTradeClient trade, BybitReadClient 
     }
 
     /// <summary>
-    ///     Finds the order by its client ID in open, then in historical orders, and publishes its state. An empty answer is
-    ///     not proof that the order was never placed.
+    ///     Checks the key, every order the bot asks about and what else trades on its symbol (Profit Fox Designer ADR
+    ///     0055). An order that may have reached Bybit but is not found is unresolved; an order or execution on the symbol
+    ///     that is not the bot's is foreign unless the bot allows them.
+    /// </summary>
+    public async Task<BotReconciliationInternal> Reconcile(BotReconcileInternal request, CancellationToken cancellationToken)
+    {
+        BybitBotContext context = await contexts.Get(request.BotId, cancellationToken);
+
+        if (!await reads.KeyMayTrade(context, cancellationToken))
+        {
+            return new BotReconciliationInternal([], [], BotStatusReason.KeyPermissions);
+        }
+
+        IReadOnlyList<string> onSymbol = await reads.SymbolClientOrderIds(context, cancellationToken);
+        List<ExternalOrderUpdate> found = [];
+        List<ReconciledOrderInternal> orders = [];
+
+        foreach (ReconcileOrderInternal order in request.Orders)
+        {
+            BybitSpotOrder? existing = await reads.LookUp(context, order.ClientOrderId.Value, cancellationToken);
+
+            if (existing is null)
+            {
+                if (order.MayHaveReachedVenue)
+                {
+                    return new BotReconciliationInternal(found, orders, BotStatusReason.UnresolvedOrder);
+                }
+
+                continue;
+            }
+
+            found.AddRange(BybitOrderTranslation.Updates(order.EngineOrderId, existing, context.Instrument.BaseAsset, context.Instrument.QuoteAsset));
+            orders.Add(new ReconciledOrderInternal(order.ClientOrderId, existing.IsFinal));
+        }
+
+        bool foreign = !request.AllowForeignOrders &&
+            onSymbol.Any(clientOrderId => !BybitClientOrderIds.TryParse(clientOrderId, out BotId? owner, out _) || owner != request.BotId);
+
+        return new BotReconciliationInternal(found, orders, foreign ? BotStatusReason.ForeignOrder : null);
+    }
+
+    /// <summary>
+    ///     Finds the order by its client ID and publishes its state. An empty answer is not proof that the order was never
+    ///     placed.
     /// </summary>
     private async Task<BybitSpotOrder> PublishExisting(BybitBotContext context, string clientOrderId, CancellationToken cancellationToken)
     {
-        BybitSpotOrder order = await Find(context, "/v5/order/realtime", clientOrderId, cancellationToken)
-            ?? await Find(context, "/v5/order/history", clientOrderId, cancellationToken)
-            ?? throw new BybitOrderUnresolvedException();
-
-        if (!BybitClientOrderIds.TryParse(order.ClientOrderId, out BotId? owner, out long engineOrderId) || owner != context.BotId ||
-            order.Symbol != context.Symbol)
-        {
-            throw new BybitOrderUnresolvedException();
-        }
-
+        BybitSpotOrder order = await reads.LookUp(context, clientOrderId, cancellationToken) ?? throw new BybitOrderUnresolvedException();
+        BybitClientOrderIds.TryParse(order.ClientOrderId, out _, out long engineOrderId);
         updates.Publish(context.BotId, BybitOrderTranslation.Updates(engineOrderId, order, context.Instrument.BaseAsset, context.Instrument.QuoteAsset));
 
         return order;
-    }
-
-    private async Task<BybitSpotOrder?> Find(BybitBotContext context, string path, string clientOrderId, CancellationToken cancellationToken)
-    {
-        BybitRestResult found = await read.Get(context.Credential, path, $"category=spot&orderLinkId={Uri.EscapeDataString(clientOrderId)}", cancellationToken);
-
-        if (found.Outcome != BybitRestOutcome.Accepted)
-        {
-            return found.Outcome == BybitRestOutcome.NotFound ? null : throw new BybitOrderUnresolvedException();
-        }
-
-        try
-        {
-            JsonElement list = found.Body.GetProperty("result").GetProperty("list");
-
-            return list.GetArrayLength() == 0
-                ? null
-                : BybitSpotOrder.Parse(list[0]) is { } order && order.ClientOrderId == clientOrderId ? order : throw new BybitOrderUnresolvedException();
-        }
-        catch (Exception exception) when (exception is KeyNotFoundException or FormatException or InvalidOperationException)
-        {
-            throw new BybitOrderUnresolvedException();
-        }
     }
 
     private async Task<decimal> LastPrice(string symbol, CancellationToken cancellationToken)
@@ -136,7 +153,9 @@ internal sealed class BybitOrderGateway(BybitTradeClient trade, BybitReadClient 
         try
         {
             return ticker.Outcome == BybitRestOutcome.Accepted &&
-                decimal.Parse(ticker.Body.GetProperty("result").GetProperty("list")[0].GetProperty("lastPrice").GetString()!, CultureInfo.InvariantCulture) is > 0m and var price
+                decimal.Parse(
+                    ticker.Body.GetProperty("result").GetProperty("list")[0].GetProperty("lastPrice").GetString()!,
+                    CultureInfo.InvariantCulture) is > 0m and var price
                     ? price
                     : throw new BybitOrderUnresolvedException();
         }
