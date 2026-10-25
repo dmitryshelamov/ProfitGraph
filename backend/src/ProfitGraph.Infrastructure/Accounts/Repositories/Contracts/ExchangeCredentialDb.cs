@@ -7,13 +7,11 @@ internal sealed class ExchangeCredentialDb
     public string Venue { get; init; } = string.Empty;
     public string Label { get; init; } = string.Empty;
     public string ApiKeyLast4 { get; init; } = string.Empty;
-    public string ApiKeyKeyId { get; init; } = string.Empty;
-    public byte[] ApiKeyNonce { get; init; } = [];
-    public byte[] ApiKeyCiphertext { get; init; } = [];
-    public byte[] ApiKeyTag { get; init; } = [];
-    public string ApiSecretKeyId { get; init; } = string.Empty;
-    public byte[] ApiSecretNonce { get; init; } = [];
-    public byte[] ApiSecretCiphertext { get; init; } = [];
-    public byte[] ApiSecretTag { get; init; } = [];
+
+    /// <summary>
+    ///     The encrypted values as JSON: field name to <see cref="EncryptedSecretDb" />.
+    /// </summary>
+    public string Secrets { get; init; } = "{}";
+
     public DateTimeOffset CreatedAt { get; init; }
 }

@@ -6,7 +6,7 @@ namespace ProfitGraph.Application.Accounts;
 internal static class ExchangeCredentialSecrets
 {
     /// <summary>
-    ///     Decrypts both values of a credential in memory for a venue call.
+    ///     Decrypts every value of a credential in memory for a venue call.
     /// </summary>
     internal static ExchangeCredentialSecretsInternal Decrypt(this ISecretProtector protector, ExchangeCredential credential)
     {
@@ -15,7 +15,9 @@ internal static class ExchangeCredentialSecrets
         return new ExchangeCredentialSecretsInternal(
             credential.Id.Value,
             credential.Venue.Value,
-            protector.Decrypt(credential.Id, credential.OwnerId, ExchangeCredentialFields.ApiKey, credential.ApiKey),
-            protector.Decrypt(credential.Id, credential.OwnerId, ExchangeCredentialFields.ApiSecret, credential.ApiSecret));
+            credential.Secrets.ToDictionary(
+                secret => secret.Key,
+                secret => protector.Decrypt(credential.Id, credential.OwnerId, secret.Key, secret.Value),
+                StringComparer.Ordinal));
     }
 }

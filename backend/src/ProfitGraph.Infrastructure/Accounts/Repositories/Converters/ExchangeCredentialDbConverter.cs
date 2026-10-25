@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Infrastructure.Accounts.Repositories.Contracts;
@@ -6,6 +8,8 @@ namespace ProfitGraph.Infrastructure.Accounts.Repositories.Converters;
 
 internal static class ExchangeCredentialDbConverter
 {
+    private static readonly JsonSerializerOptions Options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+
     public static ExchangeCredential ToDomain(this ExchangeCredentialDb row)
     {
         return ExchangeCredential.Restore(
@@ -14,8 +18,8 @@ internal static class ExchangeCredentialDbConverter
             new VenueId(row.Venue),
             new ExchangeCredentialLabel(row.Label),
             new ApiKeyLast4(row.ApiKeyLast4),
-            new EncryptedSecret(row.ApiKeyKeyId, row.ApiKeyNonce, row.ApiKeyCiphertext, row.ApiKeyTag),
-            new EncryptedSecret(row.ApiSecretKeyId, row.ApiSecretNonce, row.ApiSecretCiphertext, row.ApiSecretTag),
+            JsonSerializer.Deserialize<Dictionary<string, EncryptedSecretDb>>(row.Secrets, Options)!
+                .ToDictionary(secret => secret.Key, secret => new EncryptedSecret(secret.Value.KeyId, secret.Value.Nonce, secret.Value.Ciphertext, secret.Value.Tag)),
             row.CreatedAt);
     }
 
@@ -28,14 +32,12 @@ internal static class ExchangeCredentialDbConverter
             Venue = credential.Venue.Value,
             Label = credential.Label.Value,
             ApiKeyLast4 = credential.ApiKeyLast4.Value,
-            ApiKeyKeyId = credential.ApiKey.KeyId,
-            ApiKeyNonce = credential.ApiKey.Nonce,
-            ApiKeyCiphertext = credential.ApiKey.Ciphertext,
-            ApiKeyTag = credential.ApiKey.Tag,
-            ApiSecretKeyId = credential.ApiSecret.KeyId,
-            ApiSecretNonce = credential.ApiSecret.Nonce,
-            ApiSecretCiphertext = credential.ApiSecret.Ciphertext,
-            ApiSecretTag = credential.ApiSecret.Tag,
+            Secrets = JsonSerializer.Serialize(
+                credential.Secrets.ToDictionary(
+                    secret => secret.Key,
+                    secret => new EncryptedSecretDb
+                        { KeyId = secret.Value.KeyId, Nonce = secret.Value.Nonce, Ciphertext = secret.Value.Ciphertext, Tag = secret.Value.Tag }),
+                Options),
             CreatedAt = credential.CreatedAt
         };
     }

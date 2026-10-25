@@ -89,12 +89,10 @@ internal sealed class RuntimeScenario
             {
                 await connection.ExecuteAsync(
                     sql: """
-                         INSERT INTO exchange_credentials (
-                             id, user_id, venue, label, api_key_last4, api_key_key_id, api_key_nonce, api_key_ciphertext, api_key_tag,
-                             api_secret_key_id, api_secret_nonce, api_secret_ciphertext, api_secret_tag, created_at)
-                         VALUES (@credential, @owner, 'test-history', 'invented', 'abcd', 'test', @nonce, @cipher, @tag, 'test', @nonce, @cipher, @tag, now());
+                         INSERT INTO exchange_credentials (id, user_id, venue, label, api_key_last4, secrets, created_at)
+                         VALUES (@credential, @owner, 'test-history', 'invented', 'abcd', CAST(@secrets AS jsonb), now());
                          """,
-                    new { owner = owner.Value, credential = credential.Value, nonce = new byte[12], cipher = new byte[] { 1 }, tag = new byte[16] });
+                    new { owner = owner.Value, credential = credential.Value, secrets = BotSeed.InventedSecrets });
             }
         }
 

@@ -61,3 +61,13 @@ requires the owner to enter credentials again, so nothing is imported. Stage 5 p
 - **Read.** `GET /api/exchange-credentials/{id}/account?from=&to=&limit=` returns the owner's history, oldest first,
   with the reading status; the default range is the last seven days. The history includes deposits, withdrawals and
   price moves; it is not bot profit.
+
+## Amendment: named fields (ADR 0022)
+
+- A credential holds encrypted values by field name in `exchange_credentials.secrets`, a JSON object of key identifier,
+  nonce, ciphertext and tag (base64) per field; the associated data still names the field. Migration `202610250020`
+  moved every stored key and secret there unchanged, without decrypting them.
+- A venue declares its fields through `IVenueCredentialSchema`. `POST /api/exchange-credentials` accepts only venues
+  whose fields are exactly `apiKey` and `apiSecret` (Bybit); any other venue answers `400 credential_input_unsupported`
+  and brings its own way to create credentials. The four-character public hint stays.
+- `ReadExchangeCredentialSecretsQuery` decrypts every field; a venue reads them by name.
