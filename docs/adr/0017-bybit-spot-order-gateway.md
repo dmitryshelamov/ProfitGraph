@@ -51,5 +51,20 @@ maker rebates. Agents never use a real key or call an authenticated endpoint; ev
 ## Consequences
 
 - The gateway is tested only against a stateful mock exchange that verifies signatures with an invented secret.
-- Stage 5.8 adds the private order stream, reconciliation when a bot opens or reconnects, and the degradations it
-  finds (`ForeignOrder`, `KeyPermissions`, `UnsupportedFeeAsset`, `UnresolvedOrder`).
+
+## Amendment: reconciliation and the private stream (stage 5.8)
+
+- **Reconciliation** (ADR 0016) reads `GET /v5/user/query-api` first: a read-only key, a key without `SpotTrade` or
+  with `Withdraw`, or a key Bybit refuses (`10003`, `10005`, `10010`) degrades the bot with `KeyPermissions`. It then
+  opens the bot's private stream, looks up every order the bot asks about, and lists open orders and recent executions
+  (`/v5/execution/list`, paged) on the symbol. Both reads are added to the read client's allowlist.
+- **Private stream.** One authenticated connection to `wss://stream.bybit.com/v5/private` per running bot,
+  subscribed to `order.spot` and `execution.spot`. The `auth` signature is HMAC-SHA256 of `GET/realtime` and an expiry
+  10 s past Bybit's server time; an application ping goes every 20 s. The stream is open before the lookups, so no
+  change between them is missed; its earlier updates are discarded because reconciliation reads the state again.
+- **Messages.** A message naming one of the bot's orders on its symbol looks the order up and publishes its cumulative
+  state, as a lookup does; Bybit's stream payload itself is not accounted. An order or execution on the symbol that is
+  not the bot's ends the bot's updates with `ForeignOrder` unless the bot allows foreign orders. Other symbols are
+  ignored.
+- **Loss.** A closed connection, an unreadable message or a failed lookup ends the bot's updates with that error; the
+  runner restarts and reconciles again. A connection per credential shared by its bots is left for later.

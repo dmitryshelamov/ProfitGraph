@@ -1,8 +1,8 @@
 namespace ProfitGraph.Venues.Bybit.MarketData;
 
 /// <summary>
-///     Section <c>Venues:Bybit</c>: the public REST origin and how failed requests are retried. Every request is public;
-///     the module holds no credentials.
+///     Section <c>Venues:Bybit</c>: the REST origin, the streams and how failed public requests are retried. Signed
+///     requests and the private stream use a bot's credential, decrypted only in memory (ADR 0017).
 /// </summary>
 public sealed class BybitOptions
 {
@@ -14,6 +14,11 @@ public sealed class BybitOptions
     ///     The public Spot WebSocket of live klines; it is never authenticated.
     /// </summary>
     public string PublicSpotStreamAddress { get; init; } = "wss://stream.bybit.com/v5/public/spot";
+
+    /// <summary>
+    ///     The private WebSocket of a live bot's orders and executions.
+    /// </summary>
+    public string PrivateStreamAddress { get; init; } = "wss://stream.bybit.com/v5/private";
 
     /// <summary>
     ///     How much longer than its timeframe a live feed may stay silent before it counts as stalled.
@@ -43,6 +48,7 @@ public sealed class BybitOptions
     {
         return IsValidBaseAddress(BaseAddress) &&
             Uri.TryCreate(PublicSpotStreamAddress, UriKind.Absolute, out Uri? stream) && stream.Scheme is "wss" or "ws" &&
+            Uri.TryCreate(PrivateStreamAddress, UriKind.Absolute, out Uri? privateStream) && privateStream.Scheme is "wss" or "ws" &&
             LiveFeedStallMargin > TimeSpan.Zero &&
             MaxRetryAttempts is > 0 and <= 10 &&
             RetryBaseDelay > TimeSpan.Zero && RetryBaseDelay <= TotalTimeout &&

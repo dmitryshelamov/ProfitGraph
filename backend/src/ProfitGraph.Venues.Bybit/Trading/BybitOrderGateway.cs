@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 using ProfitGraph.Application.Bots.Contracts;
@@ -20,6 +21,7 @@ internal sealed class BybitOrderGateway(
     BybitTradeClient trade,
     BybitReadClient read,
     BybitOrderReads reads,
+    BybitPrivateStreams streams,
     BybitBotContexts contexts,
     BybitOrderUpdates updates) : IOrderGateway
 {
@@ -30,9 +32,22 @@ internal sealed class BybitOrderGateway(
         return BybitClientOrderIds.For(botId, engineOrderId);
     }
 
-    public IAsyncEnumerable<ExternalOrderUpdate> Updates(BotId botId, CancellationToken cancellationToken)
+    /// <summary>
+    ///     The updates of the stream reconciliation opened; the stream closes when the runner stops reading.
+    /// </summary>
+    public async IAsyncEnumerable<ExternalOrderUpdate> Updates(BotId botId, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        return updates.Read(botId, cancellationToken);
+        try
+        {
+            await foreach (ExternalOrderUpdate update in updates.Read(botId, cancellationToken))
+            {
+                yield return update;
+            }
+        }
+        finally
+        {
+            await streams.Close(botId);
+        }
     }
 
     public async Task<ExternalOrderUpdate?> Submit(OrderSubmitInternal submit, Func<CancellationToken, Task> markPlaceStarted, CancellationToken cancellationToken)
@@ -92,9 +107,9 @@ internal sealed class BybitOrderGateway(
     }
 
     /// <summary>
-    ///     Checks the key, every order the bot asks about and what else trades on its symbol (Profit Fox Designer ADR
-    ///     0055). An order that may have reached Bybit but is not found is unresolved; an order or execution on the symbol
-    ///     that is not the bot's is foreign unless the bot allows them.
+    ///     Checks the key, opens the bot's private stream, then looks up every order the bot asks about and what else
+    ///     trades on its symbol (Profit Fox Designer ADR 0055). An order that may have reached Bybit but is not found is
+    ///     unresolved; an order or execution on the symbol that is not the bot's is foreign unless the bot allows them.
     /// </summary>
     public async Task<BotReconciliationInternal> Reconcile(BotReconcileInternal request, CancellationToken cancellationToken)
     {
@@ -105,6 +120,29 @@ internal sealed class BybitOrderGateway(
             return new BotReconciliationInternal([], [], BotStatusReason.KeyPermissions);
         }
 
+        await streams.Open(context, request.AllowForeignOrders, cancellationToken);
+
+        try
+        {
+            BotReconciliationInternal reconciliation = await LookUp(context, request, cancellationToken);
+
+            if (reconciliation.Degradation is not null)
+            {
+                await streams.Close(request.BotId);
+            }
+
+            return reconciliation;
+        }
+        catch
+        {
+            await streams.Close(request.BotId);
+
+            throw;
+        }
+    }
+
+    private async Task<BotReconciliationInternal> LookUp(BybitBotContext context, BotReconcileInternal request, CancellationToken cancellationToken)
+    {
         IReadOnlyList<string> onSymbol = await reads.SymbolClientOrderIds(context, cancellationToken);
         List<ExternalOrderUpdate> found = [];
         List<ReconciledOrderInternal> orders = [];
