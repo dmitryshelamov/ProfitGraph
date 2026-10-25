@@ -1,7 +1,6 @@
-using System.Globalization;
-
 using MediatR;
 
+using ProfitGraph.Application.Common.Numbers;
 using ProfitGraph.Domain.Bots;
 
 namespace ProfitGraph.Application.Bots.RecordBotFeed;
@@ -201,6 +200,6 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
 
     private static string Number(decimal value)
     {
-        return value.ToString(CultureInfo.InvariantCulture);
+        return ExactDecimalText.Format(value);
     }
 }

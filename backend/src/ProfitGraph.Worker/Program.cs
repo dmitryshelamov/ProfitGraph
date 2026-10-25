@@ -14,10 +14,13 @@ namespace ProfitGraph.Worker;
 
 /// <summary>
 ///     Runs background jobs (ADR 0011) and the live bot runtime, by its configured roles (<see cref="WorkerRoles" />);
-///     trading stays disabled unless explicitly enabled by configuration.
+///     trading stays disabled unless explicitly enabled by configuration. End-to-end tests may trade against an in-memory
+///     simulation instead, only in the Testing environment.
 /// </summary>
 public static class Program
 {
+    private const string TestingEnvironment = "Testing";
+
     public static void Main(string[] args)
     {
         HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
@@ -44,9 +47,21 @@ public static class Program
             builder.Services.AddBotRuntime();
             builder.Services.AddTelegramNotifications(builder.Configuration);
 
-            if (builder.Configuration.GetValue<bool>("Live:Trading:Enabled"))
+            var tradingEnabled = builder.Configuration.GetValue<bool>("Live:Trading:Enabled");
+            var simulated = builder.Configuration.GetValue<bool>("Live:Simulation:Enabled");
+
+            if (simulated && (tradingEnabled || !builder.Environment.IsEnvironment(TestingEnvironment)))
+            {
+                throw new InvalidOperationException("Live:Simulation:Enabled is allowed only in the Testing environment with trading disabled.");
+            }
+
+            if (tradingEnabled)
             {
                 builder.Services.AddBybitTrading();
+            }
+            else if (simulated)
+            {
+                builder.Services.AddBybitSimulatedTrading(builder.Configuration);
             }
         }
 

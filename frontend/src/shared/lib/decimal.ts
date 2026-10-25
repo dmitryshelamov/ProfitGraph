@@ -1,6 +1,7 @@
 /**
  * Money, prices, fractions and fees arrive as decimal strings and never pass through JavaScript number.
- * Exact transformations use BigInt; trading arithmetic stays on the backend.
+ * Exact transformations use BigInt; trading arithmetic stays on the backend, except a display value such as a
+ * position's unrealized profit at a pushed live price.
  */
 const decimalPattern = /^-?(0|[1-9]\d*)(\.\d{1,28})?$/;
 
@@ -119,4 +120,29 @@ export function compareDecimals(left: string, right: string): number | null {
   const y = b.coefficient * 10n ** BigInt(scale - b.scale);
 
   return x < y ? -1 : x > y ? 1 : 0;
+}
+
+/** Multiplies two decimal strings exactly; null for a non-decimal. */
+export function multiplyDecimals(left: string, right: string): string | null {
+  const a = parts(left);
+  const b = parts(right);
+
+  return a && b ? formatCoefficient(a.coefficient * b.coefficient, a.scale + b.scale) : null;
+}
+
+/** Subtracts `right` from `left` exactly; null for a non-decimal. */
+export function subtractDecimals(left: string, right: string): string | null {
+  const a = parts(left);
+  const b = parts(right);
+
+  if (!a || !b) {
+    return null;
+  }
+
+  const scale = Math.max(a.scale, b.scale);
+
+  return formatCoefficient(
+    a.coefficient * 10n ** BigInt(scale - a.scale) - b.coefficient * 10n ** BigInt(scale - b.scale),
+    scale,
+  );
 }

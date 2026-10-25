@@ -203,8 +203,8 @@ src/
   refused with `live_impact`, the editor lists the running bots and saves again with `confirmLiveImpact`.
 - **Live reports.** The bot page shows the position, the feed and the fills; the feed and the fills page backwards
   through `before` cursors. The position card subscribes to `/ws/live-prices` for the bot and shows a pushed ticker
-  only when it is newer than the stored display price, with the price's source and age; the profit next to it stays
-  the server's until the next read. `CredentialsPage` shows each key's latest account value, its coins and why the last
+  only when it is newer than the stored display price, with the price's source and age, and then recomputes the
+  unrealized profit as the server does (base total × price − cost basis) in exact decimal strings. `CredentialsPage` shows each key's latest account value, its coins and why the last
   read failed. `modules/notifications` and the `/profile` page, opened from the login in the header, issue a Telegram
   link code and unlink the chat.
 - **API client.** `shared/api/client.ts` is the only HTTP client. Its types come from
@@ -228,8 +228,10 @@ src/
   against a routing table that replaces `fetch` (`src/test/fakeApi.ts`); unrouted requests answer 404. These tests
   live under `src/app`, the only layer allowed to import the router.
 - End-to-end tests (`frontend/e2e`, Playwright) drive the real API and frontend against a disposable database on the
-  test PostgreSQL, with the Worker and a local Bybit stub (`e2e/bybit-stub.ts`), so no test reaches the exchange. They
-  cover the stage 3 acceptance path: pick a pair, download its history, run a template and read its chart. The block catalog and template fixtures under `src/test` are captured from the ProfitGraph API;
+  test PostgreSQL, with the Worker and a local Bybit stub (`e2e/bybit-stub.ts`: REST and the public stream with a fixed
+  ticker), so no test reaches the exchange. They cover the stage 3 acceptance path: pick a pair, download its history,
+  run a template and read its chart; and the stage 5 one: a bot trades against the Worker's in-memory simulation
+  (`Live:Simulation`, Testing only, ADR 0017) and its page shows the fill, the feed and the position at the live price. The block catalog and template fixtures under `src/test` are captured from the ProfitGraph API;
   refresh them when the catalog or templates change.
 - `OpenApiDocumentTests` keep the OpenAPI document exact (integers are `integer`, enums are names), because the
   frontend types are generated from it.

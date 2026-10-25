@@ -62,6 +62,7 @@ describe('bot reports', () => {
 
     const price = await screen.findByLabelText('Цена для отображения');
     expect(price).toHaveTextContent('61000');
+    expect(screen.getByLabelText('Нереализованная прибыль')).toHaveTextContent('0.94');
     expect(screen.getByText(/закрытие последней свечи/)).toBeInTheDocument();
     expect(screen.getByText('60060.06')).toBeInTheDocument();
     expect(
@@ -78,6 +79,8 @@ describe('bot reports', () => {
 
     await waitFor(() => expect(price).toHaveTextContent('61500'));
     expect(screen.getByText(/тикер биржи/)).toBeInTheDocument();
+    // 0.000999 × 61500 − 60, exactly.
+    expect(screen.getByLabelText('Нереализованная прибыль')).toHaveTextContent('1.4385');
   });
 
   it('keeps the stored price when a live ticker is older', async () => {
@@ -94,6 +97,7 @@ describe('bot reports', () => {
     });
 
     expect(price).toHaveTextContent('61000');
+    expect(screen.getByLabelText('Нереализованная прибыль')).toHaveTextContent('0.94');
   });
 
   it('lists fills and loads older ones', async () => {
@@ -144,6 +148,13 @@ describe('bot reports', () => {
                 details: {},
                 occurredAt: '2026-10-24T08:00:00Z',
               },
+              {
+                sequence: 0,
+                id: 'e0',
+                kind: 'SettingsChanged',
+                details: { setting: 'foreignOrders', allowForeignOrders: 'true' },
+                occurredAt: '2026-10-24T07:00:00Z',
+              },
             ],
             next: null,
           }),
@@ -155,6 +166,7 @@ describe('bot reports', () => {
     expect(within(feed).getByText('Запущен')).toBeInTheDocument();
     expect(within(feed).getByText(/покупка 0.001 на 60/)).toBeInTheDocument();
     expect(within(feed).getByText(/на символе есть чужие заявки/)).toBeInTheDocument();
+    expect(within(feed).getByText('Настройки изменены: общий символ включён')).toBeInTheDocument();
   });
 });
 

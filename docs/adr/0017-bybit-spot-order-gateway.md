@@ -68,3 +68,16 @@ maker rebates. Agents never use a real key or call an authenticated endpoint; ev
   ignored.
 - **Loss.** A closed connection, an unreadable message or a failed lookup ends the bot's updates with that error; the
   runner restarts and reconciles again. A connection per credential shared by its bots is left for later.
+
+## Amendment: in-memory simulation for end-to-end tests (stage 5 follow-up)
+
+- `AddBybitSimulatedTrading` registers `BybitSimulatedOrderGateway` for the `bybit` venue in place of the real gateway.
+  It keeps orders in memory: a market order is accepted and fully filled at once at `Live:Simulation:MarketPrice` with
+  `Live:Simulation:FeeRate` (base asset for a buy, quote for a sell); a limit order rests until it is cancelled; a
+  lookup or a reconciliation finds what this process placed and reports nothing foreign. No request leaves the process,
+  so no credential is decrypted.
+- The Worker accepts `Live:Simulation:Enabled` only in the `Testing` environment with `Live:Trading:Enabled` false,
+  and refuses to start otherwise. Only the Playwright configuration sets it; every committed `appsettings` file leaves
+  it unset, and trading stays disabled everywhere.
+- A restart forgets the simulated orders, so a bot with orders in flight stays closed after one, as against a venue
+  that cannot find them. The real gateway is still tested only against the stateful mock exchange.

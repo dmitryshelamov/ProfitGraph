@@ -53,10 +53,10 @@ public sealed class BotFeedTests
             engineOrderId: 1,
             OrderSide.Buy,
             "entry",
-            grossBase: 0.1m,
-            grossQuote: 10m,
+            grossBase: 0.10000000m,
+            grossQuote: 10.00000000m,
             fee: 0m,
-            cumulativeGrossBase: 0.1m,
+            cumulativeGrossBase: 0.10000000m,
             BotSeed.Now);
         await InTransaction(writer, services => services.GetRequiredService<IBotFillRepository>().TryAdd(fill, CancellationToken.None));
         await ChangeBot(writer, bot.Id, stored => stored.Kill(BotStatusReason.Killed, BotSeed.Now.AddMinutes(1)));
@@ -72,6 +72,7 @@ public sealed class BotFeedTests
             .. await connection.QueryAsync<(string, string)>("SELECT kind, details::text FROM bot_events WHERE bot_id = @id ORDER BY sequence", new { id = bot.Id.Value })
         ];
         entries.Select(entry => entry.Kind).ShouldBe(["Started", "Fill", "Killed"]);
+        entries[1].Details.ShouldContain("\"grossBase\": \"0.1\"");
         entries[1].Details.ShouldContain("\"grossQuote\": \"10\"");
         entries[2].Details.ShouldContain("\"reason\": \"Killed\"");
     }

@@ -7,8 +7,24 @@ import { botFeedQuery } from '../api/botsApi';
 import { feedLabel, reasonLabel } from '../model/botStatus';
 import type { BotFeedEntry } from '../model/types';
 
+const settingLabels: Record<string, string> = {
+  feeRates: 'ставки комиссий',
+  parameters: 'параметры стратегии',
+  riskLimits: 'лимиты риска',
+  foreignOrders: 'общий символ',
+};
+
 function details(entry: BotFeedEntry): string {
-  const { reason, side, grossBase, grossQuote, realizedPnl, engineOrderId } = entry.details;
+  const { reason, side, grossBase, grossQuote, realizedPnl, engineOrderId, setting } =
+    entry.details;
+
+  if (setting) {
+    const label = settingLabels[setting] ?? setting;
+
+    return setting === 'foreignOrders'
+      ? `${label} ${entry.details.allowForeignOrders === 'true' ? 'включён' : 'выключен'}`
+      : label;
+  }
 
   if (reason) {
     return reasonLabel(reason);
