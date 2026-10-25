@@ -32,7 +32,8 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
         INotificationHandler<BotParametersChanged>,
         INotificationHandler<BotRiskLimitsChanged>,
         INotificationHandler<BotForeignOrdersPolicyChanged>,
-        INotificationHandler<BotFeeRatesChanged>
+        INotificationHandler<BotFeeRatesChanged>,
+        INotificationHandler<BotFeeCorrected>
 {
     public Task Handle(BotDegraded notification, CancellationToken cancellationToken)
     {
@@ -42,6 +43,18 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
     public Task Handle(BotExchangeUnavailable notification, CancellationToken cancellationToken)
     {
         return Record(notification.BotId, BotFeedKind.ExchangeUnavailable, notification.At, cancellationToken);
+    }
+
+    public Task Handle(BotFeeCorrected notification, CancellationToken cancellationToken)
+    {
+        return Record(
+            notification.BotId,
+            BotFeedKind.FeeCorrected,
+            notification.At,
+            cancellationToken,
+            ("engineOrderId", Number(notification.EngineOrderId)),
+            ("previousFee", Number(notification.PreviousFee)),
+            ("correctedFee", Number(notification.CorrectedFee)));
     }
 
     public Task Handle(BotFeeRatesChanged notification, CancellationToken cancellationToken)

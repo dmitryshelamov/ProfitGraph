@@ -16,4 +16,5 @@ public sealed record BotRootCommit(
     IReadOnlyList<OrderIntent> Intents,
     BotRootManualOrder? ManualOrder = null,
     IReadOnlyList<BotFill>? Fills = null,
-    BotRootPosition? Position = null);
+    BotRootPosition? Position = null,
+    IReadOnlyList<BotFeeCorrection>? FeeCorrections = null);

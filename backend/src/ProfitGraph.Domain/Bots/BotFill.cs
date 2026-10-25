@@ -19,9 +19,10 @@ public sealed class BotFill : AggregateRoot
     public decimal Fee { get; }
 
     /// <summary>
-    ///     A buy pays its fee in base, a sell in quote (Profit Fox Designer ADR 0055).
+    ///     The asset the fee was paid in: a sell pays in quote; a buy pays in base (Profit Fox Designer ADR 0055) or in quote
+    ///     where the instrument's rules charge fees in quote (ADR 0023).
     /// </summary>
-    public FeeAsset FeeAsset => Side == OrderSide.Buy ? FeeAsset.Base : FeeAsset.Quote;
+    public FeeAsset FeeAsset { get; }
 
     public decimal CumulativeGrossBase { get; }
     public DateTimeOffset FilledAt { get; }
@@ -38,7 +39,8 @@ public sealed class BotFill : AggregateRoot
         decimal grossQuote,
         decimal fee,
         decimal cumulativeGrossBase,
-        DateTimeOffset filledAt)
+        DateTimeOffset filledAt,
+        FeeAsset? feeAsset)
     {
         if (grossBase <= 0m || grossQuote <= 0m || fee < 0m || cumulativeGrossBase < grossBase)
         {
@@ -55,6 +57,7 @@ public sealed class BotFill : AggregateRoot
         Fee = fee;
         CumulativeGrossBase = cumulativeGrossBase;
         FilledAt = filledAt;
+        FeeAsset = feeAsset ?? (side == OrderSide.Buy ? FeeAsset.Base : FeeAsset.Quote);
     }
 
     public static BotFill Record(
@@ -67,9 +70,10 @@ public sealed class BotFill : AggregateRoot
         decimal grossQuote,
         decimal fee,
         decimal cumulativeGrossBase,
-        DateTimeOffset filledAt)
+        DateTimeOffset filledAt,
+        FeeAsset? feeAsset = null)
     {
-        var fill = new BotFill(id, botId, engineOrderId, side, tag, grossBase, grossQuote, fee, cumulativeGrossBase, filledAt);
+        var fill = new BotFill(id, botId, engineOrderId, side, tag, grossBase, grossQuote, fee, cumulativeGrossBase, filledAt, feeAsset);
         fill.AddDomainEvent(new BotFillRecorded(botId, id, engineOrderId, side, grossBase, grossQuote, filledAt));
 
         return fill;
@@ -85,8 +89,9 @@ public sealed class BotFill : AggregateRoot
         decimal grossQuote,
         decimal fee,
         decimal cumulativeGrossBase,
-        DateTimeOffset filledAt)
+        DateTimeOffset filledAt,
+        FeeAsset? feeAsset = null)
     {
-        return new BotFill(id, botId, engineOrderId, side, tag, grossBase, grossQuote, fee, cumulativeGrossBase, filledAt);
+        return new BotFill(id, botId, engineOrderId, side, tag, grossBase, grossQuote, fee, cumulativeGrossBase, filledAt, feeAsset);
     }
 }

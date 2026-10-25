@@ -128,6 +128,13 @@ describe('bot reports', () => {
           json({
             items: [
               {
+                sequence: 4,
+                id: 'e4',
+                kind: 'FeeCorrected',
+                details: { engineOrderId: '7', previousFee: '0', correctedFee: '1.5' },
+                occurredAt: '2026-10-24T12:00:00Z',
+              },
+              {
                 sequence: 3,
                 id: 'e3',
                 kind: 'Degraded',
@@ -167,6 +174,9 @@ describe('bot reports', () => {
     expect(within(feed).getByText(/покупка 0.001 на 60/)).toBeInTheDocument();
     expect(within(feed).getByText(/на символе есть чужие заявки/)).toBeInTheDocument();
     expect(within(feed).getByText('Настройки изменены: общий символ включён')).toBeInTheDocument();
+    expect(
+      within(feed).getByText(/Комиссия уточнена: заявка 7: было 0, стало 1.5/),
+    ).toBeInTheDocument();
   });
 });
 
