@@ -6,15 +6,23 @@ public sealed class InstrumentSymbolTests
 {
     [TestCase("BTCUSDT")]
     [TestCase("6f1c2c55-7c1b-4d43-9a43-6d2f8f6b1a01")]
+    [TestCase("KZT:730:Dreams & Nightmares Case")]
+    [TestCase("USD:480:Example/blue: Mk II")]
+    [TestCase("EUR:730:StatTrak™ ★ Karambit | Doppler (Factory New)")]
     public void KeepsTheVenueFormAsIs(string value)
     {
         new InstrumentSymbol(value).Value.ShouldBe(value);
     }
 
     [TestCase("")]
-    [TestCase("BTC USDT")]
+    [TestCase(" BTCUSDT")]
+    [TestCase("BTCUSDT ")]
+    [TestCase("BTC  USDT")]
     [TestCase("BTC\tUSDT")]
-    public void RejectsEmptyOrSpacedSymbols(string value)
+    [TestCase("BTC\nUSDT")]
+    [TestCase("BTC USDT")]
+    [TestCase("BTC\u0000USDT")]
+    public void RejectsEmptySymbolsAndAnyOtherWhitespace(string value)
     {
         Should.Throw<ArgumentException>(() => new InstrumentSymbol(value));
     }
