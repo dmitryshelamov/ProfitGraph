@@ -38,6 +38,16 @@ internal sealed class MockSteam : HttpMessageHandler
 
     public IReadOnlyList<string> Cookies { get; private set; } = [];
 
+    /// <summary>
+    ///     The <c>g_rgWalletInfo</c> object the signed-in market page carries (KZT, as the owner's wallet).
+    /// </summary>
+    public string WalletInfo { get; set; } =
+        """{"wallet_currency":37,"wallet_country":"KZ","wallet_fee":"1","wallet_fee_minimum":"1","wallet_fee_percent":"0.05","wallet_publisher_fee_percent_default":"0.10","wallet_fee_base":"0","wallet_balance":"123456","wallet_delayed_balance":"0","wallet_max_balance":"100000000","wallet_trade_max_balance":"90000000","success":1,"rwgrsn":-2,"wallet_market_minimum":1,"wallet_currency_increment":1}""";
+
+    public string PriceHistory { get; set; } = """{"success":true,"price_prefix":"","price_suffix":"₸","prices":[]}""";
+
+    public string SearchResults { get; set; } = """{"success":true,"start":0,"pagesize":10,"total_count":0,"results":[]}""";
+
     public int Count(string path)
     {
         lock (_requests)
@@ -76,6 +86,8 @@ internal sealed class MockSteam : HttpMessageHandler
             ("community.steam.invalid", "/login/settoken") => SetToken(),
             ("api.steam.invalid", "/ITwoFactorService/QueryTime/v1/") => Json($$$"""{"response":{"server_time":"{{{ServerTime.ToUnixTimeSeconds()}}}"}}"""),
             ("community.steam.invalid", "/market/") => Market(request),
+            ("community.steam.invalid", "/market/pricehistory/") => Json(PriceHistory),
+            ("community.steam.invalid", "/market/search/render/") => Json(SearchResults),
             _ => new HttpResponseMessage(HttpStatusCode.NotFound)
         };
     }
@@ -106,7 +118,10 @@ internal sealed class MockSteam : HttpMessageHandler
 
         if (signedIn)
         {
-            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("<html>market</html>", Encoding.UTF8, "text/html") };
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent($"<html><script>var g_rgWalletInfo = {WalletInfo};</script>market</html>", Encoding.UTF8, "text/html")
+            };
         }
 
         var redirect = new HttpResponseMessage(HttpStatusCode.Found);

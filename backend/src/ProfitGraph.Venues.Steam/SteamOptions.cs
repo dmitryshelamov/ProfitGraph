@@ -84,6 +84,29 @@ public sealed class SteamOptions
 
     public TimeSpan SoftResumeWindow { get; init; } = TimeSpan.FromHours(6);
 
+    /// <summary>
+    ///     The Steam credential whose session reads market data: price history is only served signed in, in that wallet's
+    ///     currency (ADR 0022). Without one, Steam has no history.
+    /// </summary>
+    public Guid? MarketDataCredentialId { get; init; }
+
+    /// <summary>
+    ///     How long after its end a period counts as closed in Steam's history.
+    /// </summary>
+    public TimeSpan CandleCloseDelay { get; init; } = TimeSpan.FromSeconds(120);
+
+    /// <summary>
+    ///     How long a read history of an item is reused; one response holds the item's whole history.
+    /// </summary>
+    public TimeSpan HistoryReuse { get; init; } = TimeSpan.FromMinutes(10);
+
+    public TimeSpan WalletReuse { get; init; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    ///     The App ID an item search uses when the query names none (730 is Counter-Strike 2).
+    /// </summary>
+    public int DefaultAppId { get; init; } = 730;
+
     public bool IsValid()
     {
         (string Address, string Host)[] origins =
@@ -96,7 +119,8 @@ public sealed class SteamOptions
             SessionRenewalLead >= TimeSpan.Zero && ServerClockRefresh > TimeSpan.Zero && QueueDeadline > TimeSpan.Zero && WriteSpacing >= TimeSpan.Zero &&
             InitialCooldown > TimeSpan.Zero && MaximumCooldown >= InitialCooldown && ReadRetries is >= 0 and <= 5 && ProtectionThreshold > 0 &&
             ProtectionErrorRatio is > 0 and <= 1 && ProtectionErrorSample > 0 && SoftResumeDelay > TimeSpan.Zero && SoftResumeLimit >= 0 &&
-            SoftResumeWindow > TimeSpan.Zero;
+            SoftResumeWindow > TimeSpan.Zero && CandleCloseDelay >= TimeSpan.Zero && HistoryReuse >= TimeSpan.Zero && WalletReuse >= TimeSpan.Zero &&
+            DefaultAppId > 0;
 
         return timings && origins.All(origin => Enabled
             ? IsAllowedOrigin(origin.Address, origin.Host)

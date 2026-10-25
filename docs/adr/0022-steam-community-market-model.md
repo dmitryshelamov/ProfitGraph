@@ -29,7 +29,8 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
 - **Rules.** Quantity step 1, minimum quantity 1, price tick = the currency's minor unit, minimum notional = the
   smallest representable buyer price. Base precision 0.
 - **Core change C1.** `InstrumentSymbol` accepts single inner spaces and up to 256 characters (no leading or trailing
-  whitespace, no control characters); the `symbol` columns widen to `varchar(256)`. Bybit's rule is unchanged.
+  whitespace, no control characters); the `symbol` columns and the `base_asset` columns (an item's name is its base
+  asset) widen to `varchar(256)`. Bybit's rule is unchanged.
 
 ### Market data
 
