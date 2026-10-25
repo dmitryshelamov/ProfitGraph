@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -66,6 +67,26 @@ internal sealed class MockSteam : HttpMessageHandler
     /// </summary>
     public IReadOnlyDictionary<string, string> LastBuyForm { get; private set; } = new Dictionary<string, string>();
 
+    /// <summary>
+    ///     Whether a new buy order needs a mobile confirmation first, as Steam asks of some accounts.
+    /// </summary>
+    public bool BuysNeedConfirmation { get; set; }
+
+    /// <summary>
+    ///     The account's pending mobile confirmations; an approved one leaves the list.
+    /// </summary>
+    public List<MockSteamConfirmation> Confirmations { get; } = new List<MockSteamConfirmation>();
+
+    /// <summary>
+    ///     The creators whose confirmations were approved.
+    /// </summary>
+    public HashSet<string> Approved { get; } = new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>
+    ///     The identity secret confirmation requests must be signed with (the harness's invented one).
+    /// </summary>
+    public string IdentitySecret { get; set; } = "aWRlbnRpdHktbm90LXJlYWw=";
+
     public int Count(string path)
     {
         lock (_requests)
@@ -112,6 +133,8 @@ internal sealed class MockSteam : HttpMessageHandler
             ("community.steam.invalid", "/market/createbuyorder/") => CreateBuyOrder(form),
             ("community.steam.invalid", "/market/cancelbuyorder/") => CancelBuyOrder(form),
             ("community.steam.invalid", "/market/getbuyorderstatus/") => BuyOrderStatus(request.RequestUri),
+            ("community.steam.invalid", "/mobileconf/getlist") => ConfirmationList(request.RequestUri),
+            ("community.steam.invalid", "/mobileconf/ajaxop") => ApproveConfirmation(request.RequestUri),
             _ => new HttpResponseMessage(HttpStatusCode.NotFound)
         };
     }
@@ -144,6 +167,24 @@ internal sealed class MockSteam : HttpMessageHandler
                 return Json("""{"success":29}""");
             }
 
+            if (BuysNeedConfirmation && !Approved.Contains(fields["confirmation"]))
+            {
+                var creator = (7700 + Confirmations.Count + Approved.Count + 1).ToString(CultureInfo.InvariantCulture);
+
+                if (fields["confirmation"] == "0")
+                {
+                    Confirmations.Add(new MockSteamConfirmation("55" + creator, "99" + creator, Type: 12, creator));
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.NotAcceptable)
+                {
+                    Content = new StringContent(
+                        $$$"""{"success":22,"need_confirmation":true,"confirmation":{"confirmation_id":"{{{creator}}}"}}""",
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            }
+
             var id = (9000 + BuyOrders.Count + 1).ToString(CultureInfo.InvariantCulture);
             BuyOrders[id] = new MockSteamBuyOrder(
                 name,
@@ -152,6 +193,61 @@ internal sealed class MockSteam : HttpMessageHandler
 
             return Json($$"""{"success":1,"buy_orderid":"{{id}}"}""");
         }
+    }
+
+    private HttpResponseMessage ConfirmationList(Uri address)
+    {
+        if (!Signed(address, "conf"))
+        {
+            return Json("""{"success":false}""");
+        }
+
+        lock (BuyOrders)
+        {
+            return Json(
+                JsonSerializer.Serialize(
+                    new
+                    {
+                        success = true,
+                        conf = Confirmations.Select(confirmation => new
+                        {
+                            id = confirmation.Id,
+                            nonce = confirmation.Nonce,
+                            type = confirmation.Type,
+                            creator_id = confirmation.CreatorId
+                        })
+                    }));
+        }
+    }
+
+    private HttpResponseMessage ApproveConfirmation(Uri address)
+    {
+        Dictionary<string, string> query = Fields(address.Query.TrimStart('?'));
+
+        lock (BuyOrders)
+        {
+            MockSteamConfirmation? confirmation = Confirmations.SingleOrDefault(item => item.Id == query["cid"] && item.Nonce == query["ck"]);
+
+            if (!Signed(address, "accept") || query["op"] != "allow" || confirmation is null)
+            {
+                return Json("""{"success":false}""");
+            }
+
+            Confirmations.Remove(confirmation);
+            Approved.Add(confirmation.CreatorId);
+
+            return Json("""{"success":true}""");
+        }
+    }
+
+    private bool Signed(Uri address, string tag)
+    {
+        Dictionary<string, string> query = Fields(address.Query.TrimStart('?'));
+        byte[] input = [.. BitConverter.GetBytes(long.Parse(query["t"], CultureInfo.InvariantCulture)).Reverse(), .. Encoding.UTF8.GetBytes(tag)];
+        string expected = Convert.ToBase64String(HMACSHA1.HashData(Convert.FromBase64String(IdentitySecret), input));
+
+        return query["tag"] == tag && query["k"] == expected && query["a"] == SteamId && query["m"] == "android" &&
+            query["t"] == ServerTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
     }
 
     private HttpResponseMessage CancelBuyOrder(string form)

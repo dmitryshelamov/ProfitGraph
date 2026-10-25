@@ -68,6 +68,22 @@ public sealed class SteamOrderJournalTests
         (await journal.Open(bot.CredentialId.Value, CancellationToken.None)).Select(entry => entry.ClientOrderId).ShouldBe([second.ClientOrderId]);
     }
 
+    [Test]
+    public async Task AnApprovalHoldsTheSlot()
+    {
+        Bot bot = await AddBot();
+        var journal = new SteamOrderJournalRepository(_dataSource);
+        SteamOrderJournalEntry first = Entry(bot, "pg-c-" + Guid.NewGuid().ToString("N")[..8], price: 50000);
+        SteamOrderJournalEntry second = Entry(bot, "pg-d-" + Guid.NewGuid().ToString("N")[..8], price: 49000);
+        await journal.Add(first, CancellationToken.None);
+        await journal.Add(second, CancellationToken.None);
+
+        (await journal.Transition(first with { State = SteamOrderJournalState.Approving }, SteamOrderJournalState.Waiting, CancellationToken.None)).ShouldBeTrue();
+        (await journal.Transition(first with { State = SteamOrderJournalState.Approved }, SteamOrderJournalState.Approving, CancellationToken.None)).ShouldBeTrue();
+        (await journal.Transition(second with { State = SteamOrderJournalState.Placing }, SteamOrderJournalState.Waiting, CancellationToken.None)).ShouldBeFalse();
+        (await journal.Get(first.ClientOrderId, CancellationToken.None))!.State.ShouldBe(SteamOrderJournalState.Approved);
+    }
+
     private static SteamOrderJournalEntry Entry(Bot bot, string clientOrderId, long price)
     {
         return new SteamOrderJournalEntry(
