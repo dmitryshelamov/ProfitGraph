@@ -19,7 +19,30 @@ public sealed class SteamOptionsTests
     [TestCase("https://mock-steam.invalid/")]
     public void AcceptsTheOfficialOriginOrAnInvalidTestHost(string origin)
     {
-        new SteamOptions { Enabled = true, CommunityBaseAddress = origin }.IsValid().ShouldBeTrue();
+        Enabled(origin).IsValid().ShouldBeTrue();
+    }
+
+    [Test]
+    public void EveryHostNeedsItsOwnOfficialName()
+    {
+        new SteamOptions
+            {
+                Enabled = true,
+                CommunityBaseAddress = "https://steamcommunity.com/",
+                LoginBaseAddress = "https://login.steampowered.com/",
+                ApiBaseAddress = "https://api.steampowered.com/"
+            }
+            .IsValid()
+            .ShouldBeTrue();
+        new SteamOptions
+            {
+                Enabled = true,
+                CommunityBaseAddress = "https://steamcommunity.com/",
+                LoginBaseAddress = "https://steamcommunity.com/",
+                ApiBaseAddress = "https://api.steampowered.com/"
+            }
+            .IsValid()
+            .ShouldBeFalse();
     }
 
     [TestCase("")]
@@ -32,12 +55,23 @@ public sealed class SteamOptionsTests
     [TestCase("https://proxy.example.net/")]
     public void RefusesAnyOtherOriginWhenEnabled(string origin)
     {
-        new SteamOptions { Enabled = true, CommunityBaseAddress = origin }.IsValid().ShouldBeFalse();
+        Enabled(origin).IsValid().ShouldBeFalse();
     }
 
     [Test]
     public void RefusesABadOriginEvenWhenDisabled()
     {
         new SteamOptions { CommunityBaseAddress = "https://proxy.example.net/" }.IsValid().ShouldBeFalse();
+    }
+
+    private static SteamOptions Enabled(string community)
+    {
+        return new SteamOptions
+        {
+            Enabled = true,
+            CommunityBaseAddress = community,
+            LoginBaseAddress = "https://login.mock-steam.invalid/",
+            ApiBaseAddress = "https://api.mock-steam.invalid/"
+        };
     }
 }
