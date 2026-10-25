@@ -19,15 +19,33 @@ internal sealed class SteamAccountRepository(NpgsqlDataSource dataSource) : ISte
         var row = await connection.QuerySingleOrDefaultAsync<SteamAccountDb>(
             new CommandDefinition(SteamAccountQueries.Get, new { credentialId }, cancellationToken: cancellationToken));
 
-        return row is null
-            ? null
-            : new SteamAccount(
-                row.CredentialId,
-                row.AccountFingerprint,
-                Enum.Parse<SteamGuardStatus>(row.GuardStatus),
-                row.NextCheckAt?.ToUniversalTime(),
-                row.CreatedAt.ToUniversalTime(),
-                row.UpdatedAt.ToUniversalTime());
+        return row is null ? null : ToAccount(row);
+    }
+
+    public async Task<IReadOnlyList<SteamAccount>> Due(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        IEnumerable<SteamAccountDb> rows = await connection.QueryAsync<SteamAccountDb>(
+            new CommandDefinition(SteamAccountQueries.Due, new { now }, cancellationToken: cancellationToken));
+
+        return [.. rows.Select(ToAccount)];
+    }
+
+    public async Task<bool> Record(
+        Guid credentialId,
+        SteamGuardStatus expected,
+        SteamGuardStatus status,
+        DateTimeOffset? nextCheckAt,
+        DateTimeOffset at,
+        CancellationToken cancellationToken)
+    {
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
+
+        return await connection.ExecuteAsync(
+            new CommandDefinition(
+                SteamAccountQueries.Record,
+                new { credentialId, expected = expected.ToString(), status = status.ToString(), nextCheckAt, at },
+                cancellationToken: cancellationToken)) == 1;
     }
 
     /// <summary>
@@ -58,5 +76,16 @@ internal sealed class SteamAccountRepository(NpgsqlDataSource dataSource) : ISte
         };
 
         return await connection.ExecuteAsync(new CommandDefinition(SteamAccountQueries.Insert, row, cancellationToken: cancellationToken)) == 1;
+    }
+
+    private static SteamAccount ToAccount(SteamAccountDb row)
+    {
+        return new SteamAccount(
+            row.CredentialId,
+            row.AccountFingerprint,
+            Enum.Parse<SteamGuardStatus>(row.GuardStatus),
+            row.NextCheckAt?.ToUniversalTime(),
+            row.CreatedAt.ToUniversalTime(),
+            row.UpdatedAt.ToUniversalTime());
     }
 }

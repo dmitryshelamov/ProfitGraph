@@ -147,6 +147,17 @@ public sealed class SteamOptions
     /// </summary>
     public TimeSpan OrderWorkerInterval { get; init; } = TimeSpan.FromSeconds(15);
 
+    /// <summary>
+    ///     How often accounts awaiting their eligibility check are looked at, how long a failed or unconfirmed check waits
+    ///     before the next, and how far Steam's clock may differ from ours for an account to be ready (Profit Fox Designer's
+    ///     local policy: 15 minutes and 10 minutes).
+    /// </summary>
+    public TimeSpan EligibilityInterval { get; init; } = TimeSpan.FromMinutes(1);
+
+    public TimeSpan EligibilityRecheck { get; init; } = TimeSpan.FromMinutes(15);
+
+    public TimeSpan ClockTolerance { get; init; } = TimeSpan.FromMinutes(10);
+
     public bool IsValid()
     {
         (string Address, string Host)[] origins =
@@ -163,7 +174,8 @@ public sealed class SteamOptions
             DefaultAppId > 0 && MarkPriceInterval > TimeSpan.Zero && InventoryPageSize is > 0 and <= 5000 && InventoryMaximumPages > 0 &&
             DefiniteRejectionCodes.All(code => code > 1) &&
             ListingPagesMaximum is > 0 and <= 100 && HistoryPageSize is > 0 and <= 100 && HistoryMaximumPages is > 0 and <= 100 &&
-            HistoryOverlap > 0 && HistoryOverlap < HistoryPageSize && OrderWorkerInterval >= TimeSpan.FromSeconds(1);
+            HistoryOverlap > 0 && HistoryOverlap < HistoryPageSize && OrderWorkerInterval >= TimeSpan.FromSeconds(1) &&
+            EligibilityInterval >= TimeSpan.FromSeconds(1) && EligibilityRecheck > TimeSpan.Zero && ClockTolerance > TimeSpan.Zero;
 
         return timings && origins.All(origin => Enabled
             ? IsAllowedOrigin(origin.Address, origin.Host)

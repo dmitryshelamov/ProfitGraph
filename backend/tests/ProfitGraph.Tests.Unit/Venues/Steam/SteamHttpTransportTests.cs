@@ -126,6 +126,22 @@ public sealed class SteamHttpTransportTests
     }
 
     [Test]
+    public async Task ARedirectIsAnAnswerOnlyWhereOneIsExpected()
+    {
+        static HttpResponseMessage Market(HttpRequestMessage request)
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.Found);
+            response.Headers.Location = new Uri("/market/", UriKind.Relative);
+
+            return response;
+        }
+
+        (await Send(new SteamHttpRequest(SteamEndpoint.Community, "/market/eligibilitycheck/", ExpectsRedirect: true), Market)).Outcome.ShouldBe(
+            SteamRequestOutcome.Success);
+        (await Send(SteamHttpRequest.Get(SteamEndpoint.Community, "/market/eligibilitycheck/"), Market)).Outcome.ShouldBe(SteamRequestOutcome.InvalidResponse);
+    }
+
+    [Test]
     public async Task MarketRequestsCarryTheItemsReferrer()
     {
         var sent = new List<(string Path, string? Ajax, string? Referrer)>();

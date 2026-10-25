@@ -72,7 +72,7 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
                 response.Headers.TryGetValues("Set-Cookie", out IEnumerable<string>? setCookies) ? [.. setCookies] : [],
                 response.Headers.Location);
 
-            return new SteamRequestResult(Classify(response, body, request.IsRead), payload, RetryAfter(response.Headers.RetryAfter));
+            return new SteamRequestResult(Classify(response, body, request), payload, RetryAfter(response.Headers.RetryAfter));
         }
         catch (Exception exception) when (exception is HttpRequestException or TimeoutException ||
                                           (exception is OperationCanceledException && !cancellationToken.IsCancellationRequested))
@@ -131,8 +131,9 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
                 : new Uri(community, "/market/");
     }
 
-    private static SteamRequestOutcome Classify(HttpResponseMessage response, byte[] body, bool isRead)
+    private static SteamRequestOutcome Classify(HttpResponseMessage response, byte[] body, SteamHttpRequest request)
     {
+        bool isRead = request.IsRead;
         var status = (int)response.StatusCode;
 
         if (response.StatusCode == HttpStatusCode.Unauthorized || (status is >= 300 and < 400 && IsLogin(response.Headers.Location)))
@@ -157,7 +158,7 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
 
         if (status is >= 300 and < 400)
         {
-            return isRead ? SteamRequestOutcome.InvalidResponse : SteamRequestOutcome.Unknown;
+            return request.ExpectsRedirect ? SteamRequestOutcome.Success : isRead ? SteamRequestOutcome.InvalidResponse : SteamRequestOutcome.Unknown;
         }
 
         if (status >= 400)

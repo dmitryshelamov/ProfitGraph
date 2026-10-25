@@ -162,8 +162,15 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
 - **Gateway and worker.** A Worker with the live role and `Live:Trading:Enabled` registers `SteamOrderGateway` and the
   order worker, which every `OrderWorkerInterval` (15 s) moves each account with open orders along: buy slots and
   deadlines, unlocks and listings, confirmations, and fills from history. `Venues:Steam:Enabled` still holds back every
-  request. Imported accounts stay in Guard `Checking` until the eligibility check (W3.16) proves them `Ready`, so no
-  Steam bot trades before it.
+  request.
+- **Eligibility.** An account in Guard `Checking` (every imported one) is checked by the eligibility worker of the
+  live Worker (Profit Fox Designer `SteamCredentialChecker`). `Ready` needs all of: Steam's time within `ClockTolerance`
+  (10 minutes) of ours, `/market/eligibilitycheck/` redirecting back into the market, a readable wallet in a supported
+  currency, and signed mobile confirmations listed. `Restricted` needs Steam's positive refusal: a non-market answer to
+  the eligibility check, a restriction or CAPTCHA, an unsupported wallet, or refused confirmations. Anything that only
+  failed to answer stays `Checking`. The attempt is recorded before Steam is asked, and an unconfirmed account is
+  checked again after `EligibilityRecheck` (15 minutes); a ready or restricted one is left to its owner. No Steam bot
+  trades before its account is `Ready`.
 
 ### Account, session and request budget
 
