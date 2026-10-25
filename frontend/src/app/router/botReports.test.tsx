@@ -22,6 +22,7 @@ const buy = {
   feeAsset: 'Base' as const,
   price: '60000',
   filledAt: '2026-10-24T09:00:00Z',
+  commissionPending: false,
 };
 
 const openPosition = {
@@ -119,6 +120,33 @@ describe('bot reports', () => {
 
     expect(await within(fills).findByText('59000')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Показать ещё сделки' })).not.toBeInTheDocument();
+  });
+
+  it('says when a fill’s commission has not arrived yet', async () => {
+    fakeApi(
+      routes({
+        [`GET ${botPath}/fills?limit=50`]: () =>
+          json({
+            items: [
+              {
+                ...buy,
+                id: 'f3',
+                sequence: 3,
+                fee: '0',
+                feeAsset: 'Quote',
+                commissionPending: true,
+              },
+              buy,
+            ],
+            next: null,
+          }),
+      }),
+    );
+    renderApp(`/bots/${bot.id}`);
+
+    const fills = await screen.findByRole('table', { name: 'Сделки бота' });
+    expect(within(fills).getAllByText('комиссия ещё не пришла')).toHaveLength(1);
+    expect(within(fills).getByText(/0\.000001/)).toBeInTheDocument();
   });
 
   it('shows working orders the venue holds locally and why', async () => {

@@ -13,4 +13,5 @@ public sealed record BotFillResponse(
     string Fee,
     FeeAsset FeeAsset,
     string Price,
-    DateTimeOffset FilledAt);
+    DateTimeOffset FilledAt,
+    bool CommissionPending);
