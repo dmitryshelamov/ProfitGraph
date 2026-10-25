@@ -13,6 +13,7 @@ public sealed class BotRootCommitter(
     IBotRepository bots,
     IBotCheckpointRepository checkpoints,
     IOrderIntentRepository intents,
+    IManualOrderRequestRepository manualOrders,
     BotKillSwitch killSwitch,
     ITransactionExecutor transactions,
     TimeProvider clock)
@@ -47,6 +48,11 @@ public sealed class BotRootCommitter(
                     await intents.TryAdd(intent, cancellationToken);
                 }
 
+                if (commit.ManualOrder is { } manual)
+                {
+                    await Resolve(manual, now, cancellationToken);
+                }
+
                 if (bot is { DesiredState: BotDesiredState.Stopped, StatusReason: { } reason } && BotStatusReasons.IsControl(reason))
                 {
                     await killSwitch.Apply(bot.Id, commit.Checkpoint, cancellationToken);
@@ -57,5 +63,27 @@ public sealed class BotRootCommitter(
                 return true;
             },
             cancellationToken);
+    }
+
+    /// <summary>
+    ///     Resolves the manual order the root processed. A request that is no longer pending, because it expired while it
+    ///     waited, fails the commit, so the engine restarts from its stored state without the order.
+    /// </summary>
+    private async Task Resolve(BotRootManualOrder manual, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        ManualOrderRequest request = await manualOrders.GetForUpdate(manual.RequestId, cancellationToken) is { Status: ManualOrderStatus.Pending } pending
+            ? pending
+            : throw new BotRuleException(BotRuleException.ManualOrderResolved, "The manual order is no longer pending.");
+
+        if (manual.EngineOrderId is { } engineOrderId)
+        {
+            request.MarkSubmitted(engineOrderId, now);
+        }
+        else
+        {
+            request.Reject(manual.RejectionReason ?? "rejected", now);
+        }
+
+        await manualOrders.Update(request, cancellationToken);
     }
 }

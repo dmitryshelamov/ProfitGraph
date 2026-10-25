@@ -205,6 +205,26 @@ public sealed class BotEngineSession
         return null;
     }
 
+    /// <summary>
+    ///     Submits an owner market order against the last closed candle (Profit Fox Designer ADR 0091) and commits its
+    ///     resolution with the root: the engine order it became, which then follows the normal intent path, or the engine's
+    ///     rejection. Returns false when the engine has no candle yet and the request was left alone.
+    /// </summary>
+    public async Task<bool> ProcessManualOrder(ManualOrderRequest request, CancellationToken cancellationToken)
+    {
+        if (Checkpoint is null || LastCandle is not { } last)
+        {
+            return false;
+        }
+
+        var context = new ReachedMarketContext(last, _lastCandleIndex, last.OpenTime + _timeframe.Duration, PricePhase.External, last.Close, _lastCandleIndex + 1);
+        OrderSubmission submission = _dispatcher.SubmitManualOrder(request.Side, request.Amount, context);
+        _dispatcher.Drain(cancellationToken);
+        await Save(liveCandle: false, cancellationToken, new BotRootManualOrder(request.Id, submission.Order?.Id, submission.Rejection?.Reason.ToString()));
+
+        return true;
+    }
+
     private async Task StartAt(Candle candle, int index, CancellationToken cancellationToken)
     {
         _dispatcher.StartAndDrain(new ReachedMarketContext(candle, index, candle.OpenTime + _timeframe.Duration, PricePhase.Open, candle.Open, index));
@@ -214,12 +234,12 @@ public sealed class BotEngineSession
         await Save(liveCandle: false, cancellationToken);
     }
 
-    private async Task Save(bool liveCandle, CancellationToken cancellationToken)
+    private async Task Save(bool liveCandle, CancellationToken cancellationToken, BotRootManualOrder? manualOrder = null)
     {
         DateTimeOffset now = _clock.GetUtcNow();
         GraphEngineCheckpoint current = _dispatcher.CaptureCheckpoint(_version.Value.ToString("D"), LastCandle!.OpenTime + _timeframe.Duration);
         await _committer.Commit(
-            new BotRootCommit(_botId, _holder, _epoch, current, AppliedParameters, NewIntents(Checkpoint, current, now)),
+            new BotRootCommit(_botId, _holder, _epoch, current, AppliedParameters, NewIntents(Checkpoint, current, now), manualOrder),
             bot =>
             {
                 bot.ApplyStrategyVersion(_version, now);

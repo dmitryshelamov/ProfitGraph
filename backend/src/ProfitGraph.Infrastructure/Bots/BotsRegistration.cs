@@ -25,6 +25,7 @@ internal static class BotsRegistration
         services.AddScoped<IOrderIntentRepository, OrderIntentRepository>();
         services.AddScoped<ITradingHaltRepository, TradingHaltRepository>();
         services.AddScoped<IBotAlertRepository, BotAlertRepository>();
+        services.AddScoped<IManualOrderRequestRepository, ManualOrderRequestRepository>();
         services.AddScoped<BotRootCommitter>();
         services.AddScoped<BotKillSwitch>();
         services.AddSingleton<BotUpdateBus>();

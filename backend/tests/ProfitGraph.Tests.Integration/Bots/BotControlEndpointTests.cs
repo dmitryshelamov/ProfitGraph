@@ -11,6 +11,7 @@ using ProfitGraph.Api.Trading.Contracts;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Integration.Common;
 
 namespace ProfitGraph.Tests.Integration.Bots;
@@ -139,6 +140,51 @@ public sealed class BotControlEndpointTests
         refused.StatusCode.ShouldBe(HttpStatusCode.Conflict);
         (await BotApi.Code(refused)).ShouldBe("live_impact");
         saved.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Test]
+    public async Task ManualOrderWaitsForARunningBotAndIsReadBack()
+    {
+        BotOwner owner = await BotApi.NewOwner(_factory);
+        Guid id = await BotApi.Create(owner);
+        await owner.Client.PostAsync($"{BotApi.Path}/{id}/start", content: null);
+
+        HttpResponseMessage notRunning = await owner.Client.PostAsJsonAsync($"{BotApi.Path}/{id}/manual-orders", new { side = "Buy", amount = "10" });
+        await MarkRunning(id);
+        HttpResponseMessage accepted = await owner.Client.PostAsJsonAsync($"{BotApi.Path}/{id}/manual-orders", new { side = "Buy", amount = "10" });
+        var submitted = (await accepted.Content.ReadFromJsonAsync<ManualOrderResponse>(WebJson))!;
+        var read = (await owner.Client.GetFromJsonAsync<ManualOrderResponse>($"{BotApi.Path}/{id}/manual-orders/{submitted.Id}", WebJson))!;
+
+        notRunning.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await BotApi.Code(notRunning)).ShouldBe(BotRuleException.NotRunning);
+        accepted.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        read.Id.ShouldBe(submitted.Id);
+        read.BotId.ShouldBe(id);
+        read.Side.ShouldBe(OrderSide.Buy);
+        read.Amount.ShouldBe("10");
+        read.Status.ShouldBe(ManualOrderStatus.Pending);
+        read.EngineOrderId.ShouldBeNull();
+        read.RejectionReason.ShouldBeNull();
+        // The stored time has microsecond precision; the accepted response carries the clock's ticks.
+        read.CreatedAt.ShouldBe(submitted.CreatedAt, TimeSpan.FromMilliseconds(1));
+        read.ResolvedAt.ShouldBeNull();
+    }
+
+    private async Task MarkRunning(Guid botId)
+    {
+        using IServiceScope scope = _factory.Services.CreateScope();
+        var bots = scope.ServiceProvider.GetRequiredService<IBotRepository>();
+        await scope.ServiceProvider.GetRequiredService<ITransactionExecutor>()
+            .ExecuteAsync(
+                async () =>
+                {
+                    Bot bot = (await bots.GetForUpdate(new BotId(botId), CancellationToken.None))!;
+                    bot.MarkRunning(DateTimeOffset.UtcNow);
+                    await bots.Update(bot, CancellationToken.None);
+
+                    return true;
+                },
+                CancellationToken.None);
     }
 
     private static object Save(JsonElement strategy, bool confirm)

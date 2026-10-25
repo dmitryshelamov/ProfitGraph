@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 
 using MediatR;
@@ -11,6 +12,7 @@ using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.Bots.ReleaseBotLease;
 using ProfitGraph.Application.Bots.RenewBotLease;
 using ProfitGraph.Application.Bots.ReportBotRuntime;
+using ProfitGraph.Application.Bots.ResolveManualOrder;
 using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Domain.Bots;
@@ -151,6 +153,7 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
                 candle => new BotRoot(candle, Update: null)));
         tasks.Add(Produce(gateway.Updates(bot.Id, _producers.Token), update => new BotRoot(Candle: null, update)));
         tasks.Add(Produce(scope.ServiceProvider.GetRequiredService<BotUpdateBus>().Read(bot.Id, _producers.Token), update => new BotRoot(Candle: null, update)));
+        tasks.Add(Produce(PendingManualOrders(_producers.Token), id => new BotRoot(Candle: null, Update: null, id)));
 
         var follower = scope.ServiceProvider.GetRequiredService<BotGraphFollower>();
 
@@ -165,6 +168,58 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
             else if (root.Update is { } update)
             {
                 await session.ProcessExternalUpdate(update, hostToken);
+            }
+            else if (root.ManualOrder is { } manualOrder)
+            {
+                await ProcessManualOrder(scope, sender, session, manualOrder, hostToken);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     A pending request is submitted to the engine with its resolution in the root's commit; one that waited past its
+    ///     lifetime is rejected as expired without reaching the engine.
+    /// </summary>
+    private async Task ProcessManualOrder(IServiceScope scope, ISender sender, BotEngineSession session, ManualOrderRequestId id, CancellationToken hostToken)
+    {
+        ManualOrderRequest? request = await scope.ServiceProvider.GetRequiredService<IManualOrderRequestRepository>().Get(id, hostToken);
+
+        if (request is not { Status: ManualOrderStatus.Pending })
+        {
+            return;
+        }
+
+        if (request.IsExpired(clock.GetUtcNow()))
+        {
+            if (!await sender.Send(new ResolveManualOrderCommand(bot.Id.Value, holder.Value, epoch, id.Value, "expired"), hostToken))
+            {
+                throw new BotLeaseLostException();
+            }
+
+            return;
+        }
+
+        await session.ProcessManualOrder(request, hostToken);
+    }
+
+    /// <summary>
+    ///     The bot's pending manual order each time a new one appears.
+    /// </summary>
+    private async IAsyncEnumerable<ManualOrderRequestId> PendingManualOrders([EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        ManualOrderRequestId? last = null;
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            await Task.Delay(options.ManualOrderPollInterval, clock, cancellationToken);
+            using IServiceScope scope = scopes.CreateScope();
+            ManualOrderRequest? pending = await scope.ServiceProvider.GetRequiredService<IManualOrderRequestRepository>().GetPending(bot.Id, cancellationToken);
+
+            if (pending is not null && pending.Id != last)
+            {
+                last = pending.Id;
+
+                yield return pending.Id;
             }
         }
     }

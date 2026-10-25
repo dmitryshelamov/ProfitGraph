@@ -196,20 +196,34 @@ internal sealed class RuntimeScenario
     }
 
     /// <summary>
-    ///     What may hold every bot back: the global halt, leases, and sessions that wait for a lock or sit in a transaction.
+    ///     What may hold every bot back: the global halt, leases, the bots that should run, and sessions that wait for a lock
+    ///     or sit in a transaction.
     /// </summary>
     private static async Task<string> DatabaseState()
     {
         await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
         var halted = await connection.ExecuteScalarAsync<bool>("SELECT halted FROM trading_halt WHERE id");
-        var leases = await connection.ExecuteScalarAsync<int>("SELECT count(*) FROM bot_leases WHERE expires_at > now()");
+        IEnumerable<string> leases = await connection.QueryAsync<string>(
+            """
+            SELECT left(lease.holder_id::text, 8) || ' ' || bot.desired_state || ' ' || bot.runtime_status || ' until ' || (lease.expires_at - now())::text
+            FROM bot_leases AS lease JOIN bots AS bot ON bot.id = lease.bot_id WHERE lease.expires_at > now()
+            """);
         IEnumerable<string> sessions = await connection.QueryAsync<string>(
             """
-            SELECT state || ' ' || coalesce(wait_event_type, '-') || ' ' || left(query, 80) FROM pg_stat_activity
+            SELECT pid || ' ' || state || ' ' || coalesce(wait_event_type, '-') || ' for ' || coalesce((now() - xact_start)::text, '-') || ' blocked by '
+                || pg_blocking_pids(pid)::text || ' ' || left(query, 160)
+            FROM pg_stat_activity
             WHERE datname = current_database() AND pid <> pg_backend_pid() AND (wait_event_type = 'Lock' OR state LIKE 'idle in transaction%')
             """);
 
-        return $"Halted: {halted}; live leases: {leases}; blocked or open sessions: [{string.Join("; ", sessions)}].";
+        IEnumerable<string> running = await connection.QueryAsync<string>(
+            """
+            SELECT runtime_status || ' ' || coalesce(status_reason, '-') || ' restarts ' || restart_attempts || ' next ' || coalesce(next_restart_at::text, '-')
+            FROM bots WHERE desired_state = 'Running'
+            """);
+
+        return
+            $"Halted: {halted}; live leases: [{string.Join("; ", leases)}]; bots that should run: [{string.Join("; ", running)}]; blocked or open sessions: [{string.Join("; ", sessions)}].";
     }
 
     private static Dictionary<string, string?> Settings()
@@ -220,7 +234,8 @@ internal sealed class RuntimeScenario
             ["Bots:Runtime:RenewInterval"] = TimeSpan.FromMilliseconds(500).ToString(),
             ["Bots:Runtime:PollingInterval"] = TimeSpan.FromMilliseconds(100).ToString(),
             ["Bots:Runtime:DispatchInterval"] = TimeSpan.FromMilliseconds(50).ToString(),
-            ["Bots:Runtime:ReconcileRetryDelay"] = TimeSpan.FromMilliseconds(100).ToString()
+            ["Bots:Runtime:ReconcileRetryDelay"] = TimeSpan.FromMilliseconds(100).ToString(),
+            ["Bots:Runtime:ManualOrderPollInterval"] = TimeSpan.FromMilliseconds(100).ToString()
         };
     }
 }
