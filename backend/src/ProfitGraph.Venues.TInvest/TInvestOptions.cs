@@ -30,9 +30,12 @@ public sealed class TInvestOptions
 
     public TInvestRequestLimits Limits { get; init; } = new TInvestRequestLimits();
 
+    public TInvestHistoryOptions History { get; init; } = new TInvestHistoryOptions();
+
     internal bool IsValid()
     {
-        if (RequestTimeout <= TimeSpan.Zero || !Limits.IsValid() || string.IsNullOrWhiteSpace(AppName) || string.IsNullOrWhiteSpace(TrustedRootsPath))
+        if (RequestTimeout <= TimeSpan.Zero || !Limits.IsValid() || !History.IsValid() || string.IsNullOrWhiteSpace(AppName) ||
+            string.IsNullOrWhiteSpace(TrustedRootsPath))
         {
             return false;
         }

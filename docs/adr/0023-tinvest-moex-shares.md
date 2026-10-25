@@ -188,3 +188,16 @@ that a rejection's status description is the number (`30079`, `30042`); that `Or
 for own orders; when the exchange removes DAY orders after the evening session; the token's rights (`FULL_ACCESS`, no
 withdrawals); and that the endpoint certificate is still issued by the Russian Trusted Sub CA, which expires on
 2027-03-06.
+
+## Amendment: history, rules and search (T7)
+
+- Every read uses the caller's T-Invest credential (TC6); without one, history is `historical_data_unavailable` and search
+  or rules are `instrument_rules_invalid_request`. The share is read by ticker and class code (`ShareBy`) and reused for
+  an hour; it must be a rouble share that API trading allows, with a positive lot and price increment.
+- History reads the share's and the reference share's exchange candles one day around the requested range, so a segment
+  crossing its edges is judged whole; when the share has no real candle in that day before the range, its last real close
+  is searched in up to `Venues:TInvest:History:PriorCloseWindows` (14) earlier request windows. The candle source recorded
+  with downloads is the policy name `tinvest-reference/v1`.
+- The first candle of a series is the share's first minute candle date rounded up to the grid.
+- Search lists main-board shares that API trading allows (`FindInstrument`) with base asset the ticker and quote `RUB`.
+- Backtests take their fee rates from the request; T-Invest registers no execution defaults.
