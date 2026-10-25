@@ -92,6 +92,11 @@ internal sealed class MockSteam : HttpMessageHandler
     /// </summary>
     public List<MockSteamListing> Listings { get; } = new List<MockSteamListing>();
 
+    /// <summary>
+    ///     The account's market history, oldest first; pages are served newest first.
+    /// </summary>
+    public List<MockSteamHistoryEvent> History { get; } = new List<MockSteamHistoryEvent>();
+
     public int Count(string path)
     {
         lock (_requests)
@@ -141,6 +146,7 @@ internal sealed class MockSteam : HttpMessageHandler
             ("community.steam.invalid", "/mobileconf/getlist") => ConfirmationList(request.RequestUri),
             ("community.steam.invalid", "/market/sellitem/") => SellItem(form),
             ("community.steam.invalid", "/market/mylistings/") => MyListings(),
+            ("community.steam.invalid", "/market/myhistory/render/") => MyHistory(request.RequestUri),
             ("community.steam.invalid", var removal) when removal.StartsWith("/market/removelisting/", StringComparison.Ordinal) => RemoveListing(removal),
             ("community.steam.invalid", "/mobileconf/ajaxop") => ApproveConfirmation(request.RequestUri),
             _ => new HttpResponseMessage(HttpStatusCode.NotFound)
@@ -297,6 +303,66 @@ internal sealed class MockSteam : HttpMessageHandler
                     $"""<div class="market_listing_row" id="mylisting_{listing.Id}"><a href="javascript:{(listing.Confirmed ? "RemoveMarketListing" : "CancelMarketListingConfirmation")}('mylisting', '{listing.Id}', {listing.AppId}, '{listing.ContextId}', '{listing.AssetId}')">Remove</a><span id="mylisting_{listing.Id}_name">item</span></div>"""));
 
             return Json(JsonSerializer.Serialize(new { success = true, pagesize = 100, total_count = Listings.Count, start = 0, results_html = rows }));
+        }
+    }
+
+    private HttpResponseMessage MyHistory(Uri address)
+    {
+        Dictionary<string, string> query = Fields(address.Query.TrimStart('?'));
+        int start = int.Parse(query["start"], CultureInfo.InvariantCulture);
+        int count = int.Parse(query["count"], CultureInfo.InvariantCulture);
+
+        lock (BuyOrders)
+        {
+            MockSteamHistoryEvent[] page = [.. Enumerable.Reverse(History).Skip(start).Take(count)];
+            var listings = new Dictionary<string, object>();
+            var purchases = new Dictionary<string, object>();
+            var descriptions = new Dictionary<string, object>();
+
+            foreach (MockSteamHistoryEvent item in page)
+            {
+                listings[item.ListingId] = new { listingid = item.ListingId, asset = new { appid = 730, contextid = "2", id = item.AssetId, amount = "1" } };
+                descriptions[item.AssetId] = new { market_hash_name = item.Name, amount = "1", original_amount = "1" };
+
+                if (item.PurchaseId is { } purchase)
+                {
+                    purchases[item.ListingId + "_" + purchase] = new
+                    {
+                        listingid = item.ListingId,
+                        purchaseid = purchase,
+                        asset = new { appid = 730, contextid = "2", id = item.AssetId, amount = "1", new_id = item.NewAssetId, new_contextid = "2" },
+                        paid_amount = item.Paid,
+                        paid_fee = item.Fee,
+                        currencyid = "2037",
+                        received_amount = item.Received,
+                        received_currencyid = "2037",
+                        failed = 0,
+                        needs_rollback = 0,
+                        funds_returned = 0
+                    };
+                }
+            }
+
+            object body = new
+            {
+                success = true,
+                pagesize = count,
+                total_count = History.Count,
+                start,
+                events = page.Select(item => new
+                {
+                    event_type = item.Type,
+                    listingid = item.ListingId,
+                    purchaseid = item.PurchaseId,
+                    time_event = item.Seconds,
+                    time_event_fraction = 0
+                }),
+                listings,
+                purchases,
+                assets = new Dictionary<string, object> { ["730"] = new Dictionary<string, object> { ["2"] = descriptions } }
+            };
+
+            return Json(JsonSerializer.Serialize(body));
         }
     }
 

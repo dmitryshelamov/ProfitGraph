@@ -132,6 +132,12 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   Fox Designer's `RemoveMarketListing` and `CancelMarketListingConfirmation` controls, totals that must add up) binds the
   listing ID, which is the confirmation's creator, and shows when a listing is active. A cancel removes each listing with
   `removelisting`; only Steam's success releases the asset, and anything unclear leaves it `Unknown`.
+- **History receipts.** `myhistory/render` pages become receipts as Profit Fox Designer ADR 0087 defines them (event types
+  1 to 4, every listing, purchase and asset resolved in the page, settled purchases in the wallet currency, the sale's
+  buyer price from the fee schedule). `steam_market_receipts` keeps them at absolute positions, written once. A read
+  walks newest pages back to the stored history less `HistoryOverlap` (10) events and stores only when Steam's total is
+  stable and no smaller than what is stored, the overlap matches position by position and nothing is missing; the
+  first read of an account anchors at its newest page. Any doubt stores nothing.
 - **Ownership.** Only assets attributed to the bot's own buys may be listed; reservations are unique per asset. A
   foreign buy order or listing on the bot's item is `ForeignOrder` unless the bot allows foreign orders.
 - **Reconciliation.** `Reconcile` reads the account snapshot (wallet, buy orders, listings, inventory, history since the
