@@ -2,11 +2,18 @@ import { queryOptions } from '@tanstack/react-query';
 
 import { api, unwrap } from '@/shared/api/client';
 
-import type { ExchangeCredential, VenueAccount } from '../model/types';
+import type {
+  AuthenticatorCode,
+  CredentialEnrollment,
+  ExchangeCredential,
+  VenueAccount,
+} from '../model/types';
 
 export const credentialKeys = {
   all: ['exchange-credentials'] as const,
   account: (id: string) => ['exchange-credentials', id, 'account'] as const,
+  status: (id: string) => ['exchange-credentials', id, 'venue-status'] as const,
+  protection: (id: string) => ['exchange-credentials', id, 'protection'] as const,
 };
 
 export function credentialsQuery() {
@@ -78,4 +85,80 @@ export function accountHistoryQuery(id: string) {
       unwrap(await api.GET('/api/exchange-credentials/{id}/account', { params: { path: { id } } })),
     refetchInterval: 60_000,
   });
+}
+
+/** The venue's own status of a key's account, such as a Steam Guard still being checked. */
+export function accountStatusQuery(id: string) {
+  return queryOptions({
+    queryKey: credentialKeys.status(id),
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/api/exchange-credentials/{id}/venue-status', { params: { path: { id } } }),
+      ),
+    refetchInterval: 60_000,
+  });
+}
+
+/** Whether the venue account's protection holds the key's bots back, and why. */
+export function accountProtectionQuery(id: string) {
+  return queryOptions({
+    queryKey: credentialKeys.protection(id),
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/api/exchange-credentials/{id}/protection', { params: { path: { id } } }),
+      ),
+    refetchInterval: 60_000,
+  });
+}
+
+export async function resumeProtection(id: string): Promise<void> {
+  const result = await api.POST('/api/exchange-credentials/{id}/protection/resume', {
+    params: { path: { id } },
+  });
+
+  if (!result.response.ok) {
+    unwrap(result);
+  }
+}
+
+/**
+ * The current code of a key's authenticator, for the Owner only. A plain call, never a query: the code is not cached.
+ */
+export async function authenticatorCode(id: string): Promise<AuthenticatorCode> {
+  return unwrap(
+    await api.GET('/api/exchange-credentials/{id}/authenticator-code', {
+      params: { path: { id } },
+    }),
+  );
+}
+
+/**
+ * Starts creating a key with a venue that enrolls them in steps. The fields go in this request only: a plain call, not
+ * a mutation cache entry the fields could stay in.
+ */
+export async function startEnrollment(
+  venue: string,
+  label: string,
+  fields: Readonly<Record<string, string>>,
+): Promise<CredentialEnrollment> {
+  return unwrap(
+    await api.POST('/api/exchange-credentials/enrollments', {
+      body: { venue, label, fields: { ...fields } },
+    }),
+  );
+}
+
+/** Answers the step an enrollment waits for with that step's fields. */
+export async function continueEnrollment(
+  venue: string,
+  id: string,
+  step: string,
+  fields: Readonly<Record<string, string>>,
+): Promise<CredentialEnrollment> {
+  return unwrap(
+    await api.POST('/api/exchange-credentials/enrollments/{id}/steps', {
+      params: { path: { id } },
+      body: { venue, step, fields: { ...fields } },
+    }),
+  );
 }

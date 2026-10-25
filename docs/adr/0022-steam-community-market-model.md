@@ -200,7 +200,12 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   an unclear write stops as `enrollment_unknown` and is never sent again. The pending state, without the password or the
   recovery code, is encrypted like a credential's secrets in `steam_enrollments` and expires `EnrollmentLifetime` (10
   minutes) after its last step. The stored account waits in `CoolingDown` for `CoolingDownEstimate` (15 days), then the
-  eligibility worker checks it like an imported one. No Steam password is stored. The same Steam account cannot be stored twice (keyed HMAC
+  eligibility worker checks it like an imported one.
+- **Live frontend.** The keys page links a Steam Guard step by step (the recovery code shown once, never again), shows
+  each Steam key's Guard state and next check through the neutral `GET /api/exchange-credentials/{id}/venue-status`
+  (port `IVenueAccountStatus`), its account protection with a resume, and the Owner's Guard code on request. A Steam bot
+  is created with the item as Steam names it, on hourly or daily medians, with its own settings, whose defaults
+  `GET /api/market-data/venues` now carries as `botSettings`. No Steam password is stored. The same Steam account cannot be stored twice (keyed HMAC
   alias, no plaintext Steam ID).
 - **Session.** One session per credential owns login finalization, cookies and the session ID; renewal is single-flight;
   a 401, a login redirect or `needauth` renews once for a read and never replays a write. Server time is measured at start

@@ -5,6 +5,7 @@ import {
   CredentialForm,
   credentialsQuery,
   CredentialsTable,
+  SteamAccountCard,
 } from '@/modules/credentials';
 import { Card } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -35,7 +36,10 @@ export function CredentialsPage() {
       </Card>
       {credentials.data?.map((credential) => (
         <Card key={credential.id} title={`Счёт: ${credential.label}`}>
-          <AccountOverview credentialId={credential.id} />
+          <div className="space-y-4">
+            {credential.venue === 'steam' && <SteamAccountCard credential={credential} />}
+            <AccountOverview credentialId={credential.id} />
+          </div>
         </Card>
       ))}
     </div>

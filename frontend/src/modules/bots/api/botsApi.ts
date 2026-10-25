@@ -49,6 +49,8 @@ export interface CreateBotInput {
   readonly maxOrderQuote: string;
   readonly dailyLossLimitQuote: string;
   readonly allowForeignOrders: boolean;
+  /** The venue module's own settings, such as a Steam bot's market-buy slippage; the venue's defaults when absent. */
+  readonly venueSettings?: Readonly<Record<string, unknown>>;
 }
 
 /** Creates a stopped bot; the server reads the key's fee rates for the symbol. */

@@ -1,3 +1,14 @@
+using System.Text.Json;
+
 namespace ProfitGraph.Api.MarketData.Contracts;
 
-public sealed record VenueResponse(string Id, string Name, IReadOnlyList<string> Timeframes, VenueExecutionDefaultsResponse? ExecutionDefaults);
+/// <summary>
+///     A venue: its timeframes, its backtest defaults, and the defaults of its own bot settings as the JSON object
+///     <c>POST /api/bots</c> takes as <c>venueSettings</c>, or null for a venue without them.
+/// </summary>
+public sealed record VenueResponse(
+    string Id,
+    string Name,
+    IReadOnlyList<string> Timeframes,
+    VenueExecutionDefaultsResponse? ExecutionDefaults,
+    JsonElement? BotSettings);

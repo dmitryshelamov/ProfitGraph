@@ -16,6 +16,7 @@ const marketplace: Venue = {
     sellerFees: { rates: ['0.05', '0.1'], minimum: '0.01' },
     settlementHoldSeconds: 604_800,
   },
+  botSettings: null,
 };
 
 const definition = {
@@ -141,6 +142,7 @@ describe('backtest setup', () => {
         name: 'Bybit',
         timeframes: ['1h'],
         executionDefaults: null,
+        botSettings: null,
       }),
     ).toMatchObject({
       sellerFees: null,
