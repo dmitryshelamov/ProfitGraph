@@ -13,7 +13,9 @@ namespace ProfitGraph.Venues.TInvest.Trading;
 ///     executed quote is the sum of its trade stages, each a price per share times its lots times the lot, so no average is
 ///     trusted; its fee is the executed commission in roubles. Earlier attempts of the same engine order, closed by a
 ///     carry-over or a band refusal, are added, so the engine always hears the order's totals. A fill whose commission is
-///     still zero is reported as pending. A cancellation ends the engine order only when the owner or the strategy asked for
+///     still zero is reported as pending. T-Invest's commission is per order and cumulative, so a fee that grows after a
+///     known one belongs to the new executions: fills are partitioned, and the engine itself keeps a fee pending while an
+///     earlier one is. A cancellation ends the engine order only when the owner or the strategy asked for
 ///     it; one for a carry-over keeps it working; one nobody asked for is <see cref="BotStatusReason.UnresolvedOrder" />.
 ///     Anything that cannot be accounted exactly is unresolved.
 /// </summary>
@@ -39,7 +41,7 @@ internal static class TInvestOrderTranslation
         switch (state.ExecutionReportStatus)
         {
             case OrderExecutionReportStatus.ExecutionReportStatusFill:
-                updates.Add(ExternalOrderUpdate.Final(engineOrderId, grossBase, total.Quote, total.Fee, pending));
+                updates.Add(ExternalOrderUpdate.Final(engineOrderId, grossBase, total.Quote, total.Fee, pending, commissionPartitioned: true));
 
                 break;
             case OrderExecutionReportStatus.ExecutionReportStatusCancelled:
@@ -50,7 +52,7 @@ internal static class TInvestOrderTranslation
 
                 if (grossBase > 0m)
                 {
-                    updates.Add(ExternalOrderUpdate.Partial(engineOrderId, grossBase, total.Quote, total.Fee, pending));
+                    updates.Add(ExternalOrderUpdate.Partial(engineOrderId, grossBase, total.Quote, total.Fee, pending, commissionPartitioned: true));
                 }
 
                 if (attempt.CancelledBy == TInvestCancelReason.Owner)
@@ -62,7 +64,7 @@ internal static class TInvestOrderTranslation
             case OrderExecutionReportStatus.ExecutionReportStatusNew or OrderExecutionReportStatus.ExecutionReportStatusPartiallyfill:
                 if (grossBase > 0m)
                 {
-                    updates.Add(ExternalOrderUpdate.Partial(engineOrderId, grossBase, total.Quote, total.Fee, pending));
+                    updates.Add(ExternalOrderUpdate.Partial(engineOrderId, grossBase, total.Quote, total.Fee, pending, commissionPartitioned: true));
                 }
 
                 break;

@@ -132,6 +132,24 @@ public sealed class TInvestOrderAttemptTests
         (await attempts.Working(CancellationToken.None)).ShouldNotContain(attempt => attempt.BotId == bot.Id.Value);
     }
 
+    [Test]
+    public async Task AFinalAttemptWithoutItsCommissionIsPendingWithinTheWindow()
+    {
+        Bot bot = await AddBot();
+        var attempts = new TInvestOrderAttemptRepository(_dataSource);
+        TInvestOrderAttempt planned = Attempt(bot, engineOrderId: 9, attempt: 1, OrderType.Market, price: null);
+        await attempts.Add(planned, CancellationToken.None);
+        TInvestOrderAttempt filled = planned with { State = TInvestOrderAttemptState.Final, ExecutedLots = 3, ExecutedQuote = 300m, UpdatedAt = BotSeed.Now };
+        await attempts.Transition(filled, TInvestOrderAttemptState.Planned, CancellationToken.None);
+
+        (await attempts.PendingFees(BotSeed.Now.AddDays(-1), CancellationToken.None)).ShouldContain(filled);
+        (await attempts.PendingFees(BotSeed.Now.AddSeconds(1), CancellationToken.None)).ShouldNotContain(attempt => attempt.RequestId == planned.RequestId);
+
+        TInvestOrderAttempt charged = filled with { ExecutedFee = 0.9m };
+        (await attempts.Transition(charged, TInvestOrderAttemptState.Final, CancellationToken.None)).ShouldBeTrue();
+        (await attempts.PendingFees(BotSeed.Now.AddDays(-1), CancellationToken.None)).ShouldNotContain(attempt => attempt.RequestId == planned.RequestId);
+    }
+
     private static TInvestOrderAttempt Attempt(Bot bot, long engineOrderId, int attempt, OrderType type, decimal? price)
     {
         return new TInvestOrderAttempt(

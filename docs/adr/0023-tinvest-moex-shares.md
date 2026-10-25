@@ -307,3 +307,24 @@ withdrawals); and that the endpoint certificate is still issued by the Russian T
   exchange, so the bot degrades with `UnresolvedOrder`, which alerts the owner. There is no separate schedule alert.
 - **Not modelled.** No separate read at the scheduled opening: the 30-second recheck covers it. Holiday weekday
   sessions without `holiday_*` tokens are not recognised.
+
+## Amendment: late commissions (T13)
+
+- **Source.** The order's own `executed_commission` from `GetOrderState`, not the operations cursor. It is a
+  non-negative amount per order, while the sign of nonzero broker-fee operation amounts remains unconfirmed (Profit Fox
+  Designer ADR 0076 discarded them in production for that reason). Re-reading the order is what Profit Fox did. The
+  operations cursor, foreign trades found through operations, and a decrease alert stay out until an owner capture
+  confirms the operation shapes; foreign *orders* are still refused at reconciliation and in the order stream.
+- **Partitioned fills.** T-Invest's commission is cumulative per order, so a fee that grows after a known one belongs to
+  the new executions. Every fill is published with `CommissionPartitioned`, and the engine keeps a slice's fee pending
+  while an earlier slice's fee is.
+- **Correction.** Every `Venues:TInvest:CommissionRecheckInterval` (5 minutes), the worker re-reads each final attempt
+  with executions and a zero commission, for at most `CommissionPendingWindow` (7 days) after it became final, and only
+  for bots whose runner reads updates.
+  - A positive rouble commission is recorded on the attempt once.
+  - It reaches the engine as one `FeeCorrection` of the order's slice ending with that attempt, cumulative over the
+    order's earlier attempts. The runtime records it as a fee correction in the feed (TC4).
+  - The engine refuses a correction while an earlier slice's fee is pending; no split is inferred.
+  - A commission arriving after the window stays pending at the bot's rate.
+- **Owner checks added.** The commission in `GetOrderState` must eventually become positive for a filled order, and a
+  growing cumulative commission must not revise fees of executions already reported.

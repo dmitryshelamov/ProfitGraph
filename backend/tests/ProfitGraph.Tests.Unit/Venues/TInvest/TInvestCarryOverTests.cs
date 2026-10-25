@@ -73,8 +73,8 @@ public sealed class TInvestCarryOverTests
         IReadOnlyList<ExternalOrderUpdate> updates = await _harness.Until(update => update.Kind == ExternalOrderUpdateKind.FinalFill);
 
         updates.ShouldNotContain(update => update.Kind == ExternalOrderUpdateKind.CancelConfirmed);
-        updates.ShouldContain(ExternalOrderUpdate.Partial(orderId: 1, grossBase: 10m, grossQuote: 995m, fee: 0.5m));
-        updates[^1].ShouldBe(ExternalOrderUpdate.Final(orderId: 1, grossBase: 30m, grossQuote: 2990m, fee: 1.5m));
+        updates.ShouldContain(ExternalOrderUpdate.Partial(orderId: 1, grossBase: 10m, grossQuote: 995m, fee: 0.5m, commissionPartitioned: true));
+        updates[^1].ShouldBe(ExternalOrderUpdate.Final(orderId: 1, grossBase: 30m, grossQuote: 2990m, fee: 1.5m, commissionPartitioned: true));
     }
 
     [Test]
@@ -91,7 +91,7 @@ public sealed class TInvestCarryOverTests
 
         _harness.Attempts.All.ShouldHaveSingleItem().State.ShouldBe(TInvestOrderAttemptState.Final);
         (await _harness.Until(update => update.Kind == ExternalOrderUpdateKind.FinalFill))[^1]
-            .ShouldBe(ExternalOrderUpdate.Final(orderId: 1, grossBase: 10m, grossQuote: 1010m, fee: 0.5m));
+            .ShouldBe(ExternalOrderUpdate.Final(orderId: 1, grossBase: 10m, grossQuote: 1010m, fee: 0.5m, commissionPartitioned: true));
     }
 
     [Test]

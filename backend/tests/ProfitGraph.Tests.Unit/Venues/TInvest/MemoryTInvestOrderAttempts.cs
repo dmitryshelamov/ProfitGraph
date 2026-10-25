@@ -110,6 +110,21 @@ internal sealed class MemoryTInvestOrderAttempts : ITInvestOrderAttempts
         }
     }
 
+    public Task<IReadOnlyList<TInvestOrderAttempt>> PendingFees(DateTimeOffset since, CancellationToken cancellationToken)
+    {
+        lock (_rows)
+        {
+            IReadOnlyList<TInvestOrderAttempt> pending =
+            [
+                .. _rows.Values.Where(row => row is { State: TInvestOrderAttemptState.Final, ExecutedLots: > 0, ExecutedFee: 0m } && row.UpdatedAt >= since)
+                    .OrderBy(row => row.EngineOrderId)
+                    .ThenBy(row => row.Attempt)
+            ];
+
+            return Task.FromResult(pending);
+        }
+    }
+
     public Task<IReadOnlyDictionary<Guid, Guid>> Owners(IReadOnlyCollection<Guid> requestIds, CancellationToken cancellationToken)
     {
         lock (_rows)

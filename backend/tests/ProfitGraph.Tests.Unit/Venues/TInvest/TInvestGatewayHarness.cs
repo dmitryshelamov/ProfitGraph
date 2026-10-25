@@ -86,6 +86,7 @@ internal sealed class TInvestGatewayHarness
             streams,
             Gateway,
             schedules,
+            new TInvestLateCommissions(Attempts, contexts, reads, streams, Updates, Clock, NullLogger<TInvestLateCommissions>.Instance),
             Updates,
             options,
             Clock,

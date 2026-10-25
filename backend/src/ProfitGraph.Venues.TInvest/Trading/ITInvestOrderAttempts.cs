@@ -41,6 +41,11 @@ internal interface ITInvestOrderAttempts
     Task<IReadOnlyList<TInvestOrderAttempt>> ForOrder(Guid botId, long engineOrderId, CancellationToken cancellationToken);
 
     /// <summary>
+    ///     Final attempts with executions whose commission T-Invest has not reported yet, changed since the time given.
+    /// </summary>
+    Task<IReadOnlyList<TInvestOrderAttempt>> PendingFees(DateTimeOffset since, CancellationToken cancellationToken);
+
+    /// <summary>
     ///     The bots that own the request IDs, among those the table knows.
     /// </summary>
     Task<IReadOnlyDictionary<Guid, Guid>> Owners(IReadOnlyCollection<Guid> requestIds, CancellationToken cancellationToken);
