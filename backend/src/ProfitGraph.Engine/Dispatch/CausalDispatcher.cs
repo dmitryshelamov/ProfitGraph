@@ -38,6 +38,7 @@ public sealed class CausalDispatcher
     private readonly List<AppliedActionFact> _facts = new List<AppliedActionFact>();
     private readonly ReplayDispatchBatch _replayBatch;
     private readonly Dictionary<long, string> _orderGraphVersions = new Dictionary<long, string>();
+    private readonly IReadOnlyList<MarketClosure> _closures;
     private CompiledTradingGraph _graph;
     private EngineExecutionInputs _inputs;
     private CandleValueEvaluator _evaluator;
@@ -73,7 +74,12 @@ public sealed class CausalDispatcher
         }
     }
 
-    public CausalDispatcher(CompiledTradingGraph graph, IGraphAccount account, EngineExecutionInputs? inputs = null, string? graphVersionId = null)
+    public CausalDispatcher(
+        CompiledTradingGraph graph,
+        IGraphAccount account,
+        EngineExecutionInputs? inputs = null,
+        string? graphVersionId = null,
+        IReadOnlyList<MarketClosure>? closures = null)
     {
         if (graphVersionId is not null && string.IsNullOrWhiteSpace(graphVersionId))
         {
@@ -82,6 +88,7 @@ public sealed class CausalDispatcher
 
         _graph = graph;
         Account = account;
+        _closures = closures ?? [];
         _inputs = inputs ?? EngineExecutionInputs.Empty;
         GraphVersionId = graphVersionId;
         _replayBatch = new ReplayDispatchBatch(_facts, _occurrences);
@@ -799,7 +806,7 @@ public sealed class CausalDispatcher
                 if (retainProjections)
                 {
                     snapshot = Account.Capture();
-                    var context = new DispatchEvaluationContext(snapshot, Account.Rules, Account.Settings, routed.Market, _positionOpenedAt);
+                    var context = new DispatchEvaluationContext(snapshot, Account.Rules, Account.Settings, routed.Market, _positionOpenedAt, _closures);
                     outputs = _evaluator.ReadRoutedDispatch(occurrence, _routedValues, context);
                     ActionCollectionResult collection = _collector.Collect(
                         _graph,
@@ -812,7 +819,7 @@ public sealed class CausalDispatcher
                 }
                 else
                 {
-                    EngineValue[] replayOutputs = _evaluator.ReadDispatchForReplay(occurrence, _routedValues, Account, routed.Market, _positionOpenedAt);
+                    EngineValue[] replayOutputs = _evaluator.ReadDispatchForReplay(occurrence, _routedValues, Account, routed.Market, _positionOpenedAt, _closures);
                     _collector.CollectForReplay(
                         _graph,
                         occurrence,

@@ -38,6 +38,7 @@ the engine, and backtest code knew which exchange it simulated.
 - Replay accepts a gap between two candles exactly where the history's market closures cover it (ADR 0010 amendment,
   TC1). A closure is venue-neutral: the engine never learns why a market closed, and how a venue finds its closures stays
   in the venue module.
+- Position age (`barsHeld`) leaves out the time in those closures (ADR 0023, T2b amendment).
 
 ## Amendment: candles without trades (ADR 0023)
 

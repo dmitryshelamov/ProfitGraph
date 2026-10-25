@@ -44,6 +44,7 @@ public sealed class CandleValueEvaluator
     private ReachedMarketContext? _replayMarket;
     private bool _replayClose;
     private DateTimeOffset? _replayPositionOpenedAt;
+    private IReadOnlyList<MarketClosure>? _replayClosures;
     private Candle? _lastCandle;
     private int _candleIndex = -1;
     private bool _faulted;
@@ -59,7 +60,8 @@ public sealed class CandleValueEvaluator
         _replayAccount!.Rules,
         _replayAccount.Settings,
         _replayMarket!,
-        _replayPositionOpenedAt);
+        _replayPositionOpenedAt,
+        _replayClosures);
 
     public CandleValueEvaluator(CompiledTradingGraph graph, EngineExecutionInputs? execution = null)
     {
@@ -230,12 +232,14 @@ public sealed class CandleValueEvaluator
         EngineValue[] externalValues,
         IGraphAccount account,
         ReachedMarketContext market,
-        DateTimeOffset? positionOpenedAt = null)
+        DateTimeOffset? positionOpenedAt = null,
+        IReadOnlyList<MarketClosure>? closures = null)
     {
         EngineValue[] outputs = ReadDispatchForReplay(occurrence, externalValues, dispatch: null);
         _replayAccount = account;
         _replayMarket = market;
         _replayPositionOpenedAt = positionOpenedAt;
+        _replayClosures = closures;
 
         return outputs;
     }
