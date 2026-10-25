@@ -18,6 +18,8 @@ internal sealed class BotDb
     public decimal MarketFeeRate { get; init; }
     public DateTimeOffset FeeRatesReadAt { get; init; }
     public string? SellerFees { get; init; }
+    public int VenueSettingsVersion { get; init; }
+    public string VenueSettings { get; init; } = "{}";
     public bool AllowForeignOrders { get; init; }
     public string DesiredState { get; init; } = string.Empty;
     public string RuntimeStatus { get; init; } = string.Empty;

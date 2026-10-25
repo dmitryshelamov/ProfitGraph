@@ -38,7 +38,8 @@ internal static class BotDbConverter
                 row.DayStartUtc is { } day ? new DailyLossBaseline(DateOnly.FromDateTime(day), row.DayStartEquity!.Value) : null,
                 row.RejectedVersionId is { } rejected ? new StrategyVersionId(rejected) : null,
                 row.CreatedAt,
-                row.UpdatedAt));
+                row.UpdatedAt,
+                new BotVenueSettings(row.VenueSettingsVersion, row.VenueSettings)));
     }
 
     public static BotDb ToDb(this Bot bot)
@@ -63,6 +64,8 @@ internal static class BotDbConverter
             MarketFeeRate = snapshot.FeeRates.MarketRate,
             FeeRatesReadAt = snapshot.FeeRates.ReadAt,
             SellerFees = SellerFeesJson(snapshot.FeeRates.SellerFees),
+            VenueSettingsVersion = snapshot.VenueSettings!.Version,
+            VenueSettings = snapshot.VenueSettings.Json,
             AllowForeignOrders = snapshot.AllowForeignOrders,
             DesiredState = snapshot.DesiredState.ToString(),
             RuntimeStatus = snapshot.RuntimeStatus.ToString(),

@@ -1,10 +1,13 @@
+using System.Text.Json;
+
 using ProfitGraph.Api.Backtesting.Contracts;
 using ProfitGraph.Domain.Bots;
 
 namespace ProfitGraph.Api.Bots.Contracts;
 
 /// <summary>
-///     A bot as its owner sees it; decimals are exact invariant strings.
+///     A bot as its owner sees it; decimals are exact invariant strings. <see cref="VenueSettings" /> is the venue module's
+///     own settings object in version <see cref="VenueSettingsVersion" />, empty for a venue without settings.
 /// </summary>
 public sealed record BotResponse(
     Guid Id,
@@ -31,4 +34,6 @@ public sealed record BotResponse(
     bool HasRun,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    SellerFeeScheduleResponse? SellerFees);
+    SellerFeeScheduleResponse? SellerFees,
+    int VenueSettingsVersion,
+    JsonElement VenueSettings);

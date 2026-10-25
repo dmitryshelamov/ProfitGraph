@@ -33,6 +33,8 @@ public static class BotInternalConverter
             bot.HasRun,
             bot.CreatedAt,
             bot.UpdatedAt,
-            bot.FeeRates.SellerFees is { } fees ? new SellerFeeScheduleInternal([.. fees.Rates], fees.Minimum) : null);
+            bot.FeeRates.SellerFees is { } fees ? new SellerFeeScheduleInternal([.. fees.Rates], fees.Minimum) : null,
+            bot.VenueSettings.Version,
+            bot.VenueSettings.Json);
     }
 }

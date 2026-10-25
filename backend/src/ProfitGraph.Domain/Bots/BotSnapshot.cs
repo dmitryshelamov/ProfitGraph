@@ -30,4 +30,5 @@ public sealed record BotSnapshot(
     DailyLossBaseline? DayBaseline,
     StrategyVersionId? RejectedVersionId,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    BotVenueSettings? VenueSettings = null);

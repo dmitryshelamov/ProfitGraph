@@ -28,6 +28,12 @@ public sealed class Bot : AggregateRoot
     public BotRiskLimits RiskLimits { get; private set; }
     public BotFeeRates FeeRates { get; private set; }
     public bool AllowForeignOrders { get; private set; }
+
+    /// <summary>
+    ///     The venue module's settings, fixed when the bot is created.
+    /// </summary>
+    public BotVenueSettings VenueSettings { get; private init; } = BotVenueSettings.None;
+
     public BotDesiredState DesiredState { get; private set; }
     public BotRuntimeStatus RuntimeStatus { get; private set; }
     public BotStatusReason? StatusReason { get; private set; }
@@ -101,9 +107,13 @@ public sealed class Bot : AggregateRoot
         decimal allocationCap,
         BotRiskLimits riskLimits,
         BotFeeRates feeRates,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        BotVenueSettings? venueSettings = null)
     {
-        return new Bot(id, ownerId, strategyId, strategyVersionId, credentialId, series, parameters, allocationCap, riskLimits, feeRates, now);
+        return new Bot(id, ownerId, strategyId, strategyVersionId, credentialId, series, parameters, allocationCap, riskLimits, feeRates, now)
+        {
+            VenueSettings = venueSettings ?? BotVenueSettings.None
+        };
     }
 
     public static Bot Restore(BotSnapshot snapshot)
@@ -130,6 +140,7 @@ public sealed class Bot : AggregateRoot
             snapshot.CreatedAt)
         {
             AllowForeignOrders = snapshot.AllowForeignOrders,
+            VenueSettings = snapshot.VenueSettings ?? BotVenueSettings.None,
             DesiredState = snapshot.DesiredState,
             RuntimeStatus = snapshot.RuntimeStatus,
             StatusReason = snapshot.StatusReason,
@@ -651,7 +662,8 @@ public sealed class Bot : AggregateRoot
             DayBaseline,
             RejectedVersionId,
             CreatedAt,
-            UpdatedAt);
+            UpdatedAt,
+            VenueSettings);
     }
 
     /// <summary>
