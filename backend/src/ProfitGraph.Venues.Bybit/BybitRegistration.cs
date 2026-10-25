@@ -58,6 +58,8 @@ public static class BybitRegistration
         services.AddSingleton<BybitOrderUpdates>();
         services.AddSingleton<BybitBotContexts>();
         services.AddSingleton<BybitOrderReads>();
+        services.AddSingleton<IBybitPrivateStreamTransport, BybitPrivateWebSocketTransport>();
+        services.AddSingleton<BybitPrivateStreams>();
         services.AddTransient<IOrderGateway, BybitOrderGateway>();
 
         return services;

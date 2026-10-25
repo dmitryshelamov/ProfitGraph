@@ -1,6 +1,7 @@
 using MediatR;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
 
@@ -36,6 +37,7 @@ internal sealed class BybitGatewayHarness
     public BybitOrderGateway Gateway { get; }
     public BybitOrderUpdates Updates { get; } = new BybitOrderUpdates();
     public BybitFeeRateReader FeeRates { get; }
+    public FakeBybitPrivateTransport PrivateStream { get; } = new FakeBybitPrivateTransport();
 
     public BybitGatewayHarness()
     {
@@ -74,10 +76,12 @@ internal sealed class BybitGatewayHarness
         var http = new HttpClient(Exchange) { BaseAddress = new Uri("https://bybit.invalid/") };
         var clock = new BybitServerClock(TimeProvider.System);
         var read = new BybitReadClient(http, clock);
+        var reads = new BybitOrderReads(read);
         Gateway = new BybitOrderGateway(
             new BybitTradeClient(http, clock),
             read,
-            new BybitOrderReads(read),
+            reads,
+            new BybitPrivateStreams(PrivateStream, read, reads, Updates, NullLogger<BybitPrivateStreams>.Instance),
             new BybitBotContexts(services.GetRequiredService<IServiceScopeFactory>()),
             Updates);
         FeeRates = new BybitFeeRateReader(read);

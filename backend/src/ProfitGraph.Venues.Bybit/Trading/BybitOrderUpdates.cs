@@ -8,7 +8,7 @@ using ProfitGraph.Engine.Accounting;
 namespace ProfitGraph.Venues.Bybit.Trading;
 
 /// <summary>
-///     The order updates Bybit lookups produce, by bot, for the bot's runner.
+///     The order updates Bybit lookups and the private stream produce, by bot, for the bot's runner.
 /// </summary>
 internal sealed class BybitOrderUpdates
 {
@@ -22,6 +22,22 @@ internal sealed class BybitOrderUpdates
         {
             channel.Writer.TryWrite(update);
         }
+    }
+
+    /// <summary>
+    ///     Starts the bot's updates afresh; what an earlier connection published is reconciled again.
+    /// </summary>
+    public void Reset(BotId botId)
+    {
+        _channels[botId] = System.Threading.Channels.Channel.CreateUnbounded<ExternalOrderUpdate>();
+    }
+
+    /// <summary>
+    ///     Ends the bot's updates with the error, so its reader fails with it.
+    /// </summary>
+    public void Fail(BotId botId, Exception exception)
+    {
+        Channel(botId).Writer.TryComplete(exception);
     }
 
     public async IAsyncEnumerable<ExternalOrderUpdate> Read(BotId botId, [EnumeratorCancellation] CancellationToken cancellationToken)

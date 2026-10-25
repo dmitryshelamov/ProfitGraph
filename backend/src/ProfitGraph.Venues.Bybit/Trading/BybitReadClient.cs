@@ -29,6 +29,14 @@ internal sealed class BybitReadClient(HttpClient http, BybitServerClock serverCl
             cancellationToken);
     }
 
+    /// <summary>
+    ///     Bybit's server time in milliseconds, or null when it cannot be measured now.
+    /// </summary>
+    public Task<long?> ServerTime(CancellationToken cancellationToken)
+    {
+        return serverClock.Now(token => BybitRestTransport.Public(http, "/v5/market/time", token), cancellationToken);
+    }
+
     public Task<BybitRestResult> Public(string pathAndQuery, CancellationToken cancellationToken)
     {
         if (!pathAndQuery.StartsWith("/v5/market/", StringComparison.Ordinal))
