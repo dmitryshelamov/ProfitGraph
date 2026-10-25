@@ -21,7 +21,8 @@ internal static class BotTradingRecordResponseConverter
                     ExactGraphNumberParser.Format(fill.Fee),
                     fill.FeeAsset,
                     ExactGraphNumberParser.Format(fill.Price),
-                    fill.FilledAt))
+                    fill.FilledAt,
+                    fill.CommissionPending))
             ],
             page.Next);
     }

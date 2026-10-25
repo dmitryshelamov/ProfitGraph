@@ -328,3 +328,12 @@ withdrawals); and that the endpoint certificate is still issued by the Russian T
   - A commission arriving after the window stays pending at the bot's rate.
 - **Owner checks added.** The commission in `GetOrderState` must eventually become positive for a filled order, and a
   growing cumulative commission must not revise fees of executions already reported.
+## Amendment: live frontend (T14)
+
+- The bot creation form offers the timeframes of the chosen key's venue from its descriptor. For a venue that reads
+  market data with the caller's key, it suggests shares found with that key (`TQBR:SBER`). Choosing a non-Bybit key
+  clears the Bybit default symbol.
+- A fill whose order's commission has not arrived yet shows «комиссия ещё не пришла» instead of its fee. The fills
+  endpoint derives `commissionPending` from the fee receipts of the bot's current checkpoint, so fill rows stay
+  immutable and a correction clears the mark. Waiting reasons (band, session, carry-over) and «Комиссия уточнена» in the
+  feed came with TC4.

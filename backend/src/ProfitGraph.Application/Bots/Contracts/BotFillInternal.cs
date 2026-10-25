@@ -13,4 +13,5 @@ public sealed record BotFillInternal(
     decimal Fee,
     FeeAsset FeeAsset,
     decimal Price,
-    DateTimeOffset FilledAt);
+    DateTimeOffset FilledAt,
+    bool CommissionPending);

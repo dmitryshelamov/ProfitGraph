@@ -45,7 +45,13 @@ export function BotFillsTable({ botId }: { botId: string }) {
               <td className="py-2 font-mono">{fill.price}</td>
               <td className="py-2 font-mono">{fill.grossQuote}</td>
               <td className="py-2 font-mono">
-                {fill.fee} {fill.feeAsset === 'Base' ? '(база)' : '(котировка)'}
+                {fill.commissionPending ? (
+                  <span className="font-sans text-muted">комиссия ещё не пришла</span>
+                ) : (
+                  <>
+                    {fill.fee} {fill.feeAsset === 'Base' ? '(база)' : '(котировка)'}
+                  </>
+                )}
               </td>
             </tr>
           ))}

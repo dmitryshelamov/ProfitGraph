@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 
 import { credentialsQuery } from '@/modules/credentials';
-import { venuesQuery } from '@/modules/market-data';
+import { instrumentsQuery, venuesQuery, venuesReadWithKey } from '@/modules/market-data';
 import { parameterReadableName, strategiesQuery, strategyQuery } from '@/modules/strategies';
 import { ApiErrorMessage } from '@/shared/ui/ApiErrorMessage';
 import { Button } from '@/shared/ui/Button';
@@ -20,11 +20,13 @@ import type { Bot } from '../model/types';
 const timeframes = ['1m', '5m', '15m', '1h', '4h', '1d'];
 const steamTimeframes = ['1h', '1d'];
 const selectClass = 'rounded-md border border-line bg-panel px-3 py-2 text-sm';
+const defaultSymbol = 'BTCUSDT';
 
 /**
  * Creates a stopped bot of a saved strategy on a symbol of the chosen key's venue. Parameters start from the strategy's
  * defaults; decimals stay text until the server checks them. A Steam bot trades an item named exactly as Steam writes it
- * (<code>KZT:730:Dreams &amp; Nightmares Case</code>), on Steam's hourly or daily medians, with its own settings.
+ * (<code>KZT:730:Dreams &amp; Nightmares Case</code>), on Steam's hourly or daily medians, with its own settings. A T-Invest
+ * bot trades a MOEX share as <code>TQBR:SBER</code>, found with the chosen key. Timeframes are the venue's own.
  */
 export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
   const queryClient = useQueryClient();
@@ -32,7 +34,7 @@ export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) 
   const credentials = useQuery(credentialsQuery());
   const [strategyId, setStrategyId] = useState('');
   const [credentialId, setCredentialId] = useState('');
-  const [symbol, setSymbol] = useState('BTCUSDT');
+  const [symbol, setSymbol] = useState(defaultSymbol);
   const [timeframe, setTimeframe] = useState('1h');
   const [values, setValues] = useState<Record<string, string>>({});
   const [allocationCap, setAllocationCap] = useState('100');
@@ -43,9 +45,16 @@ export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) 
   const venues = useQuery(venuesQuery());
   const venue = credentials.data?.find((item) => item.id === credentialId)?.venue;
   const steam = venue === 'steam';
+  const readWithKey = venue !== undefined && venuesReadWithKey.has(venue);
   const steamDefaults = venues.data?.find((item) => item.id === 'steam')?.botSettings;
   const settings = steamSettings ?? steamBotSettingsDraft(steamDefaults);
-  const offered = steam ? steamTimeframes : timeframes;
+  const offered =
+    venues.data?.find((item) => item.id === venue)?.timeframes ??
+    (steam ? steamTimeframes : timeframes);
+  const shares = useQuery({
+    ...instrumentsQuery(venue ?? '', symbol.trim(), credentialId),
+    enabled: readWithKey && credentialId !== '' && symbol.trim().length >= 2,
+  });
   const chosenTimeframe = offered.includes(timeframe) ? timeframe : (offered[0] ?? '1h');
   const strategy = useQuery({ ...strategyQuery(strategyId), enabled: strategyId !== '' });
   const parameters = strategy.data?.definition.parameters ?? [];
@@ -74,6 +83,15 @@ export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) 
     },
   });
 
+  function changeCredential(id: string) {
+    const next = credentials.data?.find((item) => item.id === id)?.venue;
+    setCredentialId(id);
+
+    if (next !== undefined && next !== 'bybit' && symbol === defaultSymbol) {
+      setSymbol('');
+    }
+  }
+
   function submit(event: FormEvent) {
     event.preventDefault();
     create.mutate();
@@ -100,7 +118,7 @@ export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) 
         <select
           className={selectClass}
           value={credentialId}
-          onChange={(event) => setCredentialId(event.target.value)}
+          onChange={(event) => changeCredential(event.target.value)}
           required
         >
           <option value="">Выберите ключ</option>
@@ -114,11 +132,25 @@ export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) 
       <Field label="Символ">
         <Input
           value={symbol}
+          list={readWithKey ? 'bot-symbol-suggestions' : undefined}
+          placeholder={
+            readWithKey ? 'TQBR:SBER' : steam ? 'KZT:730:Dreams & Nightmares Case' : defaultSymbol
+          }
+          autoComplete="off"
           onChange={(event) => setSymbol(event.target.value)}
           required
           spellCheck={false}
         />
       </Field>
+      {readWithKey && (
+        <datalist id="bot-symbol-suggestions">
+          {shares.data?.map((instrument) => (
+            <option key={instrument.symbol} value={instrument.symbol}>
+              {instrument.baseAsset}/{instrument.quoteAsset}
+            </option>
+          ))}
+        </datalist>
+      )}
       <Field label="Таймфрейм">
         <select
           className={selectClass}
