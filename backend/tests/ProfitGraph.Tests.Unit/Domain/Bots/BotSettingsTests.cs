@@ -125,13 +125,16 @@ public sealed class BotSettingsTests
     }
 
     [Test]
-    public void ApplyingTheCurrentVersionRaisesNothing()
+    public void ApplyingTheCurrentVersionRaisesNothingAndKeepsARejection()
     {
         Bot bot = BotFixture.Running();
+        bot.RejectStrategyVersion(StrategyVersionId.New(), Now);
+        bot.ClearDomainEvents();
 
         bot.ApplyStrategyVersion(BotFixture.FirstVersion, Now);
 
         bot.DomainEvents.ShouldBeEmpty();
+        bot.Diagnostics.HasFlag(BotDiagnostics.GraphChangeRejected).ShouldBeTrue();
     }
 
     [Test]

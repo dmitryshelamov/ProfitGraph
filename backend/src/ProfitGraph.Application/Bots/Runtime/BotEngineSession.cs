@@ -1,8 +1,10 @@
+using ProfitGraph.Application.Backtesting;
 using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Dispatch;
+using ProfitGraph.Engine.Evaluation;
 using ProfitGraph.Engine.Market;
 
 namespace ProfitGraph.Application.Bots.Runtime;
@@ -21,12 +23,25 @@ public sealed class BotEngineSession
     private readonly IOrderGateway _gateway;
     private readonly BotRootCommitter _committer;
     private readonly TimeProvider _clock;
-    private readonly BotParameters _appliedParameters;
-    private readonly StrategyVersionId _version;
-    private Candle? _lastCandle;
+    private StrategyVersionId _version;
     private int _lastCandleIndex;
 
     public GraphEngineCheckpoint? Checkpoint { get; private set; }
+
+    /// <summary>
+    ///     The strategy version the engine runs now.
+    /// </summary>
+    public StrategyVersionId Version => _version;
+
+    /// <summary>
+    ///     The parameter values the run applies to every version it switches to.
+    /// </summary>
+    public BotParameters AppliedParameters { get; }
+
+    /// <summary>
+    ///     The last closed candle the engine processed, or null before the first.
+    /// </summary>
+    public Candle? LastCandle { get; private set; }
 
     internal BotEngineSession(
         BotId botId,
@@ -49,10 +64,10 @@ public sealed class BotEngineSession
         _gateway = gateway;
         _committer = committer;
         _clock = clock;
-        _appliedParameters = appliedParameters;
+        AppliedParameters = appliedParameters;
         _version = version;
         Checkpoint = checkpoint;
-        _lastCandle = checkpoint?.LastClosedCandle;
+        LastCandle = checkpoint?.LastClosedCandle;
         _lastCandleIndex = checkpoint?.LastClosedCandleIndex ?? -1;
     }
 
@@ -86,14 +101,14 @@ public sealed class BotEngineSession
     /// </summary>
     internal async Task ResumeAndWarm(IReadOnlyList<Candle> missed, CancellationToken cancellationToken)
     {
-        foreach (Candle candle in missed.Where(candle => candle.OpenTime > _lastCandle!.OpenTime))
+        foreach (Candle candle in missed.Where(candle => candle.OpenTime > LastCandle!.OpenTime))
         {
             _lastCandleIndex++;
             _dispatcher.AdvanceClosedCandle(candle, _lastCandleIndex);
-            _lastCandle = candle;
+            LastCandle = candle;
         }
 
-        _dispatcher.ResumeRestartAndDrain(_lastCandle!.OpenTime + _timeframe.Duration, cancellationToken);
+        _dispatcher.ResumeRestartAndDrain(LastCandle!.OpenTime + _timeframe.Duration, cancellationToken);
         await Save(liveCandle: false, cancellationToken);
     }
 
@@ -109,12 +124,12 @@ public sealed class BotEngineSession
             return;
         }
 
-        if (candle.OpenTime <= _lastCandle!.OpenTime)
+        if (candle.OpenTime <= LastCandle!.OpenTime)
         {
             return;
         }
 
-        if (candle.OpenTime != _lastCandle.OpenTime + _timeframe.Duration)
+        if (candle.OpenTime != LastCandle.OpenTime + _timeframe.Duration)
         {
             throw new InvalidOperationException("The live candle sequence has a gap.");
         }
@@ -123,7 +138,7 @@ public sealed class BotEngineSession
         DateTimeOffset closeTime = candle.OpenTime + _timeframe.Duration;
         _dispatcher.BeginOpen(new ReachedMarketContext(candle, index, closeTime, PricePhase.Open, candle.Open, index));
         _dispatcher.AdvanceClosedCandle(candle, index);
-        _lastCandle = candle;
+        LastCandle = candle;
         _lastCandleIndex = index;
         var close = new ReachedMarketContext(candle, index, closeTime, PricePhase.Close, candle.Close, index + 1);
         _dispatcher.BeginClose(close);
@@ -142,28 +157,59 @@ public sealed class BotEngineSession
     /// </summary>
     public async Task ProcessExternalUpdate(ExternalOrderUpdate update, CancellationToken cancellationToken)
     {
-        if (Checkpoint is null || _lastCandle is null)
+        if (Checkpoint is null || LastCandle is null)
         {
             return;
         }
 
         var context = new ReachedMarketContext(
-            _lastCandle,
+            LastCandle,
             _lastCandleIndex,
-            _lastCandle.OpenTime + _timeframe.Duration,
+            LastCandle.OpenTime + _timeframe.Duration,
             PricePhase.External,
-            _lastCandle.Close,
+            LastCandle.Close,
             _lastCandleIndex + 1);
         _dispatcher.ApplyExternalOrderUpdate(update, context);
         _dispatcher.Drain(cancellationToken);
         await Save(liveCandle: false, cancellationToken);
     }
 
+    /// <summary>
+    ///     Switches the engine to <paramref name="candidate" /> between roots (ADR 0019): indicators whose definition is
+    ///     unchanged keep their state, the others warm on <paramref name="closedHistory" />, orders of removed blocks are
+    ///     cancelled and one <c>Resume(GraphChanged)</c> is drained; the root is committed. Returns null when it switched, or
+    ///     the reason the engine refused the candidate, in which case nothing changed.
+    /// </summary>
+    internal async Task<string?> ChangeGraph(
+        StrategyVersionId candidate,
+        LoweredStrategyGraph lowered,
+        IReadOnlyList<Candle> closedHistory,
+        CancellationToken cancellationToken)
+    {
+        GraphChangeResult result = _dispatcher.ChangeGraph(
+            lowered.Graph,
+            lowered.Catalog,
+            EngineExecutionInputs.Empty,
+            candidate.Value.ToString("D"),
+            closedHistory,
+            LastCandle!.OpenTime + _timeframe.Duration);
+
+        if (!result.Applied)
+        {
+            return result.Diagnostic ?? "The engine refused the graph change.";
+        }
+
+        _version = candidate;
+        await Save(liveCandle: false, cancellationToken);
+
+        return null;
+    }
+
     private async Task StartAt(Candle candle, int index, CancellationToken cancellationToken)
     {
         _dispatcher.StartAndDrain(new ReachedMarketContext(candle, index, candle.OpenTime + _timeframe.Duration, PricePhase.Open, candle.Open, index));
         _dispatcher.AdvanceClosedCandle(candle, index);
-        _lastCandle = candle;
+        LastCandle = candle;
         _lastCandleIndex = index;
         await Save(liveCandle: false, cancellationToken);
     }
@@ -171,9 +217,9 @@ public sealed class BotEngineSession
     private async Task Save(bool liveCandle, CancellationToken cancellationToken)
     {
         DateTimeOffset now = _clock.GetUtcNow();
-        GraphEngineCheckpoint current = _dispatcher.CaptureCheckpoint(_version.Value.ToString("D"), _lastCandle!.OpenTime + _timeframe.Duration);
+        GraphEngineCheckpoint current = _dispatcher.CaptureCheckpoint(_version.Value.ToString("D"), LastCandle!.OpenTime + _timeframe.Duration);
         await _committer.Commit(
-            new BotRootCommit(_botId, _holder, _epoch, current, _appliedParameters, NewIntents(Checkpoint, current, now)),
+            new BotRootCommit(_botId, _holder, _epoch, current, AppliedParameters, NewIntents(Checkpoint, current, now)),
             bot =>
             {
                 bot.ApplyStrategyVersion(_version, now);
@@ -181,8 +227,8 @@ public sealed class BotEngineSession
                 if (liveCandle)
                 {
                     bot.ResetRestartStreak(now);
-                    DateTimeOffset closedAt = _lastCandle!.OpenTime + _timeframe.Duration;
-                    bot.RecordDayEquity(DateOnly.FromDateTime(closedAt.UtcDateTime), current.Account.QuoteTotal + current.Account.BaseTotal * _lastCandle!.Close, now);
+                    DateTimeOffset closedAt = LastCandle!.OpenTime + _timeframe.Duration;
+                    bot.RecordDayEquity(DateOnly.FromDateTime(closedAt.UtcDateTime), current.Account.QuoteTotal + current.Account.BaseTotal * LastCandle!.Close, now);
                 }
             },
             cancellationToken);

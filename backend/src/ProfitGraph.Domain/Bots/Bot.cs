@@ -500,17 +500,17 @@ public sealed class Bot : AggregateRoot
     }
 
     /// <summary>
-    ///     The engine now runs <paramref name="versionId" />, after a start or a graph change.
+    ///     The engine now runs <paramref name="versionId" />, after a start or a graph change. Every root reports the version
+    ///     it ran, so only a switch clears an earlier rejection.
     /// </summary>
     public void ApplyStrategyVersion(StrategyVersionId versionId, DateTimeOffset now)
     {
-        Diagnostics &= ~BotDiagnostics.GraphChangeRejected;
-
         if (versionId == StrategyVersionId)
         {
             return;
         }
 
+        Diagnostics &= ~BotDiagnostics.GraphChangeRejected;
         StrategyVersionId = versionId;
         UpdatedAt = now;
         AddDomainEvent(new BotGraphVersionApplied(Id, versionId, now));

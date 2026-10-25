@@ -126,7 +126,8 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
     }
 
     /// <summary>
-    ///     Opens the submit gate and processes live candles and venue updates until the runner ends.
+    ///     Opens the submit gate and processes live candles and venue updates until the runner ends. Before each root the
+    ///     engine follows the strategy's latest saved version (ADR 0019).
     /// </summary>
     private async Task Trade(
         IServiceScope scope,
@@ -151,8 +152,12 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
         tasks.Add(Produce(gateway.Updates(bot.Id, _producers.Token), update => new BotRoot(Candle: null, update)));
         tasks.Add(Produce(scope.ServiceProvider.GetRequiredService<BotUpdateBus>().Read(bot.Id, _producers.Token), update => new BotRoot(Candle: null, update)));
 
+        var follower = scope.ServiceProvider.GetRequiredService<BotGraphFollower>();
+
         await foreach (BotRoot root in _queue.Reader.ReadAllAsync(hostToken))
         {
+            await follower.Follow(bot, holder, epoch, session, hostToken);
+
             if (root.Candle is { } candle)
             {
                 await session.ProcessCandle(candle, hostToken);

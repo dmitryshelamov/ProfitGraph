@@ -7,14 +7,16 @@ namespace ProfitGraph.Application.Bots.RecordBotAlerts;
 
 /// <summary>
 ///     Records an alert for the bot's owner when the outbox delivers a degradation, a kill, a risk rejection or the first
-///     report of a streak in which the venue could not answer (Profit Fox Designer ADR 0056). The outbox delivers each
+///     report of a streak in which the venue could not answer (Profit Fox Designer ADR 0056), and a refused graph change
+///     (ADR 0019). The outbox delivers each
 ///     event once, inside the transaction that stores the alert.
 /// </summary>
 internal sealed class RecordBotAlertsHandler(IBotRepository bots, IBotAlertRepository alerts)
     : INotificationHandler<BotDegraded>,
         INotificationHandler<BotKilled>,
         INotificationHandler<BotExchangeUnavailable>,
-        INotificationHandler<OrderIntentRejected>
+        INotificationHandler<OrderIntentRejected>,
+        INotificationHandler<BotGraphChangeRejected>
 {
     public Task Handle(BotDegraded notification, CancellationToken cancellationToken)
     {
@@ -24,6 +26,11 @@ internal sealed class RecordBotAlertsHandler(IBotRepository bots, IBotAlertRepos
     public Task Handle(BotExchangeUnavailable notification, CancellationToken cancellationToken)
     {
         return Raise(notification.BotId, BotAlertKind.ExchangeUnavailable, reason: null, notification.At, cancellationToken);
+    }
+
+    public Task Handle(BotGraphChangeRejected notification, CancellationToken cancellationToken)
+    {
+        return Raise(notification.BotId, BotAlertKind.GraphChangeRejected, reason: null, notification.At, cancellationToken);
     }
 
     public Task Handle(BotKilled notification, CancellationToken cancellationToken)

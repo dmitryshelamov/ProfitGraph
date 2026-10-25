@@ -18,6 +18,7 @@ using ProfitGraph.Application.Strategies.Converters;
 using ProfitGraph.Application.Strategies.CreateStrategy;
 using ProfitGraph.Application.Strategies.SaveStrategy;
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Infrastructure.Common.Postgres;
 using ProfitGraph.Tests.Integration.Common;
@@ -237,7 +238,10 @@ public sealed class StrategyEndpointTests
         var executor = scope.ServiceProvider.GetRequiredService<PostgresTransactionExecutor>();
         var strategyId = new StrategyId(id);
         Guid owner = (await repository.Get(strategyId, CancellationToken.None))!.OwnerId.Value;
-        var handler = new SaveStrategyCommandHandler(repository, scope.ServiceProvider.GetRequiredService<TimeProvider>());
+        var handler = new SaveStrategyCommandHandler(
+            repository,
+            scope.ServiceProvider.GetRequiredService<IBotRepository>(),
+            scope.ServiceProvider.GetRequiredService<TimeProvider>());
         StrategyVersion version = (await repository.GetVersion(strategyId, StrategyVersionNumber.First, CancellationToken.None))!;
 
         await Should.ThrowAsync<InvalidOperationException>(async () => await executor.ExecuteAsync<StrategyInternal>(
