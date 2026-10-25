@@ -16,6 +16,18 @@ internal static class TInvestValues
         return quotation.Units + quotation.Nano / Billion;
     }
 
+    public static decimal ToDecimal(this MoneyValue money)
+    {
+        return money.Units + money.Nano / Billion;
+    }
+
+    public static Quotation ToQuotation(this decimal value)
+    {
+        var units = decimal.ToInt64(decimal.Truncate(value));
+
+        return new Quotation { Units = units, Nano = decimal.ToInt32((value - units) * Billion) };
+    }
+
     public static DateTimeOffset ToUtc(this Timestamp timestamp)
     {
         return new DateTimeOffset(timestamp.ToDateTime(), TimeSpan.Zero);

@@ -147,10 +147,15 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
             throw new BotLeaseLostException();
         }
 
-        tasks.Add(
-            Produce(
-                candles.Subscribe(bot.Series.Symbol, bot.Series.Timeframe, session.Checkpoint?.LastClosedCandle.OpenTime, _producers.Token),
-                candle => new BotRoot(candle, Update: null)));
+        // A venue without anonymous market data reads live candles with the bot's credential (ADR 0023, TC6).
+        using (await scope.ServiceProvider.GetRequiredService<BotMarketDataAccess>().Open(bot, hostToken))
+        {
+            tasks.Add(
+                Produce(
+                    candles.Subscribe(bot.Series.Symbol, bot.Series.Timeframe, session.Checkpoint?.LastClosedCandle.OpenTime, _producers.Token),
+                    candle => new BotRoot(candle, Update: null)));
+        }
+
         tasks.Add(Produce(gateway.Updates(bot.Id, _producers.Token), update => new BotRoot(Candle: null, update)));
         tasks.Add(Produce(scope.ServiceProvider.GetRequiredService<BotUpdateBus>().Read(bot.Id, _producers.Token), update => new BotRoot(Candle: null, update)));
         tasks.Add(Produce(PendingManualOrders(_producers.Token), id => new BotRoot(Candle: null, Update: null, id)));
