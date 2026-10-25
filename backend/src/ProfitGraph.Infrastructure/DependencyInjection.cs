@@ -43,6 +43,8 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
         services.AddScoped<IExchangeCredentialRepository, ExchangeCredentialRepository>();
+        services.AddScoped<IAccountSnapshotRepository, AccountSnapshotRepository>();
+        services.AddScoped<IAccountBalanceStatusRepository, AccountBalanceStatusRepository>();
         services.AddOptions<SecretsOptions>().Bind(configuration.GetSection(SecretsOptions.SectionName));
         services.AddSingleton<ISecretProtector, AesGcmSecretProtector>();
         services.AddScoped<IStrategyRepository, StrategyRepository>();

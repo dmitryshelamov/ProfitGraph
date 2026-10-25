@@ -50,6 +50,15 @@ internal sealed class MockBybitExchange : HttpMessageHandler
     public List<string> Executions { get; } = [];
 
     /// <summary>
+    ///     The <c>result</c> of <c>/v5/account/wallet-balance</c>, or null to answer with HTTP 503.
+    /// </summary>
+    public string? WalletBalance { get; set; } = """
+                                                 {"list":[{"accountType":"UNIFIED","totalEquity":"1234.5","totalAvailableBalance":"1000",
+                                                 "coin":[{"coin":"USDT","walletBalance":"1000","usdValue":"1000"},{"coin":"BTC","walletBalance":"3.5E-3","usdValue":"234.5"},
+                                                 {"coin":"BTC","walletBalance":"9","usdValue":"9"},{"walletBalance":"1"}]}]}
+                                                 """;
+
+    /// <summary>
     ///     Answers execution lists with HTTP 503.
     /// </summary>
     public bool ListUnavailable { get; set; }
@@ -106,6 +115,11 @@ internal sealed class MockBybitExchange : HttpMessageHandler
                     }
                 }),
             "/v5/order/history" => Lookup(query, open: false),
+            "/v5/account/wallet-balance" when WalletBalance is null => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
+            "/v5/account/wallet-balance" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent($"{{\"retCode\":0,\"result\":{WalletBalance}}}", Encoding.UTF8, "application/json")
+            },
             "/v5/account/fee-rate" => Json(
                 new { retCode = 0, result = new { list = new[] { new { symbol = "BTCUSDT", makerFeeRate = "0.0008", takerFeeRate = "0.001" } } } }),
             _ => new HttpResponseMessage(HttpStatusCode.NotFound)

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using ProfitGraph.Application.Accounts.Ports;
 using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Venues.Bybit.Instruments;
@@ -45,6 +46,7 @@ public static class BybitRegistration
         services.AddSingleton(_ => new BybitServerClock(TimeProvider.System));
         services.AddHttpClient<BybitReadClient>(Configure).RemoveAllLoggers();
         services.AddTransient<IVenueFeeRateReader, BybitFeeRateReader>();
+        services.AddTransient<IAccountBalanceReader, BybitAccountBalanceReader>();
 
         return services;
     }

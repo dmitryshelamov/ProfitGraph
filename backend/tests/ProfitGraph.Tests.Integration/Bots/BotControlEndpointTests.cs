@@ -3,11 +3,16 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using MediatR;
+
 using Microsoft.Extensions.DependencyInjection;
 
+using ProfitGraph.Api.Accounts.Contracts;
 using ProfitGraph.Api.Bots.Contracts;
 using ProfitGraph.Api.Strategies.Contracts;
 using ProfitGraph.Api.Trading.Contracts;
+using ProfitGraph.Application.Accounts.Contracts;
+using ProfitGraph.Application.Accounts.RecordAccountBalance;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
@@ -273,6 +278,43 @@ public sealed class BotControlEndpointTests
         BotFeedEntryResponse started = second.Items.ShouldHaveSingleItem();
         started.Kind.ShouldBe(BotFeedKind.Started);
         started.Sequence.ShouldBeLessThan(killed.Sequence);
+    }
+
+    [Test]
+    public async Task AccountHistoryShowsSnapshotsAndHowReadingGoes()
+    {
+        BotOwner owner = await BotApi.NewOwner(_factory);
+        await BotApi.Create(owner);
+        DateTimeOffset at = DateTimeOffset.UtcNow.AddMinutes(-1);
+
+        using (IServiceScope scope = _factory.Services.CreateScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<ISender>()
+                .Send(
+                    new RecordAccountBalanceCommand(
+                        owner.CredentialId,
+                        AccountBalanceReadInternal.Observed(
+                            new AccountBalanceObservationInternal(
+                                TotalValueUsd: 1234.5m,
+                                AvailableValueUsd: 1000m,
+                                [new AccountCoinBalanceInternal("BTC", Balance: 0.0035m, UsdValue: 234.5m)],
+                                at))));
+        }
+
+        var history = (await owner.Client.GetFromJsonAsync<AccountHistoryResponse>($"/api/exchange-credentials/{owner.CredentialId}/account", WebJson))!;
+
+        history.LastAttemptAt.ShouldNotBeNull();
+        history.LastSuccessAt.ShouldNotBeNull();
+        history.FailureReason.ShouldBeNull();
+        history.NextAttemptAt.ShouldNotBeNull();
+        AccountSnapshotResponse snapshot = history.Snapshots.ShouldHaveSingleItem();
+        snapshot.CapturedAt.ShouldBe(at, TimeSpan.FromMilliseconds(1));
+        snapshot.TotalValueUsd.ShouldBe("1234.5");
+        snapshot.AvailableValueUsd.ShouldBe("1000");
+        AccountCoinBalanceResponse coin = snapshot.Coins.ShouldHaveSingleItem();
+        coin.Coin.ShouldBe("BTC");
+        coin.Balance.ShouldBe("0.0035");
+        coin.UsdValue.ShouldBe("234.5");
     }
 
     private async Task Record(Guid botId, params BotFill[] fills)
