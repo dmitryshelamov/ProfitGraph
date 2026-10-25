@@ -95,6 +95,22 @@ public sealed class AesGcmSecretProtectorTests
         protector.IsAvailable.ShouldBeFalse();
     }
 
+    [Test]
+    public void FingerprintsAreKeyedPerPurposeWithTheActiveKeyFirst()
+    {
+        IReadOnlyList<string> first = Create("test-v1").Fingerprints("account", "76561190000000001");
+        IReadOnlyList<string> rotated = Create("test-v2").Fingerprints("account", "76561190000000001");
+
+        first.Count.ShouldBe(2);
+        first.ShouldAllBe(fingerprint => fingerprint.Length == 64 && fingerprint.All(char.IsAsciiHexDigitLower));
+        Create("test-v1").Fingerprints("account", "76561190000000001").ShouldBe(first);
+        rotated.ShouldBe([first[1], first[0]]);
+        Create("test-v1").Fingerprints("other", "76561190000000001")[0].ShouldNotBe(first[0]);
+        Create("test-v1").Fingerprints("account", "76561190000000002")[0].ShouldNotBe(first[0]);
+        first.ShouldNotContain(fingerprint => fingerprint.Contains("76561190000000001"));
+        Should.Throw<CredentialsUnavailableException>(() => Create(activeKeyId: null).Fingerprints("account", "76561190000000001"));
+    }
+
     private static AesGcmSecretProtector Create(string? activeKeyId, Dictionary<string, string>? keys = null)
     {
         var options = new SecretsOptions

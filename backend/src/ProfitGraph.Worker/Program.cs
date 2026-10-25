@@ -70,6 +70,14 @@ public static class Program
         builder.Services.AddSteamVenue(builder.Configuration);
 
         IHost host = builder.Build();
+
+        if (OperatorCommands.Requested(args) is { } command)
+        {
+            Environment.ExitCode = OperatorCommands.Run(host.Services, command, Console.In, Console.Out).GetAwaiter().GetResult();
+
+            return;
+        }
+
         host.Run();
     }
 }
