@@ -8,6 +8,7 @@ import { Input } from '@/shared/ui/Input';
 
 import { createCredential, credentialKeys, listVenueAccounts } from '../api/credentialsApi';
 import type { VenueAccount } from '../model/types';
+import { SteamEnrollmentForm } from './SteamEnrollmentForm';
 
 const selectClassName =
   'w-full rounded-md border border-line-strong bg-panel px-3 py-2 text-text outline-none focus:border-link';
@@ -21,11 +22,12 @@ const ineligibility: Record<string, string> = {
 /**
  * Adds an exchange key. A Bybit key is an API key and secret with Spot trading and without withdrawals. A T-Invest key is
  * a token and the brokerage account it trades: the token loads the accounts, one eligible account is chosen, and saving
- * checks it again. Secrets are sent once, never cached and never shown again.
+ * checks it again. A Steam key links a new Steam Guard authenticator in steps. Secrets are sent once, never cached and
+ * never shown again.
  */
 export function CredentialForm({ onCreated }: { onCreated?: () => void }) {
   const queryClient = useQueryClient();
-  const [venue, setVenue] = useState<'bybit' | 'tinvest'>('bybit');
+  const [venue, setVenue] = useState<'bybit' | 'tinvest' | 'steam'>('bybit');
   const [label, setLabel] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
@@ -73,7 +75,7 @@ export function CredentialForm({ onCreated }: { onCreated?: () => void }) {
   }
 
   function changeVenue(value: string) {
-    setVenue(value === 'tinvest' ? 'tinvest' : 'bybit');
+    setVenue(value === 'tinvest' || value === 'steam' ? value : 'bybit');
     changeToken('');
     create.reset();
   }
@@ -83,18 +85,32 @@ export function CredentialForm({ onCreated }: { onCreated?: () => void }) {
     create.mutate();
   }
 
+  const venueField = (
+    <Field label="Биржа">
+      <select
+        className={selectClassName}
+        value={venue}
+        onChange={(event) => changeVenue(event.target.value)}
+      >
+        <option value="bybit">Bybit (Spot)</option>
+        <option value="tinvest">T-Invest (MOEX)</option>
+        <option value="steam">Steam Community Market</option>
+      </select>
+    </Field>
+  );
+
+  if (venue === 'steam') {
+    return (
+      <div className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">{venueField}</div>
+        <SteamEnrollmentForm onCreated={onCreated} />
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={submit} className="grid gap-4 md:grid-cols-2" aria-label="Новый ключ биржи">
-      <Field label="Биржа">
-        <select
-          className={selectClassName}
-          value={venue}
-          onChange={(event) => changeVenue(event.target.value)}
-        >
-          <option value="bybit">Bybit (Spot)</option>
-          <option value="tinvest">T-Invest (MOEX)</option>
-        </select>
-      </Field>
+      {venueField}
       <Field label="Название ключа">
         <Input
           value={label}

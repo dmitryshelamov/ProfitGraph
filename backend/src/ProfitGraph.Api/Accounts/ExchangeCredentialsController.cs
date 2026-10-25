@@ -12,6 +12,7 @@ using ProfitGraph.Application.Accounts.DeleteExchangeCredential;
 using ProfitGraph.Application.Accounts.EnrollCredential;
 using ProfitGraph.Application.Accounts.GetAccountHistory;
 using ProfitGraph.Application.Accounts.GetAccountProtection;
+using ProfitGraph.Application.Accounts.GetAccountStatus;
 using ProfitGraph.Application.Accounts.GetAuthenticatorCode;
 using ProfitGraph.Application.Accounts.GetExchangeCredentials;
 using ProfitGraph.Application.Accounts.ListVenueAccounts;
@@ -88,6 +89,14 @@ public sealed class ExchangeCredentialsController(ISender sender, TimeProvider c
         VenueAccountProtectionInternal protection = await sender.Send(new GetAccountProtectionQuery(UserId(), id), cancellationToken);
 
         return new AccountProtectionResponse(protection.Open, protection.Reason, protection.Since, protection.AutomaticResumeAt);
+    }
+
+    [HttpGet("{id:guid}/venue-status")]
+    public async Task<ActionResult<AccountStatusResponse>> VenueStatus(Guid id, CancellationToken cancellationToken)
+    {
+        VenueAccountStatusInternal status = await sender.Send(new GetAccountStatusQuery(UserId(), id), cancellationToken);
+
+        return new AccountStatusResponse(status.Status, status.NextCheckAt);
     }
 
     [HttpPost("{id:guid}/protection/resume")]

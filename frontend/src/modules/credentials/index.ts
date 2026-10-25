@@ -11,3 +11,4 @@ export type { AccountHistory, ExchangeCredential, VenueAccount } from './model/t
 export { AccountOverview } from './ui/AccountOverview';
 export { CredentialForm } from './ui/CredentialForm';
 export { CredentialsTable } from './ui/CredentialsTable';
+export { SteamAccountCard } from './ui/SteamAccountCard';

@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using ProfitGraph.Api.Backtesting.Contracts;
 using ProfitGraph.Api.Common.Parsing;
 using ProfitGraph.Api.MarketData.Contracts;
@@ -20,7 +22,8 @@ public static class MarketDataResponseConverter
                         ? new SellerFeeScheduleResponse([.. fees.Rates.Select(ExactGraphNumberParser.Format)], ExactGraphNumberParser.Format(fees.Minimum))
                         : null,
                     defaults.SettlementHoldSeconds)
-                : null);
+                : null,
+            venue.BotSettings is { } settings ? JsonElement.Parse(settings) : null);
     }
 
     public static CandleResponse ToResponse(this CandleInternal candle)

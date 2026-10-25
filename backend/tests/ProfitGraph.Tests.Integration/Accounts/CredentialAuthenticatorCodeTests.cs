@@ -47,6 +47,18 @@ public sealed class CredentialAuthenticatorCodeTests
         foreign.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
+    [Test]
+    public async Task AVenueWithoutAccountStatusSaysSo()
+    {
+        HttpClient user = await _factory.SignIn(await _factory.CreateAccount(UserRole.User));
+        Guid credential = await Credential(user);
+
+        HttpResponseMessage response = await user.GetAsync($"/api/exchange-credentials/{credential}/venue-status");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString().ShouldBe("account_status_unavailable");
+    }
+
     private static async Task<Guid> Credential(HttpClient client)
     {
         HttpResponseMessage created = await client.PostAsJsonAsync(
