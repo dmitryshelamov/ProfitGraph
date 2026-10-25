@@ -8,6 +8,9 @@ using ProfitGraph.Api.Common.Authentication;
 using ProfitGraph.Application.Bots.ChangeBotForeignOrders;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.GetBot;
+using ProfitGraph.Application.Bots.GetBotFeed;
+using ProfitGraph.Application.Bots.GetBotFills;
+using ProfitGraph.Application.Bots.GetBotPosition;
 using ProfitGraph.Application.Bots.GetBots;
 using ProfitGraph.Application.Bots.GetManualOrder;
 using ProfitGraph.Application.Bots.KillBot;
@@ -84,6 +87,32 @@ public sealed class BotsController(ISender sender) : ControllerBase
     public async Task<ActionResult<ManualOrderResponse>> GetManualOrder(Guid id, Guid orderId, CancellationToken cancellationToken)
     {
         return (await sender.Send(new GetManualOrderQuery(UserId(), id, orderId), cancellationToken)).ToResponse();
+    }
+
+    [HttpGet("{id:guid}/fills")]
+    public async Task<ActionResult<BotFillPageResponse>> Fills(
+        Guid id,
+        [FromQuery] long? before,
+        [FromQuery] int limit = 50,
+        CancellationToken cancellationToken = default)
+    {
+        return (await sender.Send(new GetBotFillsQuery(UserId(), id, before, limit), cancellationToken)).ToResponse();
+    }
+
+    [HttpGet("{id:guid}/feed")]
+    public async Task<ActionResult<BotFeedPageResponse>> Feed(
+        Guid id,
+        [FromQuery] long? before,
+        [FromQuery] int limit = 50,
+        CancellationToken cancellationToken = default)
+    {
+        return (await sender.Send(new GetBotFeedQuery(UserId(), id, before, limit), cancellationToken)).ToResponse();
+    }
+
+    [HttpGet("{id:guid}/position")]
+    public async Task<ActionResult<BotPositionResponse>> Position(Guid id, [FromQuery] int cycles = 20, CancellationToken cancellationToken = default)
+    {
+        return (await sender.Send(new GetBotPositionQuery(UserId(), id, cycles), cancellationToken)).ToResponse();
     }
 
     [HttpPut("{id:guid}/parameters")]

@@ -165,9 +165,131 @@ public sealed class BotControlEndpointTests
         read.Status.ShouldBe(ManualOrderStatus.Pending);
         read.EngineOrderId.ShouldBeNull();
         read.RejectionReason.ShouldBeNull();
+
         // The stored time has microsecond precision; the accepted response carries the clock's ticks.
         read.CreatedAt.ShouldBe(submitted.CreatedAt, TimeSpan.FromMilliseconds(1));
         read.ResolvedAt.ShouldBeNull();
+    }
+
+    [Test]
+    public async Task FillsArePagedNewestFirstAndThePositionShowsItsCycles()
+    {
+        BotOwner owner = await BotApi.NewOwner(_factory);
+        Guid id = await BotApi.Create(owner);
+        DateTimeOffset at = DateTimeOffset.UtcNow;
+        await Record(
+            id,
+            BotFill.Record(
+                BotFillId.New(),
+                new BotId(id),
+                engineOrderId: 1,
+                OrderSide.Buy,
+                "entry",
+                grossBase: 0.1m,
+                grossQuote: 10m,
+                fee: 0.0001m,
+                cumulativeGrossBase: 0.1m,
+                at),
+            BotFill.Record(
+                BotFillId.New(),
+                new BotId(id),
+                engineOrderId: 2,
+                OrderSide.Sell,
+                "exit",
+                grossBase: 0.05m,
+                grossQuote: 6m,
+                fee: 0.006m,
+                cumulativeGrossBase: 0.05m,
+                at));
+
+        var first = (await owner.Client.GetFromJsonAsync<BotFillPageResponse>($"{BotApi.Path}/{id}/fills?limit=1", WebJson))!;
+        var second = (await owner.Client.GetFromJsonAsync<BotFillPageResponse>($"{BotApi.Path}/{id}/fills?limit=1&before={first.Next}", WebJson))!;
+        var position = (await owner.Client.GetFromJsonAsync<BotPositionResponse>($"{BotApi.Path}/{id}/position", WebJson))!;
+
+        BotFillResponse sell = first.Items.ShouldHaveSingleItem();
+        sell.EngineOrderId.ShouldBe(2);
+        sell.Side.ShouldBe(OrderSide.Sell);
+        sell.Tag.ShouldBe("exit");
+        sell.GrossBase.ShouldBe("0.05");
+        sell.GrossQuote.ShouldBe("6");
+        sell.Fee.ShouldBe("0.006");
+        sell.FeeAsset.ShouldBe(FeeAsset.Quote);
+        sell.Price.ShouldBe("120");
+        sell.FilledAt.ShouldBe(at, TimeSpan.FromMilliseconds(1));
+        sell.Id.ShouldNotBe(Guid.Empty);
+        second.Items.ShouldHaveSingleItem().Sequence.ShouldBeLessThan(sell.Sequence);
+        second.Next.ShouldNotBeNull();
+        position.BaseTotal.ShouldBe("0");
+        position.QuoteTotal.ShouldBe("100");
+        position.CostBasis.ShouldBe("0");
+        position.AverageCost.ShouldBeNull();
+        position.RealizedPnl.ShouldBe("0");
+        position.OpenedAt.ShouldBeNull();
+        BotPositionCycleResponse cycle = position.Cycles.ShouldHaveSingleItem();
+        cycle.Id.ShouldNotBe(Guid.Empty);
+        cycle.OpenedAt.ShouldBe(at, TimeSpan.FromMilliseconds(1));
+        cycle.ClosedAt.ShouldNotBeNull();
+        cycle.RealizedPnl.ShouldBe("1");
+    }
+
+    [Test]
+    public async Task FeedIsPagedNewestFirst()
+    {
+        BotOwner owner = await BotApi.NewOwner(_factory);
+        Guid id = await BotApi.Create(owner);
+        DateTimeOffset at = DateTimeOffset.UtcNow;
+
+        using (IServiceScope scope = _factory.Services.CreateScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<ITransactionExecutor>()
+                .ExecuteAsync(
+                    async () =>
+                    {
+                        var feed = scope.ServiceProvider.GetRequiredService<IBotFeedRepository>();
+                        await feed.Add(
+                            BotFeedEntry.Record(BotFeedEntryId.New(), new BotId(id), BotFeedKind.Started, new Dictionary<string, string>(), at),
+                            CancellationToken.None);
+                        await feed.Add(
+                            BotFeedEntry.Record(BotFeedEntryId.New(), new BotId(id), BotFeedKind.Killed, new Dictionary<string, string> { ["reason"] = "Killed" }, at),
+                            CancellationToken.None);
+
+                        return true;
+                    },
+                    CancellationToken.None);
+        }
+
+        var first = (await owner.Client.GetFromJsonAsync<BotFeedPageResponse>($"{BotApi.Path}/{id}/feed?limit=1", WebJson))!;
+        var second = (await owner.Client.GetFromJsonAsync<BotFeedPageResponse>($"{BotApi.Path}/{id}/feed?limit=1&before={first.Next}", WebJson))!;
+
+        BotFeedEntryResponse killed = first.Items.ShouldHaveSingleItem();
+        killed.Kind.ShouldBe(BotFeedKind.Killed);
+        killed.Details.ShouldBe(new Dictionary<string, string> { ["reason"] = "Killed" });
+        killed.OccurredAt.ShouldBe(at, TimeSpan.FromMilliseconds(1));
+        killed.Id.ShouldNotBe(Guid.Empty);
+        BotFeedEntryResponse started = second.Items.ShouldHaveSingleItem();
+        started.Kind.ShouldBe(BotFeedKind.Started);
+        started.Sequence.ShouldBeLessThan(killed.Sequence);
+    }
+
+    private async Task Record(Guid botId, params BotFill[] fills)
+    {
+        using IServiceScope scope = _factory.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<ITransactionExecutor>()
+            .ExecuteAsync(
+                async () =>
+                {
+                    foreach (BotFill fill in fills)
+                    {
+                        await scope.ServiceProvider.GetRequiredService<IBotFillRepository>().TryAdd(fill, CancellationToken.None);
+                    }
+
+                    BotPositionCycle cycle = BotPositionCycle.Open(BotPositionCycleId.New(), new BotId(botId), fills[0].FilledAt, realizedPnl: 0m);
+                    cycle.Close(fills[^1].FilledAt, realizedPnl: 1m);
+                    await scope.ServiceProvider.GetRequiredService<IBotPositionCycleRepository>().Add(cycle, CancellationToken.None);
+
+                    return true;
+                },
+                CancellationToken.None);
     }
 
     private async Task MarkRunning(Guid botId)

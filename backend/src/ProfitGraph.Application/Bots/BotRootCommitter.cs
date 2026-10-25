@@ -14,6 +14,8 @@ public sealed class BotRootCommitter(
     IBotCheckpointRepository checkpoints,
     IOrderIntentRepository intents,
     IManualOrderRequestRepository manualOrders,
+    IBotFillRepository fills,
+    IBotPositionCycleRepository positions,
     BotKillSwitch killSwitch,
     ITransactionExecutor transactions,
     TimeProvider clock)
@@ -53,6 +55,16 @@ public sealed class BotRootCommitter(
                     await Resolve(manual, now, cancellationToken);
                 }
 
+                foreach (BotFill fill in commit.Fills ?? [])
+                {
+                    await fills.TryAdd(fill, cancellationToken);
+                }
+
+                if (commit.Position is { } position)
+                {
+                    await Record(commit.BotId, position, cancellationToken);
+                }
+
                 if (bot is { DesiredState: BotDesiredState.Stopped, StatusReason: { } reason } && BotStatusReasons.IsControl(reason))
                 {
                     await killSwitch.Apply(bot.Id, commit.Checkpoint, cancellationToken);
@@ -85,5 +97,22 @@ public sealed class BotRootCommitter(
         }
 
         await manualOrders.Update(request, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Opens a cycle when the position opened, or closes the open one when it became flat.
+    /// </summary>
+    private async Task Record(BotId botId, BotRootPosition position, CancellationToken cancellationToken)
+    {
+        BotPositionCycle? open = await positions.GetOpenForUpdate(botId, cancellationToken);
+
+        if (position.Change == BotPositionChange.Opened && open is null)
+        {
+            await positions.Add(BotPositionCycle.Open(BotPositionCycleId.New(), botId, position.At, position.RealizedPnl), cancellationToken);
+        }
+        else if (position.Change == BotPositionChange.Closed && open is not null && open.Close(position.At, position.RealizedPnl))
+        {
+            await positions.Update(open, cancellationToken);
+        }
     }
 }

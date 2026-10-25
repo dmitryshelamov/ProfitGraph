@@ -147,7 +147,10 @@ public sealed class ScriptedOrderGateway : IOrderGateway
         Interlocked.Exchange(ref _failuresAfterPlace, count);
     }
 
-    private void Push(BotId botId, ExternalOrderUpdate update)
+    /// <summary>
+    ///     Delivers a venue update to the bot's runner, as the venue's stream would.
+    /// </summary>
+    public void Push(BotId botId, ExternalOrderUpdate update)
     {
         Channel(botId).Writer.TryWrite(update);
     }

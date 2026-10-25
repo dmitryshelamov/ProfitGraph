@@ -169,9 +169,14 @@ public sealed class BotEngineSession
             PricePhase.External,
             LastCandle.Close,
             _lastCandleIndex + 1);
-        _dispatcher.ApplyExternalOrderUpdate(update, context);
+
+        // The venue reports fills as they happen, so the position opens at the candle the fill falls in.
+        _dispatcher.ApplyExternalOrderUpdate(
+            update,
+            context,
+            update.Kind is ExternalOrderUpdateKind.PartialFill or ExternalOrderUpdateKind.FinalFill ? _clock.GetUtcNow() : null);
         _dispatcher.Drain(cancellationToken);
-        await Save(liveCandle: false, cancellationToken);
+        await Save(liveCandle: false, cancellationToken, update: update);
     }
 
     /// <summary>
@@ -234,12 +239,21 @@ public sealed class BotEngineSession
         await Save(liveCandle: false, cancellationToken);
     }
 
-    private async Task Save(bool liveCandle, CancellationToken cancellationToken, BotRootManualOrder? manualOrder = null)
+    private async Task Save(bool liveCandle, CancellationToken cancellationToken, BotRootManualOrder? manualOrder = null, ExternalOrderUpdate? update = null)
     {
         DateTimeOffset now = _clock.GetUtcNow();
         GraphEngineCheckpoint current = _dispatcher.CaptureCheckpoint(_version.Value.ToString("D"), LastCandle!.OpenTime + _timeframe.Duration);
         await _committer.Commit(
-            new BotRootCommit(_botId, _holder, _epoch, current, AppliedParameters, NewIntents(Checkpoint, current, now), manualOrder),
+            new BotRootCommit(
+                _botId,
+                _holder,
+                _epoch,
+                current,
+                AppliedParameters,
+                NewIntents(Checkpoint, current, now),
+                manualOrder,
+                BotRootAccounting.Fills(_botId, Checkpoint, current, update, now),
+                BotRootAccounting.Position(Checkpoint, current, now)),
             bot =>
             {
                 bot.ApplyStrategyVersion(_version, now);

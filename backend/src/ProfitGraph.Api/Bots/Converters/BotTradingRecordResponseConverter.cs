@@ -1,0 +1,53 @@
+using ProfitGraph.Api.Bots.Contracts;
+using ProfitGraph.Api.Common.Parsing;
+using ProfitGraph.Application.Bots.Contracts;
+
+namespace ProfitGraph.Api.Bots.Converters;
+
+internal static class BotTradingRecordResponseConverter
+{
+    public static BotFillPageResponse ToResponse(this BotFillPageInternal page)
+    {
+        return new BotFillPageResponse(
+            [
+                .. page.Items.Select(fill => new BotFillResponse(
+                    fill.Sequence,
+                    fill.Id,
+                    fill.EngineOrderId,
+                    fill.Side,
+                    fill.Tag,
+                    ExactGraphNumberParser.Format(fill.GrossBase),
+                    ExactGraphNumberParser.Format(fill.GrossQuote),
+                    ExactGraphNumberParser.Format(fill.Fee),
+                    fill.FeeAsset,
+                    ExactGraphNumberParser.Format(fill.Price),
+                    fill.FilledAt))
+            ],
+            page.Next);
+    }
+
+    public static BotFeedPageResponse ToResponse(this BotFeedPageInternal page)
+    {
+        return new BotFeedPageResponse(
+            [.. page.Items.Select(entry => new BotFeedEntryResponse(entry.Sequence, entry.Id, entry.Kind, entry.Details, entry.OccurredAt))],
+            page.Next);
+    }
+
+    public static BotPositionResponse ToResponse(this BotPositionInternal position)
+    {
+        return new BotPositionResponse(
+            ExactGraphNumberParser.Format(position.BaseTotal),
+            ExactGraphNumberParser.Format(position.QuoteTotal),
+            ExactGraphNumberParser.Format(position.CostBasis),
+            position.AverageCost is { } average ? ExactGraphNumberParser.Format(average) : null,
+            ExactGraphNumberParser.Format(position.RealizedPnl),
+            position.OpenedAt,
+            [
+                .. position.Cycles.Select(cycle => new BotPositionCycleResponse(
+                    cycle.Id,
+                    cycle.OpenedAt,
+                    cycle.ClosedAt,
+                    cycle.RealizedPnl is { } pnl ? ExactGraphNumberParser.Format(pnl) : null))
+            ]);
+    }
+}
