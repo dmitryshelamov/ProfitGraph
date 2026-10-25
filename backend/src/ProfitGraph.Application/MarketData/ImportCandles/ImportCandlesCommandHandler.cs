@@ -114,23 +114,29 @@ internal sealed class ImportCandlesCommandHandler(
     }
 
     /// <summary>
-    ///     Stores a batch unless one of its candles lies in a market closure the venue reported (ADR 0023, TC1): a closed
-    ///     market had no trades, so such a file contradicts the cache.
+    ///     Stores a batch unless one of its candles lies in a market closure the venue reported (ADR 0023, TC1) or would
+    ///     replace a stored candle without trades (TC2): such a file contradicts the cache, and only an explicit correction may
+    ///     replace a candle without trades.
     /// </summary>
     private async Task Store(CandleSeries series, Dictionary<DateTimeOffset, Candle> batch, DateTimeOffset now, CancellationToken cancellationToken)
     {
         Candle[] candles = [.. batch.Values.OrderBy(candle => candle.OpenTime)];
-        IReadOnlyList<CandleRangeInternal> closures = await repository.GetClosures(
-            series,
-            candles[0].OpenTime,
-            candles[^1].OpenTime + series.Timeframe.Duration,
-            cancellationToken);
+        DateTimeOffset end = candles[^1].OpenTime + series.Timeframe.Duration;
+        IReadOnlyList<CandleRangeInternal> closures = await repository.GetClosures(series, candles[0].OpenTime, end, cancellationToken);
         Candle? closed = candles.FirstOrDefault(candle => closures.Any(closure => closure.From <= candle.OpenTime && candle.OpenTime < closure.To));
 
         if (closed is not null)
         {
             throw new ApplicationValidationException(
                 [new InputError("invalid_candle", "File", $"The candle at {closed.OpenTime:O} lies in a market closure the venue reported.")]);
+        }
+
+        DateTimeOffset? withoutTrades = await repository.FindWithoutTrades(series, [.. batch.Keys], cancellationToken);
+
+        if (withoutTrades is not null)
+        {
+            throw new ApplicationValidationException(
+                [new InputError("invalid_candle", "File", $"The candle at {withoutTrades:O} replaces a stored candle without trades.")]);
         }
 
         await repository.Import(series, candles, now, cancellationToken);

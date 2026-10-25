@@ -12,12 +12,14 @@ namespace ProfitGraph.Application.Backtesting.History;
 ///     Hashes the canonical content of prepared history: every part is length-prefixed UTF-8, times are UTC ticks and
 ///     decimals are exact text, so equal candles always give equal identities. The observation time is left out; the
 ///     latest closed boundary it implies is part of the partition. Market closures (ADR 0023, TC1) follow the candles under
-///     their own marker only when there are any, so the identity of a history without closures keeps its bytes.
+///     their own marker only when there are any, and a candle without trades (TC2) carries a marker of its own, so the identity of
+///     a history without either keeps its bytes.
 /// </summary>
 internal static class HistoryIdentityCalculator
 {
     private const string Version = "profitgraph-history/v1";
     private const string ClosuresMarker = "closures";
+    private const string NoTradesMarker = "no-trades";
 
     public static string Calculate(
         ResolvedCandleRange range,
@@ -45,6 +47,11 @@ internal static class HistoryIdentityCalculator
             Append(hash, ExactDecimalText.Format(candle.Low));
             Append(hash, ExactDecimalText.Format(candle.Close));
             Append(hash, ExactDecimalText.Format(candle.Volume));
+
+            if (candle.NoTrades)
+            {
+                Append(hash, NoTradesMarker);
+            }
         }
 
         if (closures.Count > 0)

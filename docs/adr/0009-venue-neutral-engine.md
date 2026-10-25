@@ -38,3 +38,9 @@ the engine, and backtest code knew which exchange it simulated.
 - Replay accepts a gap between two candles exactly where the history's market closures cover it (ADR 0010 amendment,
   TC1). A closure is venue-neutral: the engine never learns why a market closed, and how a venue finds its closures stays
   in the venue module.
+
+## Amendment: candles without trades (ADR 0023)
+
+- Replay matches no market or limit order on a candle without trades (ADR 0010 amendment, TC2); its working orders wait
+  for a real candle. Indicators, warm-up and candle-close events treat it as any candle. A run without such candles keeps
+  its ledger and pinned hashes.

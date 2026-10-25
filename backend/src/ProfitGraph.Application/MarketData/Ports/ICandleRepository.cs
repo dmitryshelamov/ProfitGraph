@@ -25,6 +25,11 @@ public interface ICandleRepository
     Task<IReadOnlyList<Candle>> Get(CandleSeries series, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken);
 
     /// <summary>
+    ///     The earliest of the given open times whose stored candle has no trades (ADR 0023, TC2), or null.
+    /// </summary>
+    Task<DateTimeOffset?> FindWithoutTrades(CandleSeries series, IReadOnlyList<DateTimeOffset> openTimes, CancellationToken cancellationToken);
+
+    /// <summary>
     ///     Adds market closures that are not stored yet (ADR 0023, TC1); stored closures never change.
     /// </summary>
     Task AppendClosures(CandleSeries series, IReadOnlyList<CandleRangeInternal> closures, string source, DateTimeOffset recordedAt, CancellationToken cancellationToken);
