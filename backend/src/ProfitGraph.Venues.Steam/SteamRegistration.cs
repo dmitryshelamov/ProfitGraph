@@ -13,6 +13,7 @@ using ProfitGraph.Venues.Steam.Accounts;
 using ProfitGraph.Venues.Steam.Inventory;
 using ProfitGraph.Venues.Steam.LiveData;
 using ProfitGraph.Venues.Steam.MarketData;
+using ProfitGraph.Venues.Steam.Orders;
 using ProfitGraph.Venues.Steam.Persistence.Repositories;
 using ProfitGraph.Venues.Steam.Protection;
 using ProfitGraph.Venues.Steam.Session;
@@ -50,6 +51,10 @@ public static class SteamRegistration
         services.AddSingleton<SteamAccountSessions>();
         services.AddSingleton<SteamMarketDataAccount>();
         services.AddSingleton<SteamInventoryReader>();
+        services.AddSingleton<ISteamOrderJournal, SteamOrderJournalRepository>();
+        services.AddSingleton<SteamBuyOrderClient>();
+        services.AddSingleton<SteamOrderUpdates>();
+        services.AddSingleton<SteamBuyOrders>();
         services.AddSingleton<IHistoricalCandleSource, SteamHistoricalCandleSource>();
         services.AddSingleton<IInstrumentRulesSource, SteamInstrumentRulesSource>();
         services.AddSingleton<IInstrumentCatalog, SteamInstrumentCatalog>();

@@ -101,6 +101,16 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   to Steam's own IDs (buy order ID, listing IDs, confirmation creator). A write that may have left the process is never
   posted again until reconciliation proves its outcome; an HTTP 429, an empty body or a timeout after a write is
   `Unknown`, not a rejection.
+- **The journal comes first.** An order is journaled before anything is sent, so a missing entry proves nothing was;
+  a submit that must look up first places only an entry that is still waiting. The journal's partial unique index is
+  the single buy slot: every state in which Steam may have the buy order (placing, awaiting confirmation, active,
+  cancelling, unknown) holds it. A request refused before it left the process (protection, queue deadline) goes back
+  to waiting with the `RateLimited` code and is placed later. No Steam refusal code is confirmed as a rejection yet,
+  so every refusal is `Unknown` until the owner lists a code (`DefiniteRejectionCodes`, empty by default, as in
+  Profit Fox Designer). A market buy reads the lowest listing from `priceoverview` in the item's currency and adds
+  `MarketBuySlippage` (default 0, at most 10%). A cancel is confirmed only when the order's counters show it inactive
+  with nothing bought; an order with purchases waits for its history receipts. A buy still awaiting its mobile
+  confirmation cancels locally, and the confirmation worker approves only entries that wait.
 - **Mobile confirmations are part of placing.** A listing, and a buy that Steam answers with `need_confirmation`, are
   confirmed by the module's confirmation worker: signed `mobileconf/getlist` with server-aligned time, approval only of
   the confirmation whose type and creator match a journal entry, backoff 3 s to 2 min. Unmatched confirmations are never

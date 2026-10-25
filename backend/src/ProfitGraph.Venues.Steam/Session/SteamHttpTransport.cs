@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -46,6 +47,11 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
             message.Headers.TryAddWithoutValidation("Cookie", cookies);
         }
 
+        if (request.Endpoint == SteamEndpoint.Community)
+        {
+            Ajax(message, origin, request);
+        }
+
         if (request.Form is { } form)
         {
             message.Content = request.Multipart ? Multipart(form) : new FormUrlEncodedContent(form);
@@ -77,6 +83,52 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
         {
             return new SteamRequestResult(request.IsRead ? SteamRequestOutcome.InvalidResponse : SteamRequestOutcome.Unknown);
         }
+    }
+
+    /// <summary>
+    ///     Market requests other than the wallet page, and mobile confirmations, carry the AJAX headers Steam's own pages send,
+    ///     with the item's listing page as the referrer when the request names an item (Profit Fox Designer
+    ///     <c>SteamMarketRequestHeaders</c>, which traded with them).
+    /// </summary>
+    private static void Ajax(HttpRequestMessage message, Uri community, SteamHttpRequest request)
+    {
+        string path = message.RequestUri!.AbsolutePath;
+
+        if (path.StartsWith("/mobileconf/", StringComparison.Ordinal))
+        {
+            message.Headers.TryAddWithoutValidation("X-Requested-With", "XMLHttpRequest");
+            message.Headers.Referrer = new Uri(community, "/mobileconf/conf");
+
+            return;
+        }
+
+        if (!path.StartsWith("/market/", StringComparison.Ordinal) || path == "/market/")
+        {
+            return;
+        }
+
+        message.Headers.TryAddWithoutValidation("X-Requested-With", "XMLHttpRequest");
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (string pair in message.RequestUri.Query.TrimStart('?').Split(separator: '&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            string[] parts = pair.Split(separator: '=', count: 2);
+            values.TryAdd(WebUtility.UrlDecode(parts[0]), parts.Length == 2 ? WebUtility.UrlDecode(parts[1]) : string.Empty);
+        }
+
+        foreach (string key in new[] { "appid", "market_hash_name" })
+        {
+            if (request.Form?.TryGetValue(key, out string? value) == true)
+            {
+                values[key] = value;
+            }
+        }
+
+        message.Headers.Referrer = values.TryGetValue("appid", out string? app) &&
+            int.TryParse(app, NumberStyles.None, CultureInfo.InvariantCulture, out int appId) && appId > 0 &&
+            values.TryGetValue("market_hash_name", out string? name) && name.Length is > 0 and <= 512 && !name.Any(char.IsControl)
+                ? new Uri(community, "/market/listings/" + appId.ToString(CultureInfo.InvariantCulture) + "/" + Uri.EscapeDataString(name))
+                : new Uri(community, "/market/");
     }
 
     private static SteamRequestOutcome Classify(HttpResponseMessage response, byte[] body, bool isRead)
