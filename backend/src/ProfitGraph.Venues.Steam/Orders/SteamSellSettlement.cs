@@ -5,7 +5,7 @@ namespace ProfitGraph.Venues.Steam.Orders;
 /// <summary>
 ///     What a sell's journal entry shows the engine, from its reserved assets (ADR 0022).
 /// </summary>
-internal sealed class SteamSellSettlement(ISteamOrderJournal journal, SteamOrderUpdates updates, TimeProvider clock)
+internal sealed class SteamSellSettlement(ISteamOrderJournal journal, SteamOrderUpdates updates, ISteamOrderWaiting waiting, TimeProvider clock)
 {
     /// <summary>
     ///     Brings the entry in line with its assets: active and accepted once a listing is live, waiting for the hold while
@@ -38,6 +38,11 @@ internal sealed class SteamSellSettlement(ISteamOrderJournal journal, SteamOrder
                 SteamOrderJournalState.Waiting,
                 cancellationToken);
 
+            if (activated)
+            {
+                await waiting.Report(current, code: null, until: null, cancellationToken);
+            }
+
             if (activated || announce)
             {
                 updates.Publish(current.BotId, ExternalOrderUpdate.Accept(current.EngineOrderId));
@@ -49,9 +54,16 @@ internal sealed class SteamSellSettlement(ISteamOrderJournal journal, SteamOrder
         bool held = reservations.All(reservation => reservation.State is SteamReservationState.Reserved or SteamReservationState.Released);
         SteamWaitingCode? code = held ? SteamWaitingCode.SettlementHold : SteamWaitingCode.AwaitingConfirmation;
 
-        if (current.State == SteamOrderJournalState.Waiting && current.WaitingCode != code)
+        if (current.State == SteamOrderJournalState.Waiting && current.WaitingCode != code &&
+            await journal.Transition(current with { WaitingCode = code, UpdatedAt = clock.GetUtcNow() }, SteamOrderJournalState.Waiting, cancellationToken))
         {
-            await journal.Transition(current with { WaitingCode = code, UpdatedAt = clock.GetUtcNow() }, SteamOrderJournalState.Waiting, cancellationToken);
+            // The hold lasts until the earliest of the sell's items unlocks.
+            DateTimeOffset? unlock = held
+                ? reservations.Where(reservation => reservation.State == SteamReservationState.Reserved)
+                    .Select(reservation => (DateTimeOffset?)reservation.UnlockAt)
+                    .Min()
+                : null;
+            await waiting.Report(current, code, unlock, cancellationToken);
         }
 
         if (announce || current.WaitingCode is null)

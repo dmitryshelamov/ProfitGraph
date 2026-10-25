@@ -25,6 +25,7 @@ public sealed class SteamBuyOrdersTests
     private SteamSessionHarness _harness = null!;
     private InMemorySteamOrderJournal _journal = null!;
     private SteamOrderUpdates _updates = null!;
+    private RecordingSteamOrderWaiting _waiting = null!;
     private SteamBotSettings _settings = null!;
 
     [SetUp]
@@ -34,6 +35,7 @@ public sealed class SteamBuyOrdersTests
         _settings = SteamBotSettings.Defaults;
         _journal = new InMemorySteamOrderJournal();
         _updates = new SteamOrderUpdates();
+        _waiting = new RecordingSteamOrderWaiting();
     }
 
     [Test]
@@ -96,6 +98,23 @@ public sealed class SteamBuyOrdersTests
             ExternalOrderUpdate.AcceptLocally(orderId: 3),
             ExternalOrderUpdate.ConfirmCancel(orderId: 1),
             ExternalOrderUpdate.Accept(orderId: 3)
+        ]);
+    }
+
+    [Test]
+    public async Task TheCoreHearsWhyABuyWaitsAndWhenItStops()
+    {
+        SteamBuyOrders orders = Orders();
+        await Submit(orders, "pg-1", Limit(id: 1, quantity: 1m, price: 500m));
+        await Submit(orders, "pg-2", Limit(id: 2, quantity: 1m, price: 480m));
+        await orders.Cancel(Account(), "pg-1", CancellationToken.None);
+        await orders.Advance(SteamSessionHarness.Owner, SteamSessionHarness.Credential, CancellationToken.None);
+
+        _waiting.Reports.ShouldBe(
+        [
+            (1L, null, null),
+            (2L, SteamWaitingCode.SingleBuyOrderSlot, null),
+            (2L, null, null)
         ]);
     }
 
@@ -312,7 +331,7 @@ public sealed class SteamBuyOrdersTests
     {
         IOptions<SteamOptions> options = Microsoft.Extensions.Options.Options.Create(_harness.Options);
 
-        return new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _harness.Clock);
+        return new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _waiting, _harness.Clock);
     }
 
     private Task<ExternalOrderUpdate?> Submit(SteamBuyOrders orders, string clientOrderId, OrderSnapshot order)

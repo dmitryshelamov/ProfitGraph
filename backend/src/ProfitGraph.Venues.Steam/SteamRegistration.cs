@@ -72,6 +72,7 @@ public static class SteamRegistration
         services.AddSingleton<ISteamOwnedAssets, SteamOwnedAssetsFromHistory>();
         services.AddSingleton<SteamSells>();
         services.AddSingleton<SteamExecutions>();
+        services.AddSingleton<ISteamOrderWaiting, SteamOrderWaiting>();
         services.AddSingleton<SteamSellSettlement>();
         services.AddSingleton<SteamConfirmationClient>();
         services.AddSingleton<SteamConfirmations>();

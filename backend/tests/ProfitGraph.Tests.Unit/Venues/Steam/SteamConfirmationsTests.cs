@@ -27,6 +27,7 @@ public sealed class SteamConfirmationsTests
     private SteamSessionHarness _harness = null!;
     private InMemorySteamOrderJournal _journal = null!;
     private SteamOrderUpdates _updates = null!;
+    private RecordingSteamOrderWaiting _waiting = null!;
 
     [SetUp]
     public void SetUp()
@@ -46,6 +47,7 @@ public sealed class SteamConfirmationsTests
         _harness.Steam.BuysNeedConfirmation = true;
         _journal = new InMemorySteamOrderJournal();
         _updates = new SteamOrderUpdates();
+        _waiting = new RecordingSteamOrderWaiting();
     }
 
     [Test]
@@ -198,7 +200,14 @@ public sealed class SteamConfirmationsTests
     private (SteamBuyOrders Buys, SteamConfirmations Confirmations) Create()
     {
         IOptions<SteamOptions> options = Options.Create(_harness.Options);
-        var buys = new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _harness.Clock);
+        var buys = new SteamBuyOrders(
+            _journal,
+            _harness.Sessions(),
+            new SteamBuyOrderClient(options),
+            _updates,
+            new FakeSteamBotAccounts(Account),
+            _waiting,
+            _harness.Clock);
         IServiceScopeFactory scopes = _harness.Scopes();
 
         return (buys, new SteamConfirmations(
@@ -206,7 +215,7 @@ public sealed class SteamConfirmationsTests
             _harness.Sessions(),
             new SteamConfirmationClient(scopes),
             buys,
-            new SteamSellSettlement(_journal, _updates, _harness.Clock),
+            new SteamSellSettlement(_journal, _updates, _waiting, _harness.Clock),
             _harness.Clock));
     }
 
