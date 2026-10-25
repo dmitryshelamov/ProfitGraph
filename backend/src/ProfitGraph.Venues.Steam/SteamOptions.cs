@@ -142,6 +142,16 @@ public sealed class SteamOptions
     /// </summary>
     public int ListingPagesMaximum { get; init; } = 10;
 
+    /// <summary>
+    ///     Market history is read in pages of this many events, at most <see cref="HistoryMaximumPages" /> back, and
+    ///     <see cref="HistoryOverlap" /> already stored events must be read again unchanged (Profit Fox Designer ADR 0087).
+    /// </summary>
+    public int HistoryPageSize { get; init; } = 100;
+
+    public int HistoryMaximumPages { get; init; } = 10;
+
+    public int HistoryOverlap { get; init; } = 10;
+
     public bool IsValid()
     {
         (string Address, string Host)[] origins =
@@ -158,7 +168,8 @@ public sealed class SteamOptions
             DefaultAppId > 0 && MarkPriceInterval > TimeSpan.Zero && InventoryPageSize is > 0 and <= 5000 && InventoryMaximumPages > 0 &&
             DefiniteRejectionCodes.All(code => code > 1) && MarketBuySlippage is >= 0m and <= 0.1m &&
             MarketBuyDeadline > TimeSpan.Zero && MarketBuyDeadline <= TimeSpan.FromHours(1) &&
-            ListingPagesMaximum is > 0 and <= 100;
+            ListingPagesMaximum is > 0 and <= 100 && HistoryPageSize is > 0 and <= 100 && HistoryMaximumPages is > 0 and <= 100 &&
+            HistoryOverlap > 0 && HistoryOverlap < HistoryPageSize;
 
         return timings && origins.All(origin => Enabled
             ? IsAllowedOrigin(origin.Address, origin.Host)
