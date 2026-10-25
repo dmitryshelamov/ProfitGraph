@@ -26,6 +26,7 @@ interface Submission {
   readonly id: string;
   readonly draft: Draft;
   readonly version: number;
+  readonly confirmLiveImpact?: boolean;
 }
 
 export function useStrategyEditor(strategyId: string) {
@@ -36,6 +37,7 @@ export function useStrategyEditor(strategyId: string) {
   const routeRef = useRef(strategyId);
   routeRef.current = strategyId;
   const [conflict, setConflict] = useState(false);
+  const [liveImpact, setLiveImpact] = useState(false);
   const [unsupportedFailure, setUnsupportedFailure] = useState(false);
   const unsupportedFormat =
     unsupportedFailure ||
@@ -97,6 +99,7 @@ export function useStrategyEditor(strategyId: string) {
         expectedVersion: submission.version,
         ...submission.draft,
         name: submission.draft.name.trim(),
+        confirmLiveImpact: submission.confirmLiveImpact ?? false,
       }),
     onSuccess: (result, submission) => {
       queryClient.setQueryData(strategyKeys.detail(submission.id), result);
@@ -110,6 +113,7 @@ export function useStrategyEditor(strategyId: string) {
         name: result.name,
       });
       setConflict(false);
+      setLiveImpact(false);
       if (unchanged) {
         setNotice('Стратегия сохранена');
       }
@@ -120,6 +124,12 @@ export function useStrategyEditor(strategyId: string) {
       }
       if (error instanceof ApiError && error.status === 409 && error.code === 'strategy_changed') {
         setConflict(true);
+      } else if (
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.code === 'live_impact'
+      ) {
+        setLiveImpact(true);
       } else if (useEditorStore.getState().draft === submission.draft) {
         showError(error);
       }
@@ -164,7 +174,8 @@ export function useStrategyEditor(strategyId: string) {
     },
   });
 
-  const save = async (): Promise<number | null> => {
+  /** Saves the draft; `confirmLiveImpact` answers a save that running bots of the strategy refused. */
+  const save = async (confirmLiveImpact = false): Promise<number | null> => {
     useEditorStore.getState().endHistoryGroup();
     const state = useEditorStore.getState();
     if (
@@ -186,6 +197,7 @@ export function useStrategyEditor(strategyId: string) {
         id: strategyId,
         version: state.baseVersion,
         draft: state.draft,
+        confirmLiveImpact,
       });
       const current = useEditorStore.getState();
       return current.strategyId === strategyId && !current.dirty ? result.currentVersion : null;
@@ -251,6 +263,8 @@ export function useStrategyEditor(strategyId: string) {
     catalog,
     editor,
     conflict,
+    liveImpact,
+    cancelLiveImpact: () => setLiveImpact(false),
     unsupportedFormat,
     notice,
     diagnostics,

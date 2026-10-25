@@ -194,6 +194,13 @@ src/
   items from the address, loads each run and trial through their own modules, and draws the runs' equity with
   `EquityComparisonChart` (`modules/market-chart`). Tables take an `action` column so pages add the picking checkbox
   without modules importing each other in a cycle.
+- **Live bots.** `modules/credentials` adds and removes exchange keys: the secret is sent once and the list shows only a
+  key's last four characters. `modules/bots` lists and creates bots (a strategy's parameters start from its defaults),
+  follows a bot's state by polling every five seconds and offers start, stop and the kill switch, which asks to
+  confirm. Risk limits change at any time; parameters, the bot's capital and foreign orders only while it is stopped.
+  The bot page lists its alerts with acknowledgement and sends an owner manual order, followed until the runner
+  resolves it. `TradingHaltBanner` shows the global halt to everyone and lets the Owner halt or resume. When a save is
+  refused with `live_impact`, the editor lists the running bots and saves again with `confirmLiveImpact`.
 - **API client.** `shared/api/client.ts` is the only HTTP client. Its types come from
   `shared/api/generated/schema.d.ts`, generated from the API's OpenAPI document with `npm run generate:api` and never
   edited by hand. Failures surface as `ApiError` built from Problem Details.

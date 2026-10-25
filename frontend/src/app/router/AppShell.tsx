@@ -37,6 +37,20 @@ export function AppShell() {
             Прогоны
           </Link>
           <Link
+            to="/bots"
+            className="text-text-secondary hover:text-text"
+            activeProps={{ className: 'text-text', 'aria-current': 'page' }}
+          >
+            Боты
+          </Link>
+          <Link
+            to="/credentials"
+            className="text-text-secondary hover:text-text"
+            activeProps={{ className: 'text-text', 'aria-current': 'page' }}
+          >
+            Ключи
+          </Link>
+          <Link
             to="/historical-data"
             className="text-text-secondary hover:text-text"
             activeProps={{ className: 'text-text', 'aria-current': 'page' }}

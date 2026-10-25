@@ -1,0 +1,175 @@
+import { queryOptions } from '@tanstack/react-query';
+
+import { api, ApiError, unwrap } from '@/shared/api/client';
+
+import type { Bot, ManualOrder, OrderSide, TradingHalt } from '../model/types';
+
+export const botKeys = {
+  all: ['bots'] as const,
+  detail: (id: string) => ['bots', id] as const,
+  alerts: (id: string) => ['bots', id, 'alerts'] as const,
+  manualOrder: (id: string, orderId: string) => ['bots', id, 'manual-orders', orderId] as const,
+  tradingHalt: ['trading-halt'] as const,
+  liveImpact: (strategyId: string) => ['strategies', strategyId, 'live-impact'] as const,
+};
+
+/** A missing bot and a bot of another user are both 404; retrying cannot change that. */
+function retryUnlessMissing(count: number, error: Error): boolean {
+  return !(error instanceof ApiError && error.status === 404) && count < 2;
+}
+
+export function botsQuery() {
+  return queryOptions({
+    queryKey: botKeys.all,
+    queryFn: async () => unwrap(await api.GET('/api/bots')),
+    refetchInterval: 10_000,
+  });
+}
+
+/** The runtime changes a bot's state on its own, so the page follows it. */
+export function botQuery(id: string) {
+  return queryOptions({
+    queryKey: botKeys.detail(id),
+    queryFn: async () => unwrap(await api.GET('/api/bots/{id}', { params: { path: { id } } })),
+    retry: retryUnlessMissing,
+    refetchInterval: 5_000,
+  });
+}
+
+export interface CreateBotInput {
+  readonly strategyId: string;
+  readonly credentialId: string;
+  readonly symbol: string;
+  readonly timeframe: string;
+  readonly parameters: Readonly<Record<string, string>>;
+  readonly allocationCap: string;
+  readonly maxOrderQuote: string;
+  readonly dailyLossLimitQuote: string;
+  readonly allowForeignOrders: boolean;
+}
+
+/** Creates a stopped bot; the server reads the key's fee rates for the symbol. */
+export async function createBot(input: CreateBotInput): Promise<Bot> {
+  return unwrap(
+    await api.POST('/api/bots', { body: { ...input, parameters: { ...input.parameters } } }),
+  );
+}
+
+export async function startBot(id: string): Promise<Bot> {
+  return unwrap(await api.POST('/api/bots/{id}/start', { params: { path: { id } } }));
+}
+
+export async function stopBot(id: string): Promise<Bot> {
+  return unwrap(await api.POST('/api/bots/{id}/stop', { params: { path: { id } } }));
+}
+
+/** The kill switch: the bot stops at once, its unsent orders are rejected and its open orders cancelled. */
+export async function killBot(id: string): Promise<Bot> {
+  return unwrap(await api.POST('/api/bots/{id}/kill', { params: { path: { id } } }));
+}
+
+export async function changeRiskLimits(
+  id: string,
+  maxOrderQuote: string,
+  dailyLossLimitQuote: string,
+): Promise<Bot> {
+  return unwrap(
+    await api.PUT('/api/bots/{id}/risk-limits', {
+      params: { path: { id } },
+      body: { maxOrderQuote, dailyLossLimitQuote },
+    }),
+  );
+}
+
+export async function changeParameters(
+  id: string,
+  parameters: Readonly<Record<string, string>>,
+  allocationCap: string,
+): Promise<Bot> {
+  return unwrap(
+    await api.PUT('/api/bots/{id}/parameters', {
+      params: { path: { id } },
+      body: { parameters: { ...parameters }, allocationCap },
+    }),
+  );
+}
+
+export async function changeForeignOrders(id: string, allowForeignOrders: boolean): Promise<Bot> {
+  return unwrap(
+    await api.PUT('/api/bots/{id}/foreign-orders', {
+      params: { path: { id } },
+      body: { allowForeignOrders },
+    }),
+  );
+}
+
+export function botAlertsQuery(id: string) {
+  return queryOptions({
+    queryKey: botKeys.alerts(id),
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/api/bots/{id}/alerts', { params: { path: { id }, query: { limit: 50 } } }),
+      ),
+    refetchInterval: 15_000,
+  });
+}
+
+export async function acknowledgeAlert(id: string) {
+  return unwrap(await api.POST('/api/alerts/{id}/acknowledge', { params: { path: { id } } }));
+}
+
+/** An owner market order: a buy's amount is quote, a sell's base. The bot's runner takes it within a minute. */
+export async function submitManualOrder(
+  botId: string,
+  side: OrderSide,
+  amount: string,
+): Promise<ManualOrder> {
+  return unwrap(
+    await api.POST('/api/bots/{id}/manual-orders', {
+      params: { path: { id: botId } },
+      body: { side, amount },
+    }),
+  );
+}
+
+/** Follows a manual order until the runner resolves it. */
+export function manualOrderQuery(botId: string, orderId: string) {
+  return queryOptions({
+    queryKey: botKeys.manualOrder(botId, orderId),
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/api/bots/{id}/manual-orders/{orderId}', {
+          params: { path: { id: botId, orderId } },
+        }),
+      ),
+    refetchInterval: (query) => (query.state.data?.status === 'Pending' ? 1_000 : false),
+  });
+}
+
+export function tradingHaltQuery() {
+  return queryOptions({
+    queryKey: botKeys.tradingHalt,
+    queryFn: async () => unwrap(await api.GET('/api/trading-halt')),
+    refetchInterval: 30_000,
+  });
+}
+
+/** The Owner's global kill switch: every bot that should run is killed and nothing starts until resumed. */
+export async function haltTrading(): Promise<TradingHalt> {
+  return unwrap(await api.POST('/api/trading-halt/halt'));
+}
+
+export async function resumeTrading(): Promise<TradingHalt> {
+  return unwrap(await api.POST('/api/trading-halt/resume'));
+}
+
+/** The running bots a save of the strategy switches to the new version. */
+export function liveImpactQuery(strategyId: string) {
+  return queryOptions({
+    queryKey: botKeys.liveImpact(strategyId),
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/api/strategies/{id}/live-impact', { params: { path: { id: strategyId } } }),
+      ),
+  });
+}
