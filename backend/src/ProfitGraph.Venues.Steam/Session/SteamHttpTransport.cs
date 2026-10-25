@@ -113,7 +113,7 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
             return SteamRequestOutcome.ClientError;
         }
 
-        return NeedsAuthentication(body) ? SteamRequestOutcome.Unauthorized : SteamRequestOutcome.Success;
+        return Flagged(body) ?? SteamRequestOutcome.Success;
     }
 
     private static bool IsLogin(Uri? location)
@@ -122,23 +122,35 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
             .StartsWith("/login", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool NeedsAuthentication(byte[] body)
+    /// <summary>
+    ///     The flags of a JSON answer that end its success: <c>needauth</c>, <c>captcha_needed</c>, <c>market_restricted</c>.
+    /// </summary>
+    private static SteamRequestOutcome? Flagged(byte[] body)
     {
         if (body.Length == 0 || body[0] != (byte)'{')
         {
-            return false;
+            return null;
         }
 
         try
         {
             using JsonDocument document = JsonDocument.Parse(body);
+            JsonElement root = document.RootElement;
 
-            return document.RootElement.TryGetProperty("needauth", out JsonElement value) && value.ValueKind == JsonValueKind.True;
+            return Flag(root, "needauth") ? SteamRequestOutcome.Unauthorized
+                : Flag(root, "captcha_needed") ? SteamRequestOutcome.Captcha
+                : Flag(root, "market_restricted") ? SteamRequestOutcome.Restricted
+                : null;
         }
         catch (JsonException)
         {
-            return false;
+            return null;
         }
+    }
+
+    private static bool Flag(JsonElement root, string name)
+    {
+        return root.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.True;
     }
 
     private static TimeSpan? RetryAfter(RetryConditionHeaderValue? header)

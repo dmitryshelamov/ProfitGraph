@@ -44,6 +44,11 @@ public interface IBotRepository
     /// </summary>
     Task<bool> AnyUsesCredential(ExchangeCredentialId credentialId, CancellationToken cancellationToken);
 
+    /// <summary>
+    ///     The bots of a credential that should run.
+    /// </summary>
+    Task<IReadOnlyList<BotId>> ListDesiredRunningOnCredential(ExchangeCredentialId credentialId, CancellationToken cancellationToken);
+
     Task Add(Bot bot, CancellationToken cancellationToken);
 
     /// <summary>

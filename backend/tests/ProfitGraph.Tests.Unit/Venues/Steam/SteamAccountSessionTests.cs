@@ -153,6 +153,7 @@ public sealed class SteamAccountSessionTests
         var sessions = new SteamAccountSessions(
             harness.Transport(),
             harness.Scheduler(),
+            harness.Protection(),
             Substitute.For<IServiceScopeFactory>(),
             Options.Create(harness.Options),
             harness.Clock);

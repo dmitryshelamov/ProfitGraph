@@ -9,7 +9,9 @@ using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.CreateExchangeCredential;
 using ProfitGraph.Application.Accounts.DeleteExchangeCredential;
 using ProfitGraph.Application.Accounts.GetAccountHistory;
+using ProfitGraph.Application.Accounts.GetAccountProtection;
 using ProfitGraph.Application.Accounts.GetExchangeCredentials;
+using ProfitGraph.Application.Accounts.ResumeAccountProtection;
 
 namespace ProfitGraph.Api.Accounts;
 
@@ -63,6 +65,22 @@ public sealed class ExchangeCredentialsController(ISender sender, TimeProvider c
         var query = new GetAccountHistoryQuery(UserId(), id, from ?? end.AddDays(-7), end, limit);
 
         return (await sender.Send(query, cancellationToken)).ToResponse();
+    }
+
+    [HttpGet("{id:guid}/protection")]
+    public async Task<ActionResult<AccountProtectionResponse>> Protection(Guid id, CancellationToken cancellationToken)
+    {
+        VenueAccountProtectionInternal protection = await sender.Send(new GetAccountProtectionQuery(UserId(), id), cancellationToken);
+
+        return new AccountProtectionResponse(protection.Open, protection.Reason, protection.Since, protection.AutomaticResumeAt);
+    }
+
+    [HttpPost("{id:guid}/protection/resume")]
+    public async Task<IActionResult> ResumeProtection(Guid id, CancellationToken cancellationToken)
+    {
+        await sender.Send(new ResumeAccountProtectionCommand(UserId(), id), cancellationToken);
+
+        return NoContent();
     }
 
     private Guid UserId()

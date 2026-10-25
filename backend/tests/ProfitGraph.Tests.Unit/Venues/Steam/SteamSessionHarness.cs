@@ -8,6 +8,7 @@ using NSubstitute;
 using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.ReadExchangeCredentialSecrets;
 using ProfitGraph.Venues.Steam;
+using ProfitGraph.Venues.Steam.Protection;
 using ProfitGraph.Venues.Steam.Session;
 
 namespace ProfitGraph.Tests.Unit.Venues.Steam;
@@ -19,6 +20,8 @@ internal sealed class SteamSessionHarness
 {
     public static readonly Guid Owner = Guid.NewGuid();
     public static readonly Guid Credential = Guid.NewGuid();
+
+    private SteamAccountProtection? _protection;
 
     public MockSteam Steam { get; } = new MockSteam();
 
@@ -33,6 +36,8 @@ internal sealed class SteamSessionHarness
         LoginBaseAddress = MockSteam.Login,
         ApiBaseAddress = MockSteam.Api
     };
+
+    public InMemorySteamProtectionStore Store { get; } = new InMemorySteamProtectionStore();
 
     public SteamSessionHarness()
     {
@@ -61,14 +66,23 @@ internal sealed class SteamSessionHarness
         return new SteamHttpTransport(new HttpClient(Steam), Microsoft.Extensions.Options.Options.Create(Options));
     }
 
+    public SteamAccountProtection Protection()
+    {
+        return _protection ??= new SteamAccountProtection(Store, Scopes(), Microsoft.Extensions.Options.Options.Create(Options), Clock);
+    }
+
+    public IServiceScopeFactory Scopes()
+    {
+        return new ServiceCollection().AddSingleton(Sender).BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+    }
+
     public SteamAccountSession Session()
     {
-        ServiceProvider services = new ServiceCollection().AddSingleton(Sender).BuildServiceProvider();
-
         return new SteamAccountSessions(
                 Transport(),
                 Scheduler(),
-                services.GetRequiredService<IServiceScopeFactory>(),
+                Protection(),
+                Scopes(),
                 Microsoft.Extensions.Options.Options.Create(Options),
                 Clock)
             .For(Owner, Credential);
