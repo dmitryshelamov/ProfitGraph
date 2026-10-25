@@ -23,10 +23,23 @@ public sealed class ScriptedOrderGateway : IOrderGateway
     private int _places;
     private int _lookUps;
     private int _failuresAfterPlace;
+    private int _reconcileFailures;
+    private int _reconciles;
 
     public int Places => Volatile.Read(ref _places);
     public int LookUps => Volatile.Read(ref _lookUps);
     public IReadOnlyCollection<ClientOrderId> Cancels => _cancels;
+    public int Reconciles => Volatile.Read(ref _reconciles);
+
+    /// <summary>
+    ///     The number of places when the last reconciliation started.
+    /// </summary>
+    public int PlacesBeforeLastReconcile { get; private set; }
+
+    /// <summary>
+    ///     A safety reason every following reconciliation reports, or null to let the bot trade.
+    /// </summary>
+    public BotStatusReason? ReconcileDegradation { get; set; }
 
     /// <summary>
     ///     A definitive rejection for every following submit, or null to accept them.
@@ -94,6 +107,36 @@ public sealed class ScriptedOrderGateway : IOrderGateway
         _cancels.Enqueue(clientOrderId);
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    ///     Finds every order it placed, as accepted and still active; the rest are unknown to it.
+    /// </summary>
+    public Task<BotReconciliationInternal> Reconcile(BotReconcileInternal request, CancellationToken cancellationToken)
+    {
+        PlacesBeforeLastReconcile = Places;
+        Interlocked.Increment(ref _reconciles);
+
+        if (Interlocked.Decrement(ref _reconcileFailures) >= 0)
+        {
+            throw new IOException("The scripted venue cannot answer now.");
+        }
+
+        ReconcileOrderInternal[] found = [.. request.Orders.Where(order => _placed.ContainsKey(order.ClientOrderId.Value))];
+
+        return Task.FromResult(
+            new BotReconciliationInternal(
+                [.. found.Select(order => ExternalOrderUpdate.Accept(order.EngineOrderId))],
+                [.. found.Select(order => new ReconciledOrderInternal(order.ClientOrderId, IsFinal: false))],
+                ReconcileDegradation));
+    }
+
+    /// <summary>
+    ///     Fails the next <paramref name="count" /> reconciliations as a venue that cannot answer.
+    /// </summary>
+    public void FailReconcile(int count)
+    {
+        Interlocked.Exchange(ref _reconcileFailures, count);
     }
 
     /// <summary>

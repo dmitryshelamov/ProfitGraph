@@ -18,14 +18,17 @@ using ProfitGraph.Domain.Bots;
 namespace ProfitGraph.Infrastructure.Bots.Runtime;
 
 /// <summary>
-///     Executes one leased bot: opens its engine, feeds live candles and venue updates through one sequential queue and
-///     renews the lease. A stop ends it after the current root; a lost lease ends it without writing; any other failure
+///     Executes one leased bot: opens its engine, reconciles it with the venue, opens its submit gate, feeds live candles
+///     and venue updates through one sequential queue and renews the lease. A venue that cannot answer the reconciliation
+///     marks the bot <c>ExchangeUnavailable</c> and is asked again after 5, 15, 30 and 60 s; a safety reason from the venue
+///     degrades the bot. A stop ends it after the current root; a lost lease ends it without writing; any other failure
 ///     degrades the bot for an automatic restart. The lease is released when it ends.
 /// </summary>
 internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServiceScopeFactory scopes, BotRuntimeOptions options, TimeProvider clock, ILogger logger)
 {
     private readonly Channel<BotRoot> _queue = Channel.CreateUnbounded<BotRoot>(new UnboundedChannelOptions { SingleReader = true });
     private readonly CancellationTokenSource _producers = new CancellationTokenSource();
+    private readonly CancellationTokenSource _stopping = new CancellationTokenSource();
     private volatile bool _leaseLost;
     private volatile bool _preserveStatus;
     private Exception? _producerFailure;
@@ -51,6 +54,7 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
         }
 
         _queue.Writer.TryComplete();
+        _stopping.Cancel();
     }
 
     private async Task Run(CancellationToken hostToken)
@@ -68,38 +72,26 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
             await Report(sender, BotRuntimeReport.Starting, hostToken);
             tasks.Add(KeepLease(hostToken));
             BotEngineSession session = await scope.ServiceProvider.GetRequiredService<BotEngineSessionFactory>().Open(bot, holder, epoch, gateway, hostToken);
-            await Report(sender, BotRuntimeReport.Running, hostToken);
+            BotReconcileResult? reconciled = await Reconcile(scope.ServiceProvider.GetRequiredService<BotReconciler>(), session, gateway, sender, hostToken);
 
-            if (!await sender.Send(new OpenSubmitGateCommand(bot.Id.Value, holder.Value, epoch), hostToken))
+            if (reconciled is { Degradation: not null })
             {
-                throw new BotLeaseLostException();
+                _preserveStatus = true;
+            }
+            else if (reconciled is not null)
+            {
+                await Trade(scope, session, gateway, candles, sender, tasks, hostToken);
             }
 
-            tasks.Add(
-                Produce(
-                    candles.Subscribe(bot.Series.Symbol, bot.Series.Timeframe, session.Checkpoint?.LastClosedCandle.OpenTime, _producers.Token),
-                    candle => new BotRoot(candle, Update: null)));
-            tasks.Add(Produce(gateway.Updates(bot.Id, _producers.Token), update => new BotRoot(Candle: null, update)));
-            tasks.Add(Produce(scope.ServiceProvider.GetRequiredService<BotUpdateBus>().Read(bot.Id, _producers.Token), update => new BotRoot(Candle: null, update)));
-
-            await foreach (BotRoot root in _queue.Reader.ReadAllAsync(hostToken))
+            if (_producerFailure is OrderGatewaySafetyException safety)
             {
-                if (root.Candle is { } candle)
-                {
-                    await session.ProcessCandle(candle, hostToken);
-                }
-                else if (root.Update is { } update)
-                {
-                    await session.ProcessExternalUpdate(update, hostToken);
-                }
+                await Report(sender, BotRuntimeReport.Degraded, hostToken, safety.Reason);
             }
-
-            if (_producerFailure is { } failure)
+            else if (_producerFailure is { } failure)
             {
                 throw new InvalidOperationException("A live input of the bot failed.", failure);
             }
-
-            if (!_leaseLost && !_preserveStatus)
+            else if (!_leaseLost && !_preserveStatus)
             {
                 await Report(sender, BotRuntimeReport.Stopped, hostToken);
             }
@@ -130,6 +122,80 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
             }
 
             _producers.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     Opens the submit gate and processes live candles and venue updates until the runner ends.
+    /// </summary>
+    private async Task Trade(
+        IServiceScope scope,
+        BotEngineSession session,
+        IOrderGateway gateway,
+        ILiveCandleSource candles,
+        ISender sender,
+        List<Task> tasks,
+        CancellationToken hostToken)
+    {
+        await Report(sender, BotRuntimeReport.Running, hostToken);
+
+        if (!await sender.Send(new OpenSubmitGateCommand(bot.Id.Value, holder.Value, epoch), hostToken))
+        {
+            throw new BotLeaseLostException();
+        }
+
+        tasks.Add(
+            Produce(
+                candles.Subscribe(bot.Series.Symbol, bot.Series.Timeframe, session.Checkpoint?.LastClosedCandle.OpenTime, _producers.Token),
+                candle => new BotRoot(candle, Update: null)));
+        tasks.Add(Produce(gateway.Updates(bot.Id, _producers.Token), update => new BotRoot(Candle: null, update)));
+        tasks.Add(Produce(scope.ServiceProvider.GetRequiredService<BotUpdateBus>().Read(bot.Id, _producers.Token), update => new BotRoot(Candle: null, update)));
+
+        await foreach (BotRoot root in _queue.Reader.ReadAllAsync(hostToken))
+        {
+            if (root.Candle is { } candle)
+            {
+                await session.ProcessCandle(candle, hostToken);
+            }
+            else if (root.Update is { } update)
+            {
+                await session.ProcessExternalUpdate(update, hostToken);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Reconciles until the venue answers. Returns null when the runner is stopped first.
+    /// </summary>
+    private async Task<BotReconcileResult?> Reconcile(
+        BotReconciler reconciler,
+        BotEngineSession session,
+        IOrderGateway gateway,
+        ISender sender,
+        CancellationToken hostToken)
+    {
+        int[] factors = [1, 3, 6, 12];
+
+        for (var attempt = 0;; attempt++)
+        {
+            BotReconcileResult result = await reconciler.Reconcile(bot, holder, epoch, session, gateway, hostToken);
+
+            if (result.VenueAnswered)
+            {
+                return result;
+            }
+
+            logger.LogWarning("The venue could not reconcile bot {BotId}; it is asked again.", bot.Id.Value);
+            await Report(sender, BotRuntimeReport.ExchangeUnavailable, hostToken);
+
+            try
+            {
+                await Task.Delay(options.ReconcileRetryDelay * factors[Math.Min(attempt, factors.Length - 1)], clock, _stopping.Token);
+            }
+            catch (OperationCanceledException) when (_stopping.IsCancellationRequested)
+            {
+                return null;
+            }
         }
     }
 
@@ -194,6 +260,7 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
                     _leaseLost = true;
                     logger.LogWarning("Bot {BotId} could not renew its lease.", bot.Id.Value);
                     _queue.Writer.TryComplete();
+                    await _stopping.CancelAsync();
 
                     return;
                 }
@@ -207,9 +274,9 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
         }
     }
 
-    private async Task Report(ISender sender, BotRuntimeReport report, CancellationToken cancellationToken)
+    private async Task Report(ISender sender, BotRuntimeReport report, CancellationToken cancellationToken, BotStatusReason? reason = null)
     {
-        if (!await sender.Send(new ReportBotRuntimeCommand(bot.Id.Value, holder.Value, epoch, report), cancellationToken))
+        if (!await sender.Send(new ReportBotRuntimeCommand(bot.Id.Value, holder.Value, epoch, report, reason), cancellationToken))
         {
             throw new BotLeaseLostException();
         }

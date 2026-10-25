@@ -143,3 +143,28 @@ gateway amend it in later stage 5 pull requests.
   the host stops its runner without overwriting that status. A bot that should stop holds its waiting submits
   (`HeldSubmit`).
 - **Gate.** The runner opens the submit gate after its engine opened; venue reconciliation (stage 5.8) comes before it.
+
+## Amendment: reconciliation before the submit gate (stage 5.8)
+
+- **When.** After the engine opened and before the submit gate opens, the runner reconciles the bot with its venue
+  (`BotReconciler`, `IOrderGateway.Reconcile`). The bot stays `Starting` until it succeeds. Updates from the private
+  order stream follow in a later step; a stream that fails restarts the runner, and the bot reconciles again.
+- **What is asked.** Every engine order that is not final, and every order whose submit or cancel failed, is being
+  sent, or had a place start. An order may have reached the venue once the engine saw it accepted, its submit was sent,
+  or a place request may have left the process.
+- **Venue answer.** Updates for the orders it found, the orders with whether they are final, and a safety reason when
+  the bot must not trade. Bybit (ADR 0017) refuses a read-only key, a key without Spot trading or with withdrawals
+  (`KeyPermissions`); an order that may have reached Bybit but is not found (`UnresolvedOrder`); and an open order or
+  recent execution on the symbol with another client ID prefix or another bot's (`ForeignOrder`), unless the bot allows
+  foreign orders. A venue that cannot answer throws.
+- **Applying it.** The updates go to the engine first. Then, fenced by the lease (`ApplyBotReconciliationCommand`), a
+  submit the venue found is resolved, a cancel of a final order is resolved, an unsent failed submit is tried again,
+  `ExchangeUnavailable` is cleared and a safety reason degrades the bot. A failed cancel of an order that is still
+  active is `UnresolvedOrder`. A degraded bot's runner ends without overwriting its status.
+- **Unavailable venue.** The bot is marked `ExchangeUnavailable` and asked again after 5, 15, 30 and then every 60 s.
+  A stop or a lost lease ends the waiting at once.
+- **Safety exceptions.** A venue reports a state the bot cannot trade through with `OrderGatewaySafetyException`, such
+  as Bybit's fee in an unsupported asset (`UnsupportedFeeAsset`). During delivery it degrades the bot and returns the
+  intent for a later lookup; from the update stream it degrades the bot and ends its runner.
+- **Deferred.** Resolving an order the owner confirms absent and accounting fills found only in execution history are
+  left for later steps; until then such a bot stays degraded for the owner.

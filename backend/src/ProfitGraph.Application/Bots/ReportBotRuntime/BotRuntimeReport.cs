@@ -9,5 +9,10 @@ public enum BotRuntimeReport
     Running,
     Stopped,
     Failed,
-    Degraded
+    Degraded,
+
+    /// <summary>
+    ///     The venue could not answer the bot's reconciliation; it is tried again.
+    /// </summary>
+    ExchangeUnavailable
 }

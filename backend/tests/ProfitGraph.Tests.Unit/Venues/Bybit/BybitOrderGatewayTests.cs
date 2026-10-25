@@ -86,9 +86,9 @@ public sealed class BybitOrderGatewayTests
         _harness.Exchange.CreateBodies.ShouldBeEmpty();
     }
 
-    [TestCase(arg1: 110007, arg2: RejectionReason.InsufficientQuote)]
-    [TestCase(arg1: 110003, arg2: RejectionReason.InvalidPrice)]
-    [TestCase(arg1: 110017, arg2: RejectionReason.ZeroQuantity)]
+    [TestCase(arg1: 110007, RejectionReason.InsufficientQuote)]
+    [TestCase(arg1: 110003, RejectionReason.InvalidPrice)]
+    [TestCase(arg1: 110017, RejectionReason.ZeroQuantity)]
     public async Task ExplicitBybitRejectionRejects(int code, RejectionReason reason)
     {
         _harness.Exchange.CreateCode = code;
@@ -226,6 +226,72 @@ public sealed class BybitOrderGatewayTests
         venue.GetService<BybitTradeClient>().ShouldBeNull();
         venue.GetServices<IVenueFeeRateReader>().ShouldNotBeEmpty();
         trading.GetServices<IOrderGateway>().Single().Venue.ShouldBe(new VenueId("bybit"));
+    }
+
+    [Test]
+    public async Task ReconcileReportsFoundOrdersWithTheirState()
+    {
+        string clientOrderId = BybitClientOrderIds.For(_harness.Bot.Id, engineOrderId: 10).Value;
+        _harness.Exchange.AddOrder(clientOrderId, "Buy", "Filled", cumulativeBase: 0.1m, cumulativeQuote: 10m, new Dictionary<string, decimal> { ["BTC"] = 0.0001m });
+        _harness.Exchange.Executions.Add(clientOrderId);
+
+        BotReconciliationInternal result = await Reconcile(
+            allowForeign: false,
+            Order(engineOrderId: 10, mayHaveReached: true),
+            Order(engineOrderId: 11, mayHaveReached: false));
+
+        result.Degradation.ShouldBeNull();
+        result.Found.ShouldBe([new ReconciledOrderInternal(new ClientOrderId(clientOrderId), IsFinal: true)]);
+        result.Updates.ShouldBe([ExternalOrderUpdate.Accept(orderId: 10), ExternalOrderUpdate.Final(orderId: 10, grossBase: 0.1m, grossQuote: 10m, fee: 0.0001m)]);
+    }
+
+    [Test]
+    public async Task ReconcileLeavesAnOrderThatMayHaveBeenSentUnresolved()
+    {
+        BotReconciliationInternal result = await Reconcile(allowForeign: false, Order(engineOrderId: 12, mayHaveReached: true));
+
+        result.Degradation.ShouldBe(BotStatusReason.UnresolvedOrder);
+    }
+
+    [TestCase(arg1: true, arg2: false)]
+    [TestCase(arg1: false, arg2: true)]
+    public async Task ReconcileRefusesAKeyThatCannotTradeOrCanWithdraw(bool readOnly, bool canWithdraw)
+    {
+        _harness.Exchange.KeyReadOnly = readOnly;
+        _harness.Exchange.KeyCanWithdraw = canWithdraw;
+
+        BotReconciliationInternal result = await Reconcile(allowForeign: false);
+
+        result.Degradation.ShouldBe(BotStatusReason.KeyPermissions);
+        _harness.Exchange.Requests.ShouldNotContain(request => request.Path == "/v5/execution/list");
+    }
+
+    [Test]
+    public async Task ForeignOrderOnTheSymbolDegradesUnlessAllowed()
+    {
+        _harness.Exchange.AddOrder("pf-manual-order", "Buy", "New", cumulativeBase: 0m, cumulativeQuote: 0m, []);
+        _harness.Exchange.Executions.Add(BybitClientOrderIds.For(BotId.New(), engineOrderId: 1).Value);
+
+        (await Reconcile(allowForeign: false)).Degradation.ShouldBe(BotStatusReason.ForeignOrder);
+        (await Reconcile(allowForeign: true)).Degradation.ShouldBeNull();
+    }
+
+    [Test]
+    public async Task ReconcileThatCannotReadTheVenueThrows()
+    {
+        _harness.Exchange.ListUnavailable = true;
+
+        await Should.ThrowAsync<BybitOrderUnresolvedException>(() => Reconcile(allowForeign: false));
+    }
+
+    private Task<BotReconciliationInternal> Reconcile(bool allowForeign, params ReconcileOrderInternal[] orders)
+    {
+        return _harness.Gateway.Reconcile(new BotReconcileInternal(_harness.Bot.Id, allowForeign, orders), CancellationToken.None);
+    }
+
+    private ReconcileOrderInternal Order(long engineOrderId, bool mayHaveReached)
+    {
+        return new ReconcileOrderInternal(engineOrderId, BybitClientOrderIds.For(_harness.Bot.Id, engineOrderId), mayHaveReached);
     }
 
     private Task<ExternalOrderUpdate?> Submit(OrderSnapshot order, bool mustLookUp = false)

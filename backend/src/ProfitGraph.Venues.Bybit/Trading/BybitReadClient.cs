@@ -8,7 +8,7 @@ namespace ProfitGraph.Venues.Bybit.Trading;
 /// </summary>
 internal sealed class BybitReadClient(HttpClient http, BybitServerClock serverClock)
 {
-    private static readonly string[] SignedPaths = ["/v5/account/fee-rate", "/v5/order/realtime", "/v5/order/history"];
+    private static readonly string[] SignedPaths = ["/v5/account/fee-rate", "/v5/order/realtime", "/v5/order/history", "/v5/execution/list", "/v5/user/query-api"];
 
     public Task<BybitRestResult> Get(ExchangeCredentialSecretsInternal credential, string path, string query, CancellationToken cancellationToken)
     {
@@ -17,7 +17,16 @@ internal sealed class BybitReadClient(HttpClient http, BybitServerClock serverCl
             throw new ArgumentException("The path is not an allowed Bybit read.", nameof(path));
         }
 
-        return BybitRestTransport.Signed(http, serverClock, HttpMethod.Get, $"{path}?{query}", query, body: null, credential, beforeSend: null, cancellationToken);
+        return BybitRestTransport.Signed(
+            http,
+            serverClock,
+            HttpMethod.Get,
+            query.Length == 0 ? path : $"{path}?{query}",
+            query,
+            body: null,
+            credential,
+            beforeSend: null,
+            cancellationToken);
     }
 
     public Task<BybitRestResult> Public(string pathAndQuery, CancellationToken cancellationToken)

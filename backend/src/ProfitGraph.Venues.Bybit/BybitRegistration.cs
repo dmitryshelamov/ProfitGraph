@@ -57,6 +57,7 @@ public static class BybitRegistration
         services.AddHttpClient<BybitTradeClient>(Configure).RemoveAllLoggers();
         services.AddSingleton<BybitOrderUpdates>();
         services.AddSingleton<BybitBotContexts>();
+        services.AddSingleton<BybitOrderReads>();
         services.AddTransient<IOrderGateway, BybitOrderGateway>();
 
         return services;

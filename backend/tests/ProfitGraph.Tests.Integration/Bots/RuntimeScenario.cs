@@ -178,7 +178,8 @@ internal sealed class RuntimeScenario
             ["Bots:Runtime:LeaseDuration"] = LeaseDuration.ToString(),
             ["Bots:Runtime:RenewInterval"] = TimeSpan.FromMilliseconds(500).ToString(),
             ["Bots:Runtime:PollingInterval"] = TimeSpan.FromMilliseconds(100).ToString(),
-            ["Bots:Runtime:DispatchInterval"] = TimeSpan.FromMilliseconds(50).ToString()
+            ["Bots:Runtime:DispatchInterval"] = TimeSpan.FromMilliseconds(50).ToString(),
+            ["Bots:Runtime:ReconcileRetryDelay"] = TimeSpan.FromMilliseconds(100).ToString()
         };
     }
 }

@@ -22,8 +22,15 @@ internal sealed class BotRuntimeOptions
     /// </summary>
     public TimeSpan DispatchInterval { get; init; } = TimeSpan.FromSeconds(1);
 
+    /// <summary>
+    ///     The first wait before a reconciliation the venue could not answer is tried again; later waits are 3, 6 and 12
+    ///     times as long (5, 15, 30 and 60 s by default).
+    /// </summary>
+    public TimeSpan ReconcileRetryDelay { get; init; } = TimeSpan.FromSeconds(5);
+
     public bool IsValid()
     {
-        return PollingInterval > TimeSpan.Zero && DispatchInterval > TimeSpan.Zero && RenewInterval > TimeSpan.Zero && LeaseDuration > RenewInterval * 2;
+        return PollingInterval > TimeSpan.Zero && ReconcileRetryDelay > TimeSpan.Zero && DispatchInterval > TimeSpan.Zero && RenewInterval > TimeSpan.Zero &&
+            LeaseDuration > RenewInterval * 2;
     }
 }
