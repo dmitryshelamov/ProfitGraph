@@ -84,10 +84,17 @@ internal sealed class SteamMarketDataAccount(SteamAccountSessions sessions, ISer
     /// </summary>
     public async Task<SteamWallet> WalletOf(Guid credentialId, CancellationToken cancellationToken)
     {
+        return SteamWalletParser.Read(await MarketPageOf(credentialId, cancellationToken));
+    }
+
+    /// <summary>
+    ///     The signed-in market page of a stored Steam credential: its wallet and its buy orders.
+    /// </summary>
+    public async Task<byte[]> MarketPageOf(Guid credentialId, CancellationToken cancellationToken)
+    {
         SteamAccountSession session = await Session(credentialId, cancellationToken);
 
-        return SteamWalletParser.Read(
-            Body(await session.Execute(SteamHttpRequest.Get(SteamEndpoint.Community, "/market/", SteamRequestClass.Account), cancellationToken)));
+        return Body(await session.Execute(SteamHttpRequest.Get(SteamEndpoint.Community, "/market/", SteamRequestClass.Account), cancellationToken));
     }
 
     /// <summary>

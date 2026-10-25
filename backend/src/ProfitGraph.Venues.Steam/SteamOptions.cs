@@ -127,16 +127,6 @@ public sealed class SteamOptions
     public int[] DefiniteRejectionCodes { get; init; } = [];
 
     /// <summary>
-    ///     How far above the lowest listing a market buy may pay, as a fraction; Profit Fox Designer paid the listing itself.
-    /// </summary>
-    public decimal MarketBuySlippage { get; init; }
-
-    /// <summary>
-    ///     How long a market buy's order stays on Steam before its remainder is cancelled.
-    /// </summary>
-    public TimeSpan MarketBuyDeadline { get; init; } = TimeSpan.FromMinutes(2);
-
-    /// <summary>
     ///     The most pages of 100 listings read of one account; an account with more is not read, and nothing is decided from part
     ///     of its listings.
     /// </summary>
@@ -152,6 +142,11 @@ public sealed class SteamOptions
 
     public int HistoryOverlap { get; init; } = 10;
 
+    /// <summary>
+    ///     How often the order worker moves each account with open orders along: slots, unlocks, confirmations and fills.
+    /// </summary>
+    public TimeSpan OrderWorkerInterval { get; init; } = TimeSpan.FromSeconds(15);
+
     public bool IsValid()
     {
         (string Address, string Host)[] origins =
@@ -166,10 +161,9 @@ public sealed class SteamOptions
             ProtectionErrorRatio is > 0 and <= 1 && ProtectionErrorSample > 0 && SoftResumeDelay > TimeSpan.Zero && SoftResumeLimit >= 0 &&
             SoftResumeWindow > TimeSpan.Zero && CandleCloseDelay >= TimeSpan.Zero && HistoryReuse >= TimeSpan.Zero && WalletReuse >= TimeSpan.Zero &&
             DefaultAppId > 0 && MarkPriceInterval > TimeSpan.Zero && InventoryPageSize is > 0 and <= 5000 && InventoryMaximumPages > 0 &&
-            DefiniteRejectionCodes.All(code => code > 1) && MarketBuySlippage is >= 0m and <= 0.1m &&
-            MarketBuyDeadline > TimeSpan.Zero && MarketBuyDeadline <= TimeSpan.FromHours(1) &&
+            DefiniteRejectionCodes.All(code => code > 1) &&
             ListingPagesMaximum is > 0 and <= 100 && HistoryPageSize is > 0 and <= 100 && HistoryMaximumPages is > 0 and <= 100 &&
-            HistoryOverlap > 0 && HistoryOverlap < HistoryPageSize;
+            HistoryOverlap > 0 && HistoryOverlap < HistoryPageSize && OrderWorkerInterval >= TimeSpan.FromSeconds(1);
 
         return timings && origins.All(origin => Enabled
             ? IsAllowedOrigin(origin.Address, origin.Host)

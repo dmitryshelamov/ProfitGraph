@@ -1,7 +1,5 @@
 using System.Globalization;
 
-using Microsoft.Extensions.Options;
-
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Venues.Steam.Session;
 
@@ -12,7 +10,7 @@ namespace ProfitGraph.Venues.Steam.Orders;
 ///     that nothing was. The journal's slot index lets one buy order per item and account reach Steam; a further buy is
 ///     accepted locally with <see cref="SteamWaitingCode.SingleBuyOrderSlot" /> and placed by <see cref="Advance" /> when
 ///     the slot frees, the one nearest the market first. A market buy is a buy order at the lowest listing plus the
-///     configured slippage whose remainder is cancelled after <see cref="SteamOptions.MarketBuyDeadline" />. A write that
+///     bot's market-buy slippage whose remainder is cancelled after the bot's market-buy deadline (ADR 0022, C9). A write that
 ///     may have reached Steam without a clear answer leaves its entry <see cref="SteamOrderJournalState.Unknown" />, holding
 ///     the slot, and is never sent again; fills come from reconciliation with market history (ADR 0022).
 /// </summary>
@@ -21,7 +19,7 @@ internal sealed class SteamBuyOrders(
     SteamAccountSessions sessions,
     SteamBuyOrderClient client,
     SteamOrderUpdates updates,
-    IOptions<SteamOptions> options,
+    ISteamBotAccounts accounts,
     TimeProvider clock)
 {
     /// <summary>
@@ -164,7 +162,7 @@ internal sealed class SteamBuyOrders(
                         State = SteamOrderJournalState.Active,
                         WaitingCode = null,
                         SteamOrderId = steamOrderId,
-                        Deadline = entry.Type == OrderType.Market ? answered + options.Value.MarketBuyDeadline : null,
+                        Deadline = entry.Type == OrderType.Market ? answered + await MarketBuyDeadline(entry, cancellationToken) : null,
                         UpdatedAt = answered
                     },
                     SteamOrderJournalState.Placing,
@@ -205,7 +203,7 @@ internal sealed class SteamBuyOrders(
         }
         else if (await client.LowestListing(sessions.For(bot.OwnerId, bot.CredentialId), bot.Instrument, cancellationToken) is { } lowest)
         {
-            price = (long)decimal.Ceiling(lowest * (1m + options.Value.MarketBuySlippage));
+            price = (long)decimal.Ceiling(lowest * (1m + bot.EffectiveSettings.MarketBuySlippage));
         }
         else
         {
@@ -322,7 +320,7 @@ internal sealed class SteamBuyOrders(
                     {
                         State = SteamOrderJournalState.Active,
                         SteamOrderId = steamOrderId,
-                        Deadline = entry.Type == OrderType.Market ? answered + options.Value.MarketBuyDeadline : null,
+                        Deadline = entry.Type == OrderType.Market ? answered + await MarketBuyDeadline(entry, cancellationToken) : null,
                         UpdatedAt = answered
                     },
                     SteamOrderJournalState.Placing,
@@ -452,6 +450,11 @@ internal sealed class SteamBuyOrders(
     private SteamOrderJournalEntry Finish(SteamOrderJournalEntry entry, SteamOrderOutcome outcome)
     {
         return entry with { State = SteamOrderJournalState.Done, Outcome = outcome, WaitingCode = null, UpdatedAt = clock.GetUtcNow() };
+    }
+
+    private async Task<TimeSpan> MarketBuyDeadline(SteamOrderJournalEntry entry, CancellationToken cancellationToken)
+    {
+        return TimeSpan.FromSeconds((await accounts.Get(entry.BotId, cancellationToken)).EffectiveSettings.MarketBuyDeadlineSeconds);
     }
 
     private static ExternalOrderUpdate Rejection(SteamOrderJournalEntry entry, int? steamCode = null)

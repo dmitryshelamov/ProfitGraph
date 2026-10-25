@@ -46,6 +46,11 @@ internal sealed class MockSteam : HttpMessageHandler
     public string WalletInfo { get; set; } =
         """{"wallet_currency":37,"wallet_country":"KZ","wallet_fee":"1","wallet_fee_minimum":"1","wallet_fee_percent":"0.05","wallet_publisher_fee_percent_default":"0.10","wallet_fee_base":"0","wallet_balance":"123456","wallet_delayed_balance":"0","wallet_max_balance":"100000000","wallet_trade_max_balance":"90000000","success":1,"rwgrsn":-2,"wallet_market_minimum":1,"wallet_currency_increment":1}""";
 
+    /// <summary>
+    ///     The market page's buy order table (<c>myListings</c> with <c>mybuyorder_</c> rows), as the signed-in page shows it.
+    /// </summary>
+    public string BuyOrdersHtml { get; set; } = """<div id="myListings"></div>""";
+
     public string PriceHistory { get; set; } = """{"success":true,"price_prefix":"","price_suffix":"₸","prices":[]}""";
 
     public string SearchResults { get; set; } = """{"success":true,"start":0,"pagesize":10,"total_count":0,"results":[]}""";
@@ -134,7 +139,7 @@ internal sealed class MockSteam : HttpMessageHandler
             ("login.steam.invalid", "/jwt/finalizelogin") => new HttpResponseMessage(HttpStatusCode.Unauthorized),
             ("community.steam.invalid", "/login/settoken") => SetToken(),
             ("api.steam.invalid", "/ITwoFactorService/QueryTime/v1/") => Json($$$"""{"response":{"server_time":"{{{ServerTime.ToUnixTimeSeconds()}}}"}}"""),
-            ("community.steam.invalid", "/market/") => Market(request),
+            ("community.steam.invalid", "/market/") => Market(),
             ("community.steam.invalid", "/market/pricehistory/") => Json(PriceHistory),
             ("community.steam.invalid", "/market/search/render/") => Json(SearchResults),
             ("community.steam.invalid", "/market/orderbook") => Json(OrderBook),
@@ -419,7 +424,7 @@ internal sealed class MockSteam : HttpMessageHandler
         return response;
     }
 
-    private HttpResponseMessage Market(HttpRequestMessage request)
+    private HttpResponseMessage Market()
     {
         bool signedIn = ValidSession is not null && Cookies.Any(cookie => cookie.Contains($"steamLoginSecure={ValidSession}", StringComparison.Ordinal));
 
@@ -427,7 +432,7 @@ internal sealed class MockSteam : HttpMessageHandler
         {
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent($"<html><script>var g_rgWalletInfo = {WalletInfo};</script>market</html>", Encoding.UTF8, "text/html")
+                Content = new StringContent($"<html><script>var g_rgWalletInfo = {WalletInfo};</script>{BuyOrdersHtml}</html>", Encoding.UTF8, "text/html")
             };
         }
 

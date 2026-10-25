@@ -36,6 +36,8 @@ public static class SteamRegistration
         services.AddSingleton<IVenueExecutionDefaults, SteamExecutionDefaults>();
         services.AddSingleton<IVenueCredentialSchema, SteamCredentialSchema>();
         services.AddScoped<SteamAccountRepository>();
+        services.AddScoped<ISteamAccountStore>(provider => provider.GetRequiredService<SteamAccountRepository>());
+        services.AddSingleton<ISteamBotAccounts, SteamBotAccounts>();
         services.AddScoped<IOperatorCommand, SteamImportCommand>();
         services.ConfigureRunner(runner => runner.ScanIn(typeof(SteamRegistration).Assembly).For.Migrations());
         services.AddHttpClient<SteamHttpTransport>()
@@ -79,6 +81,19 @@ public static class SteamRegistration
             .Bind(configuration.GetSection(SteamOptions.SectionName))
             .Validate(options => options.IsValid(), "Venues:Steam needs the official HTTPS origins of Community, login and Web API when it is enabled.")
             .ValidateOnStart();
+
+        return services;
+    }
+
+    /// <summary>
+    ///     Registers Steam order execution: the order gateway and the worker that moves accounts with open orders along. Only a
+    ///     Worker with the live role calls it, and only when <c>Live:Trading:Enabled</c> is true; every committed setting keeps
+    ///     it false, and <c>Venues:Steam:Enabled</c> still holds back every request (ADR 0022).
+    /// </summary>
+    public static IServiceCollection AddSteamTrading(this IServiceCollection services)
+    {
+        services.AddSingleton<IOrderGateway, SteamOrderGateway>();
+        services.AddHostedService<SteamOrderWorker>();
 
         return services;
     }

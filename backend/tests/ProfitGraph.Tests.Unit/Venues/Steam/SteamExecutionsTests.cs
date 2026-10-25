@@ -125,7 +125,7 @@ public sealed class SteamExecutionsTests
             _journal,
             _harness.Sessions(),
             new SteamConfirmationClient(_harness.Scopes()),
-            new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, options, _harness.Clock),
+            new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _harness.Clock),
             settlement,
             _harness.Clock);
         var order = new OrderSnapshot(
@@ -233,7 +233,7 @@ public sealed class SteamExecutionsTests
     private async Task<(SteamBuyOrders Buys, SteamOrderJournalEntry Entry)> Buy(int quantity)
     {
         IOptions<SteamOptions> options = Options.Create(_harness.Options);
-        var buys = new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, options, _harness.Clock);
+        var buys = new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _harness.Clock);
         var order = new OrderSnapshot(
             Id: 1,
             Tag: null,

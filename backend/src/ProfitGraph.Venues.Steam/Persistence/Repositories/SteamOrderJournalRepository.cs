@@ -76,6 +76,15 @@ internal sealed class SteamOrderJournalRepository(NpgsqlDataSource dataSource) :
         return [.. rows.Select(ToEntry)];
     }
 
+    public async Task<IReadOnlyList<(Guid CredentialId, Guid BotId)>> OpenAccounts(CancellationToken cancellationToken)
+    {
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        IEnumerable<(Guid CredentialId, Guid BotId)> rows = await connection.QueryAsync<(Guid CredentialId, Guid BotId)>(
+            new CommandDefinition(SteamOrderJournalQueries.OpenAccounts, cancellationToken: cancellationToken));
+
+        return [.. rows];
+    }
+
     public async Task<bool> AddSell(SteamOrderJournalEntry entry, IReadOnlyList<SteamAssetReservation> reservations, CancellationToken cancellationToken)
     {
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);

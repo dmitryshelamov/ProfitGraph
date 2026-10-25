@@ -25,6 +25,11 @@ internal interface ISteamOrderJournal
     Task<IReadOnlyList<SteamOrderJournalEntry>> Open(Guid credentialId, CancellationToken cancellationToken);
 
     /// <summary>
+    ///     A bot of each account that has entries not done, so the order worker knows whose accounts to move along.
+    /// </summary>
+    Task<IReadOnlyList<(Guid CredentialId, Guid BotId)>> OpenAccounts(CancellationToken cancellationToken);
+
+    /// <summary>
     ///     Records a sell with the assets it reserves, all or nothing. False when the entry exists already or an asset is
     ///     reserved by another open sell of the account.
     /// </summary>

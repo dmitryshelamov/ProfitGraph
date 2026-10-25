@@ -11,7 +11,7 @@ namespace ProfitGraph.Venues.Steam.Persistence.Repositories;
 /// <summary>
 ///     Steam's own table (ADR 0022, C8), written in short statements of its own outside the core's transactions.
 /// </summary>
-internal sealed class SteamAccountRepository(NpgsqlDataSource dataSource)
+internal sealed class SteamAccountRepository(NpgsqlDataSource dataSource) : ISteamAccountStore
 {
     public async Task<SteamAccount?> Get(Guid credentialId, CancellationToken cancellationToken)
     {
