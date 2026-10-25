@@ -1,6 +1,6 @@
 import type { StatusTone } from '@/shared/ui/StatusBadge';
 
-import type { Bot, BotAlertKind, BotRuntimeStatus, BotStatusReason } from './types';
+import type { Bot, BotAlertKind, BotFeedKind, BotRuntimeStatus, BotStatusReason } from './types';
 
 const runtimeLabels: Record<BotRuntimeStatus, string> = {
   Created: 'Ожидает запуска',
@@ -81,4 +81,31 @@ export function canEditParameters(bot: Pick<Bot, 'desiredState' | 'runtimeStatus
     bot.runtimeStatus !== 'Starting' &&
     bot.runtimeStatus !== 'Running'
   );
+}
+
+const feedLabels: Record<BotFeedKind, string> = {
+  Started: 'Запущен',
+  Stopped: 'Остановлен',
+  Killed: 'Аварийная остановка',
+  Degraded: 'Остановлен по безопасности',
+  Recovered: 'Восстановился',
+  RuntimeStopped: 'Выполнение остановлено',
+  RunRestarted: 'Перезапущен',
+  GraphVersionApplied: 'Новая версия стратегии',
+  GraphChangeRejected: 'Версия стратегии не принята',
+  FeedStalled: 'Нет свежих свечей',
+  FeedRecovered: 'Свечи снова поступают',
+  ExchangeUnavailable: 'Биржа не отвечает',
+  SubmitHeld: 'Заявки удержаны',
+  OrderPlaced: 'Заявка отправлена',
+  OrderRejected: 'Заявка отклонена',
+  OrderFailed: 'Заявку не удалось доставить',
+  Fill: 'Исполнение',
+  PositionOpened: 'Позиция открыта',
+  PositionClosed: 'Позиция закрыта',
+  SettingsChanged: 'Настройки изменены',
+};
+
+export function feedLabel(kind: BotFeedKind): string {
+  return feedLabels[kind];
 }

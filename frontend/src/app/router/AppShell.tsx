@@ -60,12 +60,13 @@ export function AppShell() {
         </nav>
         {user && (
           <div className="ml-auto flex items-center gap-3 text-sm">
-            <span
-              className="text-text-secondary"
+            <Link
+              to="/profile"
+              className="text-text-secondary hover:text-text"
               title={user.role === 'Owner' ? 'Владелец' : 'Пользователь'}
             >
               {user.login}
-            </span>
+            </Link>
             <Button size="sm" variant="ghost" onClick={() => void leave()}>
               Выйти
             </Button>

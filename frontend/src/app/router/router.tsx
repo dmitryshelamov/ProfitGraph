@@ -166,6 +166,12 @@ const credentialsRoute = createRoute({
   ),
 });
 
+const profileRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/profile',
+  component: lazyRouteComponent(() => import('@/pages/profile/ProfilePage'), 'ProfilePage'),
+});
+
 const strategyEditorRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/strategies/$strategyId/edit',
@@ -192,6 +198,7 @@ const routeTree = rootRoute.addChildren([
       botsRoute,
       botRoute,
       credentialsRoute,
+      profileRoute,
     ]),
     strategyEditorRoute,
   ]),

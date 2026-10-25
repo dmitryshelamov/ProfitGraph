@@ -6,6 +6,7 @@ import type { ExchangeCredential } from '../model/types';
 
 export const credentialKeys = {
   all: ['exchange-credentials'] as const,
+  account: (id: string) => ['exchange-credentials', id, 'account'] as const,
 };
 
 export function credentialsQuery() {
@@ -34,4 +35,14 @@ export async function deleteCredential(id: string): Promise<void> {
   if (!result.response.ok) {
     unwrap(result);
   }
+}
+
+/** The account value history of a key's exchange account over the last week, oldest first, with how reading it goes. */
+export function accountHistoryQuery(id: string) {
+  return queryOptions({
+    queryKey: credentialKeys.account(id),
+    queryFn: async () =>
+      unwrap(await api.GET('/api/exchange-credentials/{id}/account', { params: { path: { id } } })),
+    refetchInterval: 60_000,
+  });
 }

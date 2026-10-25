@@ -4,6 +4,9 @@ import { Link, useParams } from '@tanstack/react-router';
 import {
   AlertsList,
   BotControls,
+  BotFeedList,
+  BotFillsTable,
+  BotPositionCard,
   botQuery,
   BotStatusBadge,
   diagnosticLabel,
@@ -18,7 +21,10 @@ import { Card } from '@/shared/ui/Card';
 import { DateTime } from '@/shared/ui/DateTime';
 import { PageHeader } from '@/shared/ui/PageHeader';
 
-/** One bot: its state and controls, limits, parameters, foreign orders, alerts and a manual order. */
+/**
+ * One bot: its state and controls, position at a live price, limits, parameters, foreign orders, alerts, manual order,
+ * event feed and fills.
+ */
 export function BotPage() {
   const { botId } = useParams({ from: '/_authenticated/_shell/bots/$botId' });
   const bot = useQuery(botQuery(botId));
@@ -70,6 +76,9 @@ export function BotPage() {
           </p>
         </div>
       </Card>
+      <Card title="Позиция">
+        <BotPositionCard botId={current.id} />
+      </Card>
       <div className="grid gap-6 md:grid-cols-2">
         <Card title="Лимиты риска">
           <RiskLimitsForm
@@ -89,6 +98,12 @@ export function BotPage() {
       </Card>
       <Card title="Алерты">
         <AlertsList botId={current.id} />
+      </Card>
+      <Card title="Лента">
+        <BotFeedList botId={current.id} />
+      </Card>
+      <Card title="Сделки">
+        <BotFillsTable botId={current.id} />
       </Card>
     </div>
   );

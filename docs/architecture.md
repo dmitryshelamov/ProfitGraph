@@ -201,6 +201,12 @@ src/
   The bot page lists its alerts with acknowledgement and sends an owner manual order, followed until the runner
   resolves it. `TradingHaltBanner` shows the global halt to everyone and lets the Owner halt or resume. When a save is
   refused with `live_impact`, the editor lists the running bots and saves again with `confirmLiveImpact`.
+- **Live reports.** The bot page shows the position, the feed and the fills; the feed and the fills page backwards
+  through `before` cursors. The position card subscribes to `/ws/live-prices` for the bot and shows a pushed ticker
+  only when it is newer than the stored display price, with the price's source and age; the profit next to it stays
+  the server's until the next read. `CredentialsPage` shows each key's latest account value, its coins and why the last
+  read failed. `modules/notifications` and the `/profile` page, opened from the login in the header, issue a Telegram
+  link code and unlink the chat.
 - **API client.** `shared/api/client.ts` is the only HTTP client. Its types come from
   `shared/api/generated/schema.d.ts`, generated from the API's OpenAPI document with `npm run generate:api` and never
   edited by hand. Failures surface as `ApiError` built from Problem Details.

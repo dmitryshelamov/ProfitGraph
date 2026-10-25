@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query';
+import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 
 import { api, ApiError, unwrap } from '@/shared/api/client';
 
@@ -11,6 +11,9 @@ export const botKeys = {
   manualOrder: (id: string, orderId: string) => ['bots', id, 'manual-orders', orderId] as const,
   tradingHalt: ['trading-halt'] as const,
   liveImpact: (strategyId: string) => ['strategies', strategyId, 'live-impact'] as const,
+  fills: (id: string) => ['bots', id, 'fills'] as const,
+  feed: (id: string) => ['bots', id, 'feed'] as const,
+  position: (id: string) => ['bots', id, 'position'] as const,
 };
 
 /** A missing bot and a bot of another user are both 404; retrying cannot change that. */
@@ -171,5 +174,59 @@ export function liveImpactQuery(strategyId: string) {
       unwrap(
         await api.GET('/api/strategies/{id}/live-impact', { params: { path: { id: strategyId } } }),
       ),
+  });
+}
+
+const pageSize = 50;
+
+/** The bot's fills, newest first, a page at a time. */
+export function botFillsQuery(id: string) {
+  return infiniteQueryOptions({
+    queryKey: botKeys.fills(id),
+    queryFn: async ({ pageParam }) =>
+      unwrap(
+        await api.GET('/api/bots/{id}/fills', {
+          params: {
+            path: { id },
+            query: { limit: pageSize, ...(pageParam === null ? {} : { before: pageParam }) },
+          },
+        }),
+      ),
+    initialPageParam: null as number | null,
+    getNextPageParam: (page) => page.next ?? undefined,
+    refetchInterval: 15_000,
+  });
+}
+
+/** The bot's event feed, newest first, a page at a time; entries older than 90 days are gone. */
+export function botFeedQuery(id: string) {
+  return infiniteQueryOptions({
+    queryKey: botKeys.feed(id),
+    queryFn: async ({ pageParam }) =>
+      unwrap(
+        await api.GET('/api/bots/{id}/feed', {
+          params: {
+            path: { id },
+            query: { limit: pageSize, ...(pageParam === null ? {} : { before: pageParam }) },
+          },
+        }),
+      ),
+    initialPageParam: null as number | null,
+    getNextPageParam: (page) => page.next ?? undefined,
+    refetchInterval: 10_000,
+  });
+}
+
+/** The position at its display price, with recent cycles. */
+export function botPositionQuery(id: string) {
+  return queryOptions({
+    queryKey: botKeys.position(id),
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/api/bots/{id}/position', {
+          params: { path: { id }, query: { cycles: 20 } },
+        }),
+      ),
+    refetchInterval: 10_000,
   });
 }
