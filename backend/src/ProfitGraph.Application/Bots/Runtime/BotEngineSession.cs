@@ -295,8 +295,9 @@ public sealed class BotEngineSession
                 AppliedParameters,
                 NewIntents(Checkpoint, current, now),
                 manualOrder,
-                BotRootAccounting.Fills(_botId, Checkpoint, current, update, now),
-                BotRootAccounting.Position(Checkpoint, current, now)),
+                BotRootAccounting.Fills(_botId, Checkpoint, current, update, _dispatcher.Account.Rules.BuyFeeAsset, now),
+                BotRootAccounting.Position(Checkpoint, current, now),
+                BotRootAccounting.FeeCorrections(_botId, Checkpoint, current, update, now)),
             bot =>
             {
                 bot.ApplyStrategyVersion(_version, now);

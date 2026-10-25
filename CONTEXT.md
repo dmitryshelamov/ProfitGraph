@@ -140,6 +140,11 @@ bot's venue state was reconciled.
 A submit or cancel for the venue, saved in the same transaction as the engine checkpoint that produced it and then
 delivered by a dispatcher. A submit that may have reached the venue is looked up before any retry.
 
+### Fee Correction
+
+A commission a venue reports after an order's fills were already accounted, for example T-Invest's late commissions. It
+raises the order's fee once, is recorded beside the unchanged fills and appears in the bot's feed.
+
 ### Kill Switch
 
 A per-bot control, or the global trading halt, that stops bots at once, cancels their open orders and rejects

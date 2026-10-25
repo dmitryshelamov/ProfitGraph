@@ -20,7 +20,8 @@ internal static class BotFillDbConverter
                 row.GrossQuote,
                 row.Fee,
                 row.CumulativeGrossBase,
-                row.FilledAt));
+                row.FilledAt,
+                row.FeeAsset is null ? null : Enum.Parse<FeeAsset>(row.FeeAsset)));
     }
 
     public static BotFillDb ToDb(this BotFill fill)
@@ -35,6 +36,7 @@ internal static class BotFillDbConverter
             GrossBase = fill.GrossBase,
             GrossQuote = fill.GrossQuote,
             Fee = fill.Fee,
+            FeeAsset = fill.FeeAsset.ToString(),
             CumulativeGrossBase = fill.CumulativeGrossBase,
             FilledAt = fill.FilledAt
         };

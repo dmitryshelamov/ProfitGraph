@@ -30,6 +30,10 @@ function details(entry: BotFeedEntry): string {
     return reasonLabel(reason);
   }
 
+  if (entry.details.correctedFee) {
+    return `заявка ${engineOrderId}: было ${entry.details.previousFee}, стало ${entry.details.correctedFee}`;
+  }
+
   if (grossBase && grossQuote) {
     return `${side === 'Sell' ? 'продажа' : 'покупка'} ${grossBase} на ${grossQuote}`;
   }

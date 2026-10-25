@@ -28,6 +28,7 @@ internal static class BotsRegistration
         services.AddScoped<IBotAlertRepository, BotAlertRepository>();
         services.AddScoped<IManualOrderRequestRepository, ManualOrderRequestRepository>();
         services.AddScoped<IBotFillRepository, BotFillRepository>();
+        services.AddScoped<IBotFeeCorrectionRepository, BotFeeCorrectionRepository>();
         services.AddScoped<IBotPositionCycleRepository, BotPositionCycleRepository>();
         services.AddScoped<IBotFeedRepository, BotFeedRepository>();
         services.AddScoped<ILiveMarkPriceRepository, LiveMarkPriceRepository>();

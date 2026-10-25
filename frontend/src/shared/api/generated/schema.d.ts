@@ -3174,7 +3174,7 @@ export interface components {
             occurredAt: string;
         };
         /** @enum {unknown} */
-        BotFeedKind: "Started" | "Stopped" | "Killed" | "Degraded" | "Recovered" | "RuntimeStopped" | "RunRestarted" | "GraphVersionApplied" | "GraphChangeRejected" | "FeedStalled" | "FeedRecovered" | "ExchangeUnavailable" | "SubmitHeld" | "OrderPlaced" | "OrderRejected" | "OrderFailed" | "Fill" | "PositionOpened" | "PositionClosed" | "SettingsChanged";
+        BotFeedKind: "Started" | "Stopped" | "Killed" | "Degraded" | "Recovered" | "RuntimeStopped" | "RunRestarted" | "GraphVersionApplied" | "GraphChangeRejected" | "FeedStalled" | "FeedRecovered" | "ExchangeUnavailable" | "SubmitHeld" | "OrderPlaced" | "OrderRejected" | "OrderFailed" | "Fill" | "PositionOpened" | "PositionClosed" | "SettingsChanged" | "FeeCorrected";
         BotFeedPageResponse: {
             items: components["schemas"]["BotFeedEntryResponse"][];
             /** Format: int64 */
