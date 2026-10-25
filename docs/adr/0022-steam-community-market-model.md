@@ -72,12 +72,14 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
 ### Holding periods
 
 - **Core change C5, settlement hold in replay.** `ExecutionSettings` gets an optional `SettlementHold` duration. A
-  replay buy fill creates a lot sellable at the fill's market time plus the hold. A sell larger than the unlocked
+  replay buy fill creates a lot sellable at the fill's market time plus the hold. Market time is the replay's explicit
+  time: a candle's open time at its open, its close time at any later point of the candle. A sell larger than the unlocked
   quantity fills partly from the unlocked lots once its price is reached; the remainder stays working and is never
   reduced. Each partial fill is its own ledger entry, and the order's terminal `Filled` event is emitted once, after the
   whole quantity filled. Replay thereby gains partial limit fills, which only a settlement hold produces; without one a
-  limit order still fills whole. Lots are part of the replay state and the checkpoint. Steam's default is seven days,
-  an estimate the run can change (0 to 3 650 days).
+  limit order still fills whole. Lots live in the replay state only; the live account has no lots. A backtest request
+  takes the hold as `settlementHoldSeconds` (0 to 315 360 000); Steam's default is seven days, an estimate the run can
+  change.
 - **Live holds belong to the gateway.** The live engine does not track lots. The Steam gateway knows each owned
   asset's actual unlock time from the inventory (`Tradable/Marketable After`; an unreadable date is locked and is read
   again after 15 minutes). A sell whose assets are still locked is acknowledged with `LocalAccepted` and a waiting

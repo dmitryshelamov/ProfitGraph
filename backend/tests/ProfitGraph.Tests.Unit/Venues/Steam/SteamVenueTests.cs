@@ -79,5 +79,6 @@ public sealed class SteamVenueTests
         defaults.Venue.ShouldBe(new VenueId("steam"));
         defaults.Defaults.SellerFees!.Rates.ShouldBe([0.05m, 0.10m]);
         defaults.Defaults.SellerFees.Minimum.ShouldBe(0.01m);
+        defaults.Defaults.SettlementHoldSeconds.ShouldBe(604_800);
     }
 }

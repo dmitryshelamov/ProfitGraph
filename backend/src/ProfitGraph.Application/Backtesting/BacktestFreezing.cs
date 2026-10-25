@@ -49,9 +49,11 @@ internal static class BacktestFreezing
 
     private static ExecutionSettings Settings(StartBacktestCommand request)
     {
-        return request.SellerFees is { } fees
+        ExecutionSettings settings = request.SellerFees is { } fees
             ? new ExecutionSettings(request.StartingCapital, request.Slippage, new SellerFeeSchedule(fees.Rates, fees.Minimum))
             : new ExecutionSettings(request.StartingCapital, request.Slippage, request.LimitFeeRate, request.MarketFeeRate);
+
+        return request.SettlementHoldSeconds is { } hold ? settings.WithSettlementHold(TimeSpan.FromSeconds(hold)) : settings;
     }
 
     /// <summary>

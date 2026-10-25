@@ -27,6 +27,9 @@ internal sealed class BacktestConfigurationDb
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SellerFeeScheduleDb? SellerFees { get; init; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? SettlementHoldSeconds { get; init; }
+
     public string ExecutionPolicy { get; init; } = null!;
     public string Fingerprint { get; init; } = null!;
 }

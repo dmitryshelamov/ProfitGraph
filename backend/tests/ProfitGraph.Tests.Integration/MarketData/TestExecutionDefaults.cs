@@ -12,5 +12,7 @@ public sealed class TestExecutionDefaults : IVenueExecutionDefaults
 {
     public VenueId Venue { get; } = new VenueId(TestHistoryVenue.WithHistory);
 
-    public VenueExecutionDefaultsInternal Defaults { get; } = new VenueExecutionDefaultsInternal(new SellerFeeScheduleInternal([0.05m, 0.10m], Minimum: 0.01m));
+    public VenueExecutionDefaultsInternal Defaults { get; } = new VenueExecutionDefaultsInternal(
+        new SellerFeeScheduleInternal([0.05m, 0.10m], Minimum: 0.01m),
+        SettlementHoldSeconds: null);
 }

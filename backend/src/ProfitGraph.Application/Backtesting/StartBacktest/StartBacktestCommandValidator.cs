@@ -11,6 +11,7 @@ internal sealed class StartBacktestCommandValidator : AbstractValidator<StartBac
 {
     private const int MaxParameters = 100;
     private const int MaxSellerFeeComponents = 4;
+    private const long MaxSettlementHoldSeconds = 315_360_000;
     private const decimal MaxStartingCapital = 1_000_000_000_000m;
 
     public StartBacktestCommandValidator(VenueRegistry venues, VenuePorts<IInstrumentRulesSource> rules)
@@ -59,6 +60,9 @@ internal sealed class StartBacktestCommandValidator : AbstractValidator<StartBac
             .Must((command, _) => command.LimitFeeRate == 0m && command.MarketFeeRate == 0m)
             .WithMessage("Seller fees replace the limit and market rates; leave those at zero.")
             .When(command => command.SellerFees is not null);
+        RuleFor(command => command.SettlementHoldSeconds)
+            .InclusiveBetween(from: 0L, MaxSettlementHoldSeconds)
+            .When(command => command.SettlementHoldSeconds is not null);
         RuleFor(command => command.OutOfSampleFraction).InclusiveBetween(from: 0m, to: 0.9m).When(command => command.OutOfSampleFraction is not null);
     }
 }

@@ -34,7 +34,7 @@ public static class OrderMatcher
         {
             Order order = active[index];
 
-            if (order.Type != OrderType.Limit || !order.IsEligibleAt(candleIndex))
+            if (order.Type != OrderType.Limit || !order.IsEligibleAt(candleIndex) || !account.CanExecute(order))
             {
                 continue;
             }
@@ -79,7 +79,7 @@ public static class OrderMatcher
         {
             Order order = active[index];
 
-            if (order.Type == OrderType.Limit && order.IsEligibleAt(candleIndex)
+            if (order.Type == OrderType.Limit && order.IsEligibleAt(candleIndex) && account.CanExecute(order)
                 && IsExecutable(order.Side, price, order.LimitPrice!.Value)
                 && (earliest is null || order.Id < earliest.OrderId))
             {

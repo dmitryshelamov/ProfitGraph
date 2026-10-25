@@ -17,6 +17,11 @@ public sealed record ExecutionSettings
     /// </summary>
     public SellerFeeSchedule? SellerFees { get; }
 
+    /// <summary>
+    ///     Время, через которое купленный актив можно продать (ADR 0022), или null. Действует только в replay.
+    /// </summary>
+    public TimeSpan? SettlementHold { get; private init; }
+
     public ExecutionSettings(decimal startingCapital, decimal slippage, decimal limitFeeRate, decimal marketFeeRate)
         : this(startingCapital, slippage, limitFeeRate, marketFeeRate, sellerFees: null)
     {
@@ -44,6 +49,19 @@ public sealed record ExecutionSettings
         LimitFeeRate = limitFeeRate;
         MarketFeeRate = marketFeeRate;
         SellerFees = sellerFees;
+    }
+
+    /// <summary>
+    ///     Те же параметры с задержкой продажи купленного актива.
+    /// </summary>
+    public ExecutionSettings WithSettlementHold(TimeSpan hold)
+    {
+        if (hold < TimeSpan.Zero)
+        {
+            throw new TradingInvariantException("A settlement hold cannot be negative.");
+        }
+
+        return this with { SettlementHold = hold };
     }
 
     public decimal FeeRate(OrderType type)

@@ -3,7 +3,7 @@ namespace ProfitGraph.Api.Backtesting.Contracts;
 /// <summary>
 ///     Starts a run of a strategy version; decimals are exact invariant strings. Omitted parameters keep the version's
 ///     values, an omitted version is the current one and an omitted holdout fraction is 0.2. Seller fees replace the limit
-///     and market rates (ADR 0022).
+///     and market rates, and a settlement hold in whole seconds delays selling what was bought (ADR 0022).
 /// </summary>
 public sealed record StartBacktestRequest(
     Guid StrategyId,
@@ -19,4 +19,5 @@ public sealed record StartBacktestRequest(
     string? LimitFeeRate,
     string? MarketFeeRate,
     string? OutOfSampleFraction,
-    SellerFeeScheduleRequest? SellerFees = null);
+    SellerFeeScheduleRequest? SellerFees = null,
+    long? SettlementHoldSeconds = null);
