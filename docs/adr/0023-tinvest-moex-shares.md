@@ -226,3 +226,29 @@ withdrawals); and that the endpoint certificate is still issued by the Russian T
 - **Account value.** `GetPortfolio` in roubles: the portfolio total and each position by ticker; the available value is
   left unknown.
 - **Display price.** None yet: `ILiveMarkPriceSource` runs without a bot's credential, so T-Invest registers none.
+
+## Amendment: order gateway (T11)
+
+- **Attempt first.** An attempt is written to `tinvest_order_attempts` as `Planned` before the runtime marks the place
+  started, and moves to `Sent` before `PostOrder`. An order with no attempt, or with only a `Planned` one, never reached
+  T-Invest: a `Planned` attempt is sent as it is, and a cancel of it is local. Every other attempt is resolved by
+  `GetOrderState` with `ORDER_ID_TYPE_REQUEST`; an empty answer is not proof of absence, so the submit stays unresolved
+  and is never sent again. The table lives in the module, with its migration (`202610250045`) beside it, like Steam's.
+- **Request IDs.** A UUID version 8 from the first 16 bytes of SHA-256 over `profitgraph/tinvest-order-request/v1`, the
+  bot GUID, the engine order and the attempt number.
+- **Sizing.** A limit order and a market sell must be whole lots and a limit price must lie on the tick, as the share's
+  rules require; otherwise the order is rejected `InvalidAmount` before anything is recorded. A market buy takes the whole
+  lots its quote budget buys at the last price plus `Venues:TInvest:MarketBuySlippage` (1 %).
+- **Updates.** `OrderStateStream` for the bot's account is only a signal: an order of the bot, known by its request ID,
+  is read again with `GetOrderState` and translated. Executed base is executed lots times the lot; executed quote is the
+  sum of the trade stages, each price per share times lots times the lot, so no average is trusted; the fee is the
+  executed commission in roubles, and a fill whose commission is still zero is reported as pending. Stages that disagree
+  with the executed lots, or another currency, are unresolved.
+- **Rejections.** A status whose description is exactly a number rejects with the reason of Profit Fox Designer ADR
+  0079's table and a fixed message with the code; the code is kept in the attempt, so a retried submit or a
+  reconciliation reports the same rejection without sending. Until T12, `30098` and `30099` are broker rejections like any
+  other unknown code.
+- **Reconciliation.** The token must still have full access to the open account (`GetAccounts`), otherwise
+  `KeyPermissions`. The order state stream is subscribed before the lookups. An active order on the bot's share whose
+  request ID is not one of the bot's attempts is `ForeignOrder` unless the bot allows them; foreign trades are checked
+  with the operations cursor in T13.

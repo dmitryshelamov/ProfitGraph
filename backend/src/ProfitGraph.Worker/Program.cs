@@ -61,6 +61,7 @@ public static class Program
             {
                 builder.Services.AddBybitTrading();
                 builder.Services.AddSteamTrading();
+                builder.Services.AddTInvestTrading();
             }
             else if (simulated)
             {

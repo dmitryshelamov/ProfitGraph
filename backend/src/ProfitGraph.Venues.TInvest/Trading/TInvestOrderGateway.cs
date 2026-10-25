@@ -1,0 +1,357 @@
+using System.Runtime.CompilerServices;
+
+using Microsoft.Extensions.Options;
+
+using ProfitGraph.Application.Bots.Contracts;
+using ProfitGraph.Application.Bots.Ports;
+using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.MarketData;
+using ProfitGraph.Engine.Accounting;
+using ProfitGraph.Venues.TInvest.MarketData;
+using ProfitGraph.Venues.TInvest.Transport;
+
+using Tinkoff.InvestApi.V1;
+
+using OrderType = ProfitGraph.Engine.Accounting.OrderType;
+
+namespace ProfitGraph.Venues.TInvest.Trading;
+
+/// <summary>
+///     T-Invest MOEX share execution for live bots (ADR 0023). Registered only by a Worker with the live role and trading
+///     enabled. Each attempt of an engine order is recorded in the module's attempts table before the place request may
+///     leave the process and is sent as a DAY limit or a market order in whole lots under its deterministic request ID. An
+///     attempt that may have reached T-Invest is never sent again: it is resolved only by <c>GetOrderState</c> with its
+///     request ID. Only a status whose description is a broker code rejects; every other failure is unknown, so the intent
+///     retries and eventually degrades the bot. Reconciliation checks the account's access, subscribes to the account's
+///     order states and refuses another active order on the bot's share unless the bot allows them.
+/// </summary>
+internal sealed class TInvestOrderGateway(
+    ITInvestBotContexts contexts,
+    ITInvestOrderAttempts attempts,
+    TInvestOrderReads reads,
+    TInvestOrderStreams streams,
+    TInvestOrderUpdates updates,
+    TInvestPrices prices,
+    TInvestTransport transport,
+    IOptions<TInvestOptions> options,
+    TimeProvider clock) : IOrderGateway
+{
+    public VenueId Venue => TInvestVenue.VenueId;
+
+    public ClientOrderId ClientOrderIdFor(BotId botId, long engineOrderId)
+    {
+        return TInvestClientOrderIds.For(botId, engineOrderId);
+    }
+
+    /// <summary>
+    ///     The updates of the stream reconciliation opened; the stream closes when the runner stops reading.
+    /// </summary>
+    public async IAsyncEnumerable<ExternalOrderUpdate> Updates(BotId botId, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (ExternalOrderUpdate update in updates.Read(botId, cancellationToken))
+            {
+                yield return update;
+            }
+        }
+        finally
+        {
+            await streams.Close(botId);
+        }
+    }
+
+    /// <summary>
+    ///     Places the order's first attempt, or sends an attempt recorded before it left the process. An attempt that may
+    ///     have reached T-Invest is looked up instead, and a definitively rejected one is rejected again.
+    /// </summary>
+    public async Task<ExternalOrderUpdate?> Submit(OrderSubmitInternal submit, Func<CancellationToken, Task> markPlaceStarted, CancellationToken cancellationToken)
+    {
+        TInvestBotContext context = await contexts.Get(submit.BotId, cancellationToken);
+        OrderSnapshot order = submit.Order;
+        TInvestOrderAttempt? attempt = await attempts.Latest(submit.BotId.Value, order.Id, cancellationToken);
+
+        if (attempt is null)
+        {
+            decimal? lastPrice = order is { Type: OrderType.Market, Side: OrderSide.Buy } ? await prices.Last(context.Token, context.Share, cancellationToken) : null;
+
+            if (TInvestOrderPlans.For(order, context.Share, lastPrice, options.Value.MarketBuySlippage) is not { } plan)
+            {
+                return ExternalOrderUpdate.Reject(order.Id, RejectionReason.InvalidAmount, "The order is not a whole number of T-Invest lots on the price tick.");
+            }
+
+            DateTimeOffset now = clock.GetUtcNow();
+            var planned = new TInvestOrderAttempt(
+                submit.BotId.Value,
+                order.Id,
+                Attempt: 1,
+                TInvestOrderRequestIds.For(submit.BotId, order.Id, attempt: 1),
+                context.Share.Uid,
+                order.Side,
+                order.Type,
+                plan.Lots,
+                plan.Price,
+                TInvestOrderAttemptState.Planned,
+                ExchangeOrderId: null,
+                BrokerCode: null,
+                now,
+                now);
+            attempt = await attempts.Add(planned, cancellationToken)
+                ? planned
+                : await attempts.Latest(submit.BotId.Value, order.Id, cancellationToken) ?? throw new TInvestOrderUnresolvedException();
+        }
+
+        switch (attempt)
+        {
+            case { State: TInvestOrderAttemptState.Planned }:
+                return await Send(context, attempt, markPlaceStarted, cancellationToken);
+            case { State: TInvestOrderAttemptState.Final, ExchangeOrderId: null, BrokerCode: { } code }:
+                return TInvestRejections.For(order.Id, code, order.Side);
+            default:
+                await PublishExisting(context, attempt, cancellationToken);
+
+                return null;
+        }
+    }
+
+    /// <summary>
+    ///     Cancels the order's latest attempt by its request ID; the outcome is read back and published. An attempt that never
+    ///     left the process is cancelled locally.
+    /// </summary>
+    public async Task Cancel(BotId botId, ClientOrderId clientOrderId, CancellationToken cancellationToken)
+    {
+        if (!TInvestClientOrderIds.TryParse(clientOrderId.Value, out BotId? owner, out long engineOrderId) || owner != botId)
+        {
+            return;
+        }
+
+        TInvestOrderAttempt? attempt = await attempts.Latest(botId.Value, engineOrderId, cancellationToken);
+
+        if (attempt is null || attempt.State == TInvestOrderAttemptState.Planned)
+        {
+            // The attempt is recorded before any request, so an order without a sent attempt never reached T-Invest.
+            if (attempt is not null &&
+                !await attempts.Transition(attempt with { State = TInvestOrderAttemptState.Final, UpdatedAt = clock.GetUtcNow() }, attempt.State, cancellationToken))
+            {
+                throw new TInvestOrderUnresolvedException();
+            }
+
+            updates.Publish(botId, [ExternalOrderUpdate.ConfirmCancel(engineOrderId)]);
+
+            return;
+        }
+
+        if (attempt is { State: TInvestOrderAttemptState.Final, ExchangeOrderId: null })
+        {
+            return;
+        }
+
+        TInvestBotContext context = await contexts.Get(botId, cancellationToken);
+        var requested = true;
+
+        try
+        {
+            await transport.Unary(
+                context.Token,
+                TInvestMethodGroup.Orders,
+                (invoker, callOptions) => new OrdersService.OrdersServiceClient(invoker).CancelOrderAsync(
+                    new CancelOrderRequest { AccountId = context.AccountId, OrderId = attempt.RequestId.ToString("D"), OrderIdType = OrderIdType.Request },
+                    callOptions),
+                cancellationToken);
+        }
+        catch (TInvestRpcException)
+        {
+            requested = false;
+        }
+
+        OrderState state = await PublishExisting(context, attempt, cancellationToken);
+
+        if (!requested && !TInvestOrderTranslation.IsFinal(state))
+        {
+            throw new TInvestOrderUnresolvedException();
+        }
+    }
+
+    /// <summary>
+    ///     Checks that the token still has full access to an open account, subscribes to its order states, then looks up every
+    ///     order the bot asks about and the account's active orders on the share. An order that may have reached T-Invest but
+    ///     is not found is unresolved; an active order on the share that is not the bot's is foreign unless the bot allows them.
+    /// </summary>
+    public async Task<BotReconciliationInternal> Reconcile(BotReconcileInternal request, CancellationToken cancellationToken)
+    {
+        TInvestBotContext context = await contexts.Get(request.BotId, cancellationToken);
+
+        if (!await AccountMayTrade(context, cancellationToken))
+        {
+            return new BotReconciliationInternal([], [], BotStatusReason.KeyPermissions);
+        }
+
+        await streams.Open(context, request.AllowForeignOrders, cancellationToken);
+
+        try
+        {
+            BotReconciliationInternal reconciliation = await LookUp(context, request, cancellationToken);
+
+            if (reconciliation.Degradation is not null)
+            {
+                await streams.Close(request.BotId);
+            }
+
+            return reconciliation;
+        }
+        catch
+        {
+            await streams.Close(request.BotId);
+
+            throw;
+        }
+    }
+
+    private async Task<ExternalOrderUpdate?> Send(
+        TInvestBotContext context,
+        TInvestOrderAttempt planned,
+        Func<CancellationToken, Task> markPlaceStarted,
+        CancellationToken cancellationToken)
+    {
+        await markPlaceStarted(cancellationToken);
+        TInvestOrderAttempt sent = planned with { State = TInvestOrderAttemptState.Sent, UpdatedAt = clock.GetUtcNow() };
+
+        if (!await attempts.Transition(sent, TInvestOrderAttemptState.Planned, cancellationToken))
+        {
+            throw new TInvestOrderUnresolvedException();
+        }
+
+        PostOrderResponse response;
+
+        try
+        {
+            response = await transport.Unary(
+                context.Token,
+                TInvestMethodGroup.Orders,
+                (invoker, callOptions) => new OrdersService.OrdersServiceClient(invoker).PostOrderAsync(Request(context, sent), callOptions),
+                cancellationToken);
+        }
+        catch (TInvestRpcException error) when (error is { Kind: TInvestFailureKind.Rejected, BrokerCode: { } code })
+        {
+            await attempts.Transition(
+                sent with { State = TInvestOrderAttemptState.Final, BrokerCode = code, UpdatedAt = clock.GetUtcNow() },
+                sent.State,
+                cancellationToken);
+
+            return TInvestRejections.For(planned.EngineOrderId, code, planned.Side);
+        }
+        catch (TInvestRpcException)
+        {
+            await attempts.Transition(sent with { State = TInvestOrderAttemptState.Unknown, UpdatedAt = clock.GetUtcNow() }, sent.State, cancellationToken);
+
+            throw new TInvestOrderUnresolvedException();
+        }
+
+        TInvestOrderAttempt active = sent with { State = TInvestOrderAttemptState.Active, ExchangeOrderId = response.OrderId, UpdatedAt = clock.GetUtcNow() };
+        await attempts.Transition(active, sent.State, cancellationToken);
+        updates.Publish(context.BotId, [ExternalOrderUpdate.Accept(planned.EngineOrderId)]);
+
+        if (response.LotsExecuted > 0 || response.ExecutionReportStatus != OrderExecutionReportStatus.ExecutionReportStatusNew)
+        {
+            await PublishExisting(context, active, cancellationToken);
+        }
+
+        return null;
+    }
+
+    private async Task<BotReconciliationInternal> LookUp(TInvestBotContext context, BotReconcileInternal request, CancellationToken cancellationToken)
+    {
+        OrderState[] onShare = [.. (await reads.Active(context, cancellationToken)).Where(order => order.InstrumentUid == context.Share.Uid)];
+        Guid[] requestIds = [.. onShare.Select(order => Guid.TryParse(order.OrderRequestId, out Guid id) ? id : Guid.Empty).Where(id => id != Guid.Empty)];
+        IReadOnlyDictionary<Guid, Guid> owners = await attempts.Owners(requestIds, cancellationToken);
+        List<ExternalOrderUpdate> found = [];
+        List<ReconciledOrderInternal> orders = [];
+
+        foreach (ReconcileOrderInternal order in request.Orders)
+        {
+            TInvestOrderAttempt? attempt = await attempts.Latest(request.BotId.Value, order.EngineOrderId, cancellationToken);
+
+            switch (attempt)
+            {
+                case null when order.MayHaveReachedVenue:
+                    return new BotReconciliationInternal(found, orders, BotStatusReason.UnresolvedOrder);
+                case null or { State: TInvestOrderAttemptState.Planned }:
+                    continue;
+                case { State: TInvestOrderAttemptState.Final, ExchangeOrderId: null, BrokerCode: { } code }:
+                    found.Add(TInvestRejections.For(order.EngineOrderId, code, attempt.Side));
+                    orders.Add(new ReconciledOrderInternal(order.ClientOrderId, IsFinal: true));
+
+                    continue;
+            }
+
+            if (await reads.ByRequestId(context, attempt.RequestId, cancellationToken) is not { } state)
+            {
+                return new BotReconciliationInternal(found, orders, BotStatusReason.UnresolvedOrder);
+            }
+
+            await TInvestAttemptStates.Record(attempts, attempt, state, clock.GetUtcNow(), cancellationToken);
+            found.AddRange(TInvestOrderTranslation.Updates(order.EngineOrderId, state, context.Share.Lot));
+            orders.Add(new ReconciledOrderInternal(order.ClientOrderId, TInvestOrderTranslation.IsFinal(state)));
+        }
+
+        bool foreign = !request.AllowForeignOrders &&
+            onShare.Any(order => !Guid.TryParse(order.OrderRequestId, out Guid id) || !owners.TryGetValue(id, out Guid owner) || owner != request.BotId.Value);
+
+        return new BotReconciliationInternal(found, orders, foreign ? BotStatusReason.ForeignOrder : null);
+    }
+
+    /// <summary>
+    ///     Reads the attempt's state by its request ID and publishes it. An empty answer is not proof that the order was never
+    ///     placed.
+    /// </summary>
+    private async Task<OrderState> PublishExisting(TInvestBotContext context, TInvestOrderAttempt attempt, CancellationToken cancellationToken)
+    {
+        OrderState state = await reads.ByRequestId(context, attempt.RequestId, cancellationToken) ?? throw new TInvestOrderUnresolvedException();
+        await TInvestAttemptStates.Record(attempts, attempt, state, clock.GetUtcNow(), cancellationToken);
+        updates.Publish(context.BotId, TInvestOrderTranslation.Updates(attempt.EngineOrderId, state, context.Share.Lot));
+
+        return state;
+    }
+
+    private async Task<bool> AccountMayTrade(TInvestBotContext context, CancellationToken cancellationToken)
+    {
+        GetAccountsResponse response;
+
+        try
+        {
+            response = await transport.Unary(
+                context.Token,
+                TInvestMethodGroup.Users,
+                (invoker, callOptions) => new UsersService.UsersServiceClient(invoker).GetAccountsAsync(new GetAccountsRequest(), callOptions),
+                cancellationToken);
+        }
+        catch (TInvestRpcException error) when (error.Kind is TInvestFailureKind.Unauthenticated or TInvestFailureKind.PermissionDenied)
+        {
+            return false;
+        }
+
+        return response.Accounts.Any(account => account.Id == context.AccountId && account.Status == AccountStatus.Open &&
+            account.AccessLevel == AccessLevel.AccountAccessLevelFullAccess);
+    }
+
+    private static PostOrderRequest Request(TInvestBotContext context, TInvestOrderAttempt attempt)
+    {
+        var request = new PostOrderRequest
+        {
+            AccountId = context.AccountId,
+            InstrumentId = attempt.InstrumentUid,
+            OrderId = attempt.RequestId.ToString("D"),
+            Quantity = attempt.Lots,
+            Direction = attempt.Side == OrderSide.Buy ? OrderDirection.Buy : OrderDirection.Sell,
+            OrderType = attempt.Type == OrderType.Limit ? Tinkoff.InvestApi.V1.OrderType.Limit : Tinkoff.InvestApi.V1.OrderType.Market
+        };
+
+        if (attempt.Price is { } price)
+        {
+            request.Price = price.ToQuotation();
+            request.TimeInForce = TimeInForceType.TimeInForceDay;
+        }
+
+        return request;
+    }
+}
