@@ -4,6 +4,7 @@ using ProfitGraph.Infrastructure.Bots.Runtime;
 using ProfitGraph.Infrastructure.Common;
 using ProfitGraph.Infrastructure.Common.Outbox;
 using ProfitGraph.Infrastructure.Jobs;
+using ProfitGraph.Infrastructure.Notifications;
 using ProfitGraph.Venues.Bybit;
 
 using Serilog;
@@ -41,6 +42,7 @@ public static class Program
         {
             builder.Services.AddOutboxDispatcher();
             builder.Services.AddBotRuntime();
+            builder.Services.AddTelegramNotifications(builder.Configuration);
 
             if (builder.Configuration.GetValue<bool>("Live:Trading:Enabled"))
             {

@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using ProfitGraph.Api.Accounts.Contracts;
 using ProfitGraph.Api.Bots.Contracts;
+using ProfitGraph.Api.Notifications.Contracts;
 using ProfitGraph.Api.Strategies.Contracts;
 using ProfitGraph.Api.Trading.Contracts;
 using ProfitGraph.Application.Accounts.Contracts;
@@ -315,6 +316,26 @@ public sealed class BotControlEndpointTests
         coin.Coin.ShouldBe("BTC");
         coin.Balance.ShouldBe("0.0035");
         coin.UsdValue.ShouldBe("234.5");
+    }
+
+    [Test]
+    public async Task TelegramLinkCodeIsIssuedAndTheLinkCanBeRemoved()
+    {
+        BotOwner owner = await BotApi.NewOwner(_factory);
+
+        var code = (await (await owner.Client.PostAsync("/api/profile/telegram/link-code", content: null)).Content.ReadFromJsonAsync<TelegramLinkCodeResponse>(WebJson))!;
+        var status = (await owner.Client.GetFromJsonAsync<TelegramLinkResponse>("/api/profile/telegram", WebJson))!;
+        HttpResponseMessage unlinked = await owner.Client.DeleteAsync("/api/profile/telegram");
+
+        code.Code.Length.ShouldBe(10);
+        code.ExpiresAt.ShouldBeGreaterThan(DateTimeOffset.UtcNow.AddMinutes(9));
+        code.StartLink.ShouldBeNull();
+        status.Enabled.ShouldBeFalse();
+        status.Linked.ShouldBeFalse();
+        status.LinkedAt.ShouldBeNull();
+        status.Blocked.ShouldBeFalse();
+        status.BotUsername.ShouldBeNull();
+        unlinked.StatusCode.ShouldBe(HttpStatusCode.NoContent);
     }
 
     private async Task Record(Guid botId, params BotFill[] fills)

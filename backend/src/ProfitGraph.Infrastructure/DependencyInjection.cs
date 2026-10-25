@@ -7,6 +7,7 @@ using ProfitGraph.Application;
 using ProfitGraph.Application.Accounts;
 using ProfitGraph.Application.Strategies.Ports;
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Notifications;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Infrastructure.Accounts.Repositories;
 using ProfitGraph.Infrastructure.Accounts.Security;
@@ -18,6 +19,8 @@ using ProfitGraph.Infrastructure.Common.Outbox;
 using ProfitGraph.Infrastructure.Common.Postgres;
 using ProfitGraph.Infrastructure.Jobs;
 using ProfitGraph.Infrastructure.MarketData;
+using ProfitGraph.Infrastructure.Notifications;
+using ProfitGraph.Infrastructure.Notifications.Repositories;
 using ProfitGraph.Infrastructure.Optimization;
 using ProfitGraph.Infrastructure.Strategies.Repositories;
 using ProfitGraph.Infrastructure.Strategies.Repositories.Converters;
@@ -45,6 +48,12 @@ public static class DependencyInjection
         services.AddScoped<IExchangeCredentialRepository, ExchangeCredentialRepository>();
         services.AddScoped<IAccountSnapshotRepository, AccountSnapshotRepository>();
         services.AddScoped<IAccountBalanceStatusRepository, AccountBalanceStatusRepository>();
+        services.AddScoped<ITelegramLinkRepository, TelegramLinkRepository>();
+        services.AddScoped<ITelegramPollerLeaseRepository, TelegramPollerLeaseRepository>();
+        services.AddOptions<TelegramOptions>()
+            .Bind(configuration.GetSection(TelegramOptions.SectionName))
+            .Validate(options => options.IsValid(), "Telegram needs a bot token, an absolute base address and positive delays when it is enabled.")
+            .ValidateOnStart();
         services.AddOptions<SecretsOptions>().Bind(configuration.GetSection(SecretsOptions.SectionName));
         services.AddSingleton<ISecretProtector, AesGcmSecretProtector>();
         services.AddScoped<IStrategyRepository, StrategyRepository>();
