@@ -9,9 +9,10 @@ using ProfitGraph.Engine.Market;
 namespace ProfitGraph.Application.MarketData.DownloadCandles;
 
 /// <summary>
-///     Brings a series of closed candles into the cache (ADR 0010, Profit Fox Designer ADR 0017). The clock is read once;
-///     only missing ranges are fetched; every chunk is checked completely and stored in its own short transaction, so a
-///     failure keeps the chunks already stored and a later download continues from the cache.
+///     Brings a series of closed candles into the cache (ADR 0010, Profit Fox Designer ADR 0017), with the market closures
+///     the venue reports (ADR 0023, TC1). The clock is read once; only ranges that neither candles nor closures cover are
+///     fetched; every chunk is checked completely and stored in its own short transaction, so a failure keeps the chunks
+///     already stored and a later download continues from the cache.
 /// </summary>
 public sealed class CandleDownloadService(
     VenueRegistry venues,
@@ -130,7 +131,8 @@ public sealed class CandleDownloadService(
             from,
             to,
             HistoricalDataErrorCodes.InvalidStoredData);
-        IReadOnlyList<CandleRangeInternal> missing = FindMissing(cachedCandles, series.Timeframe, from, to);
+        IReadOnlyList<CandleRangeInternal> cachedClosures = await repository.GetClosures(series, from, to, cancellationToken);
+        List<CandleRangeInternal> missing = CandleCoverage.FindMissing(cachedCandles.Keys.ToHashSet(), cachedClosures, series.Timeframe, from, to);
 
         // A fully cached chunk needs no venue, so history imported for a venue without downloads can still be prepared.
         if (missing.Count == 0)
@@ -140,14 +142,18 @@ public sealed class CandleDownloadService(
 
         IHistoricalCandleSource source = Source(series);
         var downloadedCandles = new Dictionary<DateTimeOffset, Candle>();
+        var downloadedClosures = new List<CandleRangeInternal>();
 
         foreach (CandleRangeInternal range in missing)
         {
-            IReadOnlyList<Candle> candles = await source.Get(series.Symbol, series.Timeframe, range.From, range.To, cancellationToken);
-            AddChecked(candles, downloadedCandles, series.Timeframe, range.From, range.To, HistoricalDataErrorCodes.InvalidProviderData);
+            HistoricalCandlesInternal history = await source.Get(series.Symbol, series.Timeframe, range.From, range.To, cancellationToken);
+            AddChecked(history.Candles, downloadedCandles, series.Timeframe, range.From, range.To, HistoricalDataErrorCodes.InvalidProviderData);
+            downloadedClosures.AddRange(CheckedClosures(history, series.Timeframe, range));
         }
 
-        CandleRangeInternal[] gaps = [.. missing.SelectMany(range => FindMissing(downloadedCandles, series.Timeframe, range.From, range.To))];
+        HashSet<DateTimeOffset> downloadedTimes = [.. downloadedCandles.Keys];
+        CandleRangeInternal[] gaps =
+            [.. missing.SelectMany(range => CandleCoverage.FindMissing(downloadedTimes, downloadedClosures, series.Timeframe, range.From, range.To))];
 
         if (gaps.Length > 0)
         {
@@ -159,35 +165,39 @@ public sealed class CandleDownloadService(
 
         cancellationToken.ThrowIfCancellationRequested();
         Candle[] downloaded = [.. downloadedCandles.Values.OrderBy(candle => candle.OpenTime)];
-        int inserted = await transactions.ExecuteAsync(() => repository.Append(series, downloaded, source.Source, observedAt, cancellationToken), cancellationToken);
+        int inserted = await transactions.ExecuteAsync(
+            async () =>
+            {
+                int added = await repository.Append(series, downloaded, source.Source, observedAt, cancellationToken);
+
+                if (downloadedClosures.Count > 0)
+                {
+                    await repository.AppendClosures(series, downloadedClosures, source.Source, observedAt, cancellationToken);
+                }
+
+                return added;
+            },
+            cancellationToken);
 
         return (cachedCandles.Count, downloadedCandles.Count, inserted);
     }
 
-    private static List<CandleRangeInternal> FindMissing(Dictionary<DateTimeOffset, Candle> candles, Timeframe timeframe, DateTimeOffset from, DateTimeOffset to)
+    /// <summary>
+    ///     A venue's closures of one requested range, clipped to it and merged; a closure off the grid or around one of the
+    ///     venue's own candles is invalid provider data.
+    /// </summary>
+    private static List<CandleRangeInternal> CheckedClosures(HistoricalCandlesInternal history, Timeframe timeframe, CandleRangeInternal range)
     {
-        var ranges = new List<CandleRangeInternal>();
-        DateTimeOffset? start = null;
-
-        for (DateTimeOffset time = from; time < to; time += timeframe.Duration)
+        if (history.Closures.Any(closure => !CandleCoverage.IsValid(closure, timeframe)))
         {
-            if (!candles.ContainsKey(time))
-            {
-                start ??= time;
-            }
-            else if (start is not null)
-            {
-                ranges.Add(new CandleRangeInternal(start.Value, time));
-                start = null;
-            }
+            throw new HistoricalDataException(HistoricalDataErrorCodes.InvalidProviderData, "The venue reported an invalid market closure.", [range]);
         }
 
-        if (start is not null)
-        {
-            ranges.Add(new CandleRangeInternal(start.Value, to));
-        }
+        List<CandleRangeInternal> closures = CandleCoverage.Merge(history.Closures, range.From, range.To);
 
-        return ranges;
+        return CandleCoverage.Overlaps(history.Candles.Select(candle => candle.OpenTime), closures)
+            ? throw new HistoricalDataException(HistoricalDataErrorCodes.InvalidProviderData, "The venue reported a candle inside a market closure.", [range])
+            : closures;
     }
 
     private static void AddChecked(

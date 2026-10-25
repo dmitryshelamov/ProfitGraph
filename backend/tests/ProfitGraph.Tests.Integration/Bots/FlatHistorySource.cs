@@ -1,3 +1,4 @@
+using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Market;
@@ -21,7 +22,7 @@ public sealed class FlatHistorySource : IHistoricalCandleSource
         return Task.FromResult<DateTimeOffset?>(null);
     }
 
-    public Task<IReadOnlyList<Candle>> Get(InstrumentSymbol symbol, Timeframe timeframe, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
+    public Task<HistoricalCandlesInternal> Get(InstrumentSymbol symbol, Timeframe timeframe, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
     {
         var candles = new List<Candle>();
 
@@ -30,7 +31,7 @@ public sealed class FlatHistorySource : IHistoricalCandleSource
             candles.Add(Candle(time));
         }
 
-        return Task.FromResult<IReadOnlyList<Candle>>(candles);
+        return Task.FromResult(HistoricalCandlesInternal.Contiguous(candles));
     }
 
     public static Candle Candle(DateTimeOffset openTime)

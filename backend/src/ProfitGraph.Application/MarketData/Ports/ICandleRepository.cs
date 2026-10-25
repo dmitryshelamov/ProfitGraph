@@ -1,3 +1,4 @@
+using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Market;
 
@@ -22,4 +23,14 @@ public interface ICandleRepository
     ///     Reads at most <paramref name="limit" /> candles of the half-open range [from, to), oldest first.
     /// </summary>
     Task<IReadOnlyList<Candle>> Get(CandleSeries series, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Adds market closures that are not stored yet (ADR 0023, TC1); stored closures never change.
+    /// </summary>
+    Task AppendClosures(CandleSeries series, IReadOnlyList<CandleRangeInternal> closures, string source, DateTimeOffset recordedAt, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Reads the stored market closures that overlap [from, to), oldest first and clipped to the range.
+    /// </summary>
+    Task<IReadOnlyList<CandleRangeInternal>> GetClosures(CandleSeries series, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
 }

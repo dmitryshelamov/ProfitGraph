@@ -125,7 +125,7 @@ internal sealed class BybitLiveCandleSource(
         using IServiceScope scope = scopes.CreateScope();
         IHistoricalCandleSource source = scope.ServiceProvider.GetServices<IHistoricalCandleSource>().First(candidate => candidate.Venue == BybitVenue.VenueId);
 
-        return await source.Get(symbol, timeframe, from, to, cancellationToken);
+        return (await source.Get(symbol, timeframe, from, to, cancellationToken)).Candles;
     }
 
     private async Task ReportStale(InstrumentSymbol symbol, Timeframe timeframe, bool stale, CancellationToken cancellationToken)

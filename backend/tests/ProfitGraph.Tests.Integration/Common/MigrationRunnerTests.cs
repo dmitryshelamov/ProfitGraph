@@ -29,7 +29,7 @@ public sealed class MigrationRunnerTests
         (string Table, int Length)[] columns = (await connection.QueryAsync<(string Table, int Length)>(
             "SELECT table_name, character_maximum_length FROM information_schema.columns WHERE table_schema = 'public' AND column_name = 'symbol'")).ToArray();
 
-        columns.Select(column => column.Table).ShouldBe(["bots", "candles", "instrument_rules", "live_mark_prices"], ignoreOrder: true);
+        columns.Select(column => column.Table).ShouldBe(["bots", "candle_closures", "candles", "instrument_rules", "live_mark_prices"], ignoreOrder: true);
         columns.ShouldAllBe(column => column.Length == InstrumentSymbol.MaxLength);
     }
 }

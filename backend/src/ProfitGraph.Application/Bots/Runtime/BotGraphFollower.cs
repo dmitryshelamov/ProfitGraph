@@ -48,7 +48,8 @@ public sealed class BotGraphFollower(
             Timeframe timeframe = bot.Series.Timeframe;
             IHistoricalCandleSource history = histories.Find(bot.Series.Venue) ?? throw new InvalidOperationException("The venue has no candle history.");
             DateTimeOffset from = last.OpenTime - timeframe.Duration * plan.WarmupCandles;
-            IReadOnlyList<Candle> closed = await history.Get(bot.Series.Symbol, timeframe, from, last.OpenTime + timeframe.Duration, cancellationToken);
+            IReadOnlyList<Candle> closed =
+                LiveWarmupHistory.Contiguous(await history.Get(bot.Series.Symbol, timeframe, from, last.OpenTime + timeframe.Duration, cancellationToken));
             refused = await session.ChangeGraph(
                 latest.Id,
                 compiler.Lower(latest.Definition, values),

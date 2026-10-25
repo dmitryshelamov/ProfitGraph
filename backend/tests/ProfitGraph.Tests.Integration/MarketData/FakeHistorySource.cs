@@ -1,3 +1,4 @@
+using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Market;
@@ -17,6 +18,11 @@ public sealed class FakeHistorySource : IHistoricalCandleSource
     public Func<Timeframe, DateTimeOffset, DateTimeOffset, IReadOnlyList<Candle>>? Candles { get; set; }
 
     /// <summary>
+    ///     The market closures reported with each requested range; none unless a test sets them.
+    /// </summary>
+    public Func<Timeframe, DateTimeOffset, DateTimeOffset, IReadOnlyList<CandleRangeInternal>>? Closures { get; set; }
+
+    /// <summary>
     ///     Runs before each history request with the request's token, for example to hold the request until it is cancelled.
     /// </summary>
     public Func<CancellationToken, Task>? BeforeGet { get; set; }
@@ -32,7 +38,7 @@ public sealed class FakeHistorySource : IHistoricalCandleSource
         return Task.FromResult(First < to ? First : null);
     }
 
-    public async Task<IReadOnlyList<Candle>> Get(
+    public async Task<HistoricalCandlesInternal> Get(
         InstrumentSymbol symbol,
         Timeframe timeframe,
         DateTimeOffset from,
@@ -49,13 +55,14 @@ public sealed class FakeHistorySource : IHistoricalCandleSource
             await BeforeGet(cancellationToken);
         }
 
-        return Candles?.Invoke(timeframe, from, to) ?? Complete(timeframe, from, to);
+        return new HistoricalCandlesInternal(Candles?.Invoke(timeframe, from, to) ?? Complete(timeframe, from, to), Closures?.Invoke(timeframe, from, to) ?? []);
     }
 
     public void Reset()
     {
         First = DefaultFirst;
         Candles = null;
+        Closures = null;
         BeforeGet = null;
 
         lock (Requests)

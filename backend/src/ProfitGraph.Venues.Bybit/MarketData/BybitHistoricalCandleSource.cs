@@ -74,7 +74,7 @@ internal sealed class BybitHistoricalCandleSource(HttpClient httpClient, ILogger
             : throw Failure(HistoricalDataErrorCodes.InvalidProviderData, "Bybit history discovery was inconsistent.", first, to);
     }
 
-    public async Task<IReadOnlyList<Candle>> Get(
+    public async Task<HistoricalCandlesInternal> Get(
         InstrumentSymbol symbol,
         Timeframe timeframe,
         DateTimeOffset from,
@@ -117,7 +117,7 @@ internal sealed class BybitHistoricalCandleSource(HttpClient httpClient, ILogger
             end = oldest;
         }
 
-        return [.. candles.Values.OrderBy(candle => candle.OpenTime)];
+        return HistoricalCandlesInternal.Contiguous([.. candles.Values.OrderBy(candle => candle.OpenTime)]);
     }
 
     private async Task<IReadOnlyList<Candle>> Page(

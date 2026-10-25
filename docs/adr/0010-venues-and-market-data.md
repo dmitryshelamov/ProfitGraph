@@ -93,3 +93,18 @@ every venue, and CSV import could be called by anyone sharing the workspace.
 - `InstrumentSymbol` allows up to 256 characters with single inner spaces, so that a venue can name instruments in
   words (a Steam item is `KZT:730:Dreams & Nightmares Case`). Leading, trailing and repeated spaces, any other
   whitespace and control characters stay invalid. Every `symbol` column is `varchar(256)`. Bybit's rule is unchanged.
+
+## Amendment: market closures (ADR 0023, TC1)
+
+- `IHistoricalCandleSource.Get` returns the candles of a range with the ranges of it in which the market was closed
+  (`HistoricalCandlesInternal`). Bybit and Steam report none. A closure must be on the grid, is clipped to the request
+  and merged, and must not contain one of the venue's candles (`invalid_provider_data`).
+- A download fetches only intervals that neither a candle nor a closure covers, and stores the chunk's closures in
+  `candle_closures` in the same transaction as its candles; like candles they are appended and never changed. A gap that
+  no closure covers still fails the chunk. A CSV row inside a stored closure is refused.
+- Prepared history requires every grid interval to be a candle or to lie in a closure, carries the merged closures and
+  hands them to replay, which accepts exactly the gaps they cover. Warm-up counts candles: when closures leave it short,
+  preparation reaches back again, at most 16 times and each time at least doubling the span, until it has the requested
+  candles or starts at the venue's first candle. The history identity appends the closures after the candles under a
+  `closures` marker only when there are any, so an identity without closures keeps its bytes.
+- Live bots still need contiguous history; they refuse closures until live closures arrive (ADR 0023, TC3).

@@ -26,6 +26,18 @@ public sealed class HistoryIdentityCalculatorTests
     }
 
     [Test]
+    public void ClosuresChangeTheIdentity_AndNoClosuresKeepItsBytes()
+    {
+        string identity = Calculate(Range(), closures: []);
+        Candle[] apart = [Candles[0], Candles[1] with { OpenTime = Start.AddHours(3) }];
+
+        identity.ShouldBe("a79392a9b5b552eaa4b46b230684bff45ff9b44f019891ef7e89969608629899");
+        Calculate(Range(), apart, closures: [new MarketClosure(Start.AddHours(1), Start.AddHours(3))])
+            .ShouldNotBe(Calculate(Range(), apart, closures: [new MarketClosure(Start.AddHours(1), Start.AddHours(2))]));
+        Calculate(Range(), apart, closures: [new MarketClosure(Start.AddHours(1), Start.AddHours(3))]).ShouldNotBe(Calculate(Range(), apart));
+    }
+
+    [Test]
     public void ObservationTimeIsLeftOut_ButTheLatestClosedBoundaryCounts()
     {
         string identity = Calculate(Range());
@@ -50,8 +62,8 @@ public sealed class HistoryIdentityCalculatorTests
         return new ResolvedCandleRange(Series, Start.AddHours(1), Start.AddHours(2), Start.AddDays(1), Start.AddDays(1));
     }
 
-    private static string Calculate(ResolvedCandleRange range, IReadOnlyList<Candle>? candles = null, int warmupCount = 1)
+    private static string Calculate(ResolvedCandleRange range, IReadOnlyList<Candle>? candles = null, int warmupCount = 1, IReadOnlyList<MarketClosure>? closures = null)
     {
-        return HistoryIdentityCalculator.Calculate(range, Start, warmupCount, candles ?? Candles);
+        return HistoryIdentityCalculator.Calculate(range, Start, warmupCount, candles ?? Candles, closures ?? []);
     }
 }

@@ -2,6 +2,7 @@ using Dapper;
 
 using Npgsql;
 
+using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Market;
@@ -78,5 +79,47 @@ internal sealed class CandleRepository(NpgsqlConnection connection, PostgresTran
             new CommandDefinition(CandleQueries.Get, parameters, transactions.Current, cancellationToken: cancellationToken));
 
         return [.. rows.Select(row => row.ToDomain())];
+    }
+
+    public async Task AppendClosures(
+        CandleSeries series,
+        IReadOnlyList<CandleRangeInternal> closures,
+        string source,
+        DateTimeOffset recordedAt,
+        CancellationToken cancellationToken)
+    {
+        if (transactions.Current is null)
+        {
+            throw new InvalidOperationException("Market closures are stored with their chunk in its transaction.");
+        }
+
+        var parameters = new
+        {
+            Venue = series.Venue.Value,
+            Symbol = series.Symbol.Value,
+            Timeframe = series.Timeframe.Key,
+            Source = source,
+            RecordedAt = recordedAt,
+            FromTimes = closures.Select(closure => closure.From).ToArray(),
+            ToTimes = closures.Select(closure => closure.To).ToArray()
+        };
+
+        await connection.ExecuteAsync(new CommandDefinition(CandleQueries.AppendClosures, parameters, transactions.Current, cancellationToken: cancellationToken));
+    }
+
+    public async Task<IReadOnlyList<CandleRangeInternal>> GetClosures(CandleSeries series, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
+    {
+        var parameters = new
+        {
+            Venue = series.Venue.Value,
+            Symbol = series.Symbol.Value,
+            Timeframe = series.Timeframe.Key,
+            From = from,
+            To = to
+        };
+        IEnumerable<CandleClosureDb> rows = await connection.QueryAsync<CandleClosureDb>(
+            new CommandDefinition(CandleQueries.GetClosures, parameters, transactions.Current, cancellationToken: cancellationToken));
+
+        return [.. rows.Select(row => row.ToInternal())];
     }
 }

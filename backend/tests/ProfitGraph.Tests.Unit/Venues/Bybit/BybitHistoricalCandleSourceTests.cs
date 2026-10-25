@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 
 using ProfitGraph.Application.MarketData;
+using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Market;
@@ -39,7 +40,7 @@ public sealed class BybitHistoricalCandleSourceTests
             : Response([Row(From)]));
         using BybitHistoricalCandleSource source = Source(handler);
 
-        IReadOnlyList<Candle> candles = await source.Get(Symbol, Hour, From, From.AddHours(3), CancellationToken.None);
+        IReadOnlyList<Candle> candles = (await source.Get(Symbol, Hour, From, From.AddHours(3), CancellationToken.None)).Candles;
 
         candles.Select(candle => candle.OpenTime).ShouldBe([From, From.AddHours(1), From.AddHours(2)]);
         handler.Requests.Count.ShouldBe(2);
@@ -87,7 +88,7 @@ public sealed class BybitHistoricalCandleSourceTests
     {
         using BybitHistoricalCandleSource source = Source(new BybitHttpStub(_ => Response([Row(From, "100.1234567890123456789")])));
 
-        IReadOnlyList<Candle> candles = await source.Get(Symbol, Hour, From, From.AddHours(1), CancellationToken.None);
+        IReadOnlyList<Candle> candles = (await source.Get(Symbol, Hour, From, From.AddHours(1), CancellationToken.None)).Candles;
 
         candles.Single().Open.ShouldBe(100.1234567890123456789m);
         candles.Single().Volume.ShouldBe(1m);
@@ -248,7 +249,7 @@ public sealed class BybitHistoricalCandleSourceTests
             return ErrorResponse(code: 10006, DateTimeOffset.UtcNow.AddSeconds(3).ToUnixTimeMilliseconds());
         });
         using BybitHistoricalCandleSource source = Source(handler);
-        Task<IReadOnlyList<Candle>> download = source.Get(Symbol, Hour, From, From.AddHours(1), cancellation.Token);
+        Task<HistoricalCandlesInternal> download = source.Get(Symbol, Hour, From, From.AddHours(1), cancellation.Token);
         await received.Task;
         await Task.Delay(millisecondsDelay: 50, CancellationToken.None);
 

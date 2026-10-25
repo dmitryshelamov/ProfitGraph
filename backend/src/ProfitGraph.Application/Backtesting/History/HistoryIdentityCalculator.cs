@@ -11,13 +11,20 @@ namespace ProfitGraph.Application.Backtesting.History;
 /// <summary>
 ///     Hashes the canonical content of prepared history: every part is length-prefixed UTF-8, times are UTC ticks and
 ///     decimals are exact text, so equal candles always give equal identities. The observation time is left out; the
-///     latest closed boundary it implies is part of the partition.
+///     latest closed boundary it implies is part of the partition. Market closures (ADR 0023, TC1) follow the candles under
+///     their own marker only when there are any, so the identity of a history without closures keeps its bytes.
 /// </summary>
 internal static class HistoryIdentityCalculator
 {
     private const string Version = "profitgraph-history/v1";
+    private const string ClosuresMarker = "closures";
 
-    public static string Calculate(ResolvedCandleRange range, DateTimeOffset historyFrom, int warmupCount, IReadOnlyList<Candle> candles)
+    public static string Calculate(
+        ResolvedCandleRange range,
+        DateTimeOffset historyFrom,
+        int warmupCount,
+        IReadOnlyList<Candle> candles,
+        IReadOnlyList<MarketClosure> closures)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Append(hash, Version);
@@ -38,6 +45,17 @@ internal static class HistoryIdentityCalculator
             Append(hash, ExactDecimalText.Format(candle.Low));
             Append(hash, ExactDecimalText.Format(candle.Close));
             Append(hash, ExactDecimalText.Format(candle.Volume));
+        }
+
+        if (closures.Count > 0)
+        {
+            Append(hash, ClosuresMarker);
+
+            foreach (MarketClosure closure in closures)
+            {
+                Append(hash, Ticks(closure.From));
+                Append(hash, Ticks(closure.To));
+            }
         }
 
         return Convert.ToHexStringLower(hash.GetHashAndReset());
