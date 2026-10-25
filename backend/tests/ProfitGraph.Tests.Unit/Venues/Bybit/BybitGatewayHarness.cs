@@ -2,6 +2,7 @@ using MediatR;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 
 using NSubstitute;
 
@@ -74,7 +75,8 @@ internal sealed class BybitGatewayHarness
                     Rules));
         ServiceProvider services = new ServiceCollection().AddSingleton(bots).AddSingleton(sender).AddSingleton(rules).BuildServiceProvider();
         var http = new HttpClient(Exchange) { BaseAddress = new Uri("https://bybit.invalid/") };
-        var clock = new BybitServerClock(TimeProvider.System);
+        // A frozen host clock makes Bybit's server time exact, so signed timestamps and auth expiries are predictable.
+        var clock = new BybitServerClock(new FakeTimeProvider(DateTimeOffset.UnixEpoch.AddDays(1)));
         var read = new BybitReadClient(http, clock);
         var reads = new BybitOrderReads(read);
         Gateway = new BybitOrderGateway(
