@@ -33,7 +33,7 @@ internal sealed class RuntimeScenario
 {
     internal static readonly TimeSpan LeaseDuration = TimeSpan.FromSeconds(5);
 
-    private ScriptedOrderGateway Gateway { get; } = new ScriptedOrderGateway();
+    public ScriptedOrderGateway Gateway { get; } = new ScriptedOrderGateway();
     public FakeLiveCandleSource Candles { get; } = new FakeLiveCandleSource();
 
     /// <summary>
@@ -177,7 +177,8 @@ internal sealed class RuntimeScenario
         {
             ["Bots:Runtime:LeaseDuration"] = LeaseDuration.ToString(),
             ["Bots:Runtime:RenewInterval"] = TimeSpan.FromMilliseconds(500).ToString(),
-            ["Bots:Runtime:PollingInterval"] = TimeSpan.FromMilliseconds(100).ToString()
+            ["Bots:Runtime:PollingInterval"] = TimeSpan.FromMilliseconds(100).ToString(),
+            ["Bots:Runtime:DispatchInterval"] = TimeSpan.FromMilliseconds(50).ToString()
         };
     }
 }

@@ -41,6 +41,24 @@ internal sealed class OrderIntentRepository(NpgsqlConnection connection, Postgre
         transactions.RegisterDomainEventClear(intent);
     }
 
+    public async Task<IReadOnlyList<OrderIntentId>> ListDeliveryCandidates(LeaseHolderId holderId, DateTimeOffset now, int limit, CancellationToken cancellationToken)
+    {
+        IEnumerable<Guid> ids = await connection.QueryAsync<Guid>(
+            Command(
+                OrderIntentQueries.ListDeliveryCandidates,
+                new { holderId = holderId.Value, now, staleBefore = now - OrderIntentRetrySchedule.StaleClaimAfter, limit },
+                cancellationToken));
+
+        return [.. ids.Select(id => new OrderIntentId(id))];
+    }
+
+    public async Task<IReadOnlyList<BotId>> ListStoppedBotsWithWaitingSubmits(CancellationToken cancellationToken)
+    {
+        IEnumerable<Guid> ids = await connection.QueryAsync<Guid>(Command(OrderIntentQueries.ListStoppedBotsWithWaitingSubmits, parameters: null, cancellationToken));
+
+        return [.. ids.Select(id => new BotId(id))];
+    }
+
     private CommandDefinition Command(string sql, object? parameters, CancellationToken cancellationToken)
     {
         return new CommandDefinition(sql, parameters, transactions.Current, cancellationToken: cancellationToken);

@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using ProfitGraph.Application.Bots;
+using ProfitGraph.Application.Bots.OpenSubmitGate;
 using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.Bots.ReleaseBotLease;
 using ProfitGraph.Application.Bots.RenewBotLease;
@@ -26,6 +27,7 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
     private readonly Channel<BotRoot> _queue = Channel.CreateUnbounded<BotRoot>(new UnboundedChannelOptions { SingleReader = true });
     private readonly CancellationTokenSource _producers = new CancellationTokenSource();
     private volatile bool _leaseLost;
+    private volatile bool _preserveStatus;
     private Exception? _producerFailure;
 
     public BotId BotId => bot.Id;
@@ -37,8 +39,17 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
         Completion = Run(hostToken);
     }
 
-    public void StopAfterCurrentRoot()
+    /// <summary>
+    ///     Ends the runner after its current root. With <paramref name="preserveStatus" /> it leaves the bot's degraded
+    ///     status as it is instead of reporting it stopped.
+    /// </summary>
+    public void StopAfterCurrentRoot(bool preserveStatus = false)
     {
+        if (preserveStatus)
+        {
+            _preserveStatus = true;
+        }
+
         _queue.Writer.TryComplete();
     }
 
@@ -58,11 +69,18 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
             tasks.Add(KeepLease(hostToken));
             BotEngineSession session = await scope.ServiceProvider.GetRequiredService<BotEngineSessionFactory>().Open(bot, holder, epoch, gateway, hostToken);
             await Report(sender, BotRuntimeReport.Running, hostToken);
+
+            if (!await sender.Send(new OpenSubmitGateCommand(bot.Id.Value, holder.Value, epoch), hostToken))
+            {
+                throw new BotLeaseLostException();
+            }
+
             tasks.Add(
                 Produce(
                     candles.Subscribe(bot.Series.Symbol, bot.Series.Timeframe, session.Checkpoint?.LastClosedCandle.OpenTime, _producers.Token),
                     candle => new BotRoot(candle, Update: null)));
             tasks.Add(Produce(gateway.Updates(bot.Id, _producers.Token), update => new BotRoot(Candle: null, update)));
+            tasks.Add(Produce(scope.ServiceProvider.GetRequiredService<BotUpdateBus>().Read(bot.Id, _producers.Token), update => new BotRoot(Candle: null, update)));
 
             await foreach (BotRoot root in _queue.Reader.ReadAllAsync(hostToken))
             {
@@ -81,7 +99,7 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
                 throw new InvalidOperationException("A live input of the bot failed.", failure);
             }
 
-            if (!_leaseLost)
+            if (!_leaseLost && !_preserveStatus)
             {
                 await Report(sender, BotRuntimeReport.Stopped, hostToken);
             }
