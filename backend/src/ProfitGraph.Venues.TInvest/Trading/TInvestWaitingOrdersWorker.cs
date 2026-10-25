@@ -21,11 +21,14 @@ internal sealed class TInvestWaitingOrdersWorker(
     TInvestOrderStreams streams,
     TInvestOrderGateway gateway,
     TInvestSchedules schedules,
+    TInvestLateCommissions commissions,
     TInvestOrderUpdates updates,
     IOptions<TInvestOptions> options,
     TimeProvider clock,
     ILogger<TInvestWaitingOrdersWorker> logger) : BackgroundService
 {
+    private DateTimeOffset _commissionsDueAt = DateTimeOffset.MinValue;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -44,12 +47,21 @@ internal sealed class TInvestWaitingOrdersWorker(
     }
 
     /// <summary>
-    ///     One pass: carry-over of working DAY orders near their trading day's end, then the waiting orders, bot by bot.
+    ///     One pass: carry-over of working DAY orders near their trading day's end, then the waiting orders, bot by bot, and
+    ///     every <see cref="TInvestOptions.CommissionRecheckInterval" /> the late commissions.
     /// </summary>
     public async Task Round(CancellationToken cancellationToken)
     {
         await CarryOver(cancellationToken);
         await Release(cancellationToken);
+
+        DateTimeOffset now = clock.GetUtcNow();
+
+        if (now >= _commissionsDueAt)
+        {
+            _commissionsDueAt = now + options.Value.CommissionRecheckInterval;
+            await commissions.Round(options.Value.CommissionPendingWindow, cancellationToken);
+        }
     }
 
     /// <summary>

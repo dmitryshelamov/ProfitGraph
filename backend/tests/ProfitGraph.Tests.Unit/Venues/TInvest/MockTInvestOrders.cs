@@ -102,6 +102,17 @@ internal sealed class MockTInvestOrders
     }
 
     /// <summary>
+    ///     T-Invest reports the order's commission later, without another execution or stream message.
+    /// </summary>
+    public void Commission(string requestId, decimal commission)
+    {
+        lock (_orders)
+        {
+            _orders[requestId].ExecutedCommission = Money(commission);
+        }
+    }
+
+    /// <summary>
     ///     The exchange cancels the order by itself, as at the end of a DAY order's trading day.
     /// </summary>
     public void Expire(string requestId)

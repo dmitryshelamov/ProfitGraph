@@ -92,6 +92,15 @@ internal sealed class TInvestOrderAttemptRepository(NpgsqlDataSource dataSource)
         return [.. rows.Select(ToAttempt)];
     }
 
+    public async Task<IReadOnlyList<TInvestOrderAttempt>> PendingFees(DateTimeOffset since, CancellationToken cancellationToken)
+    {
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        IEnumerable<TInvestOrderAttemptDb> rows = await connection.QueryAsync<TInvestOrderAttemptDb>(
+            new CommandDefinition(TInvestOrderAttemptQueries.PendingFees, new { since = since.UtcDateTime }, cancellationToken: cancellationToken));
+
+        return [.. rows.Select(ToAttempt)];
+    }
+
     public async Task<IReadOnlyDictionary<Guid, Guid>> Owners(IReadOnlyCollection<Guid> requestIds, CancellationToken cancellationToken)
     {
         if (requestIds.Count == 0)

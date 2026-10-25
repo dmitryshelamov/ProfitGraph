@@ -78,6 +78,7 @@ public static class TInvestRegistration
             provider.GetRequiredService<TInvestTransport>(),
             TimeProvider.System,
             provider.GetRequiredService<ILogger<TInvestSchedules>>()));
+        services.AddSingleton<TInvestLateCommissions>();
         services.AddSingleton<TInvestOrderGateway>();
         services.AddSingleton<IOrderGateway>(provider => provider.GetRequiredService<TInvestOrderGateway>());
         services.AddHostedService<TInvestWaitingOrdersWorker>();

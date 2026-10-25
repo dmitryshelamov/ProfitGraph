@@ -59,10 +59,23 @@ public sealed class TInvestOptions
     /// </summary>
     public TimeSpan CarryOverLead { get; init; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    ///     How often the state of a final order whose commission is still zero is read again for its late commission.
+    /// </summary>
+    public TimeSpan CommissionRecheckInterval { get; init; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    ///     How long after it became final an order's late commission is still looked for. A commission that comes later stays
+    ///     pending at the bot's rate.
+    /// </summary>
+    public TimeSpan CommissionPendingWindow { get; init; } = TimeSpan.FromDays(7);
+
     internal bool IsValid()
     {
         if (RequestTimeout <= TimeSpan.Zero || CandleCloseGrace < TimeSpan.Zero || CommissionProbeNotional <= 0m || MarketBuySlippage is < 0m or >= 0.2m ||
             WaitingRecheckInterval <= TimeSpan.Zero || CarryOverLead <= TimeSpan.Zero || CarryOverLead > TimeSpan.FromHours(1) ||
+            CommissionRecheckInterval <= TimeSpan.Zero ||
+            CommissionPendingWindow <= TimeSpan.Zero ||
             !Limits.IsValid() || !History.IsValid() ||
             string.IsNullOrWhiteSpace(AppName) ||
             string.IsNullOrWhiteSpace(TrustedRootsPath))

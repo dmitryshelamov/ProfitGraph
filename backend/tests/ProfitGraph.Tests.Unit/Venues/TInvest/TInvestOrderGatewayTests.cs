@@ -192,8 +192,8 @@ public sealed class TInvestOrderGatewayTests
         _orders.Fill(requestId, lots: 2, price: 99.75m, commission: 2.99m);
         IReadOnlyList<ExternalOrderUpdate> final = await Until(update => update.Kind == ExternalOrderUpdateKind.FinalFill);
 
-        partial[^1].ShouldBe(ExternalOrderUpdate.Partial(orderId: 1, grossBase: 10m, grossQuote: 995m, fee: 0m, commissionPending: true));
-        final[^1].ShouldBe(ExternalOrderUpdate.Final(orderId: 1, grossBase: 30m, grossQuote: 2990m, fee: 2.99m));
+        partial[^1].ShouldBe(ExternalOrderUpdate.Partial(orderId: 1, grossBase: 10m, grossQuote: 995m, fee: 0m, commissionPending: true, commissionPartitioned: true));
+        final[^1].ShouldBe(ExternalOrderUpdate.Final(orderId: 1, grossBase: 30m, grossQuote: 2990m, fee: 2.99m, commissionPartitioned: true));
         _attempts.All.ShouldHaveSingleItem().State.ShouldBe(TInvestOrderAttemptState.Final);
     }
 
@@ -243,7 +243,8 @@ public sealed class TInvestOrderGatewayTests
             new ReconcileOrderInternal(EngineOrderId: 1, _gateway.ClientOrderIdFor(_bot, engineOrderId: 1), MayHaveReachedVenue: true));
 
         mine.Degradation.ShouldBeNull();
-        mine.Updates.ShouldBe([ExternalOrderUpdate.Accept(orderId: 1), ExternalOrderUpdate.Final(orderId: 1, grossBase: 10m, grossQuote: 990m, fee: 0.5m)]);
+        mine.Updates.ShouldBe(
+            [ExternalOrderUpdate.Accept(orderId: 1), ExternalOrderUpdate.Final(orderId: 1, grossBase: 10m, grossQuote: 990m, fee: 0.5m, commissionPartitioned: true)]);
         mine.Found.ShouldHaveSingleItem().IsFinal.ShouldBeTrue();
 
         _orders.AddForeign(ShareUid);

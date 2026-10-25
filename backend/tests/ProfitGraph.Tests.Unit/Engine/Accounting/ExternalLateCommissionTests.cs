@@ -228,6 +228,30 @@ public sealed class ExternalLateCommissionTests
         account.Capture().FeesQuote.ShouldBe(0m);
     }
 
+    [Test]
+    public void ACumulativeOrderFeeAppliesItsDeltaToEachPartitionedFill_UntilAnEarlierFeeIsPending()
+    {
+        var known = new ExternallyExecutedAccount(Settings, Rules);
+        long first = Buy(known, quantity: 30m);
+        known.ApplyExternalUpdate(ExternalOrderUpdate.Partial(first, grossBase: 10m, grossQuote: 100m, fee: 0.1m, commissionPartitioned: true), rejectionAttemptId: 0);
+        known.ApplyExternalUpdate(ExternalOrderUpdate.Final(first, grossBase: 30m, grossQuote: 300m, fee: 0.3m, commissionPartitioned: true), rejectionAttemptId: 0);
+
+        known.Capture().FeesQuote.ShouldBe(0.3m);
+
+        var pending = new ExternallyExecutedAccount(Settings, Rules);
+        long second = Buy(pending, quantity: 30m);
+        pending.ApplyExternalUpdate(
+            ExternalOrderUpdate.Partial(second, grossBase: 10m, grossQuote: 100m, fee: 0m, commissionPending: true, commissionPartitioned: true),
+            rejectionAttemptId: 0);
+        pending.ApplyExternalUpdate(ExternalOrderUpdate.Final(second, grossBase: 30m, grossQuote: 300m, fee: 0.3m, commissionPartitioned: true), rejectionAttemptId: 0);
+
+        pending.Capture().FeesQuote.ShouldBe(0m);
+        pending.ApplyExternalUpdate(
+                ExternalOrderUpdate.CorrectFee(second, grossBase: 30m, grossQuote: 300m, cumulativeFee: 0.3m, commissionPartitioned: true),
+                rejectionAttemptId: 0)
+            .DiagnosticCode.ShouldBe("UnpartitionedFeeCorrection");
+    }
+
     private static long Buy(ExternallyExecutedAccount account, decimal quantity)
     {
         Order order = account.Submit(new OrderRequest(OrderSide.Buy, OrderType.Limit, quantity * 10m, LimitPrice: 10m, Tag: null, "buy", EligibleFromCandleIndex: 0))

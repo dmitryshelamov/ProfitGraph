@@ -67,6 +67,13 @@ internal static class TInvestOrderAttemptQueries
                                     ORDER BY attempt
                                     """;
 
+    public const string PendingFees = $"""
+                                       SELECT {Columns}
+                                       FROM tinvest_order_attempts
+                                       WHERE state = 'Final' AND executed_lots > 0 AND executed_fee = 0 AND updated_at >= @since
+                                       ORDER BY bot_id, engine_order_id, attempt
+                                       """;
+
     public const string Owners = """
                                  SELECT request_id AS RequestId, bot_id AS BotId
                                  FROM tinvest_order_attempts
