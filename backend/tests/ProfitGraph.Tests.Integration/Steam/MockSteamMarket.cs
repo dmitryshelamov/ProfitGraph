@@ -45,6 +45,8 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
     private const long HighestBuyOrder = 40000;
 
     private readonly Lock _gate = new Lock();
+    private readonly List<string> _requests = new List<string>();
+    private readonly List<string> _sold = new List<string>();
     private readonly Dictionary<string, BuyOrder> _buyOrders = new Dictionary<string, BuyOrder>(StringComparer.Ordinal);
     private readonly List<Confirmation> _confirmations = new List<Confirmation>();
     private readonly HashSet<string> _approved = new HashSet<string>(StringComparer.Ordinal);
@@ -58,6 +60,46 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
     ///     How long a bought item stays untradable; the inventory shows the end rounded up to Steam's whole minute.
     /// </summary>
     public TimeSpan TradeHold { get; set; } = TimeSpan.FromMinutes(2);
+
+    /// <summary>
+    ///     Whether a removed listing returns its item under a new asset ID, as Steam sometimes does.
+    /// </summary>
+    public bool ReturnsUnderNewIds { get; set; }
+
+    /// <summary>
+    ///     Answers a request instead of the default handling when it returns a response.
+    /// </summary>
+    public Func<HttpRequestMessage, HttpResponseMessage?>? Override { get; set; }
+
+    public int Count(string path)
+    {
+        lock (_gate)
+        {
+            return _requests.Count(request => request == path);
+        }
+    }
+
+    /// <summary>
+    ///     Ends the account's web session on Steam's side; Community sends every later request to sign-in.
+    /// </summary>
+    public void ExpireSession()
+    {
+        lock (_gate)
+        {
+            _session = null;
+        }
+    }
+
+    /// <summary>
+    ///     The asset IDs of the items sold, in order.
+    /// </summary>
+    public IReadOnlyList<string> Sold()
+    {
+        lock (_gate)
+        {
+            return [.. _sold];
+        }
+    }
 
     /// <summary>
     ///     Sellers fill every active buy order of the item in full at its price, one item per purchase.
@@ -100,6 +142,7 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
             {
                 _history.Add(new HistoryEvent(SoldEvent, listing.Id, Now(), listing.AssetId, NewAssetId: null, NextId(), Paid: 0, Fee: 0, listing.SellerPrice));
                 _listings.Remove(listing);
+                _sold.Add(listing.AssetId);
             }
 
             return active.Length;
@@ -131,6 +174,17 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         string path = request.RequestUri!.AbsolutePath;
+
+        lock (_gate)
+        {
+            _requests.Add(path);
+        }
+
+        if (Override?.Invoke(request) is { } answer)
+        {
+            return answer;
+        }
+
         string form = request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
         bool signedIn = SignedIn(request);
 
@@ -395,10 +449,11 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
             return Json("""{"success":false}""");
         }
 
+        string? returned = ReturnsUnderNewIds ? NextId() : null;
         _listings.Remove(listing);
         _confirmations.RemoveAll(confirmation => confirmation.Type == 3 && confirmation.CreatorId == id);
-        _inventory.Add(new Asset(listing.AssetId, clock.GetUtcNow()));
-        _history.Add(new HistoryEvent(CancelledEvent, id, Now(), listing.AssetId, NewAssetId: null, PurchaseId: null, Paid: 0, Fee: 0, Received: 0));
+        _inventory.Add(new Asset(returned ?? listing.AssetId, clock.GetUtcNow()));
+        _history.Add(new HistoryEvent(CancelledEvent, id, Now(), listing.AssetId, returned, PurchaseId: null, Paid: 0, Fee: 0, Received: 0));
 
         return Json("""{"success":true}""");
     }
@@ -423,8 +478,14 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
 
         foreach (HistoryEvent item in page)
         {
-            listings[item.ListingId] = new { listingid = item.ListingId, asset = new { appid = AppId, contextid = Context, id = item.AssetId, amount = "1" } };
-            descriptions[item.AssetId] = new { market_hash_name = Item, amount = "1", original_amount = "1" };
+            // One listing has one asset; once cancelled, it names the returned item's new ID when Steam gave it one. The page
+            // runs newest first, so the listing's latest event describes it.
+            listings.TryAdd(
+                item.ListingId,
+                item is { Type: CancelledEvent, NewAssetId: { } returned }
+                    ? new { listingid = item.ListingId, asset = (object)new { appid = AppId, contextid = Context, id = item.AssetId, amount = "1", new_id = returned } }
+                    : new { listingid = item.ListingId, asset = (object)new { appid = AppId, contextid = Context, id = item.AssetId, amount = "1" } });
+            descriptions.TryAdd(item.AssetId, new { market_hash_name = Item, amount = "1", original_amount = "1" });
 
             if (item.PurchaseId is { } purchase)
             {

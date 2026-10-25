@@ -172,6 +172,7 @@ internal sealed class SteamLadderScenario
             ["Venues:Steam:ApiBaseAddress"] = MockSteamMarket.Api,
             ["Venues:Steam:MarketDataCredentialId"] = credential.ToString(),
             ["Venues:Steam:WriteSpacing"] = TimeSpan.Zero.ToString(),
+            ["Venues:Steam:InitialCooldown"] = TimeSpan.FromSeconds(2).ToString(),
             ["Venues:Steam:OrderWorkerInterval"] = TimeSpan.FromSeconds(1).ToString(),
             ["Venues:Steam:EligibilityInterval"] = TimeSpan.FromSeconds(1).ToString()
         };

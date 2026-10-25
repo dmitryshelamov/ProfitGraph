@@ -34,6 +34,12 @@ internal enum SteamReservationState
     Delisting,
 
     /// <summary>
+    ///     Steam removed the listing. The asset stays reserved until market history's cancelled event shows it back, possibly
+    ///     under a new asset ID, so the bot never loses an item it still owns.
+    /// </summary>
+    Removed,
+
+    /// <summary>
     ///     A write may have reached Steam without a clear answer; reconciliation resolves it.
     /// </summary>
     Unknown,

@@ -71,7 +71,8 @@ internal sealed class SteamSells(
 
     /// <summary>
     ///     Cancels a sell: assets not listed are released, listings are removed. The cancel is confirmed once every asset is
-    ///     released; one whose listing may have sold waits for reconciliation.
+    ///     released; an asset whose listing was removed is released by its cancelled event in market history, and one whose
+    ///     listing may have sold waits for reconciliation.
     /// </summary>
     public async Task Cancel(SteamBotAccount bot, string clientOrderId, CancellationToken cancellationToken)
     {
@@ -102,16 +103,22 @@ internal sealed class SteamSells(
         }
 
         SteamAccountSession session = sessions.For(bot.OwnerId, entry.CredentialId);
-        var unresolved = false;
+        var released = new List<SteamReservationState?>();
 
         foreach (SteamAssetReservation reservation in await journal.Reservations(clientOrderId, cancellationToken))
         {
-            unresolved |= !await Release(session, reservation, cancellationToken);
+            released.Add(await Release(session, reservation, cancellationToken));
         }
 
-        if (unresolved)
+        if (released.Contains(value: null))
         {
             throw Unresolved();
+        }
+
+        // History confirms the cancel once it shows every removed listing's item back (SteamExecutions).
+        if (released.Contains(SteamReservationState.Removed))
+        {
+            return;
         }
 
         // Items sold before the cancel were reported as fills already; the remainder is cancelled.
@@ -344,37 +351,42 @@ internal sealed class SteamSells(
         }
     }
 
-    private async Task<bool> Release(SteamAccountSession session, SteamAssetReservation reservation, CancellationToken cancellationToken)
+    /// <summary>
+    ///     Frees one asset of a cancelled sell. Returns the state it ends in, or null when it is unresolved now.
+    /// </summary>
+    private async Task<SteamReservationState?> Release(SteamAccountSession session, SteamAssetReservation reservation, CancellationToken cancellationToken)
     {
         switch (reservation.State)
         {
-            case SteamReservationState.Released or SteamReservationState.Sold:
-                return true;
+            case SteamReservationState.Released or SteamReservationState.Sold or SteamReservationState.Removed:
+                return reservation.State;
             case SteamReservationState.Reserved:
                 return await journal.Transition(
                     reservation with { State = SteamReservationState.Released, UpdatedAt = clock.GetUtcNow() },
                     SteamReservationState.Reserved,
-                    cancellationToken);
+                    cancellationToken)
+                    ? SteamReservationState.Released
+                    : null;
             case SteamReservationState.Listed or SteamReservationState.AwaitingConfirmation when reservation.ListingId is { } listingId:
                 SteamAssetReservation delisting = reservation with { State = SteamReservationState.Delisting, UpdatedAt = clock.GetUtcNow() };
 
                 if (!await journal.Transition(delisting, reservation.State, cancellationToken))
                 {
-                    return false;
+                    return null;
                 }
 
                 SteamWriteReceipt receipt = await client.Remove(session, listingId, cancellationToken);
                 SteamReservationState next = receipt.Kind switch
                 {
-                    SteamWriteReceiptKind.Accepted => SteamReservationState.Released,
+                    SteamWriteReceiptKind.Accepted => SteamReservationState.Removed,
                     SteamWriteReceiptKind.NotSent => reservation.State,
                     _ => SteamReservationState.Unknown
                 };
                 await Store(delisting with { State = next, UpdatedAt = clock.GetUtcNow() }, SteamReservationState.Delisting, cancellationToken);
 
-                return next == SteamReservationState.Released;
+                return next == SteamReservationState.Removed ? next : null;
             default:
-                return false;
+                return null;
         }
     }
 
