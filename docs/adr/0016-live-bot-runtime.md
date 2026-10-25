@@ -126,3 +126,20 @@ gateway amend it in later stage 5 pull requests.
   `CandleClosed` root. Each root is committed with a submit intent for every new pending order and a cancel intent for
   every order that turned pending-cancel. A root after a live candle resets the restart streak.
 - **Released leases** expire at the moment of release, so another runtime may take the bot at once.
+
+## Amendment: order intent delivery (stage 5.6)
+
+- **Dispatcher.** The `live` role delivers due intents one at a time (`DispatchOrderIntentCommand`); each step is a short
+  transaction and no transaction spans a venue call. A process delivers submits only for the bots it leases, and
+  cancels also for bots no runtime leases. An intent waits behind earlier undelivered intents of its bot, except that
+  a cancel passes submits of other orders, and every submit of a bot that should stop.
+- **Submit.** It is claimed only while the bot should run, is healthy, trading is not halted and the holder's lease has
+  an open submit gate; the same check repeats, under row locks, when the gateway records the place start just before
+  the request may leave the process. A blocked submit is released, and rejected with `KillSwitch` when a kill or the
+  halt blocked it before it left. A submit that may have reached the venue is looked up before any retry.
+- **Outcomes.** Acceptance and fills arrive through the gateway's updates. A definitive rejection is stored and handed
+  to the bot's runner through an in-process bus; a rejection the runner never read is applied from storage when the
+  engine opens. A failure retries with backoff; the tenth fails the intent, degrades the bot with `IntentFailed`, and
+  the host stops its runner without overwriting that status. A bot that should stop holds its waiting submits
+  (`HeldSubmit`).
+- **Gate.** The runner opens the submit gate after its engine opened; venue reconciliation (stage 5.8) comes before it.

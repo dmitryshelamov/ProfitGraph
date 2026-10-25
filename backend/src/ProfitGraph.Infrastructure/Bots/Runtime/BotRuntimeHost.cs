@@ -23,12 +23,17 @@ namespace ProfitGraph.Infrastructure.Bots.Runtime;
 ///     should no longer run and takes the leases of bots that should run. A bot whose venue has no order gateway in this
 ///     process, because trading is disabled, degrades with <c>NoGateway</c> and is left alone.
 /// </summary>
-internal sealed class BotRuntimeHost(IServiceScopeFactory scopes, IOptions<BotRuntimeOptions> options, TimeProvider clock, ILogger<BotRuntimeHost> logger)
+internal sealed class BotRuntimeHost(
+    IServiceScopeFactory scopes,
+    LiveRuntimeIdentity identity,
+    IOptions<BotRuntimeOptions> options,
+    TimeProvider clock,
+    ILogger<BotRuntimeHost> logger)
     : BackgroundService
 {
     private readonly Dictionary<BotId, BotRunner> _runners = [];
 
-    private LeaseHolderId HolderId { get; } = LeaseHolderId.New();
+    private LeaseHolderId HolderId => identity.HolderId;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -83,6 +88,12 @@ internal sealed class BotRuntimeHost(IServiceScopeFactory scopes, IOptions<BotRu
             if (runner.Completion.IsCompleted || !desired.Contains(id))
             {
                 runner.StopAfterCurrentRoot();
+                await runner.Completion;
+                _runners.Remove(id);
+            }
+            else if (await bots.Get(id, stoppingToken) is { IsDegraded: true, StatusReason: { } reason } && BotStatusReasons.IsSafety(reason))
+            {
+                runner.StopAfterCurrentRoot(preserveStatus: true);
                 await runner.Completion;
                 _runners.Remove(id);
             }

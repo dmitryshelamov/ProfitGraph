@@ -31,4 +31,28 @@ internal static class OrderIntentQueries
                                        rejection_message = @RejectionMessage
                                    WHERE id = @Id
                                    """;
+
+    internal const string ListDeliveryCandidates = """
+                                                   SELECT intent.id FROM bot_order_intents AS intent
+                                                   JOIN bots AS bot ON bot.id = intent.bot_id
+                                                   LEFT JOIN bot_leases AS lease ON lease.bot_id = intent.bot_id
+                                                   WHERE (intent.status = 'Pending' AND (intent.next_attempt_at IS NULL OR intent.next_attempt_at <= @now)
+                                                           OR intent.status = 'Sending' AND intent.claimed_at <= @staleBefore)
+                                                       AND (intent.kind = 'Submit' AND lease.holder_id = @holderId AND lease.expires_at > @now
+                                                           OR intent.kind = 'Cancel' AND (lease.bot_id IS NULL OR lease.expires_at <= @now OR lease.holder_id = @holderId))
+                                                       AND NOT EXISTS (
+                                                           SELECT 1 FROM bot_order_intents AS earlier
+                                                           WHERE earlier.bot_id = intent.bot_id AND earlier.sequence < intent.sequence
+                                                               AND earlier.status IN ('Pending', 'Sending')
+                                                               AND NOT (intent.kind = 'Cancel' AND earlier.kind = 'Submit'
+                                                                   AND (bot.desired_state = 'Stopped' OR earlier.engine_order_id <> intent.engine_order_id)))
+                                                   ORDER BY intent.sequence
+                                                   LIMIT @limit
+                                                   """;
+
+    internal const string ListStoppedBotsWithWaitingSubmits = """
+                                                              SELECT DISTINCT bot.id FROM bots AS bot
+                                                              JOIN bot_order_intents AS intent ON intent.bot_id = bot.id
+                                                              WHERE bot.desired_state = 'Stopped' AND intent.kind = 'Submit' AND intent.status IN ('Pending', 'Sending')
+                                                              """;
 }

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 using ProfitGraph.Application.Bots;
+using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Infrastructure.Bots.Repositories;
 using ProfitGraph.Infrastructure.Bots.Runtime;
@@ -24,6 +25,7 @@ internal static class BotsRegistration
         services.AddScoped<IOrderIntentRepository, OrderIntentRepository>();
         services.AddScoped<ITradingHaltRepository, TradingHaltRepository>();
         services.AddScoped<BotRootCommitter>();
+        services.AddSingleton<BotUpdateBus>();
 
         return services;
     }

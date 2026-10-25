@@ -19,6 +19,7 @@ namespace ProfitGraph.Application.Bots.Runtime;
 public sealed class BotEngineSessionFactory(
     IStrategyRepository strategies,
     IBotCheckpointRepository checkpoints,
+    IOrderIntentRepository intents,
     VenuePorts<IInstrumentRulesSource> rules,
     VenuePorts<IHistoricalCandleSource> histories,
     BacktestCompiler compiler,
@@ -68,8 +69,24 @@ public sealed class BotEngineSessionFactory(
         CausalDispatcher restored = CausalDispatcher.RestoreWithoutResume(stored.Engine, plan, settings, instrument, restore);
         var resumed = new BotEngineSession(bot.Id, holder, epoch, timeframe, restored, gateway, committer, clock, applied, version.Id, stored.Engine);
         await resumed.ResumeAndWarm([.. closed.Where(candle => candle.OpenTime > stored.Engine.LastClosedCandle.OpenTime)], cancellationToken);
+        await ApplyStoredRejections(bot.Id, resumed, cancellationToken);
 
         return resumed;
+    }
+
+    /// <summary>
+    ///     A rejection stored after the last checkpoint, which the previous runner did not apply, reaches the engine now.
+    /// </summary>
+    private async Task ApplyStoredRejections(BotId botId, BotEngineSession session, CancellationToken cancellationToken)
+    {
+        foreach (OrderIntent intent in await intents.ListByBot(botId, cancellationToken))
+        {
+            if (intent is { Status: OrderIntentStatus.Rejected, Rejection: { } rejection } &&
+                session.Checkpoint!.Account.Orders.Any(order => order.Id == intent.EngineOrderId && order.Status == OrderStatus.PendingSubmit))
+            {
+                await session.ProcessExternalUpdate(ExternalOrderUpdate.Reject(intent.EngineOrderId, rejection.Reason, rejection.Message), cancellationToken);
+            }
+        }
     }
 
     private static TPort Port<TPort>(VenuePorts<TPort> ports, Bot bot)

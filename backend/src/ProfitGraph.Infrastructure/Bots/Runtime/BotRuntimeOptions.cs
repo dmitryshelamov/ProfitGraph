@@ -17,8 +17,13 @@ internal sealed class BotRuntimeOptions
     public TimeSpan RenewInterval { get; init; } = TimeSpan.FromSeconds(10);
     public TimeSpan PollingInterval { get; init; } = TimeSpan.FromSeconds(2);
 
+    /// <summary>
+    ///     How long the intent dispatcher waits when no intent was due.
+    /// </summary>
+    public TimeSpan DispatchInterval { get; init; } = TimeSpan.FromSeconds(1);
+
     public bool IsValid()
     {
-        return PollingInterval > TimeSpan.Zero && RenewInterval > TimeSpan.Zero && LeaseDuration > RenewInterval * 2;
+        return PollingInterval > TimeSpan.Zero && DispatchInterval > TimeSpan.Zero && RenewInterval > TimeSpan.Zero && LeaseDuration > RenewInterval * 2;
     }
 }
