@@ -75,6 +75,7 @@ internal sealed class BybitGatewayHarness
                     Rules));
         ServiceProvider services = new ServiceCollection().AddSingleton(bots).AddSingleton(sender).AddSingleton(rules).BuildServiceProvider();
         var http = new HttpClient(Exchange) { BaseAddress = new Uri("https://bybit.invalid/") };
+
         // A frozen host clock makes Bybit's server time exact, so signed timestamps and auth expiries are predictable.
         var clock = new BybitServerClock(new FakeTimeProvider(DateTimeOffset.UnixEpoch.AddDays(1)));
         var read = new BybitReadClient(http, clock);

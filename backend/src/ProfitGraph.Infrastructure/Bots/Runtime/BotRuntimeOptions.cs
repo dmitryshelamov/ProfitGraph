@@ -28,9 +28,15 @@ internal sealed class BotRuntimeOptions
     /// </summary>
     public TimeSpan ReconcileRetryDelay { get; init; } = TimeSpan.FromSeconds(5);
 
+    /// <summary>
+    ///     How often a runner looks for its bot's pending manual order.
+    /// </summary>
+    public TimeSpan ManualOrderPollInterval { get; init; } = TimeSpan.FromSeconds(1);
+
     public bool IsValid()
     {
-        return PollingInterval > TimeSpan.Zero && ReconcileRetryDelay > TimeSpan.Zero && DispatchInterval > TimeSpan.Zero && RenewInterval > TimeSpan.Zero &&
+        return PollingInterval > TimeSpan.Zero && ReconcileRetryDelay > TimeSpan.Zero && ManualOrderPollInterval > TimeSpan.Zero && DispatchInterval > TimeSpan.Zero &&
+            RenewInterval > TimeSpan.Zero &&
             LeaseDuration > RenewInterval * 2;
     }
 }

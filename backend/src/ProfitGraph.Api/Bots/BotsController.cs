@@ -9,6 +9,7 @@ using ProfitGraph.Application.Bots.ChangeBotForeignOrders;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.GetBot;
 using ProfitGraph.Application.Bots.GetBots;
+using ProfitGraph.Application.Bots.GetManualOrder;
 using ProfitGraph.Application.Bots.KillBot;
 using ProfitGraph.Application.Bots.StartBot;
 using ProfitGraph.Application.Bots.StopBot;
@@ -65,6 +66,24 @@ public sealed class BotsController(ISender sender) : ControllerBase
     public async Task<ActionResult<BotResponse>> Kill(Guid id, CancellationToken cancellationToken)
     {
         return (await sender.Send(new KillBotCommand(UserId(), id), cancellationToken)).ToResponse();
+    }
+
+    /// <summary>
+    ///     An owner market order in a running bot (Profit Fox Designer ADR 0091). It waits for the bot's runner, which takes
+    ///     it within a minute or lets it expire; poll it by its identifier.
+    /// </summary>
+    [HttpPost("{id:guid}/manual-orders")]
+    public async Task<ActionResult<ManualOrderResponse>> SubmitManualOrder(Guid id, SubmitManualOrderRequest request, CancellationToken cancellationToken)
+    {
+        ManualOrderInternal order = await sender.Send(request.ToCommand(UserId(), id), cancellationToken);
+
+        return AcceptedAtAction(nameof(GetManualOrder), new { id, orderId = order.Id }, order.ToResponse());
+    }
+
+    [HttpGet("{id:guid}/manual-orders/{orderId:guid}")]
+    public async Task<ActionResult<ManualOrderResponse>> GetManualOrder(Guid id, Guid orderId, CancellationToken cancellationToken)
+    {
+        return (await sender.Send(new GetManualOrderQuery(UserId(), id, orderId), cancellationToken)).ToResponse();
     }
 
     [HttpPut("{id:guid}/parameters")]

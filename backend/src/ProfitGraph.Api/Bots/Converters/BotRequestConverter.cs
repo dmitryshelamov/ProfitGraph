@@ -3,6 +3,7 @@ using ProfitGraph.Api.Common.Parsing;
 using ProfitGraph.Application.Bots.ChangeBotParameters;
 using ProfitGraph.Application.Bots.ChangeBotRiskLimits;
 using ProfitGraph.Application.Bots.CreateBot;
+using ProfitGraph.Application.Bots.SubmitManualOrder;
 using ProfitGraph.Application.Common.Exceptions;
 
 namespace ProfitGraph.Api.Bots.Converters;
@@ -57,6 +58,15 @@ internal static class BotRequestConverter
     private static Dictionary<string, decimal>? Parameters(IReadOnlyDictionary<string, string>? values, List<InputError> errors)
     {
         return values?.ToDictionary(pair => pair.Key, pair => Number(pair.Value, $"Parameters.{pair.Key}", errors), StringComparer.Ordinal);
+    }
+
+    public static SubmitManualOrderCommand ToCommand(this SubmitManualOrderRequest request, Guid ownerId, Guid botId)
+    {
+        var errors = new List<InputError>();
+        decimal amount = Number(request.Amount, "Amount", errors);
+        ThrowIfAny(errors);
+
+        return new SubmitManualOrderCommand(ownerId, botId, request.Side, amount);
     }
 
     private static decimal Number(string? value, string field, List<InputError> errors)

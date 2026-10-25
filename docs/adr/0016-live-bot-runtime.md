@@ -168,3 +168,17 @@ gateway amend it in later stage 5 pull requests.
   intent for a later lookup; from the update stream it degrades the bot and ends its runner.
 - **Deferred.** Resolving an order the owner confirms absent and accounting fills found only in execution history are
   left for later steps; until then such a bot stays degraded for the owner.
+
+## Amendment: manual orders (stage 5.11)
+
+- **Request.** The owner submits a market order in a bot that should run and runs (`POST /api/bots/{id}/manual-orders`):
+  a buy sized in quote, a sell in base (Profit Fox Designer ADR 0091). It is stored in `bot_manual_orders`; a bot has
+  at most one pending request (409 `manual_order_pending`), and a stopped bot takes none (409 `bot_not_running`).
+- **Root.** The runner that holds the lease looks for the pending request every second and processes it as a root on
+  the bot's queue: the engine submits it against the last closed candle with the reserved origin `$manual` and tag
+  `manual`, and the root's commit resolves the request (`Submitted` with the engine order, or `Rejected` with the
+  engine's reason) in the same transaction as the checkpoint and the new intent. From there the order follows the
+  normal path: per-order limit, gateway, reconciliation.
+- **Expiry.** A request nobody took within 60 s reads as rejected with `expired`; the runner rejects it so without the
+  engine, and a new request stores it so. A request that expires while its root runs fails that commit, so the engine
+  restarts from its stored state without the order.
