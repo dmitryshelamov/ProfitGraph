@@ -38,3 +38,17 @@ export const bot: Schemas['BotResponse'] = {
   createdAt: '2026-10-24T08:00:00Z',
   updatedAt: '2026-10-24T08:00:00Z',
 };
+
+export const flatPosition: Schemas['BotPositionResponse'] = {
+  baseTotal: '0',
+  quoteTotal: '100',
+  costBasis: '0',
+  averageCost: null,
+  realizedPnl: '0',
+  openedAt: null,
+  markPrice: null,
+  markPriceObservedAt: null,
+  markPriceSource: null,
+  unrealizedPnl: null,
+  cycles: [],
+};

@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import { bot, credential } from '@/test/botFixtures';
+import { bot, credential, flatPosition } from '@/test/botFixtures';
 import { fakeApi, json, problem } from '@/test/fakeApi';
 import { owner, strategy, summary } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
@@ -15,6 +15,9 @@ function botRoutes(current = bot) {
     [`GET ${botPath}`]: () => json(current),
     [`GET ${botPath}/alerts?limit=50`]: () => json([]),
     'GET /api/trading-halt': () => json({ isHalted: false, updatedAt: '2026-10-24T08:00:00Z' }),
+    [`GET ${botPath}/fills?limit=50`]: () => json({ items: [], next: null }),
+    [`GET ${botPath}/feed?limit=50`]: () => json({ items: [], next: null }),
+    [`GET ${botPath}/position?cycles=20`]: () => json(flatPosition),
   };
 }
 

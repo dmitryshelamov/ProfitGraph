@@ -1,6 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { CredentialForm, credentialsQuery, CredentialsTable } from '@/modules/credentials';
+import {
+  AccountOverview,
+  CredentialForm,
+  credentialsQuery,
+  CredentialsTable,
+} from '@/modules/credentials';
 import { Card } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
 
@@ -28,6 +33,11 @@ export function CredentialsPage() {
           <CredentialsTable credentials={credentials.data} />
         )}
       </Card>
+      {credentials.data?.map((credential) => (
+        <Card key={credential.id} title={`Счёт: ${credential.label}`}>
+          <AccountOverview credentialId={credential.id} />
+        </Card>
+      ))}
     </div>
   );
 }

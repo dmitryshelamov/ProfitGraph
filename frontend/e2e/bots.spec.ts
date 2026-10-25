@@ -7,10 +7,10 @@ import type { components } from '../src/shared/api/generated/schema';
 type Schemas = components['schemas'];
 
 /**
- * A key and a bot are created in the UI, the bot is started and stopped. Trading stays disabled in the e2e Worker, so a
+ * A key and a bot are created in the UI, the bot is started and stopped, and its feed and position show it. Trading stays disabled in the e2e Worker, so a
  * started bot degrades with "trading is disabled in this process" and nothing reaches an exchange; the key is invented.
  */
-test('a bot is created with a key, started and stopped', async ({ page }) => {
+test('a bot is created with a key, started, stopped and reported', async ({ page }) => {
   const templates = (await (
     await page.request.get('/api/strategy-templates')
   ).json()) as Schemas['StrategyTemplateResponse'][];
@@ -47,4 +47,12 @@ test('a bot is created with a key, started and stopped', async ({ page }) => {
   ).toBeVisible({ timeout: 20_000 });
   await page.getByRole('button', { name: 'Остановить', exact: true }).click();
   await expect(page.getByText(/^Остановлен: торговля в этом процессе выключена$/)).toBeVisible();
+
+  // The feed is written from the outbox and refreshed by the page; the bot never traded, so it holds only the quote.
+  await page.reload();
+  const feed = page.getByRole('list', { name: 'Лента бота' });
+  await expect(feed.getByText('Запущен', { exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(feed.getByText('Остановлен', { exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('Базовый актив')).toBeVisible();
+  await expect(page.getByText('Сделок пока нет.')).toBeVisible();
 });
