@@ -47,4 +47,24 @@ internal static class CandleQueries
         ORDER BY open_time
         LIMIT @Limit;
         """;
+
+    /// <summary>
+    ///     Adds only closures that are not stored yet; the caller asks only for ranges no stored closure covers.
+    /// </summary>
+    public const string AppendClosures =
+        """
+        INSERT INTO candle_closures (venue, symbol, timeframe, from_time, to_time, source, recorded_at)
+        SELECT @Venue, @Symbol, @Timeframe, from_time, to_time, @Source, @RecordedAt
+        FROM unnest(@FromTimes::timestamptz[], @ToTimes::timestamptz[]) AS incoming(from_time, to_time)
+        ORDER BY from_time
+        ON CONFLICT (venue, symbol, timeframe, from_time) DO NOTHING;
+        """;
+
+    public const string GetClosures =
+        """
+        SELECT greatest(from_time, @From) AS FromTime, least(to_time, @To) AS ToTime
+        FROM candle_closures
+        WHERE venue = @Venue AND symbol = @Symbol AND timeframe = @Timeframe AND from_time < @To AND to_time > @From
+        ORDER BY from_time;
+        """;
 }

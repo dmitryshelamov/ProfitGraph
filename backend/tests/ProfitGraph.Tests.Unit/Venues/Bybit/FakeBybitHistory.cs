@@ -1,3 +1,4 @@
+using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Market;
@@ -20,7 +21,7 @@ internal sealed class FakeBybitHistory : IHistoricalCandleSource
         return Task.FromResult<DateTimeOffset?>(null);
     }
 
-    public Task<IReadOnlyList<Candle>> Get(InstrumentSymbol symbol, Timeframe timeframe, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
+    public Task<HistoricalCandlesInternal> Get(InstrumentSymbol symbol, Timeframe timeframe, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
     {
         Reads++;
         var candles = new List<Candle>();
@@ -30,6 +31,6 @@ internal sealed class FakeBybitHistory : IHistoricalCandleSource
             candles.Add(new Candle(time, Open: 100m, High: 110m, Low: 90m, Close: 101m, Volume: 1m));
         }
 
-        return Task.FromResult<IReadOnlyList<Candle>>(candles);
+        return Task.FromResult(HistoricalCandlesInternal.Contiguous(candles));
     }
 }

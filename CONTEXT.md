@@ -44,6 +44,12 @@ data shared by all users; only the Owner can change it by CSV import, and downlo
 A background job that brings the closed candles of a series into the shared cache from a venue's public history. It
 fetches only the missing ranges, stores them chunk by chunk, and never changes a stored candle.
 
+### Market Closure
+
+A half-open range of a series' grid in which the venue's market was closed, so the series has no candle there, for
+example the night between two trading days. A venue reports closures with its history; they are cached beside the
+candles and never changed, and a CSV candle inside one is refused.
+
 ### Instrument Rules Snapshot
 
 The trading rules of one instrument (quantity step, price tick, minimums, asset precisions) as the venue reported
@@ -53,8 +59,9 @@ uses the snapshot taken when it started.
 ### Prepared History
 
 The immutable copy of candles one run replays: the warm-up before the run's start and the replay range, complete and
-contiguous, with an identity that changes whenever any candle or the partition changes. A later import or download
-cannot change a prepared history.
+contiguous except where market closures cover a gap, with an identity that changes whenever any candle, closure or the
+partition changes. Warm-up counts candles, so it reaches back over closures. A later import or download cannot change a
+prepared history.
 
 ### Compilation Fingerprint
 

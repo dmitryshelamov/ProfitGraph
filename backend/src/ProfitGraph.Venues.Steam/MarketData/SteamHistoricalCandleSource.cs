@@ -1,4 +1,5 @@
 using ProfitGraph.Application.MarketData;
+using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Market;
@@ -22,14 +23,15 @@ internal sealed class SteamHistoricalCandleSource(SteamMarketDataAccount account
         return candles.Count > 0 && candles[0].OpenTime < to ? candles[0].OpenTime : null;
     }
 
-    public async Task<IReadOnlyList<Candle>> Get(
+    public async Task<HistoricalCandlesInternal> Get(
         InstrumentSymbol symbol,
         Timeframe timeframe,
         DateTimeOffset from,
         DateTimeOffset to,
         CancellationToken cancellationToken)
     {
-        return [.. (await History(symbol, cancellationToken)).For(timeframe).Where(candle => candle.OpenTime >= from && candle.OpenTime < to)];
+        return HistoricalCandlesInternal.Contiguous(
+            [.. (await History(symbol, cancellationToken)).For(timeframe).Where(candle => candle.OpenTime >= from && candle.OpenTime < to)]);
     }
 
     private async Task<SteamPriceHistory> History(InstrumentSymbol symbol, CancellationToken cancellationToken)

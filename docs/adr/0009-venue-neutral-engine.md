@@ -32,3 +32,9 @@ the engine, and backtest code knew which exchange it simulated.
 
 - Backtest replay is the same code for every venue; venue differences are data.
 - Old tests that exercised removed venue behavior are not ported; their scenarios return with the policies.
+
+## Amendment: market closures (ADR 0023)
+
+- Replay accepts a gap between two candles exactly where the history's market closures cover it (ADR 0010 amendment,
+  TC1). A closure is venue-neutral: the engine never learns why a market closed, and how a venue finds its closures stays
+  in the venue module.

@@ -28,12 +28,13 @@ public sealed class SteamMarketDataTests
             """{"success":true,"price_prefix":"","price_suffix":"₸","prices":[["Sep 01 2026 01: +0",500.5,"1200"],["Sep 02 2026 01: +0",510,"1100"]]}""";
         var source = new SteamHistoricalCandleSource(harness.MarketData());
 
-        IReadOnlyList<Candle>[] reads = await Task.WhenAll(
+        HistoricalCandlesInternal[] reads = await Task.WhenAll(
             Enumerable.Range(start: 0, count: 4).Select(_ => source.Get(Case, Day, DateTimeOffset.MinValue, DateTimeOffset.MaxValue, CancellationToken.None)));
         DateTimeOffset? first = await source.FindFirst(Case, Day, DateTimeOffset.MaxValue, CancellationToken.None);
 
-        reads.ShouldAllBe(candles => candles.Count == 2);
-        reads[0][0]
+        reads.ShouldAllBe(history => history.Candles.Count == 2 && history.Closures.Count == 0);
+        reads[0]
+            .Candles[0]
             .ShouldBe(
                 new Candle(
                     new DateTimeOffset(year: 2026, month: 9, day: 1, hour: 0, minute: 0, second: 0, TimeSpan.Zero),
@@ -42,7 +43,7 @@ public sealed class SteamMarketDataTests
                     Low: 500.5m,
                     Close: 500.5m,
                     Volume: 1200m));
-        first.ShouldBe(reads[0][0].OpenTime);
+        first.ShouldBe(reads[0].Candles[0].OpenTime);
         harness.Steam.Count("/market/pricehistory/").ShouldBe(1);
         harness.Steam.Count("/market/").ShouldBe(1);
     }

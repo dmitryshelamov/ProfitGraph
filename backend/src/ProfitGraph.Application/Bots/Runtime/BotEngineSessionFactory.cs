@@ -50,7 +50,8 @@ public sealed class BotEngineSessionFactory(
         DateTimeOffset from = stored is null
             ? to - timeframe.Duration * Math.Max(plan.WarmupCandles + 1, val2: 1)
             : stored.Engine.LastClosedCandle.OpenTime - timeframe.Duration * plan.WarmupCandles;
-        IReadOnlyList<Candle> closed = from < to ? await Port(histories, bot).Get(bot.Series.Symbol, timeframe, from, to, cancellationToken) : [];
+        IReadOnlyList<Candle> closed =
+            from < to ? LiveWarmupHistory.Contiguous(await Port(histories, bot).Get(bot.Series.Symbol, timeframe, from, to, cancellationToken)) : [];
 
         if (stored is null)
         {

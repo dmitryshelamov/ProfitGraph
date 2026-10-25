@@ -1,3 +1,4 @@
+using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Market;
 
@@ -20,7 +21,7 @@ public interface IHistoricalCandleSource : IVenuePort
     Task<DateTimeOffset?> FindFirst(InstrumentSymbol symbol, Timeframe timeframe, DateTimeOffset to, CancellationToken cancellationToken);
 
     /// <summary>
-    ///     Reads the venue's candles of [from, to), oldest first.
+    ///     Reads the venue's candles of [from, to), oldest first, with the ranges of it in which the market was closed.
     /// </summary>
-    Task<IReadOnlyList<Candle>> Get(InstrumentSymbol symbol, Timeframe timeframe, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
+    Task<HistoricalCandlesInternal> Get(InstrumentSymbol symbol, Timeframe timeframe, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
 }

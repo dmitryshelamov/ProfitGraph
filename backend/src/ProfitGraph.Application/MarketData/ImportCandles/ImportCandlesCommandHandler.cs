@@ -113,9 +113,27 @@ internal sealed class ImportCandlesCommandHandler(
         return new CandleImportInternal(series.Venue.Value, series.Symbol.Value, series.Timeframe.Key, seen.Count, from, to);
     }
 
+    /// <summary>
+    ///     Stores a batch unless one of its candles lies in a market closure the venue reported (ADR 0023, TC1): a closed
+    ///     market had no trades, so such a file contradicts the cache.
+    /// </summary>
     private async Task Store(CandleSeries series, Dictionary<DateTimeOffset, Candle> batch, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        await repository.Import(series, [.. batch.Values.OrderBy(candle => candle.OpenTime)], now, cancellationToken);
+        Candle[] candles = [.. batch.Values.OrderBy(candle => candle.OpenTime)];
+        IReadOnlyList<CandleRangeInternal> closures = await repository.GetClosures(
+            series,
+            candles[0].OpenTime,
+            candles[^1].OpenTime + series.Timeframe.Duration,
+            cancellationToken);
+        Candle? closed = candles.FirstOrDefault(candle => closures.Any(closure => closure.From <= candle.OpenTime && candle.OpenTime < closure.To));
+
+        if (closed is not null)
+        {
+            throw new ApplicationValidationException(
+                [new InputError("invalid_candle", "File", $"The candle at {closed.OpenTime:O} lies in a market closure the venue reported.")]);
+        }
+
+        await repository.Import(series, candles, now, cancellationToken);
         batch.Clear();
     }
 
