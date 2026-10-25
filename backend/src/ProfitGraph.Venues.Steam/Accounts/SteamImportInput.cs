@@ -1,5 +1,7 @@
 using System.Text.Json;
 
+using ProfitGraph.Venues.Steam.Confirmations;
+
 namespace ProfitGraph.Venues.Steam.Accounts;
 
 /// <summary>
@@ -49,6 +51,16 @@ internal sealed record SteamImportInput(string Owner, string Label, string Steam
                 Text(authenticator, "device_id") is not { } device)
             {
                 return (null, "The authenticator file needs shared_secret, identity_secret and device_id.");
+            }
+
+            if (!SteamGuardCode.Accepts(shared))
+            {
+                return (null, "The shared_secret is not base64 of 1 to 64 bytes.");
+            }
+
+            if (!SteamConfirmationKey.Accepts(identity))
+            {
+                return (null, "The identity_secret is not base64 of 16 to 64 bytes.");
             }
 
             return (new SteamImportInput(owner, label, steamId, refreshToken, shared, identity, device), null);

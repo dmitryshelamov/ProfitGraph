@@ -12,7 +12,8 @@ namespace ProfitGraph.Venues.Steam.Accounts;
 ///     <see cref="SteamGuardStatus.CoolingDown" /> once its expected aging passed, whose check is due, every
 ///     <see cref="SteamOptions.EligibilityInterval" />. The attempt is recorded before Steam is asked, so a failed or
 ///     concurrent check waits <see cref="SteamOptions.EligibilityRecheck" />; an account still unconfirmed is checked again
-///     after that, and a ready or restricted one is left to its owner. Failures are logged by kind only.
+///     after that, and a ready or restricted one is left to its owner. Failures are logged by kind only, and one account's
+///     failure does not keep the others from being checked.
 /// </summary>
 internal sealed class SteamEligibilityWorker(
     IServiceScopeFactory scopes,
@@ -48,31 +49,43 @@ internal sealed class SteamEligibilityWorker(
 
             foreach (SteamAccount account in await store.Due(clock.GetUtcNow(), cancellationToken))
             {
-                DateTimeOffset now = clock.GetUtcNow();
-
-                if (await credentials.Get(new ExchangeCredentialId(account.CredentialId), cancellationToken) is not { } credential ||
-                    !await store.Record(
-                        account.CredentialId,
-                        account.GuardStatus,
-                        SteamGuardStatus.Checking,
-                        now + options.Value.EligibilityRecheck,
-                        now,
-                        cancellationToken))
+                try
                 {
-                    continue;
+                    await Check(account, store, credentials, cancellationToken);
                 }
-
-                SteamGuardStatus status = await eligibility.Check(credential.OwnerId.Value, account.CredentialId, cancellationToken);
-
-                if (status != SteamGuardStatus.Checking)
+                catch (Exception exception) when (exception is not OperationCanceledException)
                 {
-                    await store.Record(account.CredentialId, SteamGuardStatus.Checking, status, nextCheckAt: null, clock.GetUtcNow(), cancellationToken);
+                    logger.LogWarning("A Steam account could not be checked: {Failure}", exception.GetType().Name);
                 }
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger.LogWarning("Steam accounts could not be checked: {Failure}", exception.GetType().Name);
+        }
+    }
+
+    private async Task Check(SteamAccount account, ISteamAccountStore store, IExchangeCredentialRepository credentials, CancellationToken cancellationToken)
+    {
+        DateTimeOffset now = clock.GetUtcNow();
+
+        if (await credentials.Get(new ExchangeCredentialId(account.CredentialId), cancellationToken) is not { } credential ||
+            !await store.Record(
+                account.CredentialId,
+                account.GuardStatus,
+                SteamGuardStatus.Checking,
+                now + options.Value.EligibilityRecheck,
+                now,
+                cancellationToken))
+        {
+            return;
+        }
+
+        SteamGuardStatus status = await eligibility.Check(credential.OwnerId.Value, account.CredentialId, cancellationToken);
+
+        if (status != SteamGuardStatus.Checking)
+        {
+            await store.Record(account.CredentialId, SteamGuardStatus.Checking, status, nextCheckAt: null, clock.GetUtcNow(), cancellationToken);
         }
     }
 }

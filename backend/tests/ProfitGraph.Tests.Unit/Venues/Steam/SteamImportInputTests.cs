@@ -12,6 +12,8 @@ public sealed class SteamImportInputTests
                                          "device_id": "android:00000000-0000-0000-0000-000000000000"
                                          """;
 
+    private const string TooLong = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
     [Test]
     public void ReadsAFileWithItsTokenInTheSession()
     {
@@ -49,5 +51,24 @@ public sealed class SteamImportInputTests
 
         input.ShouldBeNull();
         problem.ShouldBe(expected);
+    }
+
+    [TestCase("not-base64!", "aWRlbnRpdHktbm90LXJlYWw=", "The shared_secret is not base64 of 1 to 64 bytes.")]
+    [TestCase(TooLong, "aWRlbnRpdHktbm90LXJlYWw=", "The shared_secret is not base64 of 1 to 64 bytes.")]
+    [TestCase("c2hhcmVkLW5vdC1yZWFs", "c2hvcnQh", "The identity_secret is not base64 of 16 to 64 bytes.")]
+    [TestCase("c2hhcmVkLW5vdC1yZWFs", "not-base64!", "The identity_secret is not base64 of 16 to 64 bytes.")]
+    [TestCase("c2hhcmVkLW5vdC1yZWFs", TooLong, "The identity_secret is not base64 of 16 to 64 bytes.")]
+    public void RefusesSecretsSteamGuardCannotSignWith(string shared, string identity, string expected)
+    {
+        (SteamImportInput? input, string? problem) = SteamImportInput.Parse(
+            $$"""
+              { "owner": "owner", "label": "Main", "authenticator": { "shared_secret": "{{shared}}", "identity_secret": "{{identity}}",
+                "device_id": "android:00000000-0000-0000-0000-000000000000", "steamid": "76561190000000001", "refresh_token": "token-not-real" } }
+              """);
+
+        input.ShouldBeNull();
+        problem.ShouldBe(expected);
+        problem!.ShouldNotContain(shared);
+        problem!.ShouldNotContain(identity);
     }
 }

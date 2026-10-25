@@ -10,13 +10,25 @@ namespace ProfitGraph.Venues.Steam.Accounts;
 internal static class SteamGuardCode
 {
     private const string Alphabet = "23456789BCDFGHJKMNPQRTVWXY";
+    private const int MaxSecretBytes = 64;
     public static readonly TimeSpan Window = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    ///     Whether the shared secret is base64 of 1 to 64 bytes, the only form <see cref="For" /> signs with. The secret is not
+    ///     kept or logged.
+    /// </summary>
+    public static bool Accepts(string sharedSecret)
+    {
+        Span<byte> secret = stackalloc byte[MaxSecretBytes];
+
+        return Convert.TryFromBase64String(sharedSecret, secret, out int length) && length > 0;
+    }
 
     public static string For(string sharedSecret, DateTimeOffset serverTime)
     {
         byte[] secret = Convert.FromBase64String(sharedSecret);
 
-        if (secret.Length is 0 or > 64)
+        if (secret.Length is 0 or > MaxSecretBytes)
         {
             throw new FormatException("The shared secret has an unexpected length.");
         }

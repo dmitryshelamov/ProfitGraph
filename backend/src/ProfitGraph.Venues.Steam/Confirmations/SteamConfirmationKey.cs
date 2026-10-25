@@ -13,6 +13,19 @@ internal static class SteamConfirmationKey
 {
     public const string ListTag = "conf";
     public const string AcceptTag = "accept";
+    private const int MinSecretBytes = 16;
+    private const int MaxSecretBytes = 64;
+
+    /// <summary>
+    ///     Whether the identity secret is base64 of 16 to 64 bytes, the only form <see cref="Sign" /> signs with. The secret is
+    ///     not kept or logged.
+    /// </summary>
+    public static bool Accepts(string identitySecret)
+    {
+        Span<byte> secret = stackalloc byte[MaxSecretBytes];
+
+        return Convert.TryFromBase64String(identitySecret, secret, out int length) && length >= MinSecretBytes;
+    }
 
     public static string Sign(string identitySecret, DateTimeOffset serverTime, string tag)
     {
@@ -23,7 +36,7 @@ internal static class SteamConfirmationKey
 
         byte[] secret = Convert.FromBase64String(identitySecret);
 
-        if (secret.Length is < 16 or > 64)
+        if (secret.Length is < MinSecretBytes or > MaxSecretBytes)
         {
             throw new FormatException("The identity secret has an unexpected length.");
         }
