@@ -4,6 +4,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
+using NSubstitute;
+
+using ProfitGraph.Application.Accounts.Contracts;
+using ProfitGraph.Application.Accounts.ReadExchangeCredentialSecrets;
+using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Venues.Steam;
 using ProfitGraph.Venues.Steam.Accounts;
 using ProfitGraph.Venues.Steam.Confirmations;
@@ -86,6 +92,47 @@ public sealed class SteamEligibilityTests
         _harness.Steam.ServerTime = _harness.Clock.GetUtcNow();
         await worker.Round(CancellationToken.None);
 
+        _store.Status.ShouldBe(SteamGuardStatus.Ready);
+        _store.NextCheckAt.ShouldBeNull();
+    }
+
+    [Test]
+    public async Task OneAccountThatFailsDoesNotStopTheOthers()
+    {
+        var broken = Guid.NewGuid();
+        DateTimeOffset now = _harness.Clock.GetUtcNow();
+        _store.Others[broken] = new SteamAccount(broken, "broken", SteamGuardStatus.Checking, now, now, now);
+        _harness.Credentials.Get(new ExchangeCredentialId(broken), Arg.Any<CancellationToken>())
+            .Returns(
+                ExchangeCredential.Restore(
+                    new ExchangeCredentialId(broken),
+                    new UserId(SteamSessionHarness.Owner),
+                    new VenueId("steam"),
+                    new ExchangeCredentialLabel("broken"),
+                    new ApiKeyLast4("0002"),
+                    new Dictionary<string, EncryptedSecret>
+                    {
+                        ["steamId"] = new EncryptedSecret("test", new byte[EncryptedSecret.NonceLength], [1], new byte[EncryptedSecret.TagLength])
+                    },
+                    now));
+        _harness.Sender.Send(Arg.Is<ReadExchangeCredentialSecretsQuery>(query => query != null && query.Id == broken), Arg.Any<CancellationToken>())
+            .Returns(
+                new ExchangeCredentialSecretsInternal(
+                    broken,
+                    "steam",
+                    new Dictionary<string, string>
+                    {
+                        ["steamId"] = MockSteam.SteamId,
+                        ["refreshToken"] = MockSteam.RefreshToken,
+                        ["sharedSecret"] = "c2hhcmVkLW5vdC1yZWFs",
+                        ["identitySecret"] = "c2hvcnQh",
+                        ["deviceId"] = "android:00000000-0000-0000-0000-000000000000"
+                    }));
+
+        await Worker().Round(CancellationToken.None);
+
+        _store.Others[broken].GuardStatus.ShouldBe(SteamGuardStatus.Checking);
+        _store.Others[broken].NextCheckAt.ShouldBe(now + TimeSpan.FromMinutes(15));
         _store.Status.ShouldBe(SteamGuardStatus.Ready);
         _store.NextCheckAt.ShouldBeNull();
     }

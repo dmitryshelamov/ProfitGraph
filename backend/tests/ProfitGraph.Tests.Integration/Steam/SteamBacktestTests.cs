@@ -147,7 +147,7 @@ public sealed class SteamBacktestTests
         await using var output = new StringWriter();
         var input = $$"""
                       { "owner": "{{owner}}", "label": "market data",
-                        "authenticator": { "shared_secret": "c2hhcmVk", "identity_secret": "aWRlbnRpdHk=", "device_id": "android:0",
+                        "authenticator": { "shared_secret": "c2hhcmVk", "identity_secret": "aWRlbnRpdHktbm90LXJlYWw=", "device_id": "android:0",
                           "Session": { "SteamID": {{steamId}}, "RefreshToken": "{{RefreshToken}}" } } }
                       """;
 

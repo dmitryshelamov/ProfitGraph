@@ -3,7 +3,8 @@ using ProfitGraph.Venues.Steam.Accounts;
 namespace ProfitGraph.Tests.Unit.Venues.Steam;
 
 /// <summary>
-///     Steam accounts in memory: the one a test sets up, with the store's compare-and-set on its status, and those added.
+///     Steam accounts in memory: the one a test sets up, with the store's compare-and-set on its status, others due before it,
+///     and those added.
 /// </summary>
 internal sealed class FakeSteamAccountStore : ISteamAccountStore
 {
@@ -13,15 +14,23 @@ internal sealed class FakeSteamAccountStore : ISteamAccountStore
 
     public List<SteamAccount> Added { get; } = new List<SteamAccount>();
 
+    /// <summary>
+    ///     Other accounts by credential, listed as due before the one a test sets up.
+    /// </summary>
+    public Dictionary<Guid, SteamAccount> Others { get; } = new Dictionary<Guid, SteamAccount>();
+
     public Task<SteamAccount?> Get(Guid credentialId, CancellationToken cancellationToken)
     {
-        return Task.FromResult<SteamAccount?>(Account(credentialId));
+        return Task.FromResult<SteamAccount?>(Others.GetValueOrDefault(credentialId) ?? Account(credentialId));
     }
 
     public Task<IReadOnlyList<SteamAccount>> Due(DateTimeOffset now, CancellationToken cancellationToken)
     {
         return Task.FromResult<IReadOnlyList<SteamAccount>>(
-            Status is SteamGuardStatus.Checking or SteamGuardStatus.CoolingDown && NextCheckAt <= now ? [Account(SteamSessionHarness.Credential)] : []);
+        [
+            .. Others.Values.Where(account => IsDue(account.GuardStatus, account.NextCheckAt, now)),
+            .. IsDue(Status, NextCheckAt, now) ? [Account(SteamSessionHarness.Credential)] : Array.Empty<SteamAccount>()
+        ]);
     }
 
     public Task<bool> Record(
@@ -32,6 +41,18 @@ internal sealed class FakeSteamAccountStore : ISteamAccountStore
         DateTimeOffset at,
         CancellationToken cancellationToken)
     {
+        if (Others.TryGetValue(credentialId, out SteamAccount? other))
+        {
+            if (other.GuardStatus != expected)
+            {
+                return Task.FromResult(false);
+            }
+
+            Others[credentialId] = other with { GuardStatus = status, NextCheckAt = nextCheckAt, UpdatedAt = at };
+
+            return Task.FromResult(true);
+        }
+
         if (Status != expected)
         {
             return Task.FromResult(false);
@@ -58,6 +79,11 @@ internal sealed class FakeSteamAccountStore : ISteamAccountStore
         Added.Add(account);
 
         return Task.FromResult(true);
+    }
+
+    private static bool IsDue(SteamGuardStatus status, DateTimeOffset? nextCheckAt, DateTimeOffset now)
+    {
+        return status is SteamGuardStatus.Checking or SteamGuardStatus.CoolingDown && nextCheckAt <= now;
     }
 
     private SteamAccount Account(Guid credentialId)
