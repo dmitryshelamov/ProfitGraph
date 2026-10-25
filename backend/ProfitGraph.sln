@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProfitGraph.Venues.Bybit", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProfitGraph.Venues.Steam", "src\ProfitGraph.Venues.Steam\ProfitGraph.Venues.Steam.csproj", "{B52C637F-9700-4B27-B51C-8712892214C7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProfitGraph.Venues.TInvest", "src\ProfitGraph.Venues.TInvest\ProfitGraph.Venues.TInvest.csproj", "{B23585B4-DB69-4AD4-B5C3-2E266AED290B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -157,6 +159,18 @@ Global
 		{B52C637F-9700-4B27-B51C-8712892214C7}.Release|x64.Build.0 = Release|Any CPU
 		{B52C637F-9700-4B27-B51C-8712892214C7}.Release|x86.ActiveCfg = Release|Any CPU
 		{B52C637F-9700-4B27-B51C-8712892214C7}.Release|x86.Build.0 = Release|Any CPU
+		{B23585B4-DB69-4AD4-B5C3-2E266AED290B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B23585B4-DB69-4AD4-B5C3-2E266AED290B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B23585B4-DB69-4AD4-B5C3-2E266AED290B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B23585B4-DB69-4AD4-B5C3-2E266AED290B}.Debug|x64.Build.0 = Debug|Any CPU
+		{B23585B4-DB69-4AD4-B5C3-2E266AED290B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B23585B4-DB69-4AD4-B5C3-2E266AED290B}.Debug|x86.Build.0 = Debug|Any CPU
+		{B23585B4-DB69-4AD4-B5C3-2E266AED290B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B23585B4-DB69-4AD4-B5C3-2E266AED290B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B23585B4-DB69-4AD4-B5C3-2E266AED290B}.Release|x64.ActiveCfg = Release|Any CPU
+		{B23585B4-DB69-4AD4-B5C3-2E266AED290B}.Release|x64.Build.0 = Release|Any CPU
+		{B23585B4-DB69-4AD4-B5C3-2E266AED290B}.Release|x86.ActiveCfg = Release|Any CPU
+		{B23585B4-DB69-4AD4-B5C3-2E266AED290B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -172,5 +186,6 @@ Global
 		{4E839881-8569-47AC-BF5A-2CBE3F8849B7} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{31FD73CE-DA01-4E5A-9795-A2C360CAAC9B} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{B52C637F-9700-4B27-B51C-8712892214C7} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{B23585B4-DB69-4AD4-B5C3-2E266AED290B} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

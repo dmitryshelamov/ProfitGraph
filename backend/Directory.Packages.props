@@ -18,6 +18,7 @@
         <PackageVersion Include="CryptoClients.Net" Version="5.9.0" />
         <PackageVersion Include="Polly.Core" Version="8.4.2" />
         <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.13" />
+        <PackageVersion Include="Tinkoff.InvestApi" Version="0.6.25" />
         <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.13" />
         <PackageVersion Include="FluentMigrator.Runner" Version="8.0.1" />
         <PackageVersion Include="FluentMigrator.Extensions.Postgres" Version="8.0.1" />

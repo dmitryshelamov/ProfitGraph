@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"/>
+        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions"/>
+        <PackageReference Include="Tinkoff.InvestApi"/>
+        <InternalsVisibleTo Include="ProfitGraph.Tests.Unit"/>
+        <InternalsVisibleTo Include="ProfitGraph.Tests.Integration"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\ProfitGraph.Application\ProfitGraph.Application.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="Certificates\*.cer" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="Certificates\TInvest\%(Filename)%(Extension)"/>
+    </ItemGroup>
+
+</Project>
