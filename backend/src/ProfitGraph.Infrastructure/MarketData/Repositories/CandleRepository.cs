@@ -58,7 +58,8 @@ internal sealed class CandleRepository(NpgsqlConnection connection, PostgresTran
             Highs = candles.Select(candle => candle.High).ToArray(),
             Lows = candles.Select(candle => candle.Low).ToArray(),
             Closes = candles.Select(candle => candle.Close).ToArray(),
-            Volumes = candles.Select(candle => candle.Volume).ToArray()
+            Volumes = candles.Select(candle => candle.Volume).ToArray(),
+            NoTrades = candles.Select(candle => candle.NoTrades).ToArray()
         };
 
         return await connection.ExecuteAsync(new CommandDefinition(CandleQueries.Append, parameters, transactions.Current, cancellationToken: cancellationToken));
@@ -79,6 +80,21 @@ internal sealed class CandleRepository(NpgsqlConnection connection, PostgresTran
             new CommandDefinition(CandleQueries.Get, parameters, transactions.Current, cancellationToken: cancellationToken));
 
         return [.. rows.Select(row => row.ToDomain())];
+    }
+
+    public async Task<DateTimeOffset?> FindWithoutTrades(CandleSeries series, IReadOnlyList<DateTimeOffset> openTimes, CancellationToken cancellationToken)
+    {
+        var parameters = new
+        {
+            Venue = series.Venue.Value,
+            Symbol = series.Symbol.Value,
+            Timeframe = series.Timeframe.Key,
+            OpenTimes = openTimes.ToArray()
+        };
+        var found = await connection.ExecuteScalarAsync<DateTime?>(
+            new CommandDefinition(CandleQueries.FindWithoutTrades, parameters, transactions.Current, cancellationToken: cancellationToken));
+
+        return found is { } utc ? new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)) : null;
     }
 
     public async Task AppendClosures(

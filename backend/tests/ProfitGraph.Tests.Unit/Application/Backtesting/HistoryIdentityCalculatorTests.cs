@@ -38,6 +38,14 @@ public sealed class HistoryIdentityCalculatorTests
     }
 
     [Test]
+    public void ACandleWithoutTradesChangesTheIdentity()
+    {
+        Candle flat = Candles[1] with { Open = 104.5m, High = 104.5m, Low = 104.5m };
+
+        Calculate(Range(), [Candles[0], flat with { NoTrades = true }]).ShouldNotBe(Calculate(Range(), [Candles[0], flat]));
+    }
+
+    [Test]
     public void ObservationTimeIsLeftOut_ButTheLatestClosedBoundaryCounts()
     {
         string identity = Calculate(Range());

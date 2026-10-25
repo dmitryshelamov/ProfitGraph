@@ -108,3 +108,12 @@ every venue, and CSV import could be called by anyone sharing the workspace.
   candles or starts at the venue's first candle. The history identity appends the closures after the candles under a
   `closures` marker only when there are any, so an identity without closures keeps its bytes.
 - Live bots still need contiguous history; they refuse closures until live closures arrive (ADR 0023, TC3).
+
+## Amendment: candles without trades (ADR 0023, TC2)
+
+- A venue may mark a candle as having no trades (`Candle.NoTrades`): open, high, low and close equal and volume zero,
+  which the validator and a `candles` check constraint require. The cache stores the flag in `candles.no_trades`; existing
+  rows are real candles. A CSV row neither creates such a candle nor replaces a stored one; replacing one is a later,
+  explicit correction (ADR 0023, live candles).
+- The history identity adds a `no-trades` marker after a flagged candle only, so identities of histories without such
+  candles keep their bytes.

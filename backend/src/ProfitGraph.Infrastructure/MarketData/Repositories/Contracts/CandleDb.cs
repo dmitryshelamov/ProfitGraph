@@ -8,4 +8,5 @@ internal sealed class CandleDb
     public decimal Low { get; init; }
     public decimal Close { get; init; }
     public decimal Volume { get; init; }
+    public bool NoTrades { get; init; }
 }

@@ -76,11 +76,15 @@ internal sealed class BacktestRunState
                     Drain();
                 }
 
-                PricePath.Validate(candle);
-                MatchCurrentPoint();
-                TraverseSegment(candle.Open, candle.Low, PricePhase.OpenToLow, index);
-                TraverseSegment(candle.Low, candle.High, PricePhase.LowToHigh, index);
-                TraverseSegment(candle.High, candle.Close, PricePhase.HighToClose, index);
+                // Nothing traded on a candle without trades (ADR 0023, TC2), so its orders wait for a real candle.
+                if (!candle.NoTrades)
+                {
+                    PricePath.Validate(candle);
+                    MatchCurrentPoint();
+                    TraverseSegment(candle.Open, candle.Low, PricePhase.OpenToLow, index);
+                    TraverseSegment(candle.Low, candle.High, PricePhase.LowToHigh, index);
+                    TraverseSegment(candle.High, candle.Close, PricePhase.HighToClose, index);
+                }
 
                 SetCursor(candle, index, PricePhase.Close, candle.Close);
                 _dispatcher.CommitClosedCandle(candle, historyIndex++);

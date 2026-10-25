@@ -50,6 +50,12 @@ A half-open range of a series' grid in which the venue's market was closed, so t
 example the night between two trading days. A venue reports closures with its history; they are cached beside the
 candles and never changed, and a CSV candle inside one is refused.
 
+### Candle Without Trades
+
+A candle of an open market in which nothing traded: flat at the last real close, with zero volume. Indicators and
+candle-close work treat it as any candle, but a backtest fills no order on it; orders wait for a real candle. Only the
+venue marks a candle so, and a CSV file cannot replace one.
+
 ### Instrument Rules Snapshot
 
 The trading rules of one instrument (quantity step, price tick, minimums, asset precisions) as the venue reported

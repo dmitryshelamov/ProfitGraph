@@ -31,21 +31,35 @@ internal static class CandleQueries
     /// </summary>
     public const string Append =
         """
-        INSERT INTO candles (venue, symbol, timeframe, open_time, open, high, low, close, volume, source, imported_at)
-        SELECT @Venue, @Symbol, @Timeframe, open_time, open, high, low, close, volume, @Source, @ImportedAt
-        FROM unnest(@OpenTimes::timestamptz[], @Opens::numeric[], @Highs::numeric[], @Lows::numeric[], @Closes::numeric[], @Volumes::numeric[])
-            AS incoming(open_time, open, high, low, close, volume)
+        INSERT INTO candles (venue, symbol, timeframe, open_time, open, high, low, close, volume, no_trades, source, imported_at)
+        SELECT @Venue, @Symbol, @Timeframe, open_time, open, high, low, close, volume, no_trades, @Source, @ImportedAt
+        FROM unnest(
+            @OpenTimes::timestamptz[],
+            @Opens::numeric[],
+            @Highs::numeric[],
+            @Lows::numeric[],
+            @Closes::numeric[],
+            @Volumes::numeric[],
+            @NoTrades::boolean[])
+            AS incoming(open_time, open, high, low, close, volume, no_trades)
         ORDER BY open_time
         ON CONFLICT (venue, symbol, timeframe, open_time) DO NOTHING;
         """;
 
     public const string Get =
         """
-        SELECT open_time AS OpenTime, open AS Open, high AS High, low AS Low, close AS Close, volume AS Volume
+        SELECT open_time AS OpenTime, open AS Open, high AS High, low AS Low, close AS Close, volume AS Volume, no_trades AS NoTrades
         FROM candles
         WHERE venue = @Venue AND symbol = @Symbol AND timeframe = @Timeframe AND open_time >= @From AND open_time < @To
         ORDER BY open_time
         LIMIT @Limit;
+        """;
+
+    public const string FindWithoutTrades =
+        """
+        SELECT min(open_time)
+        FROM candles
+        WHERE venue = @Venue AND symbol = @Symbol AND timeframe = @Timeframe AND no_trades AND open_time = ANY(@OpenTimes);
         """;
 
     /// <summary>
