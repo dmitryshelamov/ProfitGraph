@@ -122,13 +122,14 @@ public sealed class SteamExecutionsTests
         _owned.Assets.Add(new SteamOwnedAsset(AppId: 730, "2", "1001", DateTimeOffset.UnixEpoch));
         IOptions<SteamOptions> options = Options.Create(_harness.Options);
         var settlement = new SteamSellSettlement(_journal, _updates, _waiting, _harness.Clock);
-        var sells = new SteamSells(_journal, _owned, _harness.Sessions(), new SteamListingClient(options), settlement, _updates, _harness.Clock);
+        var sells = new SteamSells(_journal, _owned, _harness.Sessions(), new SteamListingClient(options), settlement, _updates, _waiting, _harness.Clock);
         var confirmations = new SteamConfirmations(
             _journal,
             _harness.Sessions(),
             new SteamConfirmationClient(_harness.Scopes()),
             new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _waiting, _harness.Clock),
             settlement,
+            _waiting,
             _harness.Clock);
         var order = new OrderSnapshot(
             Id: 1,

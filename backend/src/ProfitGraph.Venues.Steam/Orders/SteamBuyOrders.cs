@@ -96,7 +96,8 @@ internal sealed class SteamBuyOrders(
 
     /// <summary>
     ///     Moves an account's buys along: cancels market buys past their deadline, confirms finished cancels and places the
-    ///     waiting buy nearest the market of each item whose slot is free. A buy that cannot be resolved now stays as it is.
+    ///     waiting buy nearest the market of each item whose slot is free, among those whose bot the core releases now. A buy
+    ///     that cannot be resolved now stays as it is.
     /// </summary>
     public async Task Advance(Guid ownerId, Guid credentialId, CancellationToken cancellationToken)
     {
@@ -113,20 +114,27 @@ internal sealed class SteamBuyOrders(
         }
 
         IReadOnlyList<SteamOrderJournalEntry> current = await journal.Open(credentialId, cancellationToken);
-        IEnumerable<SteamOrderJournalEntry> nearest = current
+        IEnumerable<IOrderedEnumerable<SteamOrderJournalEntry>> free = current
             .Where(entry => entry.Side == OrderSide.Buy)
             .GroupBy(entry => entry.Instrument, StringComparer.Ordinal)
             .Where(item => !item.Any(entry => entry.HoldsSlot))
             .Select(item => item
                 .Where(entry => entry.State == SteamOrderJournalState.Waiting)
                 .OrderByDescending(entry => entry.PriceMinorUnits)
-                .ThenBy(entry => entry.CreatedAt)
-                .FirstOrDefault())
-            .OfType<SteamOrderJournalEntry>();
+                .ThenBy(entry => entry.CreatedAt));
 
-        foreach (SteamOrderJournalEntry entry in nearest)
+        foreach (IOrderedEnumerable<SteamOrderJournalEntry> item in free)
         {
-            await Attempt(() => Place(ownerId, entry, beforeSend: null, cancellationToken));
+            foreach (SteamOrderJournalEntry entry in item)
+            {
+                // Outside a runner turn only the core's submit gates let a held buy go: a stopped or degraded bot never sends.
+                if (await waiting.MayRelease(entry.BotId, cancellationToken))
+                {
+                    await Attempt(() => Place(ownerId, entry, beforeSend: null, cancellationToken));
+
+                    break;
+                }
+            }
         }
     }
 
@@ -140,6 +148,12 @@ internal sealed class SteamBuyOrders(
         if (entry is not { Side: OrderSide.Buy, State: SteamOrderJournalState.Approved, ConfirmationCreator: { } creator })
         {
             throw new ArgumentException("Only a buy whose confirmation was approved is finalized.", nameof(entry));
+        }
+
+        // An approved buy stays approved while the core does not release its bot.
+        if (!await waiting.MayRelease(entry.BotId, cancellationToken))
+        {
+            return;
         }
 
         DateTimeOffset now = clock.GetUtcNow();
