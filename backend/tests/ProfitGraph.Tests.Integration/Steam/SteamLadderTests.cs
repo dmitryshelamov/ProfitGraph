@@ -127,8 +127,8 @@ public sealed class SteamLadderTests
         await second.StartAsync();
         await Level(scenario, second, bot, price: 48000, items: 1);
 
-        scenario.Steam.Count(ApprovePath).ShouldBe(1);
-        scenario.Steam.Count(CreatePath).ShouldBe(2);
+        scenario.Steam.Count(ApprovePath).ShouldBe(expected: 1, await Journal(bot));
+        scenario.Steam.Count(CreatePath).ShouldBe(expected: 2, await Journal(bot));
         await second.StopAsync();
     }
 
@@ -146,7 +146,7 @@ public sealed class SteamLadderTests
             await RuntimeScenario.Until(() => Task.FromResult(scenario.Steam.Count("/jwt/finalizelogin") > signIns), "a background read signs in again");
             await Level(scenario, worker, bot, price: 48000, items: 1);
 
-            scenario.Steam.Count(CreatePath).ShouldBe(2);
+            scenario.Steam.Count(CreatePath).ShouldBe(expected: 2, await Journal(bot));
             await worker.StopAsync();
         }
     }
@@ -166,8 +166,8 @@ public sealed class SteamLadderTests
             await RuntimeScenario.Until(() => Task.FromResult(Volatile.Read(ref limited) > 1), "the history is read again after the cooldown");
             await Level(scenario, worker, bot, price: 48000, items: 1);
 
-            scenario.Steam.Count(CreatePath).ShouldBe(2);
-            scenario.Steam.Count(ApprovePath).ShouldBe(1);
+            scenario.Steam.Count(CreatePath).ShouldBe(expected: 2, await Journal(bot));
+            scenario.Steam.Count(ApprovePath).ShouldBe(expected: 1, await Journal(bot));
             await worker.StopAsync();
         }
     }
@@ -198,7 +198,7 @@ public sealed class SteamLadderTests
             await RuntimeScenario.Until(async () => (await SteamLadderScenario.Position(worker, bot)).BaseTotal == 1m, "the bot runs again and hears its fill");
 
             (await RuntimeScenario.Read(worker, bot.Id)).StatusReason.ShouldBeNull();
-            scenario.Steam.Count(CreatePath).ShouldBe(2);
+            scenario.Steam.Count(CreatePath).ShouldBe(expected: 2, await Journal(bot));
             await worker.StopAsync();
         }
     }
@@ -297,6 +297,22 @@ public sealed class SteamLadderTests
         await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
 
         return await connection.ExecuteScalarAsync<string?>("SELECT state FROM steam_order_journal WHERE bot_id = @id", new { id = bot.Id.Value });
+    }
+
+    /// <summary>
+    ///     The bot's journal entries, oldest first, to explain a failed count of Steam writes.
+    /// </summary>
+    private static async Task<string> Journal(Bot bot)
+    {
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+        IEnumerable<string> entries = await connection.QueryAsync<string>(
+            sql: """
+                 SELECT engine_order_id || ' ' || side || ' ' || order_type || ' ' || quantity || '@' || price_minor_units || ' ' || state || ' ' || coalesce(outcome, '-')
+                 FROM steam_order_journal WHERE bot_id = @id ORDER BY created_at
+                 """,
+            new { id = bot.Id.Value });
+
+        return "Journal: " + string.Join("; ", entries);
     }
 
     private static async Task Resume(IHost host, Guid credential)
