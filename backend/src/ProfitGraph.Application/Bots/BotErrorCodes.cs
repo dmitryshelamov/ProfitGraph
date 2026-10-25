@@ -3,6 +3,7 @@ namespace ProfitGraph.Application.Bots;
 public static class BotErrorCodes
 {
     public const string NotFound = "bot_not_found";
+    public const string AlertNotFound = "bot_alert_not_found";
     public const string LeaseLost = "bot_lease_lost";
     public const string FeeRatesUnavailable = "fee_rates_unavailable";
     public const string ParametersMismatch = "parameters_mismatch";
