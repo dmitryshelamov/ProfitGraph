@@ -39,6 +39,7 @@ internal sealed class BybitGatewayHarness
     public BybitOrderUpdates Updates { get; } = new BybitOrderUpdates();
     public BybitFeeRateReader FeeRates { get; }
     public FakeBybitPrivateTransport PrivateStream { get; } = new FakeBybitPrivateTransport();
+    public BybitReadClient ReadClient { get; }
 
     public BybitGatewayHarness()
     {
@@ -79,6 +80,7 @@ internal sealed class BybitGatewayHarness
         // A frozen host clock makes Bybit's server time exact, so signed timestamps and auth expiries are predictable.
         var clock = new BybitServerClock(new FakeTimeProvider(DateTimeOffset.UnixEpoch.AddDays(1)));
         var read = new BybitReadClient(http, clock);
+        ReadClient = read;
         var reads = new BybitOrderReads(read);
         Gateway = new BybitOrderGateway(
             new BybitTradeClient(http, clock),

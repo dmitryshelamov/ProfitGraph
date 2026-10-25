@@ -42,3 +42,22 @@ requires the owner to enter credentials again, so nothing is imported. Stage 5 p
   gateway (stage 5).
 - Deleting a credential that a bot uses becomes a conflict once bots exist.
 - Re-encrypting stored values to a new key and the Telegram link on the account arrive with later work.
+
+## Amendment: account value snapshots (stage 5.14)
+
+- **Reader.** A venue's `IAccountBalanceReader` reads an account's value with a credential: the USD-equivalent total, the
+  available value when known, and every coin's wallet balance and USD value. It reads balances only and reports any
+  failure as a stable reason with a safe detail (an HTTP status or a venue code), never keys, signatures or response
+  bodies. Bybit's reads `GET /v5/account/wallet-balance?accountType=UNIFIED` through the read client's allowlist;
+  equity is required, a malformed or repeated coin is skipped, decimals may use exponent notation (Profit Fox Designer
+  ADR 0069).
+- **Polling.** The Worker's `live` role reads every credential with a bot, stopped or running and during a global halt.
+  A credential is due five minutes after a success and 5, 10, 20, 40 and then 60 minutes after consecutive failures;
+  failures stay per credential. The credential is decrypted only in memory for the read, and no transaction spans it.
+- **Storage.** Each read updates `account_balance_status` and, when it observed a value, adds a snapshot to
+  `account_value_snapshots` in one transaction. A credential has at most one snapshot per UTC five-minute bucket; a
+  failure keeps the last snapshot and success time. History older than seven days is thinned hourly to the latest
+  snapshot of each credential and UTC hour, which never expires.
+- **Read.** `GET /api/exchange-credentials/{id}/account?from=&to=&limit=` returns the owner's history, oldest first,
+  with the reading status; the default range is the last seven days. The history includes deposits, withdrawals and
+  price moves; it is not bot profit.
