@@ -9,6 +9,7 @@ using ProfitGraph.Application.Bots.ChangeBotForeignOrders;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.GetBot;
 using ProfitGraph.Application.Bots.GetBots;
+using ProfitGraph.Application.Bots.KillBot;
 using ProfitGraph.Application.Bots.StartBot;
 using ProfitGraph.Application.Bots.StopBot;
 
@@ -54,6 +55,16 @@ public sealed class BotsController(ISender sender) : ControllerBase
     public async Task<ActionResult<BotResponse>> Stop(Guid id, CancellationToken cancellationToken)
     {
         return (await sender.Send(new StopBotCommand(UserId(), id), cancellationToken)).ToResponse();
+    }
+
+    /// <summary>
+    ///     The kill switch: the bot stops at once, its unsent submits are rejected and its open orders cancelled; its
+    ///     position is never sold. Only an explicit start clears it.
+    /// </summary>
+    [HttpPost("{id:guid}/kill")]
+    public async Task<ActionResult<BotResponse>> Kill(Guid id, CancellationToken cancellationToken)
+    {
+        return (await sender.Send(new KillBotCommand(UserId(), id), cancellationToken)).ToResponse();
     }
 
     [HttpPut("{id:guid}/parameters")]

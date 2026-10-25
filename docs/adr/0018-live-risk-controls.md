@@ -1,0 +1,40 @@
+# ADR 0018: Live Risk Controls
+
+Status: Accepted, 2026-10-25.
+
+## Context
+
+Live bots deliver orders through a venue gateway (ADRs 0016 and 0017). Profit Fox Designer ADR 0056 required, before
+trading may be enabled, a per-order limit, a daily loss limit, a kill switch per bot and a global halt. ProfitGraph
+already models the limits, the daily baseline, kills and the halt in its `Bot` and `TradingHalt` aggregates; this ADR
+decides how the runtime, the order delivery and the API apply them. Alerts and their delivery follow in later steps.
+
+## Decision
+
+- **Per-order limit.** Every bot has a positive `MaxOrderQuote`. Before the first place of a submit, the dispatcher
+  values it in quote: a market buy by its budget, a limit buy by price times quantity, a sell by its quantity at its
+  limit price or at the last closed candle. A submit above the limit is rejected with `RiskLimit` before anything is
+  sent; the rejection is stored and reaches the engine like a venue rejection. A lookup of a submit that may have been
+  sent is never blocked.
+- **Allocation.** The engine's allocation cap already rejects a buy that would exceed it, before an intent exists.
+- **Balance.** A venue rejection for an insufficient quote or base balance degrades the bot with
+  `InsufficientBalance`; a start after the owner funds the account re-arms it. A pre-submit wallet read is left for
+  the account balance reader of stage 5.14.
+- **Daily loss.** At every root after a live candle, the bot records its equity at the candle's close: quote total
+  plus base total at the close price. The first root of a UTC day, by the candle's close time, sets that day's
+  baseline; a later root whose loss from it reaches `DailyLossLimitQuote` kills the bot with `DailyLossLimit` in the
+  same commit. A start clears the baseline.
+- **Kill.** `POST /api/bots/{id}/kill` stops the bot at once with `Killed`. In the same transaction every submit that
+  never left the process is rejected with `KillSwitch`, and every order that is not final and may be at the venue
+  gets one cancel marked as a kill (`BotKillSwitch`). Holdings are never sold. A root a killed bot still commits
+  applies the same rules, so a submit it emits never leaves. Only an explicit start clears a kill.
+- **Global halt.** The Owner halts (`POST /api/trading-halt/halt`) and resumes (`.../resume`); every user reads it
+  (`GET /api/trading-halt`). A halt blocks every submit claim and every start (`trading_halted`) and kills every bot
+  that should run. Resuming starts no bot.
+
+## Consequences
+
+- Every control is enforced by the stores and aggregates the API and the Worker share, so a kill or halt takes effect
+  even when no runtime holds the bot; the runtime of a killed bot ends on its next pass.
+- Kill cancels are ordinary intents: they survive restarts and use the gateway's lookup on failure, and
+  reconciliation applies their outcome when the bot opens again.
