@@ -35,8 +35,10 @@ internal sealed class MockTInvestMarket
             Lot = lot,
             Currency = currency,
             ApiTradeAvailableFlag = apiTrading,
+            Exchange = "moex_mrng_evng_e_wknd_dlr",
             MinPriceIncrement = Quotation(increment),
-            First1MinCandleDate = Timestamp.FromDateTimeOffset(firstMinute)
+            First1MinCandleDate = Timestamp.FromDateTimeOffset(firstMinute),
+            First1DayCandleDate = Timestamp.FromDateTimeOffset(firstMinute)
         };
         _shares[ticker] = share;
         _candles[share.Uid] = [];

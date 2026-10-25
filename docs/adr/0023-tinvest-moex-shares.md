@@ -337,3 +337,22 @@ withdrawals); and that the endpoint certificate is still issued by the Russian T
   endpoint derives `commissionPending` from the fee receipts of the bot's current checkpoint, so fill rows stay
   immutable and a correction clears the mark. Waiting reasons (band, session, carry-over) and «Комиссия уточнена» in the
   feed came with TC4.
+
+## Amendment: ladder scenario on the mock (T15)
+
+- `TInvestLadderScenarioTests` runs a Ladder bot on an invented SBER (four-hour candles; the module has no daily
+  interval) through the real T-Invest module and its waiting worker in a Worker host with the live role. Trading is
+  enabled only in that test host, against the in-process Invest API mock with an invented token and account. The steps:
+  - The entry's place answer is lost; it is found by its request ID and never sent again.
+  - The averaging buy waits for the price band and is placed once the band reaches it.
+  - The entry's late commission becomes one fee correction.
+  - The exit and a partly filled averaging buy are carried over before the trading day ends.
+  - A restart at night, with trading closed, sends nothing and keeps both carried remainders waiting.
+  A closed session on submit is covered by the gateway's unit tests.
+- **Core fix found by the scenario.** `BotMarketDataAccess.Open` set the ambient market data access inside an awaited
+  method, and an `AsyncLocal` value set there does not flow back to the caller. The bot runtime's history, rules and
+  live reads therefore never carried the bot's credential, and a T-Invest bot could not open. It now only reads the
+  credential, and each caller opens the access with `MarketDataAccess.Use` in its own method. Bybit and Steam declare
+  no market data access and are unaffected.
+- Before trading, the owner checks listed above still apply. So do the checks added with T13, and the observation that
+  the order state stream's messages carry `order_request_id`.

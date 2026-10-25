@@ -27,4 +27,9 @@
         <ProjectReference Include="..\..\src\ProfitGraph.Api\ProfitGraph.Api.csproj"/>
     </ItemGroup>
 
+    <!-- The in-process Invest API of the unit tests, compiled here as well so the T-Invest ladder scenario uses the same mock. -->
+    <ItemGroup>
+        <Compile Include="..\ProfitGraph.Tests.Unit\Venues\TInvest\MockTInvest*.cs" Link="TInvest\Mock\%(Filename)%(Extension)"/>
+    </ItemGroup>
+
 </Project>
