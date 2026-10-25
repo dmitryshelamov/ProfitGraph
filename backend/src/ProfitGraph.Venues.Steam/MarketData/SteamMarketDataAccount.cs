@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Globalization;
+using System.Text.Json;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -37,9 +39,10 @@ internal sealed class SteamMarketDataAccount(SteamAccountSessions sessions, ISer
     }
 
     /// <summary>
-    ///     The item's whole history in the account's wallet currency, which must be the instrument's.
+    ///     The item's whole history in the account's wallet currency, which must be the instrument's; with
+    ///     <paramref name="readSince" />, only a read made at or after that moment is reused.
     /// </summary>
-    public async Task<SteamPriceHistory> History(SteamInstrument instrument, CancellationToken cancellationToken)
+    public async Task<SteamPriceHistory> History(SteamInstrument instrument, CancellationToken cancellationToken, DateTimeOffset? readSince = null)
     {
         SteamWallet wallet = await Wallet(cancellationToken);
 
@@ -60,7 +63,7 @@ internal sealed class SteamMarketDataAccount(SteamAccountSessions sessions, ISer
             {
                 (SteamPriceHistory history, DateTimeOffset readAt) = await read.Value.WaitAsync(cancellationToken);
 
-                if (clock.GetUtcNow() - readAt < options.Value.HistoryReuse)
+                if (readSince is { } since ? readAt >= since : clock.GetUtcNow() - readAt < options.Value.HistoryReuse)
                 {
                     return history;
                 }
@@ -74,6 +77,31 @@ internal sealed class SteamMarketDataAccount(SteamAccountSessions sessions, ISer
 
             _histories.TryRemove(new KeyValuePair<string, Lazy<Task<(SteamPriceHistory History, DateTimeOffset ReadAt)>>>(key, read));
         }
+    }
+
+    /// <summary>
+    ///     The wallet of another stored Steam credential, read through that credential's own session.
+    /// </summary>
+    public async Task<SteamWallet> WalletOf(Guid credentialId, CancellationToken cancellationToken)
+    {
+        SteamAccountSession session = await Session(credentialId, cancellationToken);
+
+        return SteamWalletParser.Read(
+            Body(await session.Execute(SteamHttpRequest.Get(SteamEndpoint.Community, "/market/", SteamRequestClass.Account), cancellationToken)));
+    }
+
+    /// <summary>
+    ///     The highest buy order of an item in minor units of the wallet currency, which is what selling one would give the
+    ///     seller's buyer now, or null without buy orders (Profit Fox Designer <c>GetHighestBuyPrice</c>).
+    /// </summary>
+    public async Task<decimal?> HighestBuyOrder(SteamInstrument instrument, CancellationToken cancellationToken)
+    {
+        SteamWallet wallet = await Wallet(cancellationToken);
+        string query = "[" + instrument.AppId.ToString(CultureInfo.InvariantCulture) + "," +
+            JsonSerializer.Serialize(instrument.MarketHashName) + "]";
+        byte[] body = await Read($"/market/orderbook?q=Load&qp={Uri.EscapeDataString(query)}", SteamRequestClass.Quote, cancellationToken);
+
+        return SteamOrderBookParser.HighestBuy(body, wallet.Currency);
     }
 
     public async Task<byte[]> Read(string path, SteamRequestClass requestClass, CancellationToken cancellationToken)
@@ -104,20 +132,22 @@ internal sealed class SteamMarketDataAccount(SteamAccountSessions sessions, ISer
         return (SteamPriceHistoryParser.Read(payload, currency, now, options.Value.CandleCloseDelay), now);
     }
 
-    private async Task<SteamAccountSession> Session(CancellationToken cancellationToken)
+    private Task<SteamAccountSession> Session(CancellationToken cancellationToken)
     {
-        if (options.Value.MarketDataCredentialId is not { } credentialId)
-        {
-            throw new SteamMarketDataException(unavailable: true, "No Steam account is configured for market data.");
-        }
+        return options.Value.MarketDataCredentialId is { } credentialId
+            ? Session(credentialId, cancellationToken)
+            : throw new SteamMarketDataException(unavailable: true, "No Steam account is configured for market data.");
+    }
 
+    private async Task<SteamAccountSession> Session(Guid credentialId, CancellationToken cancellationToken)
+    {
         await using AsyncServiceScope scope = scopes.CreateAsyncScope();
         ExchangeCredential? credential = await scope.ServiceProvider.GetRequiredService<IExchangeCredentialRepository>()
             .Get(new ExchangeCredentialId(credentialId), cancellationToken);
 
         if (credential is null || credential.Venue != SteamVenue.VenueId)
         {
-            throw new SteamMarketDataException(unavailable: true, "The configured market-data account is not a stored Steam credential.");
+            throw new SteamMarketDataException(unavailable: true, "The account is not a stored Steam credential.");
         }
 
         return sessions.For(credential.OwnerId.Value, credentialId);
