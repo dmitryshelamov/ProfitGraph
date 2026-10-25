@@ -23,16 +23,27 @@ small pull requests; a stage is done when its acceptance criterion holds.
 
 ## Wave 2
 
-- `Venues.TInvest`: trading sessions, lot sizing, price bands, day orders and carry-over, late commission
-  corrections, synthetic candles for empty intervals. Confirms that venue ports need no core changes.
-- Telegram bot control on top of the wave 1 alerts.
+`Venues.TInvest` trades MOEX shares through the T-Invest Invest API ([ADR 0023](adr/0023-tinvest-moex-shares.md)):
+trading sessions and closures, lots, price bands, day orders and carry-over, late commission corrections and candles
+without trades. Contrary to the earlier expectation, T-Invest changes the core where ADR 0023 lists it (TC1–TC6), each
+change in its own pull request with Bybit's and Steam's fingerprints and pinned replay hashes unchanged. Trading stays
+disabled throughout.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| Model | ADR 0023 | The owner accepted the model | Done |
+| Core | Market closures in history and live, candles without trades, waiting codes and fee corrections in the bot runtime, choosing a venue account for a credential, market data with the caller's credential | Each change has its tests; Bybit's and Steam's pinned values are byte-identical | Planned |
+| Backtests | T-Invest module and mock, credential form with account selection, share search and rules, history with a reference share, backtest UI | A Ladder backtest on minute candles of a MOEX share runs from share selection to result charts with closures, candles without trades, lots and rouble fees | Planned |
+| Live | Fee rates, account value, trading status, price band, live candles, order attempts, carry-over, late commissions, bot UI | A ladder bot passes its scenarios against the mock T-Invest: band waiting, a closed session, a day order carried over a night with a partial fill, a late commission, a restart at night and an unknown submit outcome | Planned |
+
+Telegram bot control on top of the wave 1 alerts is also part of wave 2.
 
 ## Wave 3: Steam
 
 `Venues.Steam` with its own model: marketplace fees, holding periods and mobile confirmations
-([ADR 0022](adr/0022-steam-community-market-model.md)). The owner moved it ahead of stage 6 and wave 2. Unlike the
-T-Invest goal of wave 2, Steam changes the core where ADR 0022 lists it (C1–C9), each change in its own pull request
-with Bybit's fingerprints and pinned replay hashes unchanged. Trading stays disabled throughout.
+([ADR 0022](adr/0022-steam-community-market-model.md)). The owner moved it ahead of stage 6 and wave 2. Steam changes
+the core where ADR 0022 lists it (C1–C9), each change in its own pull request with Bybit's fingerprints and pinned
+replay hashes unchanged. Trading stays disabled throughout.
 
 | Step | Scope | Done when | Status |
 |---|---|---|---|
