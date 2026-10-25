@@ -46,6 +46,23 @@ public sealed class PositionBarsHeldTests
     }
 
     [Test]
+    public void TimeInAMarketClosureIsNotHeld_AndWithoutClosuresElapsedTimeCounts()
+    {
+        var closed = new TradingAccount(Settings, Rules);
+        var night = new CausalDispatcher(Compile(), closed, closures: [new MarketClosure(DateTimeOffset.UnixEpoch.AddHours(1), DateTimeOffset.UnixEpoch.AddHours(10))]);
+        var open = new TradingAccount(Settings, Rules);
+        var continuous = new CausalDispatcher(Compile(), open);
+
+        Execute(night, closed, Submit(closed, OrderSide.Buy, amount: 100m), index: 0, PricePhase.Open);
+        Execute(continuous, open, Submit(open, OrderSide.Buy, amount: 100m), index: 0, PricePhase.Open);
+
+        Close(night, index: 0).Number.ShouldBe(1m);
+        CloseAfterNight(night).Number.ShouldBe(2m);
+        Close(continuous, index: 0).Number.ShouldBe(1m);
+        CloseAfterNight(continuous).Number.ShouldBe(11m);
+    }
+
+    [Test]
     public void SellToDustEndsHoldingPeriodAndNextEntryRestartsAtOne()
     {
         var account = new TradingAccount(Settings, Rules);
@@ -329,6 +346,22 @@ public sealed class PositionBarsHeldTests
     {
         ReachedMarketContext context = Context(index, PricePhase.Close, price);
         dispatcher.AdvanceClosedCandle(context.Candle, index);
+        dispatcher.BeginClose(context);
+        dispatcher.EnqueueExternal(EventKind.CandleClosed, new CandlePayload(context.Candle), context);
+
+        return dispatcher.Drain().Observations.Single().Outputs[new PortReference("position", "barsHeld")];
+    }
+
+    /// <summary>
+    ///     Closes the next candle, which opens at hour 10, after a night without candles.
+    /// </summary>
+    private static EngineValue CloseAfterNight(CausalDispatcher dispatcher)
+    {
+        DateTimeOffset opens = DateTimeOffset.UnixEpoch.AddHours(10);
+        var candle = new Candle(opens, Open: 100m, High: 100m, Low: 100m, Close: 100m, Volume: 1m);
+        var context = new ReachedMarketContext(candle, candleIndex: 1, opens.AddHours(1), PricePhase.Close, marketPrice: 100m, eligibleFromCandleIndex: 2);
+        dispatcher.BeginOpen(new ReachedMarketContext(candle, candleIndex: 1, opens.AddHours(1), PricePhase.Open, marketPrice: 100m, eligibleFromCandleIndex: 1));
+        dispatcher.AdvanceClosedCandle(context.Candle, historyIndex: 1);
         dispatcher.BeginClose(context);
         dispatcher.EnqueueExternal(EventKind.CandleClosed, new CandlePayload(context.Candle), context);
 

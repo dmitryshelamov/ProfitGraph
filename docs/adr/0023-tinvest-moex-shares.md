@@ -189,6 +189,14 @@ for own orders; when the exchange removes DAY orders after the evening session; 
 withdrawals); and that the endpoint certificate is still issued by the Russian Trusted Sub CA, which expires on
 2027-03-06.
 
+## Amendment: position age across closures (T2b)
+
+- "`barsHeld` counts candles" is implemented as elapsed grid time minus the time in the history's market closures. In
+  replay a position's age then equals the open-market candles held (a candle without trades counts, a night does not);
+  live fills that open a position inside a candle keep their elapsed-time rounding. Without closures the result is
+  exactly the previous elapsed-grid value, so Bybit and Steam runs and every pinned hash are unchanged. Live bots pass
+  their closures with TC3.
+
 ## Amendment: history, rules and search (T7)
 
 - Every read uses the caller's T-Invest credential (TC6); without one, history is `historical_data_unavailable` and search

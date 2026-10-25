@@ -54,7 +54,7 @@ internal sealed class BacktestRunState
 
         try
         {
-            _dispatcher = new CausalDispatcher(_input.Graph, _account, _input.Selections);
+            _dispatcher = new CausalDispatcher(_input.Graph, _account, _input.Selections, closures: _input.Closures);
             var historyIndex = 0;
 
             foreach (Candle candle in _input.Warmup)
