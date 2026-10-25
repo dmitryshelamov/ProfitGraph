@@ -219,3 +219,15 @@ gateway amend it in later stage 5 pull requests.
   that history go to the restored or new engine.
 - Runtime reads (warm-up, rules, gaps) use the bot's own credential as market data access only for a venue that
   declares `IVenueMarketDataAccess`; for any other venue no credential is decrypted for reads.
+
+## Amendment: waiting orders (ADR 0023, TC4)
+
+- A venue module that holds a bot's working order locally (`LocalAccepted`) reports why with `RecordOrderWaitingCommand`:
+  a neutral `OrderWaitingCode` (`PriceBand`, `SessionClosed`, `CarryOver`, `SettlementHold`, `SingleBuyOrderSlot`,
+  `AwaitingConfirmation`, `RateLimited`), an optional end time and optional price bounds; a null code ends the wait. The
+  engine still sees only a working order.
+- `bot_order_waiting` keeps one row per waiting order. A new reason is reported in the feed (`OrderWaiting`), new details of
+  the same reason are not, and the end once (`OrderWaitingEnded`). A root whose checkpoint no longer has the order working
+  (filled, cancelled or rejected) ends its wait, whatever the venue reported.
+- `GET /api/bots/{id}/waiting-orders` lists them for the owner; the bot page shows them with fixed texts such as
+  «Ждёт ценового коридора (коридор 90–110)» or «Перенос на следующую торговую сессию».

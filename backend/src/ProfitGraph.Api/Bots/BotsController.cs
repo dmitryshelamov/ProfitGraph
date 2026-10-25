@@ -12,6 +12,7 @@ using ProfitGraph.Application.Bots.GetBotFeed;
 using ProfitGraph.Application.Bots.GetBotFills;
 using ProfitGraph.Application.Bots.GetBotPosition;
 using ProfitGraph.Application.Bots.GetBots;
+using ProfitGraph.Application.Bots.GetBotWaitingOrders;
 using ProfitGraph.Application.Bots.GetManualOrder;
 using ProfitGraph.Application.Bots.KillBot;
 using ProfitGraph.Application.Bots.StartBot;
@@ -97,6 +98,16 @@ public sealed class BotsController(ISender sender) : ControllerBase
         CancellationToken cancellationToken = default)
     {
         return (await sender.Send(new GetBotFillsQuery(UserId(), id, before, limit), cancellationToken)).ToResponse();
+    }
+
+    /// <summary>
+    ///     The bot's working orders that its venue holds locally, with why (ADR 0023): a price band, a closed session, a carry-over
+    ///     to the next session, a settlement hold and the like.
+    /// </summary>
+    [HttpGet("{id:guid}/waiting-orders")]
+    public async Task<ActionResult<IReadOnlyList<BotOrderWaitingResponse>>> WaitingOrders(Guid id, CancellationToken cancellationToken)
+    {
+        return (await sender.Send(new GetBotWaitingOrdersQuery(UserId(), id), cancellationToken)).Select(waiting => waiting.ToResponse()).ToArray();
     }
 
     [HttpGet("{id:guid}/feed")]

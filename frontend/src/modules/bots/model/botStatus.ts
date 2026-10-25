@@ -105,6 +105,8 @@ const feedLabels: Record<BotFeedKind, string> = {
   PositionOpened: 'Позиция открыта',
   PositionClosed: 'Позиция закрыта',
   SettingsChanged: 'Настройки изменены',
+  OrderWaiting: 'Заявка ждёт',
+  OrderWaitingEnded: 'Заявка больше не ждёт',
 };
 
 export function feedLabel(kind: BotFeedKind): string {

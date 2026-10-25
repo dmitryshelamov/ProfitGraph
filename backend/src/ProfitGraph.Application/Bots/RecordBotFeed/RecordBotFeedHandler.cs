@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using MediatR;
 
 using ProfitGraph.Application.Common.Numbers;
@@ -32,7 +34,9 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
         INotificationHandler<BotParametersChanged>,
         INotificationHandler<BotRiskLimitsChanged>,
         INotificationHandler<BotForeignOrdersPolicyChanged>,
-        INotificationHandler<BotFeeRatesChanged>
+        INotificationHandler<BotFeeRatesChanged>,
+        INotificationHandler<BotOrderWaitingStarted>,
+        INotificationHandler<BotOrderWaitingEnded>
 {
     public Task Handle(BotDegraded notification, CancellationToken cancellationToken)
     {
@@ -107,6 +111,39 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
     public Task Handle(BotKilled notification, CancellationToken cancellationToken)
     {
         return Record(notification.BotId, BotFeedKind.Killed, notification.At, cancellationToken, ("reason", notification.Reason.ToString()));
+    }
+
+    public Task Handle(BotOrderWaitingEnded notification, CancellationToken cancellationToken)
+    {
+        return Record(
+            notification.BotId,
+            BotFeedKind.OrderWaitingEnded,
+            notification.At,
+            cancellationToken,
+            ("engineOrderId", Number(notification.EngineOrderId)),
+            ("code", notification.Code.ToString()));
+    }
+
+    public Task Handle(BotOrderWaitingStarted notification, CancellationToken cancellationToken)
+    {
+        var details = new List<(string, string)> { ("engineOrderId", Number(notification.EngineOrderId)), ("code", notification.Code.ToString()) };
+
+        if (notification.Until is { } until)
+        {
+            details.Add(("until", until.ToString("O", CultureInfo.InvariantCulture)));
+        }
+
+        if (notification.Low is { } low)
+        {
+            details.Add(("low", Number(low)));
+        }
+
+        if (notification.High is { } high)
+        {
+            details.Add(("high", Number(high)));
+        }
+
+        return Record(notification.BotId, BotFeedKind.OrderWaiting, notification.At, cancellationToken, [.. details]);
     }
 
     public Task Handle(BotParametersChanged notification, CancellationToken cancellationToken)

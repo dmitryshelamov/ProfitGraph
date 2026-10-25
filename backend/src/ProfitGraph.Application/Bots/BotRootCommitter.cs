@@ -1,5 +1,6 @@
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Application.Bots;
 
@@ -15,6 +16,7 @@ public sealed class BotRootCommitter(
     IOrderIntentRepository intents,
     IManualOrderRequestRepository manualOrders,
     IBotFillRepository fills,
+    IBotOrderWaitingRepository waiting,
     IBotPositionCycleRepository positions,
     BotKillSwitch killSwitch,
     ITransactionExecutor transactions,
@@ -65,6 +67,8 @@ public sealed class BotRootCommitter(
                     await Record(commit.BotId, position, cancellationToken);
                 }
 
+                await EndWaitsOfEndedOrders(commit, now, cancellationToken);
+
                 if (bot is { DesiredState: BotDesiredState.Stopped, StatusReason: { } reason } && BotStatusReasons.IsControl(reason))
                 {
                     await killSwitch.Apply(bot.Id, commit.Checkpoint, cancellationToken);
@@ -113,6 +117,28 @@ public sealed class BotRootCommitter(
         else if (position.Change == BotPositionChange.Closed && open is not null && open.Close(position.At, position.RealizedPnl))
         {
             await positions.Update(open, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    ///     A waiting order that the engine no longer has working ended its wait, whatever the venue reported (ADR 0023, TC4).
+    /// </summary>
+    private async Task EndWaitsOfEndedOrders(BotRootCommit commit, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        HashSet<long> working =
+        [
+            .. commit.Checkpoint.Account.Orders
+                .Where(order => order.Status is OrderStatus.Active or OrderStatus.PendingSubmit or OrderStatus.PendingCancel)
+                .Select(order => order.Id)
+        ];
+
+        foreach (BotOrderWaiting order in await waiting.List(commit.BotId, cancellationToken))
+        {
+            if (!working.Contains(order.EngineOrderId) && await waiting.GetForUpdate(commit.BotId, order.EngineOrderId, cancellationToken) is { } locked)
+            {
+                locked.End(now);
+                await waiting.Delete(locked, cancellationToken);
+            }
         }
     }
 }

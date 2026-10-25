@@ -140,6 +140,12 @@ bot's venue state was reconciled.
 A submit or cancel for the venue, saved in the same transaction as the engine checkpoint that produced it and then
 delivered by a dispatcher. A submit that may have reached the venue is looked up before any retry.
 
+### Waiting Order
+
+A bot's working order that its venue holds locally instead of at the venue, with a reason: a price band, a closed
+session, a carry-over to the next session, a settlement hold and the like. The strategy sees it as working; the bot page
+and the feed say why it waits.
+
 ### Kill Switch
 
 A per-bot control, or the global trading halt, that stops bots at once, cancels their open orders and rejects

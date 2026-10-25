@@ -24,5 +24,7 @@ public enum BotFeedKind
     Fill,
     PositionOpened,
     PositionClosed,
-    SettingsChanged
+    SettingsChanged,
+    OrderWaiting,
+    OrderWaitingEnded
 }

@@ -5,6 +5,7 @@ import { DateTime } from '@/shared/ui/DateTime';
 
 import { botFeedQuery } from '../api/botsApi';
 import { feedLabel, reasonLabel } from '../model/botStatus';
+import { waitingReason } from '../model/orderWaiting';
 import type { BotFeedEntry } from '../model/types';
 
 const settingLabels: Record<string, string> = {
@@ -28,6 +29,10 @@ function details(entry: BotFeedEntry): string {
 
   if (reason) {
     return reasonLabel(reason);
+  }
+
+  if (entry.details.code) {
+    return `заявка ${engineOrderId}: ${waitingReason(entry.details.code).toLowerCase()}`;
   }
 
   if (grossBase && grossQuote) {
