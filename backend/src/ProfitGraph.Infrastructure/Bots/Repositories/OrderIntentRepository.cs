@@ -3,6 +3,7 @@ using Dapper;
 using Npgsql;
 
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Infrastructure.Bots.Repositories.Contracts;
 using ProfitGraph.Infrastructure.Bots.Repositories.Converters;
 using ProfitGraph.Infrastructure.Bots.Repositories.Queries;
@@ -41,12 +42,24 @@ internal sealed class OrderIntentRepository(NpgsqlConnection connection, Postgre
         transactions.RegisterDomainEventClear(intent);
     }
 
-    public async Task<IReadOnlyList<OrderIntentId>> ListDeliveryCandidates(LeaseHolderId holderId, DateTimeOffset now, int limit, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<OrderIntentId>> ListDeliveryCandidates(
+        LeaseHolderId holderId,
+        IReadOnlyList<VenueId> venues,
+        DateTimeOffset now,
+        int limit,
+        CancellationToken cancellationToken)
     {
         IEnumerable<Guid> ids = await connection.QueryAsync<Guid>(
             Command(
                 OrderIntentQueries.ListDeliveryCandidates,
-                new { holderId = holderId.Value, now, staleBefore = now - OrderIntentRetrySchedule.StaleClaimAfter, limit },
+                new
+                {
+                    holderId = holderId.Value,
+                    venues = venues.Select(venue => venue.Value).ToArray(),
+                    now,
+                    staleBefore = now - OrderIntentRetrySchedule.StaleClaimAfter,
+                    limit
+                },
                 cancellationToken));
 
         return [.. ids.Select(id => new OrderIntentId(id))];

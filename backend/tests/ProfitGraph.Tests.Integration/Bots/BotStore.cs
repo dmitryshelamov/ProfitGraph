@@ -8,6 +8,20 @@ namespace ProfitGraph.Tests.Integration.Bots;
 
 internal static class BotStore
 {
+    internal static async Task Add(IHost host, Bot bot)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<ITransactionExecutor>()
+            .ExecuteAsync(
+                async () =>
+                {
+                    await scope.ServiceProvider.GetRequiredService<IBotRepository>().Add(bot, CancellationToken.None);
+
+                    return true;
+                },
+                CancellationToken.None);
+    }
+
     /// <summary>
     ///     Changes a stored bot under its row lock, as an owner command would.
     /// </summary>

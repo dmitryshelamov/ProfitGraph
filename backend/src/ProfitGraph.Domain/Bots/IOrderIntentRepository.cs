@@ -1,3 +1,5 @@
+using ProfitGraph.Domain.MarketData;
+
 namespace ProfitGraph.Domain.Bots;
 
 public interface IOrderIntentRepository
@@ -22,8 +24,15 @@ public interface IOrderIntentRepository
     ///     the holder leases, a cancel also of a bot no runtime leases. An intent waits behind earlier undelivered intents
     ///     of its bot, except that a cancel passes submits of other orders, and every submit of a bot that should stop.
     ///     Domain rules decide whether each is claimed.
+    ///     Only intents of bots on <paramref name="venues" />, the venues this process can deliver to, are listed, so an
+    ///     intent no gateway here can send never holds the others back.
     /// </summary>
-    Task<IReadOnlyList<OrderIntentId>> ListDeliveryCandidates(LeaseHolderId holderId, DateTimeOffset now, int limit, CancellationToken cancellationToken);
+    Task<IReadOnlyList<OrderIntentId>> ListDeliveryCandidates(
+        LeaseHolderId holderId,
+        IReadOnlyList<VenueId> venues,
+        DateTimeOffset now,
+        int limit,
+        CancellationToken cancellationToken);
 
     /// <summary>
     ///     Bots that should stop but still have submits waiting.
