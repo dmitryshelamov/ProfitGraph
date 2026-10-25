@@ -189,7 +189,8 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   logged or sent to Telegram. The core asks for it through the neutral port `IVenueAuthenticatorCodes` behind
   `GET /api/exchange-credentials/{id}/authenticator-code`: Owner role only, the Owner's own credential only, never
   cached; the code is made for Steam's time as the account's session measured it and says when its window ends by our
-  clock.
+  clock. Without that time (Steam disabled on the server, the account's protection holding its requests, or no answer)
+  there is no code: `503 authenticator_code_unavailable` says why.
 - **Web enrollment.** The core runs a venue's enrollment through the neutral port `IVenueCredentialEnrollment` behind
   `POST /api/exchange-credentials/enrollments` and `POST .../enrollments/{id}/steps` (never cached): each answer names the
   next step and its fields, a secret shown only in that answer, or a problem code. When the last step succeeds the module

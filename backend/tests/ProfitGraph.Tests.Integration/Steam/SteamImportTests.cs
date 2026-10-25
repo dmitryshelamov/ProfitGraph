@@ -101,6 +101,23 @@ public sealed class SteamImportTests
     }
 
     [Test]
+    public async Task WithSteamDisabledTheGuardCodeIsUnavailableNotAServerError()
+    {
+        UserInternal owner = await _factory.CreateAccount(UserRole.Owner);
+        var steamId = $"7656119{Random.Shared.NextInt64(minValue: 1_000_000_000, maxValue: 9_999_999_999)}";
+        (await Import(Input(owner.Login, steamId))).Code.ShouldBe(0);
+        using HttpClient client = await _factory.SignIn(owner);
+        var id = (await client.GetFromJsonAsync<JsonArray>("/api/exchange-credentials"))!.Single()!["id"]!.GetValue<Guid>();
+
+        HttpResponseMessage response = await client.GetAsync($"/api/exchange-credentials/{id}/authenticator-code");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
+        var problem = (await response.Content.ReadFromJsonAsync<JsonNode>())!;
+        problem["code"]!.GetValue<string>().ShouldBe("authenticator_code_unavailable");
+        problem["detail"]!.GetValue<string>().ShouldContain("Steam is disabled");
+    }
+
+    [Test]
     public async Task ImportNeedsAnActiveUser()
     {
         (int code, string output) = await Import(Input("nobody-with-this-login", "76561190000000009"));
