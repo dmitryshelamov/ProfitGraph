@@ -16,6 +16,7 @@ public sealed class BotRootCommitter(
     IOrderIntentRepository intents,
     IManualOrderRequestRepository manualOrders,
     IBotFillRepository fills,
+    IBotFeeCorrectionRepository feeCorrections,
     IBotOrderWaitingRepository waiting,
     IBotPositionCycleRepository positions,
     BotKillSwitch killSwitch,
@@ -60,6 +61,11 @@ public sealed class BotRootCommitter(
                 foreach (BotFill fill in commit.Fills ?? [])
                 {
                     await fills.TryAdd(fill, cancellationToken);
+                }
+
+                foreach (BotFeeCorrection correction in commit.FeeCorrections ?? [])
+                {
+                    await feeCorrections.TryAdd(correction, cancellationToken);
                 }
 
                 if (commit.Position is { } position)

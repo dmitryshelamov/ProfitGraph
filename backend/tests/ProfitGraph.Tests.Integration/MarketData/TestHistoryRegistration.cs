@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ProfitGraph.Application.Accounts.Ports;
 using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.MarketData.Ports;
+using ProfitGraph.Tests.Integration.Accounts;
 using ProfitGraph.Tests.Integration.Bots;
 
 namespace ProfitGraph.Tests.Integration.MarketData;
@@ -29,6 +30,8 @@ public static class TestHistoryRegistration
         services.AddSingleton<FakeFeeRateReader>();
         services.AddSingleton<IVenueFeeRateReader>(provider => provider.GetRequiredService<FakeFeeRateReader>());
         services.AddSingleton<IVenueBotSettings, FakeVenueBotSettings>();
+        services.AddSingleton<FakeCredentialEnrollment>();
+        services.AddSingleton<IVenueCredentialEnrollment>(provider => provider.GetRequiredService<FakeCredentialEnrollment>());
         services.AddSingleton<IVenueDescriptor>(new TestHistoryVenue(TestHistoryVenue.WithAccounts));
         services.AddSingleton<IVenueCredentialSchema>(new TestAccountCredentialSchema());
         services.AddSingleton<FakeAccountDirectory>();

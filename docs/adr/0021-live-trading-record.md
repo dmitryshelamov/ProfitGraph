@@ -48,3 +48,12 @@ once even when the venue repeats a report, the bot restarts or a commit is rolle
   which (`markPriceSource`), when it was observed and the unrealized profit.
 - **Hub.** `/ws/live-prices` lets a signed-in user subscribe to their own bots; each stored price is sent as
   `LivePrice` to the subscribers of its instrument. Another user's bot is refused as missing.
+
+## Amendment: fee assets and late commissions (ADR 0023, TC4)
+
+- A fill records the asset its fee was paid in (`bot_fills.fee_asset`): a sell pays in quote, a buy in base or, where the
+  instrument's rules charge fees in quote (T-Invest), in quote. Fills recorded before keep null and follow the side.
+- A commission a venue reports after an order's fills were accounted reaches the engine as a fee correction. The root
+  that applied it records the order's cumulative fee before and after in `bot_fee_corrections`, once per corrected fee;
+  the fills stay as they were, and the position and profit follow the engine. The feed reports it as `FeeCorrected` with
+  both fees ("Комиссия уточнена: было X, стало Y"). Decreases are not corrections; the engine ignores them.

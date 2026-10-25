@@ -7,6 +7,7 @@ using Npgsql;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Integration.Common;
+using ProfitGraph.Tests.Integration.MarketData;
 
 namespace ProfitGraph.Tests.Integration.Bots;
 
@@ -74,6 +75,57 @@ public sealed class TradingRecordTests
         fills.ShouldBe([(1L, "Buy", 0.1m), (exit.Id, "Sell", quantity)]);
         (DateTime OpenedAt, DateTime? ClosedAt, decimal? RealizedPnl) cycle = (await Cycles(bot)).ShouldHaveSingleItem();
         cycle.RealizedPnl.ShouldNotBeNull().ShouldBeGreaterThan(0m);
+    }
+
+    /// <summary>
+    ///     A venue that charges its commission in quote on both sides reports it late (ADR 0023, TC4): the fill records the
+    ///     quote fee asset and the correction is recorded once beside it.
+    /// </summary>
+    [Test]
+    public async Task ALateCommissionIsRecordedOnceAsACorrection_AndAQuoteFeeFillSaysSo()
+    {
+        var scenario = new RuntimeScenario();
+        scenario.Instruments.Rules = symbol => FakeInstrumentSource.Definition(symbol.Value) with
+        {
+            Rules = new InstrumentRules(
+                quantityStep: 0.000001m,
+                priceTick: 0.01m,
+                minQuantity: 0m,
+                minNotional: 5m,
+                basePrecision: 6,
+                quotePrecision: 8,
+                FeeAsset.Quote,
+                exactQuoteFees: true)
+        };
+        using IHost worker = scenario.Worker();
+        Bot bot = await RuntimeScenario.RunningLadder(worker);
+        await worker.StartAsync();
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Checkpoint(worker, bot.Id))?.Engine.Account.Orders is [{ Status: OrderStatus.Active }],
+            "the entry is accepted");
+
+        scenario.Gateway.Push(bot.Id, ExternalOrderUpdate.Final(orderId: 1, grossBase: 0.1m, grossQuote: 10m, fee: 0m, commissionPending: true));
+        await RuntimeScenario.Until(async () => (await Fills(bot)).Count == 1, "the fill is recorded");
+        scenario.Gateway.Push(bot.Id, ExternalOrderUpdate.CorrectFee(orderId: 1, grossBase: 0.1m, grossQuote: 10m, cumulativeFee: 0.005m));
+        scenario.Gateway.Push(bot.Id, ExternalOrderUpdate.CorrectFee(orderId: 1, grossBase: 0.1m, grossQuote: 10m, cumulativeFee: 0.005m));
+        await RuntimeScenario.Until(async () => (await Corrections(bot)).Count == 1, "the correction is recorded");
+        await worker.StopAsync();
+
+        (await Corrections(bot)).ShouldBe([(1L, 0m, 0.005m)]);
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+        (await connection.QuerySingleAsync<string>("SELECT fee_asset FROM bot_fills WHERE bot_id = @id", new { id = bot.Id.Value })).ShouldBe("Quote");
+    }
+
+    private static async Task<IReadOnlyList<(long EngineOrderId, decimal PreviousFee, decimal CorrectedFee)>> Corrections(Bot bot)
+    {
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+
+        return
+        [
+            .. await connection.QueryAsync<(long, decimal, decimal)>(
+                "SELECT engine_order_id, previous_fee, corrected_fee FROM bot_fee_corrections WHERE bot_id = @id ORDER BY corrected_at",
+                new { id = bot.Id.Value })
+        ];
     }
 
     private static async Task<IReadOnlyList<(long EngineOrderId, string Side, decimal GrossBase)>> Fills(Bot bot)

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using ProfitGraph.Application;
 using ProfitGraph.Application.Accounts;
+using ProfitGraph.Application.Accounts.EnrollCredential;
 using ProfitGraph.Application.Strategies.Ports;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Notifications;
@@ -56,6 +57,7 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddOptions<SecretsOptions>().Bind(configuration.GetSection(SecretsOptions.SectionName));
         services.AddSingleton<ISecretProtector, AesGcmSecretProtector>();
+        services.AddScoped<CredentialEnrollments>();
         services.AddScoped<IStrategyRepository, StrategyRepository>();
         services.AddScoped<IStrategyVersionReader, StrategyVersionReader>();
         services.AddSingleton<StrategySnapshotDbConverter>();

@@ -37,6 +37,7 @@ internal sealed class RuntimeScenario
     public FakeLiveCandleSource Candles { get; } = new FakeLiveCandleSource();
     public FakeLiveMarkPriceSource Prices { get; } = new FakeLiveMarkPriceSource();
     public FlatHistorySource History { get; } = new FlatHistorySource();
+    public FakeInstrumentSource Instruments { get; } = new FakeInstrumentSource();
 
     /// <summary>
     ///     A Worker host with the live role; without a gateway it models a process where trading is disabled.
@@ -47,7 +48,7 @@ internal sealed class RuntimeScenario
             services =>
             {
                 services.AddBotRuntime();
-                services.AddSingleton<IInstrumentRulesSource, FakeInstrumentSource>();
+                services.AddSingleton<IInstrumentRulesSource>(Instruments);
                 services.AddSingleton<IHistoricalCandleSource>(History);
                 services.AddSingleton<ILiveCandleSource>(Candles);
                 services.AddSingleton<ILiveMarkPriceSource>(Prices);

@@ -10,4 +10,5 @@ public static class ExchangeCredentialErrorCodes
     public const string AccountIneligible = "venue_account_ineligible";
     public const string AccountExists = "exchange_credential_account_exists";
     public const string AuthenticatorUnavailable = "authenticator_unavailable";
+    public const string EnrollmentUnsupported = "credential_enrollment_unsupported";
 }

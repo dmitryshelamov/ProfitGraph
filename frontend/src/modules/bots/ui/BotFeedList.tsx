@@ -31,6 +31,10 @@ function details(entry: BotFeedEntry): string {
     return reasonLabel(reason);
   }
 
+  if (entry.details.correctedFee) {
+    return `заявка ${engineOrderId}: было ${entry.details.previousFee}, стало ${entry.details.correctedFee}`;
+  }
+
   if (entry.details.code) {
     return `заявка ${engineOrderId}: ${waitingReason(entry.details.code).toLowerCase()}`;
   }

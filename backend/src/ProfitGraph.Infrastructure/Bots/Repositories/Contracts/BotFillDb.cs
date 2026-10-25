@@ -11,6 +11,12 @@ internal sealed class BotFillDb
     public decimal GrossBase { get; init; }
     public decimal GrossQuote { get; init; }
     public decimal Fee { get; init; }
+
+    /// <summary>
+    ///     Null for fills recorded before the asset was stored; those followed the side (ADR 0023).
+    /// </summary>
+    public string? FeeAsset { get; init; }
+
     public decimal CumulativeGrossBase { get; init; }
     public DateTimeOffset FilledAt { get; init; }
 }
