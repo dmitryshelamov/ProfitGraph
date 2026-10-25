@@ -148,7 +148,7 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
         }
 
         // A venue without anonymous market data reads live candles with the bot's credential (ADR 0023, TC6).
-        using (await scope.ServiceProvider.GetRequiredService<BotMarketDataAccess>().Open(bot, hostToken))
+        using (MarketDataAccess.Use(await scope.ServiceProvider.GetRequiredService<BotMarketDataAccess>().Read(bot, hostToken)))
         {
             tasks.Add(
                 Produce(

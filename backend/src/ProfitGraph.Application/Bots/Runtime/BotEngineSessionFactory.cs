@@ -32,7 +32,7 @@ public sealed class BotEngineSessionFactory(
 {
     public async Task<BotEngineSession> Open(Bot bot, LeaseHolderId holder, long epoch, IOrderGateway gateway, CancellationToken cancellationToken)
     {
-        using IDisposable reads = await access.Open(bot, cancellationToken);
+        using IDisposable reads = MarketDataAccess.Use(await access.Read(bot, cancellationToken));
 
         BotCheckpoint? stored = await checkpoints.Get(bot.Id, cancellationToken);
 
@@ -62,7 +62,7 @@ public sealed class BotEngineSessionFactory(
         IReadOnlyList<MarketClosure> closures = LiveHistory.Closures(history);
         Func<DateTimeOffset, DateTimeOffset, CancellationToken, Task<HistoricalCandlesInternal>> gaps = async (gapFrom, gapTo, token) =>
         {
-            using IDisposable gapReads = await access.Open(bot, token);
+            using IDisposable gapReads = MarketDataAccess.Use(await access.Read(bot, token));
 
             return await source.Get(bot.Series.Symbol, timeframe, gapFrom, gapTo, token);
         };
