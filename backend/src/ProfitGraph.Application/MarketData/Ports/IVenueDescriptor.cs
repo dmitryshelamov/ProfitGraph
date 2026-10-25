@@ -17,6 +17,12 @@ public interface IVenueDescriptor
     IReadOnlyList<Timeframe> Timeframes { get; }
 
     /// <summary>
+    ///     What a backtest on this venue does not model, as stable codes a client turns into fixed texts next to the run's
+    ///     results (ADR 0023: "the run says so"). Empty for a venue whose replay is exact.
+    /// </summary>
+    IReadOnlyList<string> BacktestLimits => [];
+
+    /// <summary>
     ///     Turns user input into the venue's canonical symbol, or reports that the input is not a symbol of this venue.
     /// </summary>
     bool TryParseSymbol(string? input, [NotNullWhen(true)] out InstrumentSymbol? symbol);

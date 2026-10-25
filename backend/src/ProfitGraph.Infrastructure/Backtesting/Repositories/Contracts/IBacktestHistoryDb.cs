@@ -11,6 +11,8 @@ internal interface IBacktestHistoryDb
     DateTimeOffset? ReplayTo { get; }
     int? WarmupCount { get; }
     int? ReplayCount { get; }
+    int WarmupClosedIntervals { get; }
+    int ReplayClosedIntervals { get; }
     Guid? RulesSnapshotId { get; }
     string? BaseAsset { get; }
     string? QuoteAsset { get; }

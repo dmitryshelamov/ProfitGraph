@@ -81,7 +81,8 @@ public sealed record BacktestConfiguration
     }
 
     /// <summary>
-    ///     Checks that prepared history covers this frozen period with no more warm-up than the strategy demands.
+    ///     Checks that prepared history covers this frozen period with no more warm-up than the strategy demands: every grid
+    ///     interval of each range is a candle or a market closure.
     /// </summary>
     public void CheckHistory(BacktestHistoryInfo history)
     {
@@ -102,13 +103,13 @@ public sealed record BacktestConfiguration
             throw new BacktestRunRuleException(BacktestRunRuleException.InvalidHistory, "History must cover the frozen period on the timeframe grid.");
         }
 
-        if (history.WarmupCount < 0 || history.WarmupCount > WarmupCandles ||
-            (history.From.UtcTicks - history.HistoryFrom.UtcTicks) / step != history.WarmupCount ||
-            (history.To.UtcTicks - history.From.UtcTicks) / step != history.ReplayCount)
+        if (history.WarmupCount < 0 || history.WarmupCount > WarmupCandles || history.WarmupClosedIntervals < 0 || history.ReplayClosedIntervals < 0 ||
+            (history.From.UtcTicks - history.HistoryFrom.UtcTicks) / step != history.WarmupCount + history.WarmupClosedIntervals ||
+            (history.To.UtcTicks - history.From.UtcTicks) / step != history.ReplayCount + history.ReplayClosedIntervals)
         {
             throw new BacktestRunRuleException(
                 BacktestRunRuleException.InvalidHistory,
-                "Warm-up and replay counts must match the attached ranges and the strategy's demand.");
+                "Warm-up and replay candles and closures must match the attached ranges and the strategy's demand.");
         }
     }
 

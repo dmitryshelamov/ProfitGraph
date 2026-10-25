@@ -51,6 +51,8 @@ internal sealed class BacktestRunRepository(NpgsqlConnection connection, Postgre
             ReplayTo = history?.To,
             history?.WarmupCount,
             history?.ReplayCount,
+            WarmupClosedIntervals = history?.WarmupClosedIntervals ?? 0,
+            ReplayClosedIntervals = history?.ReplayClosedIntervals ?? 0,
             RulesSnapshotId = history?.RulesSnapshotId.Value,
             history?.BaseAsset,
             history?.QuoteAsset,

@@ -17,6 +17,7 @@ const marketplace: Venue = {
     settlementHoldSeconds: 604_800,
   },
   botSettings: null,
+  backtestLimits: [],
 };
 
 const definition = {
@@ -143,6 +144,7 @@ describe('backtest setup', () => {
         timeframes: ['1h'],
         executionDefaults: null,
         botSettings: null,
+        backtestLimits: [],
       }),
     ).toMatchObject({
       sellerFees: null,

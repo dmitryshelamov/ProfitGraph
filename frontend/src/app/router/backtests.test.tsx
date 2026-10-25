@@ -103,6 +103,69 @@ describe('backtest setup', () => {
     ]);
   });
 
+  it('starts a T-Invest run with the user’s key and says what it approximates', async () => {
+    const bodies: unknown[] = [];
+    const tinvest = {
+      id: 'tinvest',
+      name: 'T-Invest (MOEX)',
+      timeframes: ['1m', '1h'],
+      executionDefaults: null,
+      botSettings: null,
+      backtestLimits: ['reference_calendar', 'price_band', 'no_trades_fill_nothing'],
+    };
+    fakeApi({
+      ...routes(async (request) => {
+        bodies.push(await request.json());
+
+        return json(queued, 202);
+      }),
+      'GET /api/market-data/venues': () => json([...venues, tinvest]),
+      'GET /api/exchange-credentials': () =>
+        json([
+          {
+            id: 'key-t',
+            venue: 'tinvest',
+            label: 'Брокер',
+            apiKeyLast4: '0001',
+            createdAt: '2026-10-24T10:00:00Z',
+          },
+        ]),
+      'GET /api/market-data/instruments': () =>
+        json([{ venue: 'tinvest', symbol: 'TQBR:GAZP', baseAsset: 'GAZP', quoteAsset: 'RUB' }]),
+      'GET /api/backtests/run-1': () =>
+        json({
+          ...queuedRun,
+          id: 'run-1',
+          configuration: { ...queuedRun.configuration, venue: 'tinvest', symbol: 'TQBR:GAZP' },
+        }),
+    });
+    const { history } = renderApp(`/strategies/${strategy.id}/backtest`);
+
+    const form = await screen.findByRole('form', { name: 'Настройка прогона' });
+    await waitFor(() => expect(within(form).getByLabelText('Площадка')).toHaveValue('bybit'));
+    await userEvent.selectOptions(within(form).getByLabelText('Площадка'), 'tinvest');
+    await waitFor(() =>
+      expect(within(form).getByLabelText('Ключ для данных')).toHaveValue('key-t'),
+    );
+    expect(within(form).getByText('Ценовой коридор биржи не моделируется.')).toBeInTheDocument();
+    const pair = within(form).getByLabelText('Пара');
+    await userEvent.clear(pair);
+    await userEvent.type(pair, 'TQBR:GAZP');
+    await userEvent.click(within(form).getByRole('button', { name: 'Запустить прогон' }));
+
+    await waitFor(() => expect(history.location.pathname).toBe('/backtests/run-1'));
+    expect(bodies[0]).toMatchObject({
+      venue: 'tinvest',
+      symbol: 'TQBR:GAZP',
+      timeframe: '1h',
+      credentialId: 'key-t',
+    });
+    const limits = await screen.findByLabelText('Ограничения бэктеста');
+    expect(
+      within(limits).getByText('На свече без сделок ордера не исполняются.'),
+    ).toBeInTheDocument();
+  });
+
   it('explains invalid settings without starting a run', async () => {
     const requests = fakeApi(routes(() => json(queued, 202)));
     renderApp(`/strategies/${strategy.id}/backtest`);

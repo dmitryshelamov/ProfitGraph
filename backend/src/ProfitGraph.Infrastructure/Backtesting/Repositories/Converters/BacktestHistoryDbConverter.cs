@@ -29,6 +29,8 @@ internal static class BacktestHistoryDbConverter
                     row.BasePrecision!.Value,
                     row.QuotePrecision!.Value,
                     row.BuyFeeAsset == "base" ? FeeAsset.Base : FeeAsset.Quote,
-                    row.ExactQuoteFees!.Value));
+                    row.ExactQuoteFees!.Value),
+                row.WarmupClosedIntervals,
+                row.ReplayClosedIntervals);
     }
 }

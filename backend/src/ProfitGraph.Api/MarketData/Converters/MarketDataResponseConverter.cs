@@ -23,7 +23,8 @@ public static class MarketDataResponseConverter
                         : null,
                     defaults.SettlementHoldSeconds)
                 : null,
-            venue.BotSettings is { } settings ? JsonElement.Parse(settings) : null);
+            venue.BotSettings is { } settings ? JsonElement.Parse(settings) : null,
+            venue.BacktestLimits ?? []);
     }
 
     public static CandleResponse ToResponse(this CandleInternal candle)

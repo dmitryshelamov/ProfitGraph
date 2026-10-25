@@ -27,9 +27,32 @@ public sealed class BacktestHistoryLoader(InstrumentRulesCaptureService rules, H
             new InstrumentRulesSnapshotId(captured.Id),
             definition.BaseAsset,
             definition.QuoteAsset,
-            definition.Rules);
+            definition.Rules,
+            ClosedIntervals(prepared, prepared.HistoryFrom, prepared.From),
+            ClosedIntervals(prepared, prepared.From, prepared.To));
 
         return new LoadedBacktestHistory(prepared, definition, info);
+    }
+
+    /// <summary>
+    ///     The grid intervals of [from, to) that the history's market closures cover (ADR 0023, TC1).
+    /// </summary>
+    private static int ClosedIntervals(PreparedHistory prepared, DateTimeOffset from, DateTimeOffset to)
+    {
+        long step = prepared.Series.Timeframe.Duration.Ticks;
+
+        return (int)prepared.Closures.Sum(closure =>
+            Math.Max(val1: 0L, (Min(closure.To, to).UtcTicks - Max(closure.From, from).UtcTicks) / step));
+    }
+
+    private static DateTimeOffset Min(DateTimeOffset left, DateTimeOffset right)
+    {
+        return left < right ? left : right;
+    }
+
+    private static DateTimeOffset Max(DateTimeOffset left, DateTimeOffset right)
+    {
+        return left > right ? left : right;
     }
 
     public Task<PreparedHistory> Prepare(BacktestConfiguration configuration, CancellationToken cancellationToken)
