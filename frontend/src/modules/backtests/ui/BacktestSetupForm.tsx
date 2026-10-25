@@ -142,11 +142,18 @@ export function BacktestSetupForm({
     <form className="space-y-6" aria-label="Настройка прогона" onSubmit={submit} noValidate>
       <Card title="Рынок и период">
         <div className="space-y-4">
-          <SeriesFields value={values.series} onChange={setSeries} />
+          <SeriesFields value={values.series} onChange={setSeries} withKey />
           <div className="grid gap-4 sm:grid-cols-2">
             {text('from', 'С (UTC), пусто — с начала истории', undefined)}
             {text('to', 'По (UTC), пусто — до последней закрытой свечи', undefined)}
           </div>
+          {values.series.venue === 'tinvest' && (
+            <p className="text-sm text-muted">
+              Ночи и выходные — закрытия рынка, их нет в истории. Пустые минуты сессии — свечи без
+              сделок по последней цене: на них ордера не исполняются. Ценовой коридор и статус
+              торгов не моделируются, размер ордера — целыми лотами.
+            </p>
+          )}
         </div>
       </Card>
       <Card title="Счёт и исполнение">

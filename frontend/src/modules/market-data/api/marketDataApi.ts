@@ -2,10 +2,12 @@ import { queryOptions } from '@tanstack/react-query';
 
 import { api, type Schemas, unwrap } from '@/shared/api/client';
 
+import { venuesReadWithKey } from '../model/seriesSelection';
+
 export const marketDataKeys = {
   venues: ['market-data', 'venues'] as const,
-  instruments: (venue: string, query: string) =>
-    ['market-data', 'instruments', venue, query] as const,
+  instruments: (venue: string, query: string, credentialId?: string) =>
+    ['market-data', 'instruments', venue, query, credentialId ?? ''] as const,
 };
 
 export function venuesQuery() {
@@ -16,17 +18,20 @@ export function venuesQuery() {
   });
 }
 
-/** Pairs of a venue whose symbol or assets contain the query; the venue's list changes rarely. */
-export function instrumentsQuery(venue: string, query: string) {
+/**
+ * Pairs of a venue whose symbol or assets contain the query; the venue's list changes rarely. A venue read with the user's
+ * key searches only once a key is chosen.
+ */
+export function instrumentsQuery(venue: string, query: string, credentialId?: string) {
   return queryOptions({
-    queryKey: marketDataKeys.instruments(venue, query),
+    queryKey: marketDataKeys.instruments(venue, query, credentialId),
     queryFn: async () =>
       unwrap(
         await api.GET('/api/market-data/instruments', {
-          params: { query: { venue, query, limit: 20 } },
+          params: { query: { venue, query, limit: 20, ...(credentialId ? { credentialId } : {}) } },
         }),
       ),
-    enabled: venue !== '',
+    enabled: venue !== '' && (!venuesReadWithKey.has(venue) || credentialId !== undefined),
     staleTime: 5 * 60 * 1000,
   });
 }

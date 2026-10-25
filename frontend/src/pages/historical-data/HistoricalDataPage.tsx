@@ -57,7 +57,7 @@ function HistoryDownload() {
   return (
     <Card title="Загрузка истории">
       <form className="space-y-4" onSubmit={submit} aria-label="Загрузка истории">
-        <SeriesFields value={series} onChange={setSeries} />
+        <SeriesFields value={series} onChange={setSeries} withKey />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="С (UTC), пусто — с начала истории">
             <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
