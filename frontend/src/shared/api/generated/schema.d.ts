@@ -3284,6 +3284,7 @@ export interface components {
             price: string;
             /** Format: date-time */
             filledAt: string;
+            commissionPending: boolean;
         };
         BotOrderWaitingResponse: {
             /** Format: int64 */

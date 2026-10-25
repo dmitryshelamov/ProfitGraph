@@ -1,9 +1,14 @@
 using Dapper;
 
+using MediatR;
+
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 using Npgsql;
 
+using ProfitGraph.Application.Bots.Contracts;
+using ProfitGraph.Application.Bots.GetBotFills;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Integration.Common;
@@ -106,14 +111,28 @@ public sealed class TradingRecordTests
 
         scenario.Gateway.Push(bot.Id, ExternalOrderUpdate.Final(orderId: 1, grossBase: 0.1m, grossQuote: 10m, fee: 0m, commissionPending: true));
         await RuntimeScenario.Until(async () => (await Fills(bot)).Count == 1, "the fill is recorded");
+        (await Pending(worker, bot)).ShouldBe([true]);
         scenario.Gateway.Push(bot.Id, ExternalOrderUpdate.CorrectFee(orderId: 1, grossBase: 0.1m, grossQuote: 10m, cumulativeFee: 0.005m));
         scenario.Gateway.Push(bot.Id, ExternalOrderUpdate.CorrectFee(orderId: 1, grossBase: 0.1m, grossQuote: 10m, cumulativeFee: 0.005m));
         await RuntimeScenario.Until(async () => (await Corrections(bot)).Count == 1, "the correction is recorded");
+        (await Pending(worker, bot)).ShouldBe([false]);
         await worker.StopAsync();
 
         (await Corrections(bot)).ShouldBe([(1L, 0m, 0.005m)]);
         await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
         (await connection.QuerySingleAsync<string>("SELECT fee_asset FROM bot_fills WHERE bot_id = @id", new { id = bot.Id.Value })).ShouldBe("Quote");
+    }
+
+    /// <summary>
+    ///     Whether each fill on the bot's page still waits for its commission.
+    /// </summary>
+    private static async Task<IReadOnlyList<bool>> Pending(IHost host, Bot bot)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        BotFillPageInternal page = await scope.ServiceProvider.GetRequiredService<ISender>()
+            .Send(new GetBotFillsQuery(bot.OwnerId.Value, bot.Id.Value, Before: null, Limit: 10));
+
+        return [.. page.Items.Select(fill => fill.CommissionPending)];
     }
 
     private static async Task<IReadOnlyList<(long EngineOrderId, decimal PreviousFee, decimal CorrectedFee)>> Corrections(Bot bot)
