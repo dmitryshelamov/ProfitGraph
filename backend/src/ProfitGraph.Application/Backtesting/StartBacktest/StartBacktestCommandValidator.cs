@@ -10,6 +10,7 @@ namespace ProfitGraph.Application.Backtesting.StartBacktest;
 internal sealed class StartBacktestCommandValidator : AbstractValidator<StartBacktestCommand>
 {
     private const int MaxParameters = 100;
+    private const int MaxSellerFeeComponents = 4;
     private const decimal MaxStartingCapital = 1_000_000_000_000m;
 
     public StartBacktestCommandValidator(VenueRegistry venues, VenuePorts<IInstrumentRulesSource> rules)
@@ -52,6 +53,12 @@ internal sealed class StartBacktestCommandValidator : AbstractValidator<StartBac
         RuleFor(command => command.Slippage).InclusiveBetween(from: 0m, to: 0.5m);
         RuleFor(command => command.LimitFeeRate).InclusiveBetween(from: 0m, to: 0.5m);
         RuleFor(command => command.MarketFeeRate).InclusiveBetween(from: 0m, to: 0.5m);
+        RuleFor(command => command.SellerFees)
+            .Must(fees => fees!.Rates.Count is > 0 and <= MaxSellerFeeComponents && fees.Rates.All(rate => rate is >= 0m and <= 0.5m) && fees.Minimum >= 0m)
+            .WithMessage($"Seller fees need 1 to {MaxSellerFeeComponents} rates in [0, 0.5] and a nonnegative minimum.")
+            .Must((command, _) => command.LimitFeeRate == 0m && command.MarketFeeRate == 0m)
+            .WithMessage("Seller fees replace the limit and market rates; leave those at zero.")
+            .When(command => command.SellerFees is not null);
         RuleFor(command => command.OutOfSampleFraction).InclusiveBetween(from: 0m, to: 0.9m).When(command => command.OutOfSampleFraction is not null);
     }
 }
