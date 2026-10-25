@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 using Grpc.Core;
 
@@ -22,14 +23,9 @@ internal sealed class TInvestTransport(ITInvestCallInvokers invokers, TInvestReq
         CancellationToken cancellationToken)
     {
         await limiter.Admit(token, group, cancellationToken);
-        var metadata = new Metadata
-        {
-            { "authorization", "Bearer " + token.Value },
-            { "x-app-name", options.Value.AppName }
-        };
 
         // gRPC deadlines are wall-clock times, so they come from the system clock, not the application's.
-        var callOptions = new CallOptions(metadata, DateTime.UtcNow.Add(options.Value.RequestTimeout), cancellationToken);
+        var callOptions = new CallOptions(Metadata(token), DateTime.UtcNow.Add(options.Value.RequestTimeout), cancellationToken);
 
         try
         {
@@ -46,6 +42,50 @@ internal sealed class TInvestTransport(ITInvestCallInvokers invokers, TInvestReq
 
             throw TInvestRpcException.From(error);
         }
+    }
+
+    /// <summary>
+    ///     Opens a server stream under the token's service-group limit, without a deadline: it lasts until the caller stops
+    ///     reading or the broker ends it, and its failure is a <see cref="TInvestRpcException" />.
+    /// </summary>
+    public async IAsyncEnumerable<TResponse> Stream<TResponse>(
+        TInvestToken token,
+        TInvestMethodGroup group,
+        Func<CallInvoker, CallOptions, AsyncServerStreamingCall<TResponse>> call,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await limiter.Admit(token, group, cancellationToken);
+        using AsyncServerStreamingCall<TResponse> stream = call(invokers.Get(), new CallOptions(Metadata(token), deadline: null, cancellationToken));
+
+        while (true)
+        {
+            bool next;
+
+            try
+            {
+                next = await stream.ResponseStream.MoveNext(cancellationToken);
+            }
+            catch (RpcException error) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw TInvestRpcException.From(error);
+            }
+
+            if (!next)
+            {
+                yield break;
+            }
+
+            yield return stream.ResponseStream.Current;
+        }
+    }
+
+    private Metadata Metadata(TInvestToken token)
+    {
+        return new Metadata
+        {
+            { "authorization", "Bearer " + token.Value },
+            { "x-app-name", options.Value.AppName }
+        };
     }
 
     /// <summary>

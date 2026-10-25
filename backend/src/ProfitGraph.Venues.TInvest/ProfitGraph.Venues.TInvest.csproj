@@ -4,6 +4,9 @@
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"/>
         <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions"/>
         <PackageReference Include="Tinkoff.InvestApi"/>
+        <PackageReference Include="Dapper"/>
+        <PackageReference Include="FluentMigrator.Runner"/>
+        <PackageReference Include="Npgsql"/>
         <InternalsVisibleTo Include="ProfitGraph.Tests.Unit"/>
         <InternalsVisibleTo Include="ProfitGraph.Tests.Integration"/>
     </ItemGroup>

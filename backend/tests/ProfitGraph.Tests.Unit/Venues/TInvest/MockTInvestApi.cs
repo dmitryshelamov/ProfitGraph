@@ -5,12 +5,13 @@ using Grpc.Core;
 namespace ProfitGraph.Tests.Unit.Venues.TInvest;
 
 /// <summary>
-///     An in-process Invest API: unary handlers per method with invented data, and a record of every call with its
+///     An in-process Invest API: unary and server-stream handlers per method with invented data, and a record of every call with its
 ///     metadata. Nothing leaves the process. Handlers throw <see cref="RpcException" /> to answer like the broker does.
 /// </summary>
 internal sealed class MockTInvestApi : CallInvoker
 {
     private readonly Dictionary<string, Func<object, Metadata, object>> _handlers = new Dictionary<string, Func<object, Metadata, object>>();
+    private readonly Dictionary<string, Delegate> _streams = new Dictionary<string, Delegate>();
 
     public List<(string Method, Metadata Headers, DateTime? Deadline)> Calls { get; } = [];
 
@@ -22,6 +23,16 @@ internal sealed class MockTInvestApi : CallInvoker
     public MockTInvestApi On<TRequest, TResponse>(ServiceDescriptor service, string method, Func<TRequest, TResponse> handler)
     {
         _handlers[Name(service, method)] = (request, _) => handler((TRequest)request)!;
+
+        return this;
+    }
+
+    public MockTInvestApi OnStream<TRequest, TResponse>(
+        ServiceDescriptor service,
+        string method,
+        Func<TRequest, CancellationToken, IAsyncEnumerable<TResponse>> handler)
+    {
+        _streams[Name(service, method)] = handler;
 
         return this;
     }
@@ -60,7 +71,21 @@ internal sealed class MockTInvestApi : CallInvoker
         CallOptions options,
         TRequest request)
     {
-        throw new NotSupportedException("Streams arrive with live market data.");
+        lock (Calls)
+        {
+            Calls.Add((method.FullName, options.Headers ?? [], options.Deadline));
+        }
+
+        if (!_streams.TryGetValue(method.FullName, out Delegate? handler))
+        {
+            throw Refusal(StatusCode.Unimplemented, "mock");
+        }
+
+        var reader = new MockTInvestStreamReader<TResponse>(
+            ((Func<TRequest, CancellationToken, IAsyncEnumerable<TResponse>>)handler)(request, options.CancellationToken),
+            options.CancellationToken);
+
+        return new AsyncServerStreamingCall<TResponse>(reader, Task.FromResult(new Metadata()), () => Status.DefaultSuccess, () => [], reader.Dispose);
     }
 
     public override AsyncClientStreamingCall<TRequest, TResponse> AsyncClientStreamingCall<TRequest, TResponse>(

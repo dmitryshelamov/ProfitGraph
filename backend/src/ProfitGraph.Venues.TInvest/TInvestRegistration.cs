@@ -1,3 +1,5 @@
+using FluentMigrator.Runner;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -8,6 +10,7 @@ using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Venues.TInvest.Accounts;
 using ProfitGraph.Venues.TInvest.LiveData;
 using ProfitGraph.Venues.TInvest.MarketData;
+using ProfitGraph.Venues.TInvest.Persistence.Repositories;
 using ProfitGraph.Venues.TInvest.Trading;
 using ProfitGraph.Venues.TInvest.Transport;
 
@@ -43,10 +46,27 @@ public static class TInvestRegistration
         services.AddSingleton<IInstrumentCatalog, TInvestInstrumentCatalog>();
         services.AddSingleton<IInstrumentRulesSource, TInvestInstrumentRulesSource>();
         services.AddSingleton<IVenueMarketDataAccess, TInvestMarketDataAccess>();
+        services.AddSingleton<ITInvestOrderAttempts, TInvestOrderAttemptRepository>();
+        services.ConfigureRunner(runner => runner.ScanIn(typeof(TInvestRegistration).Assembly).For.Migrations());
         services.AddOptions<TInvestOptions>()
             .Bind(configuration.GetSection(TInvestOptions.SectionName))
             .Validate(options => options.IsValid(), "Venues:TInvest needs the official HTTPS endpoint, positive limits and a timeout when it is enabled.")
             .ValidateOnStart();
+
+        return services;
+    }
+
+    /// <summary>
+    ///     Registers T-Invest order execution for a Worker with the live role. Only called when <c>Live:Trading:Enabled</c> is
+    ///     true; every committed setting keeps it false (ADR 0023).
+    /// </summary>
+    public static IServiceCollection AddTInvestTrading(this IServiceCollection services)
+    {
+        services.AddSingleton<ITInvestBotContexts, TInvestBotContexts>();
+        services.AddSingleton<TInvestOrderReads>();
+        services.AddSingleton<TInvestOrderUpdates>();
+        services.AddSingleton<TInvestOrderStreams>();
+        services.AddSingleton<IOrderGateway, TInvestOrderGateway>();
 
         return services;
     }

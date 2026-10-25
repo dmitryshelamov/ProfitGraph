@@ -43,9 +43,15 @@ public sealed class TInvestOptions
     /// </summary>
     public decimal CommissionProbeNotional { get; init; } = 100_000m;
 
+    /// <summary>
+    ///     How far above the last price a market buy sizes its lots, so its quote budget covers the fill (ADR 0023).
+    /// </summary>
+    public decimal MarketBuySlippage { get; init; } = 0.01m;
+
     internal bool IsValid()
     {
-        if (RequestTimeout <= TimeSpan.Zero || CandleCloseGrace < TimeSpan.Zero || CommissionProbeNotional <= 0m || !Limits.IsValid() || !History.IsValid() ||
+        if (RequestTimeout <= TimeSpan.Zero || CandleCloseGrace < TimeSpan.Zero || CommissionProbeNotional <= 0m || MarketBuySlippage is < 0m or >= 0.2m ||
+            !Limits.IsValid() || !History.IsValid() ||
             string.IsNullOrWhiteSpace(AppName) ||
             string.IsNullOrWhiteSpace(TrustedRootsPath))
         {
