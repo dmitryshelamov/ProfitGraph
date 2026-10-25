@@ -181,6 +181,8 @@ public sealed class BotEngineSession
                 if (liveCandle)
                 {
                     bot.ResetRestartStreak(now);
+                    DateTimeOffset closedAt = _lastCandle!.OpenTime + _timeframe.Duration;
+                    bot.RecordDayEquity(DateOnly.FromDateTime(closedAt.UtcDateTime), current.Account.QuoteTotal + current.Account.BaseTotal * _lastCandle!.Close, now);
                 }
             },
             cancellationToken);

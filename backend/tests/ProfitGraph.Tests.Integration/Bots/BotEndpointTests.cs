@@ -4,6 +4,7 @@ using System.Text.Json;
 
 using Microsoft.Extensions.DependencyInjection;
 
+using ProfitGraph.Api.Trading.Contracts;
 using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Bots;
 using ProfitGraph.Application.Common.Transactions;
@@ -180,6 +181,52 @@ public sealed class BotEndpointTests
         finally
         {
             await SetHalt(halted: false);
+        }
+    }
+
+    [Test]
+    public async Task KillStopsTheBotUntilItIsStartedAgain()
+    {
+        BotOwner owner = await NewOwner();
+        Guid id = await Create(owner);
+        await owner.Client.PostAsync($"{Path}/{id}/start", content: null);
+
+        JsonElement killed = await Json(await owner.Client.PostAsync($"{Path}/{id}/kill", content: null));
+        JsonElement restarted = await Json(await owner.Client.PostAsync($"{Path}/{id}/start", content: null));
+
+        killed.GetProperty("desiredState").GetString().ShouldBe("Stopped");
+        killed.GetProperty("statusReason").GetString().ShouldBe("Killed");
+        restarted.GetProperty("desiredState").GetString().ShouldBe("Running");
+        restarted.GetProperty("statusReason").ValueKind.ShouldBe(JsonValueKind.Null);
+    }
+
+    [Test]
+    public async Task OnlyTheOwnerHaltsAndTheHaltKillsRunningBots()
+    {
+        BotOwner owner = await NewOwner();
+        Guid id = await Create(owner);
+        await owner.Client.PostAsync($"{Path}/{id}/start", content: null);
+        HttpClient admin = await _factory.SignIn(await _factory.CreateAccount(UserRole.Owner));
+
+        (await owner.Client.PostAsync("/api/trading-halt/halt", content: null)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        try
+        {
+            DateTimeOffset before = DateTimeOffset.UtcNow;
+            var halted = (await (await admin.PostAsync("/api/trading-halt/halt", content: null)).Content.ReadFromJsonAsync<TradingHaltResponse>())!;
+            JsonElement seen = await Json(await owner.Client.GetAsync("/api/trading-halt"));
+            JsonElement bot = await Json(await owner.Client.GetAsync($"{Path}/{id}"));
+
+            halted.IsHalted.ShouldBeTrue();
+            halted.UpdatedAt.ShouldBeGreaterThanOrEqualTo(before.AddSeconds(-1));
+            seen.GetProperty("isHalted").GetBoolean().ShouldBeTrue();
+            bot.GetProperty("statusReason").GetString().ShouldBe("Killed");
+            bot.GetProperty("desiredState").GetString().ShouldBe("Stopped");
+        }
+        finally
+        {
+            JsonElement resumed = await Json(await admin.PostAsync("/api/trading-halt/resume", content: null));
+            resumed.GetProperty("isHalted").GetBoolean().ShouldBeFalse();
         }
     }
 

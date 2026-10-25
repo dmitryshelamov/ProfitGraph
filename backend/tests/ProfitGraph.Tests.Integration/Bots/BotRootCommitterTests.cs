@@ -8,6 +8,7 @@ using Npgsql;
 using ProfitGraph.Application.Bots;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Integration.Common;
 
 namespace ProfitGraph.Tests.Integration.Bots;
@@ -139,6 +140,63 @@ public sealed class BotRootCommitterTests
 
         outcomes.Count(outcome => outcome is null).ShouldBe(1);
         outcomes[0].ShouldBeNull();
+    }
+
+    [Test]
+    public async Task DailyLossKillRejectsUnsentSubmitsAndCancelsSentOrdersInTheSameCommit()
+    {
+        (Bot bot, LeaseHolderId holder) = await LeasedBot();
+        var day = new DateOnly(year: 2026, month: 10, day: 25);
+        OrderSnapshot entry = BotSeed.MarketBuy(id: 1) with { Status = OrderStatus.Active };
+        await Commit(
+            new BotRootCommit(
+                bot.Id,
+                holder,
+                Epoch: 1,
+                BotSeed.Checkpoint(nextOrderId: 2, entry),
+                bot.Parameters,
+                [OrderIntent.Submit(OrderIntentId.New(), bot.Id, entry, new ClientOrderId("pg-1"), BotSeed.Now)]),
+            stored => stored.RecordDayEquity(day, equity: 100m, _clock.Now));
+        await MarkSent(bot);
+
+        await Commit(
+            new BotRootCommit(
+                bot.Id,
+                holder,
+                Epoch: 1,
+                BotSeed.Checkpoint(nextOrderId: 3, entry, BotSeed.MarketBuy(id: 2)),
+                bot.Parameters,
+                [OrderIntent.Submit(OrderIntentId.New(), bot.Id, BotSeed.MarketBuy(id: 2), new ClientOrderId("pg-2"), BotSeed.Now)]),
+            stored => stored.RecordDayEquity(day, equity: 89m, _clock.Now));
+
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+        (await connection.ExecuteScalarAsync<string>("SELECT status_reason FROM bots WHERE id = @id", new { id = bot.Id.Value })).ShouldBe("DailyLossLimit");
+        (await connection.ExecuteScalarAsync<string>(
+            "SELECT status FROM bot_order_intents WHERE bot_id = @id AND engine_order_id = 2",
+            new { id = bot.Id.Value })).ShouldBe("Rejected");
+        (await connection.ExecuteScalarAsync<bool>(
+            "SELECT from_kill FROM bot_order_intents WHERE bot_id = @id AND engine_order_id = 1 AND kind = 'Cancel'",
+            new { id = bot.Id.Value })).ShouldBeTrue();
+    }
+
+    [Test]
+    public async Task DailyLossIsMeasuredFromTheFirstRootOfEachUtcDay()
+    {
+        (Bot bot, LeaseHolderId holder) = await LeasedBot();
+        var day = new DateOnly(year: 2026, month: 10, day: 25);
+
+        await Commit(Root(bot, holder, epoch: 1), stored => stored.RecordDayEquity(day, equity: 100m, _clock.Now));
+        await Commit(Root(bot, holder, epoch: 1), stored => stored.RecordDayEquity(day.AddDays(1), equity: 85m, _clock.Now));
+        await Commit(Root(bot, holder, epoch: 1), stored => stored.RecordDayEquity(day.AddDays(1), equity: 80m, _clock.Now));
+
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+        (await connection.ExecuteScalarAsync<string?>("SELECT status_reason FROM bots WHERE id = @id", new { id = bot.Id.Value })).ShouldBeNull();
+    }
+
+    private static async Task MarkSent(Bot bot)
+    {
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+        await connection.ExecuteAsync("UPDATE bot_order_intents SET status = 'Sent', sent_at = now() WHERE bot_id = @id", new { id = bot.Id.Value });
     }
 
     private static BotRootCommit Root(Bot bot, LeaseHolderId holder, long epoch)
