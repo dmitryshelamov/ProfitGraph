@@ -76,6 +76,98 @@ internal sealed class SteamOrderJournalRepository(NpgsqlDataSource dataSource) :
         return [.. rows.Select(ToEntry)];
     }
 
+    public async Task<bool> AddSell(SteamOrderJournalEntry entry, IReadOnlyList<SteamAssetReservation> reservations, CancellationToken cancellationToken)
+    {
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            if (await connection.ExecuteAsync(new CommandDefinition(SteamOrderJournalQueries.Add, ToDb(entry), transaction, cancellationToken: cancellationToken)) != 1)
+            {
+                return false;
+            }
+
+            foreach (SteamAssetReservation reservation in reservations)
+            {
+                await connection.ExecuteAsync(
+                    new CommandDefinition(SteamAssetReservationQueries.Add, ToDb(reservation), transaction, cancellationToken: cancellationToken));
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return true;
+        }
+        catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            return false;
+        }
+    }
+
+    public async Task<IReadOnlyList<SteamAssetReservation>> Reservations(string clientOrderId, CancellationToken cancellationToken)
+    {
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        IEnumerable<SteamAssetReservationDb> rows = await connection.QueryAsync<SteamAssetReservationDb>(
+            new CommandDefinition(SteamAssetReservationQueries.ByOrder, new { clientOrderId }, cancellationToken: cancellationToken));
+
+        return [.. rows.Select(ToReservation)];
+    }
+
+    public async Task<IReadOnlyList<SteamAssetReservation>> Reserved(Guid credentialId, CancellationToken cancellationToken)
+    {
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        IEnumerable<SteamAssetReservationDb> rows = await connection.QueryAsync<SteamAssetReservationDb>(
+            new CommandDefinition(SteamAssetReservationQueries.OpenByCredential, new { credentialId }, cancellationToken: cancellationToken));
+
+        return [.. rows.Select(ToReservation)];
+    }
+
+    public async Task<bool> Transition(SteamAssetReservation next, SteamReservationState expected, CancellationToken cancellationToken)
+    {
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        SteamAssetReservationDb row = ToDb(next);
+
+        return await connection.ExecuteAsync(
+            new CommandDefinition(
+                SteamAssetReservationQueries.Transition,
+                new { row.ClientOrderId, row.AppId, row.ContextId, row.AssetId, row.State, row.ListingId, row.UpdatedAt, Expected = expected.ToString() },
+                cancellationToken: cancellationToken)) == 1;
+    }
+
+    private static SteamAssetReservation ToReservation(SteamAssetReservationDb row)
+    {
+        return new SteamAssetReservation(
+            row.ClientOrderId,
+            row.CredentialId,
+            row.AppId,
+            row.ContextId,
+            row.AssetId,
+            row.UnlockAt.ToUniversalTime(),
+            row.SellerMinorUnits,
+            Enum.Parse<SteamReservationState>(row.State),
+            row.ListingId,
+            row.CreatedAt.ToUniversalTime(),
+            row.UpdatedAt.ToUniversalTime());
+    }
+
+    private static SteamAssetReservationDb ToDb(SteamAssetReservation reservation)
+    {
+        return new SteamAssetReservationDb
+        {
+            ClientOrderId = reservation.ClientOrderId,
+            CredentialId = reservation.CredentialId,
+            AppId = reservation.AppId,
+            ContextId = reservation.ContextId,
+            AssetId = reservation.AssetId,
+            UnlockAt = reservation.UnlockAt,
+            SellerMinorUnits = reservation.SellerMinorUnits,
+            State = reservation.State.ToString(),
+            ListingId = reservation.ListingId,
+            CreatedAt = reservation.CreatedAt,
+            UpdatedAt = reservation.UpdatedAt
+        };
+    }
+
     private static SteamOrderJournalEntry ToEntry(SteamOrderJournalDb row)
     {
         return new SteamOrderJournalEntry(

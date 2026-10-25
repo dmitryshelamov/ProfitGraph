@@ -18,5 +18,10 @@ internal enum SteamWaitingCode
     /// <summary>
     ///     The account's requests pause, or the request was not sent; it is tried again.
     /// </summary>
-    RateLimited
+    RateLimited,
+
+    /// <summary>
+    ///     The items to sell are still under their trade hold; the earliest unlock time is on their reservations.
+    /// </summary>
+    SettlementHold
 }

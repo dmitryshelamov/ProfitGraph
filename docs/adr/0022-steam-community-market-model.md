@@ -125,6 +125,13 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   history; a sale and its price come only from a sale event in `myhistory/render` (Profit Fox Designer ADR 0087: cursor,
   overlap, write-once attribution). A missing listing or asset never proves a fill or a cancel. A returned item with a
   new asset ID is a cancel only with positive correlation.
+- **Listings.** A sell reserves its whole items in `steam_asset_reservations` together with its journal entry, all or
+  nothing; a partial unique index keeps an asset in one open sell of the account. Each unlocked asset is listed alone with
+  `sellitem` at what the seller receives for the raised buyer price, fixed when the sell is planned; an asset under its
+  hold waits with `SettlementHold` and is listed once it unlocks. Steam's answer names no listing, so `mylistings` (Profit
+  Fox Designer's `RemoveMarketListing` and `CancelMarketListingConfirmation` controls, totals that must add up) binds the
+  listing ID, which is the confirmation's creator, and shows when a listing is active. A cancel removes each listing with
+  `removelisting`; only Steam's success releases the asset, and anything unclear leaves it `Unknown`.
 - **Ownership.** Only assets attributed to the bot's own buys may be listed; reservations are unique per asset. A
   foreign buy order or listing on the bot's item is `ForeignOrder` unless the bot allows foreign orders.
 - **Reconciliation.** `Reconcile` reads the account snapshot (wallet, buy orders, listings, inventory, history since the

@@ -8,6 +8,7 @@ namespace ProfitGraph.Tests.Unit.Venues.Steam;
 internal sealed class InMemorySteamOrderJournal : ISteamOrderJournal
 {
     private readonly Dictionary<string, SteamOrderJournalEntry> _entries = new Dictionary<string, SteamOrderJournalEntry>(StringComparer.Ordinal);
+    private readonly List<SteamAssetReservation> _reservations = new List<SteamAssetReservation>();
 
     public IReadOnlyList<SteamOrderJournalEntry> All
     {
@@ -65,6 +66,63 @@ internal sealed class InMemorySteamOrderJournal : ISteamOrderJournal
         }
     }
 
+    public Task<bool> AddSell(SteamOrderJournalEntry entry, IReadOnlyList<SteamAssetReservation> reservations, CancellationToken cancellationToken)
+    {
+        lock (_entries)
+        {
+            bool taken = reservations.Any(reservation => _reservations.Any(other => other.IsOpen && SameAsset(other, reservation)));
+
+            if (taken || !_entries.TryAdd(entry.ClientOrderId, entry))
+            {
+                return Task.FromResult(false);
+            }
+
+            _reservations.AddRange(reservations);
+
+            return Task.FromResult(true);
+        }
+    }
+
+    public Task<IReadOnlyList<SteamAssetReservation>> Reservations(string clientOrderId, CancellationToken cancellationToken)
+    {
+        lock (_entries)
+        {
+            return Task.FromResult<IReadOnlyList<SteamAssetReservation>>(
+            [
+                .. _reservations
+                    .Where(reservation => reservation.ClientOrderId == clientOrderId)
+                    .OrderBy(reservation => reservation.UnlockAt)
+                    .ThenBy(reservation => reservation.AssetId, StringComparer.Ordinal)
+            ]);
+        }
+    }
+
+    public Task<IReadOnlyList<SteamAssetReservation>> Reserved(Guid credentialId, CancellationToken cancellationToken)
+    {
+        lock (_entries)
+        {
+            return Task.FromResult<IReadOnlyList<SteamAssetReservation>>(
+                [.. _reservations.Where(reservation => reservation.CredentialId == credentialId && reservation.IsOpen)]);
+        }
+    }
+
+    public Task<bool> Transition(SteamAssetReservation next, SteamReservationState expected, CancellationToken cancellationToken)
+    {
+        lock (_entries)
+        {
+            int index = _reservations.FindIndex(reservation => reservation.ClientOrderId == next.ClientOrderId && SameAsset(reservation, next));
+
+            if (index < 0 || _reservations[index].State != expected)
+            {
+                return Task.FromResult(false);
+            }
+
+            _reservations[index] = next;
+
+            return Task.FromResult(true);
+        }
+    }
+
     /// <summary>
     ///     Replaces an entry as a crash would leave it.
     /// </summary>
@@ -74,6 +132,11 @@ internal sealed class InMemorySteamOrderJournal : ISteamOrderJournal
         {
             _entries[entry.ClientOrderId] = entry;
         }
+    }
+
+    private static bool SameAsset(SteamAssetReservation one, SteamAssetReservation other)
+    {
+        return one.CredentialId == other.CredentialId && one.AppId == other.AppId && one.ContextId == other.ContextId && one.AssetId == other.AssetId;
     }
 
     private bool TakesHeldSlot(SteamOrderJournalEntry entry)

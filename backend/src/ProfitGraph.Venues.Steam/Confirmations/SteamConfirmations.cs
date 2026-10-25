@@ -5,9 +5,9 @@ using ProfitGraph.Venues.Steam.Session;
 namespace ProfitGraph.Venues.Steam.Confirmations;
 
 /// <summary>
-///     The confirmation step of placing (ADR 0022). For each journal entry awaiting its mobile confirmation, it approves
-///     only the one confirmation whose type and creator match it, recording the approval before and after it is sent, then
-///     finalizes an approved buy. A confirmation that matches no entry, or one of several candidates, is never touched; an
+///     The confirmation step of placing (ADR 0022). For each buy, and each listed asset of a sell, awaiting its mobile
+///     confirmation, it approves only the one confirmation whose type and creator match it, recording the approval before
+///     and after it is sent, then finalizes an approved buy or marks the asset listed. A confirmation that matches no entry, or one of several candidates, is never touched; an
 ///     approval whose answer is unclear leaves the entry unknown, so a restart never approves twice. The account's list is
 ///     read only while an entry waits.
 /// </summary>
@@ -16,6 +16,7 @@ internal sealed class SteamConfirmations(
     SteamAccountSessions sessions,
     SteamConfirmationClient client,
     SteamBuyOrders buys,
+    SteamSellSettlement sells,
     TimeProvider clock)
 {
     /// <summary>
@@ -35,8 +36,13 @@ internal sealed class SteamConfirmations(
         [
             .. open.Where(entry => entry.State == SteamOrderJournalState.AwaitingConfirmation && entry.ConfirmationCreator is not null)
         ];
+        SteamAssetReservation[] listings =
+        [
+            .. (await journal.Reserved(credentialId, cancellationToken)).Where(reservation =>
+                reservation.State == SteamReservationState.AwaitingConfirmation && reservation.ListingId is not null)
+        ];
 
-        if (waiting.Length == 0)
+        if (waiting.Length == 0 && listings.Length == 0)
         {
             return false;
         }
@@ -59,7 +65,45 @@ internal sealed class SteamConfirmations(
             }
         }
 
+        foreach (SteamAssetReservation listing in listings)
+        {
+            SteamConfirmation[] matching =
+            [
+                .. pending.Where(confirmation => confirmation.Type == SteamConfirmation.ListingType && confirmation.CreatorId == listing.ListingId)
+            ];
+
+            if (matching.Length == 1 && await Approve(session, listing, matching[0], cancellationToken) &&
+                await journal.Get(listing.ClientOrderId, cancellationToken) is { } entry)
+            {
+                await Attempt(() => sells.Settle(entry, cancellationToken));
+            }
+        }
+
         return true;
+    }
+
+    private async Task<bool> Approve(SteamAccountSession session, SteamAssetReservation listing, SteamConfirmation confirmation, CancellationToken cancellationToken)
+    {
+        SteamAssetReservation approving = listing with { State = SteamReservationState.Approving, UpdatedAt = clock.GetUtcNow() };
+
+        if (!await journal.Transition(approving, SteamReservationState.AwaitingConfirmation, cancellationToken))
+        {
+            return false;
+        }
+
+        SteamWriteReceiptKind answer = await client.Approve(session, listing.CredentialId, confirmation, cancellationToken);
+        SteamAssetReservation next = approving with
+        {
+            State = answer switch
+            {
+                SteamWriteReceiptKind.Accepted => SteamReservationState.Listed,
+                SteamWriteReceiptKind.NotSent => SteamReservationState.AwaitingConfirmation,
+                _ => SteamReservationState.Unknown
+            },
+            UpdatedAt = clock.GetUtcNow()
+        };
+
+        return await journal.Transition(next, SteamReservationState.Approving, cancellationToken) && next.State == SteamReservationState.Listed;
     }
 
     private async Task<SteamOrderJournalEntry?> Approve(
