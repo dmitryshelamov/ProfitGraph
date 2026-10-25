@@ -30,6 +30,7 @@ public static class TInvestRegistration
         services.AddSingleton<IHistoricalCandleSource, TInvestHistoricalCandleSource>();
         services.AddSingleton<IInstrumentCatalog, TInvestInstrumentCatalog>();
         services.AddSingleton<IInstrumentRulesSource, TInvestInstrumentRulesSource>();
+        services.AddSingleton<IVenueMarketDataAccess, TInvestMarketDataAccess>();
         services.AddOptions<TInvestOptions>()
             .Bind(configuration.GetSection(TInvestOptions.SectionName))
             .Validate(options => options.IsValid(), "Venues:TInvest needs the official HTTPS endpoint, positive limits and a timeout when it is enabled.")

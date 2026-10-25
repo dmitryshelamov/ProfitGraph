@@ -130,4 +130,5 @@ every venue, and CSV import could be called by anyone sharing the workspace.
   (`MarketDataAccess.Use`, which flows through that use case's awaited calls and nowhere else). A credential deleted
   since the job was queued gives no access, so a run whose history is complete in the cache still runs.
 - Venue ports keep their signatures: a module that needs access reads `MarketDataAccess.Current`; Bybit and Steam ignore
-  it. Bot creation reads the rules with the bot's credential; live reads follow with live closures (TC3).
+  it. Such a module declares `IVenueMarketDataAccess`, and the bot runtime opens the bot's credential only for those venues
+  (ADR 0016, live market closures). Bot creation reads the rules with the bot's credential.

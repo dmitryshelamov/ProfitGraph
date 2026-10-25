@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Hosting;
 
+using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Market;
@@ -124,6 +125,34 @@ public sealed class BotRuntimeTests
 
         scenario.Candles.Push(next);
         await RuntimeScenario.Until(async () => (await RuntimeScenario.Checkpoint(worker, bot.Id))!.Engine.LastClosedCandle == next, "the live candle is committed");
+        await worker.StopAsync();
+
+        (await RuntimeScenario.Read(worker, bot.Id)).RestartAttempts.ShouldBe(0);
+    }
+
+    [Test]
+    public async Task ALiveCandleAfterAMarketClosure_IsCommitted_AndAnUncoveredGapFails()
+    {
+        var scenario = new RuntimeScenario();
+        using IHost worker = scenario.Worker();
+        Bot bot = await RuntimeScenario.RunningLadder(worker);
+        await worker.StartAsync();
+        await RuntimeScenario.Until(() => Task.FromResult(scenario.Candles.Subscribers > 0), "the bot subscribes to live candles");
+        Candle last = (await RuntimeScenario.Checkpoint(worker, bot.Id))!.Engine.LastClosedCandle;
+        scenario.History.Closed.Add(new CandleRangeInternal(last.OpenTime.AddHours(1), last.OpenTime.AddHours(9)));
+        Candle morning = FlatHistorySource.Candle(last.OpenTime.AddHours(9));
+
+        scenario.Candles.Push(morning);
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Checkpoint(worker, bot.Id))!.Engine.LastClosedCandle == morning,
+            "the candle after the night is committed");
+        scenario.History.Closed.Clear();
+        Candle afterHole = FlatHistorySource.Candle(morning.OpenTime.AddHours(3));
+        scenario.History.Closed.Add(new CandleRangeInternal(morning.OpenTime.AddHours(2), morning.OpenTime.AddHours(3)));
+        scenario.Candles.Push(afterHole);
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Checkpoint(worker, bot.Id))!.Engine.LastClosedCandle == afterHole,
+            "a missed candle from history and the closure before the next live candle are committed");
         await worker.StopAsync();
 
         (await RuntimeScenario.Read(worker, bot.Id)).RestartAttempts.ShouldBe(0);

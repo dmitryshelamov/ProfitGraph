@@ -1,5 +1,6 @@
 using ProfitGraph.Application.Backtesting;
 using ProfitGraph.Application.Bots.Ports;
+using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Accounting;
@@ -23,6 +24,7 @@ public sealed class BotEngineSession
     private readonly IOrderGateway _gateway;
     private readonly BotRootCommitter _committer;
     private readonly TimeProvider _clock;
+    private readonly Func<DateTimeOffset, DateTimeOffset, CancellationToken, Task<HistoricalCandlesInternal>>? _gaps;
     private StrategyVersionId _version;
     private int _lastCandleIndex;
 
@@ -54,7 +56,8 @@ public sealed class BotEngineSession
         TimeProvider clock,
         BotParameters appliedParameters,
         StrategyVersionId version,
-        GraphEngineCheckpoint? checkpoint)
+        GraphEngineCheckpoint? checkpoint,
+        Func<DateTimeOffset, DateTimeOffset, CancellationToken, Task<HistoricalCandlesInternal>>? gaps = null)
     {
         _botId = botId;
         _holder = holder;
@@ -64,6 +67,7 @@ public sealed class BotEngineSession
         _gateway = gateway;
         _committer = committer;
         _clock = clock;
+        _gaps = gaps;
         AppliedParameters = appliedParameters;
         _version = version;
         Checkpoint = checkpoint;
@@ -113,7 +117,9 @@ public sealed class BotEngineSession
     }
 
     /// <summary>
-    ///     Processes one live closed candle. Candles arrive without gaps; an older or repeated one is ignored.
+    ///     Processes one live closed candle; an older or repeated one is ignored. Before a candle after a gap the venue's
+    ///     history of the gap is read: its candles are processed in order and its market closures are recorded (ADR 0023,
+    ///     TC3). A gap that neither covers fails.
     /// </summary>
     public async Task ProcessCandle(Candle candle, CancellationToken cancellationToken)
     {
@@ -131,9 +137,46 @@ public sealed class BotEngineSession
 
         if (candle.OpenTime != LastCandle.OpenTime + _timeframe.Duration)
         {
-            throw new InvalidOperationException("The live candle sequence has a gap.");
+            await FillGap(candle.OpenTime, cancellationToken);
         }
 
+        await ProcessNext(candle, cancellationToken);
+    }
+
+    private async Task FillGap(DateTimeOffset until, CancellationToken cancellationToken)
+    {
+        DateTimeOffset cursor = LastCandle!.OpenTime + _timeframe.Duration;
+        HistoricalCandlesInternal history = _gaps is null
+            ? HistoricalCandlesInternal.Contiguous([])
+            : await _gaps(cursor, until, cancellationToken);
+        Dictionary<DateTimeOffset, Candle> candles = history.Candles.Where(candle => candle.OpenTime >= cursor && candle.OpenTime < until)
+            .ToDictionary(candle => candle.OpenTime);
+
+        while (cursor < until)
+        {
+            if (candles.TryGetValue(cursor, out Candle? missed))
+            {
+                await ProcessNext(missed, cancellationToken);
+                cursor += _timeframe.Duration;
+
+                continue;
+            }
+
+            CandleRangeInternal? closure = history.Closures.FirstOrDefault(range => range.From <= cursor && cursor < range.To);
+
+            if (closure is null)
+            {
+                throw new InvalidOperationException("The live candle sequence has a gap.");
+            }
+
+            DateTimeOffset end = closure.To < until ? closure.To : until;
+            _dispatcher.RecordClosure(new MarketClosure(cursor, end));
+            cursor = end;
+        }
+    }
+
+    private async Task ProcessNext(Candle candle, CancellationToken cancellationToken)
+    {
         int index = checked(_lastCandleIndex + 1);
         DateTimeOffset closeTime = candle.OpenTime + _timeframe.Duration;
         _dispatcher.BeginOpen(new ReachedMarketContext(candle, index, closeTime, PricePhase.Open, candle.Open, index));

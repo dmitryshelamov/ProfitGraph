@@ -1,6 +1,7 @@
 using ProfitGraph.Application.Backtesting;
 using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.MarketData;
+using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Strategies;
@@ -14,7 +15,9 @@ namespace ProfitGraph.Application.Bots.Runtime;
 /// <summary>
 ///     Opens the engine of a leased bot (Profit Fox Designer ADR 0054): a first run compiles its strategy version with
 ///     the bot's values, warms on public closed history and starts once; a stored run restores its checkpoint on the
-///     history ending at its last candle, warms on the candles missed since and resumes without <c>Start</c>.
+///     history ending at its last candle, warms on the candles missed since and resumes without <c>Start</c>. History, rules
+///     and gaps are read with the bot's credential as market data access, and history reaches back over market closures
+///     (ADR 0023, TC3).
 /// </summary>
 public sealed class BotEngineSessionFactory(
     IStrategyRepository strategies,
@@ -24,10 +27,13 @@ public sealed class BotEngineSessionFactory(
     VenuePorts<IHistoricalCandleSource> histories,
     BacktestCompiler compiler,
     BotRootCommitter committer,
+    BotMarketDataAccess access,
     TimeProvider clock)
 {
     public async Task<BotEngineSession> Open(Bot bot, LeaseHolderId holder, long epoch, IOrderGateway gateway, CancellationToken cancellationToken)
     {
+        using IDisposable reads = await access.Open(bot, cancellationToken);
+
         BotCheckpoint? stored = await checkpoints.Get(bot.Id, cancellationToken);
 
         if (stored is null && bot.HasRun)
@@ -47,16 +53,24 @@ public sealed class BotEngineSessionFactory(
             : new ExecutionSettings(bot.AllocationCap, slippage: 0m, bot.FeeRates.LimitRate, bot.FeeRates.MarketRate);
         Timeframe timeframe = bot.Series.Timeframe;
         DateTimeOffset to = timeframe.FloorToGrid(clock.GetUtcNow());
-        DateTimeOffset from = stored is null
-            ? to - timeframe.Duration * Math.Max(plan.WarmupCandles + 1, val2: 1)
-            : stored.Engine.LastClosedCandle.OpenTime - timeframe.Duration * plan.WarmupCandles;
-        IReadOnlyList<Candle> closed =
-            from < to ? LiveWarmupHistory.Contiguous(await Port(histories, bot).Get(bot.Series.Symbol, timeframe, from, to, cancellationToken)) : [];
+        DateTimeOffset through = stored?.Engine.LastClosedCandle.OpenTime ?? to - timeframe.Duration;
+        IHistoricalCandleSource source = Port(histories, bot);
+        HistoricalCandlesInternal history = through < to
+            ? await LiveHistory.Read(source, bot.Series.Symbol, timeframe, through, to, plan.WarmupCandles + 1, cancellationToken)
+            : HistoricalCandlesInternal.Contiguous([]);
+        IReadOnlyList<Candle> closed = history.Candles;
+        IReadOnlyList<MarketClosure> closures = LiveHistory.Closures(history);
+        Func<DateTimeOffset, DateTimeOffset, CancellationToken, Task<HistoricalCandlesInternal>> gaps = async (gapFrom, gapTo, token) =>
+        {
+            using IDisposable gapReads = await access.Open(bot, token);
+
+            return await source.Get(bot.Series.Symbol, timeframe, gapFrom, gapTo, token);
+        };
 
         if (stored is null)
         {
-            var dispatcher = new CausalDispatcher(plan, new ExternallyExecutedAccount(settings, instrument), graphVersionId: versionId);
-            var session = new BotEngineSession(bot.Id, holder, epoch, timeframe, dispatcher, gateway, committer, clock, applied, version.Id, checkpoint: null);
+            var dispatcher = new CausalDispatcher(plan, new ExternallyExecutedAccount(settings, instrument), graphVersionId: versionId, closures: closures);
+            var session = new BotEngineSession(bot.Id, holder, epoch, timeframe, dispatcher, gateway, committer, clock, applied, version.Id, checkpoint: null, gaps);
             await session.StartFromHistory(closed, cancellationToken);
 
             return session;
@@ -69,8 +83,8 @@ public sealed class BotEngineSessionFactory(
             throw new InvalidOperationException("Closed history cannot restore the bot's checkpoint.");
         }
 
-        CausalDispatcher restored = CausalDispatcher.RestoreWithoutResume(stored.Engine, plan, settings, instrument, restore);
-        var resumed = new BotEngineSession(bot.Id, holder, epoch, timeframe, restored, gateway, committer, clock, applied, version.Id, stored.Engine);
+        CausalDispatcher restored = CausalDispatcher.RestoreWithoutResume(stored.Engine, plan, settings, instrument, restore, closures: closures);
+        var resumed = new BotEngineSession(bot.Id, holder, epoch, timeframe, restored, gateway, committer, clock, applied, version.Id, stored.Engine, gaps);
         await resumed.ResumeAndWarm([.. closed.Where(candle => candle.OpenTime > stored.Engine.LastClosedCandle.OpenTime)], cancellationToken);
         await ApplyStoredRejections(bot.Id, resumed, cancellationToken);
 
