@@ -34,3 +34,17 @@ once even when the venue repeats a report, the bot restarts or a commit is rolle
 - Recording is a by-product of the commit the runtime already makes; no second write path exists.
 - Domain events `BotFillRecorded`, `BotPositionOpened` and `BotPositionClosed` reach the outbox with the commit, so the
   feed shows them only when the commit happened.
+
+## Amendment: display price (stage 5.13)
+
+- **Source.** A venue's `ILiveMarkPriceSource` streams the public last-trade price of a symbol; Bybit's comes from the
+  unauthenticated `tickers.{symbol}` Spot topic. It is for display only: the engine and replay never read it, so
+  fingerprints and replay hashes do not change (stage 5 plan S5-19, Profit Fox Designer ADR 0088).
+- **Publisher.** The Worker's `live` role keeps one subscription per instrument of the bots that should run and stores
+  at most one observation per instrument a second in `live_mark_prices`. An older observation never replaces a newer
+  one; a stored one signals `live_mark_price`. A lost subscription is opened again after five seconds.
+- **Position.** `GET /api/bots/{id}/position` values the position at the display price: the stored ticker when it is
+  later than the last candle's close and at most five minutes old, otherwise the last candle's close. The response says
+  which (`markPriceSource`), when it was observed and the unrealized profit.
+- **Hub.** `/ws/live-prices` lets a signed-in user subscribe to their own bots; each stored price is sent as
+  `LivePrice` to the subscribers of its instrument. Another user's bot is refused as missing.

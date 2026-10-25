@@ -42,6 +42,10 @@ internal static class BotTradingRecordResponseConverter
             position.AverageCost is { } average ? ExactGraphNumberParser.Format(average) : null,
             ExactGraphNumberParser.Format(position.RealizedPnl),
             position.OpenedAt,
+            position.MarkPrice is { } mark ? ExactGraphNumberParser.Format(mark) : null,
+            position.MarkPriceObservedAt,
+            position.MarkPriceSource,
+            position.UnrealizedPnl is { } unrealized ? ExactGraphNumberParser.Format(unrealized) : null,
             [
                 .. position.Cycles.Select(cycle => new BotPositionCycleResponse(
                     cycle.Id,

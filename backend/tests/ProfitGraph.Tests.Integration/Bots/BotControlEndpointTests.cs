@@ -225,6 +225,10 @@ public sealed class BotControlEndpointTests
         position.AverageCost.ShouldBeNull();
         position.RealizedPnl.ShouldBe("0");
         position.OpenedAt.ShouldBeNull();
+        position.MarkPrice.ShouldBeNull();
+        position.MarkPriceObservedAt.ShouldBeNull();
+        position.MarkPriceSource.ShouldBeNull();
+        position.UnrealizedPnl.ShouldBeNull();
         BotPositionCycleResponse cycle = position.Cycles.ShouldHaveSingleItem();
         cycle.Id.ShouldNotBe(Guid.Empty);
         cycle.OpenedAt.ShouldBe(at, TimeSpan.FromMilliseconds(1));

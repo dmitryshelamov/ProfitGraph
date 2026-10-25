@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 using ProfitGraph.Api.Backtesting.Realtime;
+using ProfitGraph.Api.Bots.Realtime;
 using ProfitGraph.Api.Common.Authentication;
 using ProfitGraph.Api.Common.Errors;
 using ProfitGraph.Api.MarketData;
@@ -58,6 +59,7 @@ public class Program
         builder.Services.AddHostedService<BacktestProgressPublisher>();
         builder.Services.AddSingleton<OptimizationProgressSubscriptions>();
         builder.Services.AddHostedService<OptimizationProgressPublisher>();
+        builder.Services.AddHostedService<LivePricePublisher>();
         builder.AddProfitGraphAuthentication();
 
         WebApplication app = builder.Build();
@@ -89,6 +91,7 @@ public class Program
         app.MapControllers();
         app.MapHub<BacktestHub>(BacktestHub.Path);
         app.MapHub<OptimizationHub>(OptimizationHub.Path);
+        app.MapHub<LivePriceHub>(LivePriceHub.Path);
         app.MapHealthChecks("/api/health", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
         app.MapHealthChecks("/api/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains(HealthTags.Ready) }).AllowAnonymous();
 
