@@ -2650,6 +2650,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/exchange-credentials/enrollments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StartCredentialEnrollmentRequest"];
+                    "text/json": components["schemas"]["StartCredentialEnrollmentRequest"];
+                    "application/*+json": components["schemas"]["StartCredentialEnrollmentRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["CredentialEnrollmentResponse"];
+                        "application/json": components["schemas"]["CredentialEnrollmentResponse"];
+                        "text/json": components["schemas"]["CredentialEnrollmentResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/exchange-credentials/enrollments/{id}/steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ContinueCredentialEnrollmentRequest"];
+                    "text/json": components["schemas"]["ContinueCredentialEnrollmentRequest"];
+                    "application/*+json": components["schemas"]["ContinueCredentialEnrollmentRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["CredentialEnrollmentResponse"];
+                        "application/json": components["schemas"]["CredentialEnrollmentResponse"];
+                        "text/json": components["schemas"]["CredentialEnrollmentResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users": {
         parameters: {
             query?: never;
@@ -3216,6 +3304,13 @@ export interface components {
             maxOrderQuote: null | string;
             dailyLossLimitQuote: null | string;
         };
+        ContinueCredentialEnrollmentRequest: {
+            venue: null | string;
+            step: null | string;
+            fields: null | {
+                [key: string]: string;
+            };
+        };
         CreateBotRequest: {
             /** Format: uuid */
             strategyId: string;
@@ -3250,6 +3345,17 @@ export interface components {
             login: null | string;
             password: null | string;
             role: components["schemas"]["UserRole"];
+        };
+        CredentialEnrollmentResponse: {
+            /** Format: uuid */
+            enrollmentId: string;
+            venue: string;
+            step: string;
+            fields: string[];
+            oneTimeSecret: null | string;
+            problem: null | string;
+            /** Format: uuid */
+            credentialId: null | string;
         };
         DownloadCandlesRequest: {
             venue: null | string;
@@ -3568,6 +3674,13 @@ export interface components {
             settlementHoldSeconds?: null | number;
             /** Format: uuid */
             credentialId?: null | string;
+        };
+        StartCredentialEnrollmentRequest: {
+            venue: null | string;
+            label: null | string;
+            fields: null | {
+                [key: string]: string;
+            };
         };
         StartOptimizationRequest: {
             backtest: null | components["schemas"]["StartBacktestRequest"];

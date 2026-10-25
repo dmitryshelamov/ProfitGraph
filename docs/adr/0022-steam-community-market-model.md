@@ -185,7 +185,22 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   logged or sent to Telegram. The core asks for it through the neutral port `IVenueAuthenticatorCodes` behind
   `GET /api/exchange-credentials/{id}/authenticator-code`: Owner role only, the Owner's own credential only, never
   cached; the code is made for Steam's time as the account's session measured it and says when its window ends by our
-  clock. No Steam password is stored. The same Steam account cannot be stored twice (keyed HMAC
+  clock.
+- **Web enrollment.** The core runs a venue's enrollment through the neutral port `IVenueCredentialEnrollment` behind
+  `POST /api/exchange-credentials/enrollments` and `POST .../enrollments/{id}/steps` (never cached): each answer names the
+  next step and its fields, a secret shown only in that answer, or a problem code. When the last step succeeds the module
+  hands back the credential's fields, the core stores the credential under the enrollment's identifier, so a repeated step
+  stores nothing twice, and the module records its account. Steam's steps follow Profit Fox Designer: the start takes
+  the account name and password (encrypted with Steam's RSA key for `BeginAuthSessionViaCredentials`, used once, never
+  stored); `email-code` sends the emailed code, polls for the tokens, refuses an account already stored and calls
+  `AddAuthenticator`, whose recovery code is the only thing its answer carries; `recovery-saved` is the owner's
+  acknowledgement; `activate` sends `FinalizeAddAuthenticator` with the emailed activation code and the new Guard code. A
+  wrong code (`invalid_code`, Steam's 65 or 89) is typed again without linking again; an account that needs a phone
+  (status 2) or already has an authenticator (status 29, or an existing-authenticator sign-in) stops with its reason;
+  an unclear write stops as `enrollment_unknown` and is never sent again. The pending state, without the password or the
+  recovery code, is encrypted like a credential's secrets in `steam_enrollments` and expires `EnrollmentLifetime` (10
+  minutes) after its last step. The stored account waits in `CoolingDown` for `CoolingDownEstimate` (15 days), then the
+  eligibility worker checks it like an imported one. No Steam password is stored. The same Steam account cannot be stored twice (keyed HMAC
   alias, no plaintext Steam ID).
 - **Session.** One session per credential owns login finalization, cookies and the session ID; renewal is single-flight;
   a 401, a login redirect or `needauth` renews once for a read and never replays a write. Server time is measured at start

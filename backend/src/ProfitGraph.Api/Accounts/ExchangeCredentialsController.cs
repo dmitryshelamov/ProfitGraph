@@ -9,6 +9,7 @@ using ProfitGraph.Api.Common.Authentication;
 using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.CreateExchangeCredential;
 using ProfitGraph.Application.Accounts.DeleteExchangeCredential;
+using ProfitGraph.Application.Accounts.EnrollCredential;
 using ProfitGraph.Application.Accounts.GetAccountHistory;
 using ProfitGraph.Application.Accounts.GetAccountProtection;
 using ProfitGraph.Application.Accounts.GetAuthenticatorCode;
@@ -109,6 +110,59 @@ public sealed class ExchangeCredentialsController(ISender sender, TimeProvider c
         AuthenticatorCodeInternal code = await sender.Send(new GetAuthenticatorCodeQuery(UserId(), id), cancellationToken);
 
         return new AuthenticatorCodeResponse(code.Code, code.ValidUntil);
+    }
+
+    /// <summary>
+    ///     Starts creating a credential with a venue that enrolls them in steps, such as linking a new authenticator; the answer
+    ///     names the next step and is never cached.
+    /// </summary>
+    [HttpPost("enrollments")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<ActionResult<CredentialEnrollmentResponse>> StartEnrollment(StartCredentialEnrollmentRequest request, CancellationToken cancellationToken)
+    {
+        CredentialEnrollmentInternal enrollment = await sender.Send(
+            new StartCredentialEnrollmentCommand(
+                UserId(),
+                request.Venue ?? string.Empty,
+                request.Label ?? string.Empty,
+                request.Fields ?? new Dictionary<string, string>()),
+            cancellationToken);
+
+        return StatusCode(StatusCodes.Status201Created, EnrollmentResponse(enrollment));
+    }
+
+    /// <summary>
+    ///     Answers the step an enrollment waits for; the answer names the next step and is never cached.
+    /// </summary>
+    [HttpPost("enrollments/{id:guid}/steps")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<ActionResult<CredentialEnrollmentResponse>> ContinueEnrollment(
+        Guid id,
+        ContinueCredentialEnrollmentRequest request,
+        CancellationToken cancellationToken)
+    {
+        CredentialEnrollmentInternal enrollment = await sender.Send(
+            new ContinueCredentialEnrollmentCommand(
+                UserId(),
+                request.Venue ?? string.Empty,
+                id,
+                request.Step ?? string.Empty,
+                request.Fields ?? new Dictionary<string, string>()),
+            cancellationToken);
+
+        return EnrollmentResponse(enrollment);
+    }
+
+    private static CredentialEnrollmentResponse EnrollmentResponse(CredentialEnrollmentInternal enrollment)
+    {
+        return new CredentialEnrollmentResponse(
+            enrollment.EnrollmentId,
+            enrollment.Venue,
+            enrollment.Step,
+            enrollment.Fields,
+            enrollment.OneTimeSecret,
+            enrollment.Problem,
+            enrollment.CredentialId);
     }
 
     private Guid UserId()

@@ -8,7 +8,18 @@ internal interface ISteamAccountStore
     Task<SteamAccount?> Get(Guid credentialId, CancellationToken cancellationToken);
 
     /// <summary>
-    ///     The accounts in <see cref="SteamGuardStatus.Checking" /> whose next check is due.
+    ///     Whether any stored account has one of the fingerprints, which a Steam ID has one of per configured master key.
+    /// </summary>
+    Task<bool> AnyFingerprint(IReadOnlyList<string> fingerprints, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Stores a new account; false when the same Steam account is stored already.
+    /// </summary>
+    Task<bool> Add(SteamAccount account, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     The accounts in <see cref="SteamGuardStatus.Checking" />, or <see cref="SteamGuardStatus.CoolingDown" /> after their
+    ///     expected aging, whose next check is due.
     /// </summary>
     Task<IReadOnlyList<SteamAccount>> Due(DateTimeOffset now, CancellationToken cancellationToken);
 
