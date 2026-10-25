@@ -18,6 +18,12 @@ public sealed class BacktestInput
     public Timeframe Timeframe { get; }
     public IReadOnlyList<Candle> Warmup { get; }
     public IReadOnlyList<Candle> Replay { get; }
+
+    /// <summary>
+    ///     The market closures of the history (ADR 0023, TC1); position age leaves them out.
+    /// </summary>
+    public IReadOnlyList<MarketClosure> Closures { get; }
+
     public SampleRanges SampleRanges { get; }
 
     public BacktestInput(
@@ -48,6 +54,7 @@ public sealed class BacktestInput
         Timeframe = preparedReplay.Timeframe;
         Warmup = preparedReplay.Warmup;
         Replay = preparedReplay.Replay;
+        Closures = preparedReplay.Closures;
 
         GraphValidationResult validation = new EngineParameterResolver().ValidateSelections(graph, Selections);
 
