@@ -7,6 +7,7 @@ using ProfitGraph.Infrastructure.Jobs;
 using ProfitGraph.Infrastructure.Notifications;
 using ProfitGraph.Venues.Bybit;
 using ProfitGraph.Venues.Steam;
+using ProfitGraph.Venues.TInvest;
 
 using Serilog;
 using Serilog.Formatting.Json;
@@ -69,6 +70,7 @@ public static class Program
 
         builder.Services.AddBybitVenue(builder.Configuration);
         builder.Services.AddSteamVenue(builder.Configuration);
+        builder.Services.AddTInvestVenue(builder.Configuration);
 
         IHost host = builder.Build();
 

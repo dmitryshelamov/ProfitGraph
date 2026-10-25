@@ -20,7 +20,8 @@ internal static class ExchangeCredentialDbConverter
             new ApiKeyLast4(row.ApiKeyLast4),
             JsonSerializer.Deserialize<Dictionary<string, EncryptedSecretDb>>(row.Secrets, Options)!
                 .ToDictionary(secret => secret.Key, secret => new EncryptedSecret(secret.Value.KeyId, secret.Value.Nonce, secret.Value.Ciphertext, secret.Value.Tag)),
-            row.CreatedAt);
+            row.CreatedAt,
+            row.AccountFingerprint);
     }
 
     public static ExchangeCredentialDb ToDb(this ExchangeCredential credential)
@@ -38,7 +39,8 @@ internal static class ExchangeCredentialDbConverter
                     secret => new EncryptedSecretDb
                         { KeyId = secret.Value.KeyId, Nonce = secret.Value.Nonce, Ciphertext = secret.Value.Ciphertext, Tag = secret.Value.Tag }),
                 Options),
-            CreatedAt = credential.CreatedAt
+            CreatedAt = credential.CreatedAt,
+            AccountFingerprint = credential.AccountFingerprint
         };
     }
 }

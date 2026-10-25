@@ -27,6 +27,7 @@
         <ProjectReference Include="..\..\src\ProfitGraph.Infrastructure\ProfitGraph.Infrastructure.csproj"/>
         <ProjectReference Include="..\..\src\ProfitGraph.Venues.Bybit\ProfitGraph.Venues.Bybit.csproj"/>
         <ProjectReference Include="..\..\src\ProfitGraph.Venues.Steam\ProfitGraph.Venues.Steam.csproj"/>
+        <ProjectReference Include="..\..\src\ProfitGraph.Venues.TInvest\ProfitGraph.Venues.TInvest.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

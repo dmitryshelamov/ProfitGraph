@@ -13,6 +13,7 @@ public sealed class TestHistoryVenue(string id) : IVenueDescriptor
 {
     public const string WithHistory = "test-history";
     public const string WithoutHistory = "test-no-history";
+    public const string WithAccounts = "test-accounts";
 
     public VenueId Id { get; } = new VenueId(id);
 

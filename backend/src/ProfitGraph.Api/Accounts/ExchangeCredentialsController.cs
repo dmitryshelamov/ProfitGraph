@@ -13,6 +13,7 @@ using ProfitGraph.Application.Accounts.GetAccountHistory;
 using ProfitGraph.Application.Accounts.GetAccountProtection;
 using ProfitGraph.Application.Accounts.GetAuthenticatorCode;
 using ProfitGraph.Application.Accounts.GetExchangeCredentials;
+using ProfitGraph.Application.Accounts.ListVenueAccounts;
 using ProfitGraph.Application.Accounts.ResumeAccountProtection;
 
 namespace ProfitGraph.Api.Accounts;
@@ -37,10 +38,21 @@ public sealed class ExchangeCredentialsController(ISender sender, TimeProvider c
     public async Task<ActionResult<ExchangeCredentialResponse>> Create(CreateExchangeCredentialRequest request, CancellationToken cancellationToken)
     {
         ExchangeCredentialInternal credential = await sender.Send(
-            new CreateExchangeCredentialCommand(UserId(), request.Venue, request.Label, request.ApiKey, request.ApiSecret),
+            new CreateExchangeCredentialCommand(UserId(), request.Venue, request.Label, request.ApiKey, request.ApiSecret, request.Fields),
             cancellationToken);
 
         return StatusCode(StatusCodes.Status201Created, credential.ToResponse());
+    }
+
+    /// <summary>
+    ///     The accounts a credential not saved yet can select (ADR 0023, TC5); the fields are used for this request only.
+    /// </summary>
+    [HttpPost("accounts")]
+    public async Task<ActionResult<IReadOnlyList<VenueAccountResponse>>> Accounts(ListVenueAccountsRequest request, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<VenueAccountInternal> accounts = await sender.Send(new ListVenueAccountsQuery(UserId(), request.Venue, request.Fields), cancellationToken);
+
+        return accounts.Select(account => account.ToResponse()).ToArray();
     }
 
     [HttpDelete("{id:guid}")]

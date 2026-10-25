@@ -2415,6 +2415,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/exchange-credentials/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ListVenueAccountsRequest"];
+                    "text/json": components["schemas"]["ListVenueAccountsRequest"];
+                    "application/*+json": components["schemas"]["ListVenueAccountsRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["VenueAccountResponse"][];
+                        "application/json": components["schemas"]["VenueAccountResponse"][];
+                        "text/json": components["schemas"]["VenueAccountResponse"][];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/exchange-credentials/{id}": {
         parameters: {
             query?: never;
@@ -3193,6 +3236,9 @@ export interface components {
             label: null | string;
             apiKey: null | string;
             apiSecret: null | string;
+            fields?: null | {
+                [key: string]: string;
+            };
         };
         CreateStrategyRequest: {
             name: string;
@@ -3253,6 +3299,12 @@ export interface components {
             quotePrecision: number;
         };
         JsonElement: unknown;
+        ListVenueAccountsRequest: {
+            venue: null | string;
+            fields: null | {
+                [key: string]: string;
+            };
+        };
         LiveImpactBotResponse: {
             /** Format: uuid */
             botId: string;
@@ -3762,6 +3814,13 @@ export interface components {
             arguments?: null | {
                 [key: string]: components["schemas"]["ValueExpressionResponse"];
             };
+        };
+        VenueAccountResponse: {
+            id: string;
+            name: string;
+            kind: string;
+            eligible: boolean;
+            ineligibility: null | string;
         };
         VenueExecutionDefaultsResponse: {
             sellerFees: null | components["schemas"]["SellerFeeScheduleResponse"];
