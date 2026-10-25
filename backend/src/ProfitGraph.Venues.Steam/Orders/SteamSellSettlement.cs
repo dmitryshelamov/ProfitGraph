@@ -22,7 +22,8 @@ internal sealed class SteamSellSettlement(ISteamOrderJournal journal, SteamOrder
             return;
         }
 
-        if (reservations.All(reservation => reservation.State == SteamReservationState.Released))
+        // Only a sell that never listed is rejected by Steam; a listing removed later is a cancel, which reconciliation settles.
+        if (current.State == SteamOrderJournalState.Waiting && reservations.All(reservation => reservation.State == SteamReservationState.Released))
         {
             await journal.Transition(Done(current, clock.GetUtcNow()), current.State, cancellationToken);
             updates.Publish(current.BotId, ExternalOrderUpdate.Reject(current.EngineOrderId, RejectionReason.BrokerRejected, "Steam refused every listing."));
