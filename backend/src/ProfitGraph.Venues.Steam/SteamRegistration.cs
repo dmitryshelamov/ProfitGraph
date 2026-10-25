@@ -37,6 +37,7 @@ public static class SteamRegistration
                 AutomaticDecompression = DecompressionMethods.All
             })
             .RemoveAllLoggers();
+        services.AddSingleton<SteamRequestScheduler>();
         services.AddSingleton<SteamAccountSessions>();
         services.AddOptions<SteamOptions>()
             .Bind(configuration.GetSection(SteamOptions.SectionName))

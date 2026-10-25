@@ -18,12 +18,14 @@ namespace ProfitGraph.Venues.Steam.Session;
 ///     The one Community session of a Steam credential (Profit Fox Designer ADR 0083). It alone finalizes a sign-in with
 ///     the stored refresh token, transfers it to Community and keeps the cookies; concurrent callers share one renewal. An
 ///     unauthorized read renews once and is sent once more; a write is never sent twice. The server clock is measured at
-///     the first use and again after <see cref="SteamOptions.ServerClockRefresh" />.
+///     the first use and again after <see cref="SteamOptions.ServerClockRefresh" />. Every request, sign-in included, waits
+///     its turn in the account's <see cref="SteamRequestScheduler" /> queue.
 /// </summary>
 internal sealed class SteamAccountSession(
     Guid ownerId,
     Guid credentialId,
     SteamHttpTransport transport,
+    SteamRequestScheduler scheduler,
     IServiceScopeFactory scopes,
     IOptions<SteamOptions> options,
     TimeProvider clock)
@@ -41,7 +43,7 @@ internal sealed class SteamAccountSession(
         try
         {
             SteamSessionSnapshot session = await Ensure(cancellationToken);
-            SteamRequestResult result = await transport.Send(WithSessionId(request, session), session.Cookies, cancellationToken);
+            SteamRequestResult result = await Send(WithSessionId(request, session), session.Cookies, cancellationToken);
 
             if (result.Outcome != SteamRequestOutcome.Unauthorized)
             {
@@ -57,7 +59,7 @@ internal sealed class SteamAccountSession(
 
             SteamSessionSnapshot renewed = await Ensure(cancellationToken);
 
-            return await transport.Send(WithSessionId(request, renewed), renewed.Cookies, cancellationToken);
+            return await Send(WithSessionId(request, renewed), renewed.Cookies, cancellationToken);
         }
         catch (SteamSessionException exception)
         {
@@ -73,6 +75,14 @@ internal sealed class SteamAccountSession(
         SteamServerClock serverClock = await RefreshClock(cancellationToken);
 
         return clock.GetUtcNow() + serverClock.Offset;
+    }
+
+    /// <summary>
+    ///     Every physical request of this account goes through its queue.
+    /// </summary>
+    private Task<SteamRequestResult> Send(SteamHttpRequest request, string? cookies, CancellationToken cancellationToken)
+    {
+        return scheduler.Execute(credentialId, request, token => transport.Send(request, cookies, token), cancellationToken);
     }
 
     private static SteamHttpRequest WithSessionId(SteamHttpRequest request, SteamSessionSnapshot session)
@@ -146,6 +156,7 @@ internal sealed class SteamAccountSession(
 
     private async Task<SteamSessionSnapshot> Renew(string steamId, string refreshToken, CancellationToken cancellationToken)
     {
+        // Signing in is not a market write: it queues as status, so write spacing never holds it back.
         string sessionId = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(12));
         var finalize = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -154,8 +165,8 @@ internal sealed class SteamAccountSession(
             ["redir"] = new Uri(options.Value.Address(SteamEndpoint.Community), "/login/home/?goto=").AbsoluteUri
         };
         SteamHttpResponse login = Require(
-            await transport.Send(
-                new SteamHttpRequest(SteamEndpoint.Login, "/jwt/finalizelogin", finalize, IsRead: false, Multipart: true),
+            await Send(
+                new SteamHttpRequest(SteamEndpoint.Login, "/jwt/finalizelogin", finalize, IsRead: false, Multipart: true, SteamRequestClass.Status),
                 cookies: null,
                 cancellationToken));
 
@@ -187,8 +198,8 @@ internal sealed class SteamAccountSession(
                 .ToDictionary(property => property.Name, property => Text(property.Value), StringComparer.Ordinal);
             values["steamID"] = steamId;
             SteamHttpResponse transferred = Require(
-                await transport.Send(
-                    new SteamHttpRequest(SteamEndpoint.Community, destination.PathAndQuery, values, IsRead: false, Multipart: true),
+                await Send(
+                    new SteamHttpRequest(SteamEndpoint.Community, destination.PathAndQuery, values, IsRead: false, Multipart: true, SteamRequestClass.Status),
                     cookies: null,
                     cancellationToken));
             var cookies = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -265,7 +276,7 @@ internal sealed class SteamAccountSession(
 
             DateTimeOffset started = clock.GetUtcNow();
             SteamHttpResponse response = Require(
-                await transport.Send(
+                await Send(
                     new SteamHttpRequest(SteamEndpoint.Api, "/ITwoFactorService/QueryTime/v1/", new Dictionary<string, string>(), IsRead: true),
                     cookies: null,
                     cancellationToken));

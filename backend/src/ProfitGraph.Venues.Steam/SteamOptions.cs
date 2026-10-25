@@ -38,6 +38,29 @@ public sealed class SteamOptions
 
     public TimeSpan ServerClockRefresh { get; init; } = TimeSpan.FromHours(1);
 
+    /// <summary>
+    ///     How long a request may wait in its account queue before it is given up unsent.
+    /// </summary>
+    public TimeSpan QueueDeadline { get; init; } = TimeSpan.FromSeconds(45);
+
+    /// <summary>
+    ///     The least time between two writes of one account.
+    /// </summary>
+    public TimeSpan WriteSpacing { get; init; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    ///     The first pause after a rate limit; each further one doubles it up to <see cref="MaximumCooldown" />. A longer
+    ///     Retry-After always wins.
+    /// </summary>
+    public TimeSpan InitialCooldown { get; init; } = TimeSpan.FromMinutes(5);
+
+    public TimeSpan MaximumCooldown { get; init; } = TimeSpan.FromHours(1);
+
+    /// <summary>
+    ///     Retries of a read that failed transiently, after one and then two seconds; writes and rate limits never retry.
+    /// </summary>
+    public int ReadRetries { get; init; } = 2;
+
     public bool IsValid()
     {
         (string Address, string Host)[] origins =
@@ -47,7 +70,8 @@ public sealed class SteamOptions
             (ApiBaseAddress, "api.steampowered.com")
         ];
         bool timings = MaximumResponseBytes is >= 1024 and <= 64 * 1024 * 1024 && RequestTimeout > TimeSpan.Zero && SessionLifetime > SessionRenewalLead &&
-            SessionRenewalLead >= TimeSpan.Zero && ServerClockRefresh > TimeSpan.Zero;
+            SessionRenewalLead >= TimeSpan.Zero && ServerClockRefresh > TimeSpan.Zero && QueueDeadline > TimeSpan.Zero && WriteSpacing >= TimeSpan.Zero &&
+            InitialCooldown > TimeSpan.Zero && MaximumCooldown >= InitialCooldown && ReadRetries is >= 0 and <= 5;
 
         return timings && origins.All(origin => Enabled
             ? IsAllowedOrigin(origin.Address, origin.Host)

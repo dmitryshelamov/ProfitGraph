@@ -43,5 +43,10 @@ internal enum SteamRequestOutcome
     /// <summary>
     ///     ProfitGraph refused to send: Steam is disabled, or the credential cannot be used.
     /// </summary>
-    NotSent
+    NotSent,
+
+    /// <summary>
+    ///     The request waited in the account queue past its deadline and was never sent.
+    /// </summary>
+    Deferred
 }

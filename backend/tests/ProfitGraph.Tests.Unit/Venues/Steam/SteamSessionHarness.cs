@@ -51,6 +51,11 @@ internal sealed class SteamSessionHarness
                     }));
     }
 
+    public SteamRequestScheduler Scheduler()
+    {
+        return new SteamRequestScheduler(Microsoft.Extensions.Options.Options.Create(Options), Clock);
+    }
+
     public SteamHttpTransport Transport()
     {
         return new SteamHttpTransport(new HttpClient(Steam), Microsoft.Extensions.Options.Options.Create(Options));
@@ -60,7 +65,12 @@ internal sealed class SteamSessionHarness
     {
         ServiceProvider services = new ServiceCollection().AddSingleton(Sender).BuildServiceProvider();
 
-        return new SteamAccountSessions(Transport(), services.GetRequiredService<IServiceScopeFactory>(), Microsoft.Extensions.Options.Options.Create(Options), Clock)
+        return new SteamAccountSessions(
+                Transport(),
+                Scheduler(),
+                services.GetRequiredService<IServiceScopeFactory>(),
+                Microsoft.Extensions.Options.Options.Create(Options),
+                Clock)
             .For(Owner, Credential);
     }
 }
