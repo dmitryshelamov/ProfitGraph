@@ -52,6 +52,7 @@ public static class SteamRegistration
         services.AddSingleton<ISteamAccountProtectionStore, SteamAccountProtectionRepository>();
         services.AddSingleton<SteamAccountProtection>();
         services.AddSingleton<IVenueAccountProtection>(provider => provider.GetRequiredService<SteamAccountProtection>());
+        services.AddSingleton<IVenueAuthenticatorCodes, SteamAuthenticatorCodes>();
         services.AddSingleton<SteamAccountSessions>();
         services.AddSingleton<SteamMarketDataAccount>();
         services.AddSingleton<SteamInventoryReader>();

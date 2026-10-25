@@ -1,5 +1,6 @@
 using MediatR;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 using ProfitGraph.Api.Accounts.Contracts;
@@ -10,6 +11,7 @@ using ProfitGraph.Application.Accounts.CreateExchangeCredential;
 using ProfitGraph.Application.Accounts.DeleteExchangeCredential;
 using ProfitGraph.Application.Accounts.GetAccountHistory;
 using ProfitGraph.Application.Accounts.GetAccountProtection;
+using ProfitGraph.Application.Accounts.GetAuthenticatorCode;
 using ProfitGraph.Application.Accounts.GetExchangeCredentials;
 using ProfitGraph.Application.Accounts.ListVenueAccounts;
 using ProfitGraph.Application.Accounts.ResumeAccountProtection;
@@ -93,6 +95,20 @@ public sealed class ExchangeCredentialsController(ISender sender, TimeProvider c
         await sender.Send(new ResumeAccountProtectionCommand(UserId(), id), cancellationToken);
 
         return NoContent();
+    }
+
+    /// <summary>
+    ///     The current code of the credential's authenticator, for the Owner's own credential only; the response is never
+    ///     cached.
+    /// </summary>
+    [HttpGet("{id:guid}/authenticator-code")]
+    [Authorize(Roles = AuthenticationSetup.OwnerRole)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<ActionResult<AuthenticatorCodeResponse>> AuthenticatorCode(Guid id, CancellationToken cancellationToken)
+    {
+        AuthenticatorCodeInternal code = await sender.Send(new GetAuthenticatorCodeQuery(UserId(), id), cancellationToken);
+
+        return new AuthenticatorCodeResponse(code.Code, code.ValidUntil);
     }
 
     private Guid UserId()
