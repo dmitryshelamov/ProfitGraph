@@ -34,8 +34,12 @@ namespace ProfitGraph.Tests.Integration.Steam;
 public sealed class SteamLadderTests
 {
     private const string HistoryPath = "/market/myhistory/render/";
-    private const string ApprovePath = "/mobileconf/ajaxop";
-    private const string CreatePath = "/market/createbuyorder/";
+
+    /// <summary>
+    ///     The start's market buy in minor units: one item at the lowest listing. Later levels may place their own buys at
+    ///     any time after a fill, so the checks count this order's writes only.
+    /// </summary>
+    private const long Entry = 48000;
 
     private ProfitGraphApiFactory _api = null!;
 
@@ -66,7 +70,7 @@ public sealed class SteamLadderTests
         using (worker)
         {
             // The start buys at the lowest listing; the buy order exists only once its mobile confirmation is approved.
-            await Level(scenario, worker, bot, price: 48000, items: 1);
+            await Level(scenario, worker, bot, Entry, items: 1);
             await scenario.NextCandle(worker, bot);
             await Level(scenario, worker, bot, price: 43200, items: 2);
             await scenario.NextCandle(worker, bot);
@@ -125,10 +129,10 @@ public sealed class SteamLadderTests
         scenario.Steam.Override = null;
         using IHost second = scenario.Worker(credential);
         await second.StartAsync();
-        await Level(scenario, second, bot, price: 48000, items: 1);
+        await Level(scenario, second, bot, Entry, items: 1);
 
-        scenario.Steam.Count(ApprovePath).ShouldBe(expected: 1, await Journal(bot));
-        scenario.Steam.Count(CreatePath).ShouldBe(expected: 2, await Journal(bot));
+        scenario.Steam.ApprovalsAt(Entry).ShouldBe(expected: 1, await Journal(bot));
+        scenario.Steam.CreatesAt(Entry).ShouldBe(expected: 2, await Journal(bot));
         await second.StopAsync();
     }
 
@@ -144,9 +148,9 @@ public sealed class SteamLadderTests
 
             scenario.Steam.ExpireSession();
             await RuntimeScenario.Until(() => Task.FromResult(scenario.Steam.Count("/jwt/finalizelogin") > signIns), "a background read signs in again");
-            await Level(scenario, worker, bot, price: 48000, items: 1);
+            await Level(scenario, worker, bot, Entry, items: 1);
 
-            scenario.Steam.Count(CreatePath).ShouldBe(expected: 2, await Journal(bot));
+            scenario.Steam.CreatesAt(Entry).ShouldBe(expected: 2, await Journal(bot));
             await worker.StopAsync();
         }
     }
@@ -164,10 +168,10 @@ public sealed class SteamLadderTests
             scenario.Steam.Override = request =>
                 request.RequestUri!.AbsolutePath == HistoryPath && Interlocked.Increment(ref limited) == 1 ? TooManyRequests() : null;
             await RuntimeScenario.Until(() => Task.FromResult(Volatile.Read(ref limited) > 1), "the history is read again after the cooldown");
-            await Level(scenario, worker, bot, price: 48000, items: 1);
+            await Level(scenario, worker, bot, Entry, items: 1);
 
-            scenario.Steam.Count(CreatePath).ShouldBe(expected: 2, await Journal(bot));
-            scenario.Steam.Count(ApprovePath).ShouldBe(expected: 1, await Journal(bot));
+            scenario.Steam.CreatesAt(Entry).ShouldBe(expected: 2, await Journal(bot));
+            scenario.Steam.ApprovalsAt(Entry).ShouldBe(expected: 1, await Journal(bot));
             await worker.StopAsync();
         }
     }
@@ -198,7 +202,7 @@ public sealed class SteamLadderTests
             await RuntimeScenario.Until(async () => (await SteamLadderScenario.Position(worker, bot)).BaseTotal == 1m, "the bot runs again and hears its fill");
 
             (await RuntimeScenario.Read(worker, bot.Id)).StatusReason.ShouldBeNull();
-            scenario.Steam.Count(CreatePath).ShouldBe(expected: 2, await Journal(bot));
+            scenario.Steam.CreatesAt(Entry).ShouldBe(expected: 2, await Journal(bot));
             await worker.StopAsync();
         }
     }
@@ -210,7 +214,7 @@ public sealed class SteamLadderTests
 
         using (worker)
         {
-            await Level(scenario, worker, bot, price: 48000, items: 1);
+            await Level(scenario, worker, bot, Entry, items: 1);
             await scenario.NextCandle(worker, bot);
             scenario.Clock.Advance(scenario.Steam.TradeHold + TimeSpan.FromMinutes(1));
             await RuntimeScenario.Until(() => Task.FromResult(scenario.Steam.Listings() is [{ Confirmed: true }]), "the first item is listed");

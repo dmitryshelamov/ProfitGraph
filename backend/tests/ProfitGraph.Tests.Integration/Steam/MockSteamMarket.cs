@@ -47,6 +47,9 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
     private readonly Lock _gate = new Lock();
     private readonly List<string> _requests = new List<string>();
     private readonly List<string> _sold = new List<string>();
+    private readonly Dictionary<long, int> _createsAt = new Dictionary<long, int>();
+    private readonly Dictionary<long, int> _approvalsAt = new Dictionary<long, int>();
+    private readonly Dictionary<string, long> _creatorPrices = new Dictionary<string, long>(StringComparer.Ordinal);
     private readonly Dictionary<string, MockSteamMarketBuyOrder> _buyOrders = new Dictionary<string, MockSteamMarketBuyOrder>(StringComparer.Ordinal);
     private readonly List<MockSteamMarketConfirmation> _confirmations = new List<MockSteamMarketConfirmation>();
     private readonly HashSet<string> _approved = new HashSet<string>(StringComparer.Ordinal);
@@ -76,6 +79,29 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
         lock (_gate)
         {
             return _requests.Count(request => request == path);
+        }
+    }
+
+    /// <summary>
+    ///     How many <c>createbuyorder</c> requests asked for this total in minor units: one for a new buy order, one more
+    ///     with its approved confirmation.
+    /// </summary>
+    public int CreatesAt(long priceTotal)
+    {
+        lock (_gate)
+        {
+            return _createsAt.GetValueOrDefault(priceTotal);
+        }
+    }
+
+    /// <summary>
+    ///     How many mobile confirmations of buy orders for this total in minor units were approved.
+    /// </summary>
+    public int ApprovalsAt(long priceTotal)
+    {
+        lock (_gate)
+        {
+            return _approvalsAt.GetValueOrDefault(priceTotal);
         }
     }
 
@@ -316,6 +342,9 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
 
     private HttpResponseMessage CreateBuyOrder(Dictionary<string, string> fields)
     {
+        long total = long.Parse(fields["price_total"], CultureInfo.InvariantCulture);
+        _createsAt[total] = _createsAt.GetValueOrDefault(total) + 1;
+
         if (fields["market_hash_name"] != Item || _buyOrders.Values.Any(order => order.Active))
         {
             return Json("""{"success":29}""");
@@ -326,6 +355,7 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
         {
             string creator = NextId();
             _confirmations.Add(new MockSteamMarketConfirmation(NextId(), NextId(), Type: 12, creator));
+            _creatorPrices[creator] = total;
 
             return new HttpResponseMessage(HttpStatusCode.NotAcceptable)
             {
@@ -337,7 +367,6 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
         }
 
         int quantity = int.Parse(fields["quantity"], CultureInfo.InvariantCulture);
-        long total = long.Parse(fields["price_total"], CultureInfo.InvariantCulture);
         string id = NextId();
         _buyOrders[id] = new MockSteamMarketBuyOrder(total / quantity, quantity);
 
@@ -397,6 +426,11 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
 
         _confirmations.Remove(confirmation);
         _approved.Add(confirmation.CreatorId);
+
+        if (confirmation.Type == 12 && _creatorPrices.TryGetValue(confirmation.CreatorId, out long price))
+        {
+            _approvalsAt[price] = _approvalsAt.GetValueOrDefault(price) + 1;
+        }
 
         foreach (MockSteamMarketListing listing in _listings.Where(listing => confirmation.Type == 3 && listing.Id == confirmation.CreatorId))
         {
