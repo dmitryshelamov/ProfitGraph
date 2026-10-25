@@ -24,3 +24,9 @@ shared runtime and every new venue touched every layer.
 
 - Adding a venue adds a project and its registration; the core does not change. T-Invest (wave 2) validates this.
 - Venue-specific failures are translated inside the module into application-level errors.
+
+## Amendment: venues that need neutral core changes (ADRs 0022, 0023)
+
+- Steam (ADR 0022, C1–C9) and T-Invest (ADR 0023, TC1–TC6) showed that a new venue may need neutral mechanisms the core
+  lacks. Such a change names no venue, lands in its own pull request before the module uses it, and keeps the pinned
+  values of the existing venues byte-identical. Everything specific to the venue stays in its module.
