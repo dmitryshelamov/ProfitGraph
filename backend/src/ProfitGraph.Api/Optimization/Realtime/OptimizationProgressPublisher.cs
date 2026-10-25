@@ -12,6 +12,8 @@ namespace ProfitGraph.Api.Optimization.Realtime;
 ///     Turns the Worker's commit signals into hub messages (stage 4 plan, S4-12): for each followed optimization it reads
 ///     the trials stored after the last one sent and sends them in order, then <c>OptimizationPaused</c> when its job
 ///     pauses and <c>OptimizationFinished</c> once it has ended. Signals are handled one at a time, so an optimization's messages never overtake each other.
+///     The Worker stores the job's end or pause only after its last trial, so a status read before the trials means none is
+///     left behind.
 /// </summary>
 public sealed class OptimizationProgressPublisher(
     IOptimizationProgressNotifications notifications,
@@ -56,6 +58,9 @@ public sealed class OptimizationProgressPublisher(
         await using AsyncServiceScope scope = scopes.CreateAsyncScope();
         var reader = scope.ServiceProvider.GetRequiredService<IOptimizationReader>();
         IClientProxy group = hub.Clients.Group(OptimizationProgressSubscriptions.Group(id.Value));
+
+        // Read before the trials: an end or a pause stored while they are sent would otherwise come before them.
+        OptimizationCursorInternal state = await reader.Cursor(id, cancellationToken);
         long? after = sent;
 
         while (after is { } cursor)
@@ -70,8 +75,6 @@ public sealed class OptimizationProgressPublisher(
 
             after = page.Next;
         }
-
-        OptimizationCursorInternal state = await reader.Cursor(id, cancellationToken);
 
         if (state.IsFinished)
         {
