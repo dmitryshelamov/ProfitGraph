@@ -91,6 +91,30 @@ public sealed class SteamSellsTests
     }
 
     [Test]
+    public async Task AHeldBotsItemsAreListedAndApprovedOnlyWhileTheCoreReleasesIt()
+    {
+        _owned.Assets.Add(Asset("1001", locked: true));
+        (SteamSells sells, SteamConfirmations confirmations) = Create();
+        await Submit(sells, "pg-1", Limit(quantity: 1m, price: 100m));
+        _harness.Clock.Advance(TimeSpan.FromDays(1));
+        _harness.Steam.ServerTime = _harness.Clock.GetUtcNow();
+        _waiting.Held.Add(Bot);
+
+        await sells.Advance(SteamSessionHarness.Owner, SteamSessionHarness.Credential, CancellationToken.None);
+        _harness.Steam.Count(SellPath).ShouldBe(0);
+        (await _journal.Reservations("pg-1", CancellationToken.None)).Single().State.ShouldBe(SteamReservationState.Reserved);
+
+        _waiting.Held.Clear();
+        await sells.Advance(SteamSessionHarness.Owner, SteamSessionHarness.Credential, CancellationToken.None);
+        _waiting.Held.Add(Bot);
+        await confirmations.Advance(SteamSessionHarness.Owner, SteamSessionHarness.Credential, CancellationToken.None);
+
+        _harness.Steam.Count(SellPath).ShouldBe(1);
+        _harness.Steam.Count("/mobileconf/ajaxop").ShouldBe(0);
+        (await _journal.Reservations("pg-1", CancellationToken.None)).Single().State.ShouldBe(SteamReservationState.AwaitingConfirmation);
+    }
+
+    [Test]
     public async Task TwoSellsNeverReserveOneItem()
     {
         _owned.Assets.Add(Asset("1001"));
@@ -227,7 +251,7 @@ public sealed class SteamSellsTests
     {
         IOptions<SteamOptions> options = Options.Create(_harness.Options);
         var settlement = new SteamSellSettlement(_journal, _updates, _waiting, _harness.Clock);
-        var sells = new SteamSells(_journal, _owned, _harness.Sessions(), new SteamListingClient(options), settlement, _updates, _harness.Clock);
+        var sells = new SteamSells(_journal, _owned, _harness.Sessions(), new SteamListingClient(options), settlement, _updates, _waiting, _harness.Clock);
         var buys = new SteamBuyOrders(
             _journal,
             _harness.Sessions(),
@@ -237,7 +261,7 @@ public sealed class SteamSellsTests
             _waiting,
             _harness.Clock);
 
-        return (sells, new SteamConfirmations(_journal, _harness.Sessions(), new SteamConfirmationClient(_harness.Scopes()), buys, settlement, _harness.Clock));
+        return (sells, new SteamConfirmations(_journal, _harness.Sessions(), new SteamConfirmationClient(_harness.Scopes()), buys, settlement, _waiting, _harness.Clock));
     }
 
     private Task<ExternalOrderUpdate?> Submit(SteamSells sells, string clientOrderId, OrderSnapshot order)

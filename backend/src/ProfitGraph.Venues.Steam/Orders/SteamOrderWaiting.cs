@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
+using ProfitGraph.Application.Bots.AuthorizeWaitingRelease;
 using ProfitGraph.Application.Bots.RecordOrderWaiting;
 using ProfitGraph.Domain.Bots;
 
@@ -10,7 +11,8 @@ namespace ProfitGraph.Venues.Steam.Orders;
 
 /// <summary>
 ///     Reports Steam's waiting codes as the core's neutral ones of the same names (ADR 0022, ADR 0023 TC4), which the bot page
-///     and feed show. The report only explains the order: a failure is logged by kind and never stops the order itself.
+///     and feed show. The report only explains the order: a failure is logged by kind and never stops the order itself. A
+///     release asks the core's submit gates (ADR 0023, TC4); a failure there sends nothing.
 /// </summary>
 internal sealed class SteamOrderWaiting(IServiceScopeFactory scopes, ILogger<SteamOrderWaiting> logger) : ISteamOrderWaiting
 {
@@ -36,6 +38,22 @@ internal sealed class SteamOrderWaiting(IServiceScopeFactory scopes, ILogger<Ste
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger.LogWarning("A Steam order's waiting code could not be recorded: {Failure}", exception.GetType().Name);
+        }
+    }
+
+    public async Task<bool> MayRelease(Guid botId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using AsyncServiceScope scope = scopes.CreateAsyncScope();
+
+            return await scope.ServiceProvider.GetRequiredService<ISender>().Send(new AuthorizeWaitingReleaseCommand(botId), cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning("A Steam order's release could not be authorized: {Failure}", exception.GetType().Name);
+
+            return false;
         }
     }
 }

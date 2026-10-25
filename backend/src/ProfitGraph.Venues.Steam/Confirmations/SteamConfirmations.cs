@@ -7,9 +7,10 @@ namespace ProfitGraph.Venues.Steam.Confirmations;
 /// <summary>
 ///     The confirmation step of placing (ADR 0022). For each buy, and each listed asset of a sell, awaiting its mobile
 ///     confirmation, it approves only the one confirmation whose type and creator match it, recording the approval before
-///     and after it is sent, then finalizes an approved buy or marks the asset listed. A confirmation that matches no entry, or one of several candidates, is never touched; an
-///     approval whose answer is unclear leaves the entry unknown, so a restart never approves twice. The account's list is
-///     read only while an entry waits.
+///     and after it is sent, then finalizes an approved buy or marks the asset listed. An approval puts the order on the
+///     market, so it is sent only while the core releases the order's bot. A confirmation that matches no entry, or one of
+///     several candidates, is never touched; an approval whose answer is unclear leaves the entry unknown, so a restart never
+///     approves twice. The account's list is read only while an entry waits.
 /// </summary>
 internal sealed class SteamConfirmations(
     ISteamOrderJournal journal,
@@ -17,6 +18,7 @@ internal sealed class SteamConfirmations(
     SteamConfirmationClient client,
     SteamBuyOrders buys,
     SteamSellSettlement sells,
+    ISteamOrderWaiting waiting,
     TimeProvider clock)
 {
     /// <summary>
@@ -32,7 +34,7 @@ internal sealed class SteamConfirmations(
             await Attempt(() => buys.Finalize(ownerId, approved, cancellationToken));
         }
 
-        SteamOrderJournalEntry[] waiting =
+        SteamOrderJournalEntry[] awaiting =
         [
             .. open.Where(entry => entry.State == SteamOrderJournalState.AwaitingConfirmation && entry.ConfirmationCreator is not null)
         ];
@@ -42,7 +44,7 @@ internal sealed class SteamConfirmations(
                 reservation.State == SteamReservationState.AwaitingConfirmation && reservation.ListingId is not null)
         ];
 
-        if (waiting.Length == 0 && listings.Length == 0)
+        if (awaiting.Length == 0 && listings.Length == 0)
         {
             return false;
         }
@@ -54,12 +56,13 @@ internal sealed class SteamConfirmations(
             return true;
         }
 
-        foreach (SteamOrderJournalEntry entry in waiting)
+        foreach (SteamOrderJournalEntry entry in awaiting)
         {
             int type = entry.Side == OrderSide.Buy ? SteamConfirmation.BuyOrderType : SteamConfirmation.ListingType;
             SteamConfirmation[] matching = [.. pending.Where(confirmation => confirmation.Type == type && confirmation.CreatorId == entry.ConfirmationCreator)];
 
-            if (matching.Length == 1 && await Approve(session, entry, matching[0], cancellationToken) is { Side: OrderSide.Buy } approved)
+            if (matching.Length == 1 && await waiting.MayRelease(entry.BotId, cancellationToken) &&
+                await Approve(session, entry, matching[0], cancellationToken) is { Side: OrderSide.Buy } approved)
             {
                 await Attempt(() => buys.Finalize(ownerId, approved, cancellationToken));
             }
@@ -72,8 +75,8 @@ internal sealed class SteamConfirmations(
                 .. pending.Where(confirmation => confirmation.Type == SteamConfirmation.ListingType && confirmation.CreatorId == listing.ListingId)
             ];
 
-            if (matching.Length == 1 && await Approve(session, listing, matching[0], cancellationToken) &&
-                await journal.Get(listing.ClientOrderId, cancellationToken) is { } entry)
+            if (matching.Length == 1 && await journal.Get(listing.ClientOrderId, cancellationToken) is { } entry &&
+                await waiting.MayRelease(entry.BotId, cancellationToken) && await Approve(session, listing, matching[0], cancellationToken))
             {
                 await Attempt(() => sells.Settle(entry, cancellationToken));
             }

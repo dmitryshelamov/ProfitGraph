@@ -224,6 +224,7 @@ public sealed class SteamOrderGatewayTests
             new SteamListingClient(options),
             new SteamSellSettlement(_journal, _updates, _waiting, _harness.Clock),
             _updates,
+            _waiting,
             _harness.Clock);
     }
 
@@ -264,7 +265,7 @@ public sealed class SteamOrderGatewayTests
             new FakeSteamBotAccounts(Account),
             buys,
             Sells(),
-            new SteamConfirmations(_journal, _harness.Sessions(), new SteamConfirmationClient(_harness.Scopes()), buys, settlement, _harness.Clock),
+            new SteamConfirmations(_journal, _harness.Sessions(), new SteamConfirmationClient(_harness.Scopes()), buys, settlement, _waiting, _harness.Clock),
             executions,
             options,
             _harness.Clock,

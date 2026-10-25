@@ -9,7 +9,7 @@ namespace ProfitGraph.Venues.Steam.Orders;
 ///     The sell side of Steam bot orders (ADR 0022). A sell reserves whole items the bot owns, each asset by one open sell
 ///     of the account only, together with its journal entry. Every unlocked asset is listed on its own at what the seller
 ///     receives for the (raised) buyer price; an asset under its trade hold waits with <see cref="SteamWaitingCode.SettlementHold" />
-///     and is listed by <see cref="Advance" /> once it unlocks. A listing's ID, and so its confirmation's creator, comes from
+///     and is listed by <see cref="Advance" /> once it unlocks, while the core releases its bot. A listing's ID, and so its confirmation's creator, comes from
 ///     <c>mylistings</c>, which also shows when a confirmed listing is active. A market sell lists at the highest buy order.
 ///     A write that may have reached Steam without a clear answer leaves its asset <see cref="SteamReservationState.Unknown" />
 ///     and is never sent again; sales come from reconciliation with market history.
@@ -21,6 +21,7 @@ internal sealed class SteamSells(
     SteamListingClient client,
     SteamSellSettlement settlement,
     SteamOrderUpdates updates,
+    ISteamOrderWaiting waiting,
     TimeProvider clock)
 {
     /// <summary>
@@ -247,7 +248,8 @@ internal sealed class SteamSells(
 
     /// <summary>
     ///     Lists every reserved asset that has unlocked, one request each. A sell with nothing listed yet is accepted locally,
-    ///     with <see cref="SteamWaitingCode.SettlementHold" /> while its items are locked.
+    ///     with <see cref="SteamWaitingCode.SettlementHold" /> while its items are locked. Outside a runner turn, without
+    ///     <paramref name="beforeSend" />, nothing is listed unless the core releases the bot.
     /// </summary>
     private async Task List(SteamBotAccount bot, SteamOrderJournalEntry entry, Func<CancellationToken, Task>? beforeSend, CancellationToken cancellationToken)
     {
@@ -259,6 +261,11 @@ internal sealed class SteamSells(
         foreach (SteamAssetReservation reservation in
                  reservations.Where(reservation => reservation.State == SteamReservationState.Reserved && reservation.UnlockAt <= now))
         {
+            if (!started && beforeSend is null && !await waiting.MayRelease(entry.BotId, cancellationToken))
+            {
+                break;
+            }
+
             SteamAssetReservation listing = reservation with { State = SteamReservationState.Listing, UpdatedAt = clock.GetUtcNow() };
 
             if (!await journal.Transition(listing, SteamReservationState.Reserved, cancellationToken))

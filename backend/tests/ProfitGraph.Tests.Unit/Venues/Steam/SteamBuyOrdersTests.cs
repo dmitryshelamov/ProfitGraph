@@ -102,6 +102,47 @@ public sealed class SteamBuyOrdersTests
     }
 
     [Test]
+    public async Task AFreedSlotGoesToTheNearestBuyWhoseBotTheCoreReleases()
+    {
+        var other = Guid.NewGuid();
+        SteamBuyOrders orders = Orders();
+        await Submit(orders, "pg-1", Limit(id: 1, quantity: 1m, price: 500m));
+        await Submit(orders, "pg-2", Limit(id: 2, quantity: 1m, price: 490m));
+        SteamOrderJournalEntry held = (await _journal.Get("pg-2", CancellationToken.None))!;
+        _journal.Put(held with { ClientOrderId = "pg-3", BotId = other, EngineOrderId = 3, PriceMinorUnits = 48000 });
+        await orders.Cancel(Account(), "pg-1", CancellationToken.None);
+        _waiting.Held.Add(Bot);
+
+        await orders.Advance(SteamSessionHarness.Owner, SteamSessionHarness.Credential, CancellationToken.None);
+        await orders.Advance(SteamSessionHarness.Owner, SteamSessionHarness.Credential, CancellationToken.None);
+
+        _harness.Steam.Count(CreatePath).ShouldBe(2);
+        _harness.Steam.LastBuyForm["price_total"].ShouldBe("48000");
+        (await _journal.Get("pg-2", CancellationToken.None))!.State.ShouldBe(SteamOrderJournalState.Waiting);
+        (await _journal.Get("pg-3", CancellationToken.None))!.State.ShouldBe(SteamOrderJournalState.Active);
+    }
+
+    [Test]
+    public async Task AWaitingBuyOfAHeldBotIsNotPlacedUntilTheCoreReleasesIt()
+    {
+        SteamBuyOrders orders = Orders();
+        await Submit(orders, "pg-1", Limit(id: 1, quantity: 1m, price: 500m));
+        await Submit(orders, "pg-2", Limit(id: 2, quantity: 1m, price: 490m));
+        await orders.Cancel(Account(), "pg-1", CancellationToken.None);
+        _waiting.Held.Add(Bot);
+
+        await orders.Advance(SteamSessionHarness.Owner, SteamSessionHarness.Credential, CancellationToken.None);
+        await orders.Advance(SteamSessionHarness.Owner, SteamSessionHarness.Credential, CancellationToken.None);
+        _harness.Steam.Count(CreatePath).ShouldBe(1);
+
+        _waiting.Held.Clear();
+        await orders.Advance(SteamSessionHarness.Owner, SteamSessionHarness.Credential, CancellationToken.None);
+
+        _harness.Steam.Count(CreatePath).ShouldBe(2);
+        (await _journal.Get("pg-2", CancellationToken.None))!.State.ShouldBe(SteamOrderJournalState.Active);
+    }
+
+    [Test]
     public async Task TheCoreHearsWhyABuyWaitsAndWhenItStops()
     {
         SteamBuyOrders orders = Orders();

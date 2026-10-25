@@ -81,6 +81,41 @@ public sealed class SteamConfirmationsTests
     }
 
     [Test]
+    public async Task AConfirmationOfAHeldBotIsApprovedOnlyOnceTheCoreReleasesIt()
+    {
+        (SteamBuyOrders buys, SteamConfirmations confirmations) = Create();
+        await Submit(buys);
+        _waiting.Held.Add(Bot);
+
+        (await Advance(confirmations)).ShouldBeTrue();
+        _harness.Steam.Count(ApprovePath).ShouldBe(0);
+        (await Entry()).State.ShouldBe(SteamOrderJournalState.AwaitingConfirmation);
+
+        _waiting.Held.Clear();
+        await Advance(confirmations);
+
+        _harness.Steam.Count(ApprovePath).ShouldBe(1);
+        (await Entry()).State.ShouldBe(SteamOrderJournalState.Active);
+    }
+
+    [Test]
+    public async Task AnApprovedBuyOfAHeldBotIsNotFinalized()
+    {
+        (SteamBuyOrders buys, SteamConfirmations confirmations) = Create();
+        await Submit(buys);
+        MockSteamConfirmation pending = _harness.Steam.Confirmations.Single();
+        _harness.Steam.Confirmations.Remove(pending);
+        _harness.Steam.Approved.Add(pending.CreatorId);
+        _journal.Put(await Entry() with { State = SteamOrderJournalState.Approved });
+        _waiting.Held.Add(Bot);
+
+        await Advance(confirmations);
+
+        _harness.Steam.Count(CreatePath).ShouldBe(1);
+        (await Entry()).State.ShouldBe(SteamOrderJournalState.Approved);
+    }
+
+    [Test]
     public async Task AForeignConfirmationIsNeverTouched()
     {
         (SteamBuyOrders buys, SteamConfirmations confirmations) = Create();
@@ -216,6 +251,7 @@ public sealed class SteamConfirmationsTests
             new SteamConfirmationClient(scopes),
             buys,
             new SteamSellSettlement(_journal, _updates, _waiting, _harness.Clock),
+            _waiting,
             _harness.Clock));
     }
 

@@ -16,7 +16,8 @@ using ProfitGraph.Venues.Steam.Orders;
 namespace ProfitGraph.Tests.Integration.Steam;
 
 /// <summary>
-///     Steam's waiting codes reach the core's neutral waiting records of a bot's orders (ADR 0022, ADR 0023 TC4).
+///     Steam's waiting codes reach the core's neutral waiting records of a bot's orders, and a held order is released only
+///     through the core's submit gates (ADR 0022, ADR 0023 TC4).
 /// </summary>
 public sealed class SteamOrderWaitingTests
 {
@@ -41,22 +42,8 @@ public sealed class SteamOrderWaitingTests
     [Test]
     public async Task AHoldThenAConfirmationThenNothing()
     {
-        Bot bot = await BotSeed.NewBot();
-
-        using (IServiceScope scope = _host.Services.CreateScope())
-        {
-            await scope.ServiceProvider.GetRequiredService<ITransactionExecutor>()
-                .ExecuteAsync(
-                    async () =>
-                    {
-                        await scope.ServiceProvider.GetRequiredService<IBotRepository>().Add(bot, CancellationToken.None);
-
-                        return true;
-                    },
-                    CancellationToken.None);
-        }
-
-        var waiting = new SteamOrderWaiting(_host.Services.GetRequiredService<IServiceScopeFactory>(), NullLogger<SteamOrderWaiting>.Instance);
+        Bot bot = await Added();
+        SteamOrderWaiting waiting = Waiting();
         SteamOrderJournalEntry entry = Entry(bot);
         DateTimeOffset unlock = BotSeed.Now.AddDays(7);
 
@@ -76,6 +63,38 @@ public sealed class SteamOrderWaitingTests
                 order => order.Code.ShouldBe(OrderWaitingCode.AwaitingConfirmation),
                 order => order.Until.ShouldBeNull());
         (await Waiting(bot)).ShouldBeEmpty();
+    }
+
+    [Test]
+    public async Task ABotWithoutALiveRunnerOrAnUnknownOneIsNotReleased()
+    {
+        Bot bot = await Added();
+        SteamOrderWaiting waiting = Waiting();
+
+        (await waiting.MayRelease(bot.Id.Value, CancellationToken.None)).ShouldBeFalse();
+        (await waiting.MayRelease(Guid.NewGuid(), CancellationToken.None)).ShouldBeFalse();
+    }
+
+    private async Task<Bot> Added()
+    {
+        Bot bot = await BotSeed.NewBot();
+        using IServiceScope scope = _host.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<ITransactionExecutor>()
+            .ExecuteAsync(
+                async () =>
+                {
+                    await scope.ServiceProvider.GetRequiredService<IBotRepository>().Add(bot, CancellationToken.None);
+
+                    return true;
+                },
+                CancellationToken.None);
+
+        return bot;
+    }
+
+    private SteamOrderWaiting Waiting()
+    {
+        return new SteamOrderWaiting(_host.Services.GetRequiredService<IServiceScopeFactory>(), NullLogger<SteamOrderWaiting>.Instance);
     }
 
     private async Task<IReadOnlyList<BotOrderWaitingInternal>> Waiting(Bot bot)

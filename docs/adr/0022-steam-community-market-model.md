@@ -242,6 +242,13 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   (ADR 0023 TC4), as the core's code of the same name whenever it changes: a sell's hold with the earliest unlock of
   its reserved items, and a clear once the order is accepted by Steam. A failed report is logged and never stops the
   order.
+- **Background sends.** The order worker sends outside a runner turn: it places a waiting buy whose slot freed,
+  approves a buy's or a listing's mobile confirmation, finalizes an approved buy and lists items that unlocked. Each
+  such send first asks `AuthorizeWaitingReleaseCommand` (ADR 0023 TC4): the bot should run and is healthy, trading is
+  not halted and its lease is live with its submit gate open. A refused or failed check sends nothing and the order
+  keeps its state; a freed slot goes to the nearest waiting buy whose bot is released. Cancels are never held, since
+  they only reduce exposure. A stopped, killed or degraded bot never sends because a slot freed or an item unlocked
+  (Profit Fox Designer ADR 0072).
 - **One system per account.** Steam bots of ProfitGraph start on an account only after Profit Fox Designer's Steam bots
   on it are stopped; that is the owner's switch-over step. Designer's orders on a bot's item remain `ForeignOrder`.
 - **Switches.** `Venues:Steam:Enabled` (any Steam request, also market data) and `Live:Trading:Enabled` (the gateway) are
