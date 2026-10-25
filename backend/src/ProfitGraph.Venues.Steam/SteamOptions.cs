@@ -107,6 +107,11 @@ public sealed class SteamOptions
     /// </summary>
     public int DefaultAppId { get; init; } = 730;
 
+    /// <summary>
+    ///     How often the display price of an item is read; Steam has no price stream and a small request budget.
+    /// </summary>
+    public TimeSpan MarkPriceInterval { get; init; } = TimeSpan.FromMinutes(1);
+
     public bool IsValid()
     {
         (string Address, string Host)[] origins =
@@ -120,7 +125,7 @@ public sealed class SteamOptions
             InitialCooldown > TimeSpan.Zero && MaximumCooldown >= InitialCooldown && ReadRetries is >= 0 and <= 5 && ProtectionThreshold > 0 &&
             ProtectionErrorRatio is > 0 and <= 1 && ProtectionErrorSample > 0 && SoftResumeDelay > TimeSpan.Zero && SoftResumeLimit >= 0 &&
             SoftResumeWindow > TimeSpan.Zero && CandleCloseDelay >= TimeSpan.Zero && HistoryReuse >= TimeSpan.Zero && WalletReuse >= TimeSpan.Zero &&
-            DefaultAppId > 0;
+            DefaultAppId > 0 && MarkPriceInterval > TimeSpan.Zero;
 
         return timings && origins.All(origin => Enabled
             ? IsAllowedOrigin(origin.Address, origin.Host)

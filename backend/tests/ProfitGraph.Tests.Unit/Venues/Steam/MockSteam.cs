@@ -48,6 +48,8 @@ internal sealed class MockSteam : HttpMessageHandler
 
     public string SearchResults { get; set; } = """{"success":true,"start":0,"pagesize":10,"total_count":0,"results":[]}""";
 
+    public string OrderBook { get; set; } = """{"data":{"success":1,"data":{"eCurrency":37,"amtMaxBuyOrder":51234,"amtMinSellOrder":52000}}}""";
+
     public int Count(string path)
     {
         lock (_requests)
@@ -88,6 +90,7 @@ internal sealed class MockSteam : HttpMessageHandler
             ("community.steam.invalid", "/market/") => Market(request),
             ("community.steam.invalid", "/market/pricehistory/") => Json(PriceHistory),
             ("community.steam.invalid", "/market/search/render/") => Json(SearchResults),
+            ("community.steam.invalid", "/market/orderbook") => Json(OrderBook),
             _ => new HttpResponseMessage(HttpStatusCode.NotFound)
         };
     }
