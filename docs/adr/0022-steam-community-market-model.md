@@ -238,7 +238,10 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   decimal string from 0 to 0.1, and whole seconds from 10 to 3600; unknown fields are refused.
 - **Waiting codes.** A `LocalAccepted` order may carry a neutral waiting code (`SettlementHold` with the unlock time,
   `SingleBuyOrderSlot`, `AwaitingConfirmation`, `RateLimited`) that the feed and the bot page show; texts are made at the
-  boundary.
+  boundary. The Steam module keeps its code on the journal entry and reports it, through `RecordOrderWaitingCommand`
+  (ADR 0023 TC4), as the core's code of the same name whenever it changes: a sell's hold with the earliest unlock of
+  its reserved items, and a clear once the order is accepted by Steam. A failed report is logged and never stops the
+  order.
 - **One system per account.** Steam bots of ProfitGraph start on an account only after Profit Fox Designer's Steam bots
   on it are stopped; that is the owner's switch-over step. Designer's orders on a bot's item remain `ForeignOrder`.
 - **Switches.** `Venues:Steam:Enabled` (any Steam request, also market data) and `Live:Trading:Enabled` (the gateway) are

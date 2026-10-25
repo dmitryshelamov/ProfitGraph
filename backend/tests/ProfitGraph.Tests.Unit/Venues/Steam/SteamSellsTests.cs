@@ -24,6 +24,7 @@ public sealed class SteamSellsTests
     private SteamSessionHarness _harness = null!;
     private InMemorySteamOrderJournal _journal = null!;
     private SteamOrderUpdates _updates = null!;
+    private RecordingSteamOrderWaiting _waiting = null!;
     private FakeSteamOwnedAssets _owned = null!;
 
     [SetUp]
@@ -43,6 +44,7 @@ public sealed class SteamSellsTests
         _harness.Clock.SetUtcNow(_harness.Steam.ServerTime);
         _journal = new InMemorySteamOrderJournal();
         _updates = new SteamOrderUpdates();
+        _waiting = new RecordingSteamOrderWaiting();
         _owned = new FakeSteamOwnedAssets();
     }
 
@@ -81,6 +83,11 @@ public sealed class SteamSellsTests
 
         _harness.Steam.Count(SellPath).ShouldBe(1);
         (await Entry("pg-1")).WaitingCode.ShouldBe(SteamWaitingCode.AwaitingConfirmation);
+        _waiting.Reports.ShouldBe(
+        [
+            (1L, SteamWaitingCode.SettlementHold, Asset("1001", locked: true).UnlockAt),
+            (1L, SteamWaitingCode.AwaitingConfirmation, null)
+        ]);
     }
 
     [Test]
@@ -219,9 +226,16 @@ public sealed class SteamSellsTests
     private (SteamSells Sells, SteamConfirmations Confirmations) Create()
     {
         IOptions<SteamOptions> options = Options.Create(_harness.Options);
-        var settlement = new SteamSellSettlement(_journal, _updates, _harness.Clock);
+        var settlement = new SteamSellSettlement(_journal, _updates, _waiting, _harness.Clock);
         var sells = new SteamSells(_journal, _owned, _harness.Sessions(), new SteamListingClient(options), settlement, _updates, _harness.Clock);
-        var buys = new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _harness.Clock);
+        var buys = new SteamBuyOrders(
+            _journal,
+            _harness.Sessions(),
+            new SteamBuyOrderClient(options),
+            _updates,
+            new FakeSteamBotAccounts(Account),
+            _waiting,
+            _harness.Clock);
 
         return (sells, new SteamConfirmations(_journal, _harness.Sessions(), new SteamConfirmationClient(_harness.Scopes()), buys, settlement, _harness.Clock));
     }

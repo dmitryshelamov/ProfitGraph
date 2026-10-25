@@ -30,6 +30,7 @@ public sealed class SteamOrderGatewayTests
     private InMemorySteamMarketHistoryStore _receipts = null!;
     private InMemorySteamMarketAttributions _attributions = null!;
     private SteamOrderUpdates _updates = null!;
+    private RecordingSteamOrderWaiting _waiting = null!;
     private FakeSteamAccountStore _accounts = null!;
 
     [SetUp]
@@ -50,6 +51,7 @@ public sealed class SteamOrderGatewayTests
         _receipts = new InMemorySteamMarketHistoryStore();
         _attributions = new InMemorySteamMarketAttributions();
         _updates = new SteamOrderUpdates();
+        _waiting = new RecordingSteamOrderWaiting();
         _accounts = new FakeSteamAccountStore();
     }
 
@@ -208,7 +210,7 @@ public sealed class SteamOrderGatewayTests
     {
         IOptions<SteamOptions> options = Options.Create(_harness.Options);
 
-        return new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _harness.Clock);
+        return new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _waiting, _harness.Clock);
     }
 
     private SteamSells Sells()
@@ -220,7 +222,7 @@ public sealed class SteamOrderGatewayTests
             new FakeSteamOwnedAssets(),
             _harness.Sessions(),
             new SteamListingClient(options),
-            new SteamSellSettlement(_journal, _updates, _harness.Clock),
+            new SteamSellSettlement(_journal, _updates, _waiting, _harness.Clock),
             _updates,
             _harness.Clock);
     }
@@ -246,7 +248,7 @@ public sealed class SteamOrderGatewayTests
     {
         IOptions<SteamOptions> options = Options.Create(_harness.Options);
         SteamBuyOrders buys = Buys();
-        var settlement = new SteamSellSettlement(_journal, _updates, _harness.Clock);
+        var settlement = new SteamSellSettlement(_journal, _updates, _waiting, _harness.Clock);
         var executions = new SteamExecutions(
             _journal,
             _receipts,

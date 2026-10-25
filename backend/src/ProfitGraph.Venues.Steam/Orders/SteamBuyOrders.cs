@@ -20,6 +20,7 @@ internal sealed class SteamBuyOrders(
     SteamBuyOrderClient client,
     SteamOrderUpdates updates,
     ISteamBotAccounts accounts,
+    ISteamOrderWaiting waiting,
     TimeProvider clock)
 {
     /// <summary>
@@ -167,6 +168,7 @@ internal sealed class SteamBuyOrders(
                     },
                     SteamOrderJournalState.Placing,
                     cancellationToken);
+                await waiting.Report(entry, code: null, until: null, cancellationToken);
                 updates.Publish(entry.BotId, ExternalOrderUpdate.Accept(entry.EngineOrderId));
 
                 return;
@@ -325,6 +327,7 @@ internal sealed class SteamBuyOrders(
                     },
                     SteamOrderJournalState.Placing,
                     cancellationToken);
+                await waiting.Report(entry, code: null, until: null, cancellationToken);
                 updates.Publish(entry.BotId, ExternalOrderUpdate.Accept(entry.EngineOrderId));
 
                 return null;
@@ -340,6 +343,7 @@ internal sealed class SteamBuyOrders(
                     },
                     SteamOrderJournalState.Placing,
                     cancellationToken);
+                await waiting.Report(entry, SteamWaitingCode.AwaitingConfirmation, until: null, cancellationToken);
                 updates.Publish(entry.BotId, ExternalOrderUpdate.AcceptLocally(entry.EngineOrderId));
 
                 return null;
@@ -357,9 +361,10 @@ internal sealed class SteamBuyOrders(
 
     private async Task<ExternalOrderUpdate?> Wait(SteamOrderJournalEntry entry, SteamWaitingCode code, CancellationToken cancellationToken)
     {
-        if (entry.WaitingCode != code)
+        if (entry.WaitingCode != code &&
+            await journal.Transition(entry with { WaitingCode = code, UpdatedAt = clock.GetUtcNow() }, SteamOrderJournalState.Waiting, cancellationToken))
         {
-            await journal.Transition(entry with { WaitingCode = code, UpdatedAt = clock.GetUtcNow() }, SteamOrderJournalState.Waiting, cancellationToken);
+            await waiting.Report(entry, code, until: null, cancellationToken);
         }
 
         updates.Publish(entry.BotId, ExternalOrderUpdate.AcceptLocally(entry.EngineOrderId));

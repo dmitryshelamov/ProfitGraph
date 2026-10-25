@@ -29,6 +29,7 @@ public sealed class SteamExecutionsTests
     private InMemorySteamMarketHistoryStore _receipts = null!;
     private InMemorySteamMarketAttributions _attributions = null!;
     private SteamOrderUpdates _updates = null!;
+    private RecordingSteamOrderWaiting _waiting = null!;
     private FakeSteamOwnedAssets _owned = null!;
 
     [SetUp]
@@ -50,6 +51,7 @@ public sealed class SteamExecutionsTests
         _receipts = new InMemorySteamMarketHistoryStore();
         _attributions = new InMemorySteamMarketAttributions();
         _updates = new SteamOrderUpdates();
+        _waiting = new RecordingSteamOrderWaiting();
         _owned = new FakeSteamOwnedAssets();
     }
 
@@ -119,13 +121,13 @@ public sealed class SteamExecutionsTests
     {
         _owned.Assets.Add(new SteamOwnedAsset(AppId: 730, "2", "1001", DateTimeOffset.UnixEpoch));
         IOptions<SteamOptions> options = Options.Create(_harness.Options);
-        var settlement = new SteamSellSettlement(_journal, _updates, _harness.Clock);
+        var settlement = new SteamSellSettlement(_journal, _updates, _waiting, _harness.Clock);
         var sells = new SteamSells(_journal, _owned, _harness.Sessions(), new SteamListingClient(options), settlement, _updates, _harness.Clock);
         var confirmations = new SteamConfirmations(
             _journal,
             _harness.Sessions(),
             new SteamConfirmationClient(_harness.Scopes()),
-            new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _harness.Clock),
+            new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _waiting, _harness.Clock),
             settlement,
             _harness.Clock);
         var order = new OrderSnapshot(
@@ -233,7 +235,14 @@ public sealed class SteamExecutionsTests
     private async Task<(SteamBuyOrders Buys, SteamOrderJournalEntry Entry)> Buy(int quantity)
     {
         IOptions<SteamOptions> options = Options.Create(_harness.Options);
-        var buys = new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _harness.Clock);
+        var buys = new SteamBuyOrders(
+            _journal,
+            _harness.Sessions(),
+            new SteamBuyOrderClient(options),
+            _updates,
+            new FakeSteamBotAccounts(Account),
+            _waiting,
+            _harness.Clock);
         var order = new OrderSnapshot(
             Id: 1,
             Tag: null,
