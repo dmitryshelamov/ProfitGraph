@@ -7,5 +7,5 @@ namespace ProfitGraph.Venues.Steam.Orders;
 /// </summary>
 internal interface ISteamOwnedAssets
 {
-    Task<IReadOnlyList<SteamOwnedAsset>> Owned(Guid botId, Guid credentialId, SteamInstrument instrument, CancellationToken cancellationToken);
+    Task<IReadOnlyList<SteamOwnedAsset>> Owned(SteamBotAccount bot, CancellationToken cancellationToken);
 }

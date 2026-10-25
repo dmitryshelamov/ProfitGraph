@@ -60,6 +60,10 @@ public static class SteamRegistration
         services.AddSingleton<SteamListingClient>();
         services.AddSingleton<ISteamMarketHistoryStore, SteamMarketHistoryRepository>();
         services.AddSingleton<SteamMarketHistory>();
+        services.AddSingleton<ISteamMarketAttributions, SteamMarketAttributionRepository>();
+        services.AddSingleton<ISteamOwnedAssets, SteamOwnedAssetsFromHistory>();
+        services.AddSingleton<SteamSells>();
+        services.AddSingleton<SteamExecutions>();
         services.AddSingleton<SteamSellSettlement>();
         services.AddSingleton<SteamConfirmationClient>();
         services.AddSingleton<SteamConfirmations>();

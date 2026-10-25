@@ -113,6 +113,7 @@ internal sealed class SteamSells(
             throw Unresolved();
         }
 
+        // Items sold before the cancel were reported as fills already; the remainder is cancelled.
         await Finish(entry, SteamOrderOutcome.Cancelled, cancellationToken);
         updates.Publish(entry.BotId, ExternalOrderUpdate.ConfirmCancel(entry.EngineOrderId));
     }
@@ -191,7 +192,7 @@ internal sealed class SteamSells(
         DateTimeOffset now = clock.GetUtcNow();
         SteamOwnedAsset[] free =
         [
-            .. (await owned.Owned(bot.BotId, bot.CredentialId, bot.Instrument, cancellationToken))
+            .. (await owned.Owned(bot, cancellationToken))
             .Where(asset => !taken.Any(other => other.AppId == asset.AppId && other.ContextId == asset.ContextId && other.AssetId == asset.AssetId))
             .OrderBy(asset => asset.UnlockAt)
             .ThenBy(asset => asset.AssetId, StringComparer.Ordinal)
@@ -340,7 +341,7 @@ internal sealed class SteamSells(
     {
         switch (reservation.State)
         {
-            case SteamReservationState.Released:
+            case SteamReservationState.Released or SteamReservationState.Sold:
                 return true;
             case SteamReservationState.Reserved:
                 return await journal.Transition(

@@ -138,7 +138,17 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   walks newest pages back to the stored history less `HistoryOverlap` (10) events and stores only when Steam's total is
   stable and no smaller than what is stored, the overlap matches position by position and nothing is missing; the
   first read of an account anchors at its newest page. Any doubt stores nothing.
-- **Ownership.** Only assets attributed to the bot's own buys may be listed; reservations are unique per asset. A
+- **Attribution and fills.** `steam_market_attributions` gives a receipt to one bot order, once. A sale or a cancel is
+  attributed by the listing ID of a reserved asset, a sale also by the asset; an unclear listing request is resolved by
+  the asset's listed event. A purchase has no order ID, so purchases of the item since the buy was placed (60 s skew), none
+  above its price, are attributed only when their count equals what the buy's own `getbuyorderstatus` counters bought
+  beyond what is attributed already; any other count, such as the owner's own purchase of the item, attributes nothing.
+  Fills are cumulative: a buy pays the buyer price and no fee, a sale reports the buyer price with Steam's fees as the
+  difference to what the seller received. An order completes when all its items are proven; a cancelled or closed order,
+  once its counters and receipts agree.
+- **Ownership.** Only assets attributed to the bot's own buys may be listed; reservations are unique per asset. The bot's
+  items are what its attributed buys bought and its cancelled listings returned, less what it sold, while they are in the
+  inventory, with the inventory's unlock time. A
   foreign buy order or listing on the bot's item is `ForeignOrder` unless the bot allows foreign orders.
 - **Reconciliation.** `Reconcile` reads the account snapshot (wallet, buy orders, listings, inventory, history since the
   cursor) and answers as ADR 0016 requires: updates of found orders, final states, and a safety reason. A credential
