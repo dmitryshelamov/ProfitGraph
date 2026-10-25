@@ -158,14 +158,15 @@ public sealed class BotControlEndpointTests
         notRunning.StatusCode.ShouldBe(HttpStatusCode.Conflict);
         (await BotApi.Code(notRunning)).ShouldBe(BotRuleException.NotRunning);
         accepted.StatusCode.ShouldBe(HttpStatusCode.Accepted);
-        read.ShouldBe(submitted);
+        read.Id.ShouldBe(submitted.Id);
         read.BotId.ShouldBe(id);
         read.Side.ShouldBe(OrderSide.Buy);
         read.Amount.ShouldBe("10");
         read.Status.ShouldBe(ManualOrderStatus.Pending);
         read.EngineOrderId.ShouldBeNull();
         read.RejectionReason.ShouldBeNull();
-        read.CreatedAt.ShouldBeGreaterThan(DateTimeOffset.UtcNow.AddMinutes(-1));
+        // The stored time has microsecond precision; the accepted response carries the clock's ticks.
+        read.CreatedAt.ShouldBe(submitted.CreatedAt, TimeSpan.FromMilliseconds(1));
         read.ResolvedAt.ShouldBeNull();
     }
 
