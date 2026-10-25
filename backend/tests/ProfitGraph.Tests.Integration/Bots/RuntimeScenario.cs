@@ -35,6 +35,7 @@ internal sealed class RuntimeScenario
 
     public ScriptedOrderGateway Gateway { get; } = new ScriptedOrderGateway();
     public FakeLiveCandleSource Candles { get; } = new FakeLiveCandleSource();
+    public FakeLiveMarkPriceSource Prices { get; } = new FakeLiveMarkPriceSource();
 
     /// <summary>
     ///     A Worker host with the live role; without a gateway it models a process where trading is disabled.
@@ -48,6 +49,7 @@ internal sealed class RuntimeScenario
                 services.AddSingleton<IInstrumentRulesSource, FakeInstrumentSource>();
                 services.AddSingleton<IHistoricalCandleSource, FlatHistorySource>();
                 services.AddSingleton<ILiveCandleSource>(Candles);
+                services.AddSingleton<ILiveMarkPriceSource>(Prices);
 
                 if (withGateway)
                 {
@@ -66,18 +68,22 @@ internal sealed class RuntimeScenario
     }
 
     /// <summary>
-    ///     Ladder bots of one owner on one strategy, each with its own invented credential, that should run.
+    ///     Ladder bots of one owner on one strategy, each with its own invented credential, that should run. Without an
+    ///     <paramref name="existingOwner" /> the owner is a new user who cannot sign in.
     /// </summary>
-    public static async Task<IReadOnlyList<Bot>> RunningLadders(IHost host, int count)
+    public static async Task<IReadOnlyList<Bot>> RunningLadders(IHost host, int count, UserId? existingOwner = null)
     {
-        var owner = UserId.New();
+        UserId owner = existingOwner ?? UserId.New();
         ExchangeCredentialId[] credentials = [.. Enumerable.Range(start: 0, count).Select(_ => ExchangeCredentialId.New())];
 
         await using (var connection = new NpgsqlConnection(TestDatabase.ConnectionString))
         {
-            await connection.ExecuteAsync(
-                "INSERT INTO users (id, login, password_hash, role, status, created_at, updated_at) VALUES (@owner, 'runtime-' || @owner, 'not-a-real-hash', 'User', 'Active', now(), now())",
-                new { owner = owner.Value });
+            if (existingOwner is null)
+            {
+                await connection.ExecuteAsync(
+                    "INSERT INTO users (id, login, password_hash, role, status, created_at, updated_at) VALUES (@owner, 'runtime-' || @owner, 'not-a-real-hash', 'User', 'Active', now(), now())",
+                    new { owner = owner.Value });
+            }
 
             foreach (ExchangeCredentialId credential in credentials)
             {

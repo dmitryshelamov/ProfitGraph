@@ -20,6 +20,7 @@ public static class BotRuntimeRegistration
         services.AddSingleton<IHostedService, BotRuntimeHost>();
         services.AddSingleton<IHostedService, OrderIntentDispatchHost>();
         services.AddSingleton<IHostedService, BotFeedRetentionHost>();
+        services.AddSingleton<IHostedService, LiveMarkPricePublisher>();
 
         return services;
     }

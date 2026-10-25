@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 using ProfitGraph.Application.Bots;
+using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Infrastructure.Bots.Repositories;
@@ -29,6 +30,8 @@ internal static class BotsRegistration
         services.AddScoped<IBotFillRepository, BotFillRepository>();
         services.AddScoped<IBotPositionCycleRepository, BotPositionCycleRepository>();
         services.AddScoped<IBotFeedRepository, BotFeedRepository>();
+        services.AddScoped<ILiveMarkPriceRepository, LiveMarkPriceRepository>();
+        services.AddSingleton<ILiveMarkPriceNotifications, LiveMarkPriceNotifications>();
         services.AddScoped<BotRootCommitter>();
         services.AddScoped<BotKillSwitch>();
         services.AddSingleton<BotUpdateBus>();

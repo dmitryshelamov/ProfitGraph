@@ -25,6 +25,11 @@ public interface IBotRepository
     Task<IReadOnlyList<BotId>> ListDesiredRunning(CancellationToken cancellationToken);
 
     /// <summary>
+    ///     The distinct instruments of the bots that should run.
+    /// </summary>
+    Task<IReadOnlyList<LiveInstrument>> ListDesiredRunningInstruments(CancellationToken cancellationToken);
+
+    /// <summary>
     ///     The bots of a strategy that should run, oldest first: the bots a newly saved version reaches.
     /// </summary>
     Task<IReadOnlyList<Bot>> ListDesiredRunningOnStrategy(StrategyId strategyId, CancellationToken cancellationToken);
