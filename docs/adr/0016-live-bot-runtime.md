@@ -207,3 +207,15 @@ gateway amend it in later stage 5 pull requests.
   only then locks the intent and checks it again. Opposite orders in the dispatcher's claim and failure paths and in
   lease acquisition let two writers wait on each other, which Postgres broke as a deadlock and the runtime reported as a
   runtime failure.
+
+## Amendment: live market closures (ADR 0023, TC3)
+
+- The live candle port is unchanged. When a live candle follows a gap, the engine session reads the venue's history of
+  the gap (`IHistoricalCandleSource`): its candles are processed in order and its market closures are recorded in the
+  engine, so position age leaves them out; a gap that neither covers still fails the runner. A venue that fills its own
+  gaps, like Bybit, rarely reaches this path; when it does, the missed candles come from its history instead of a restart.
+- Warm-up, restore and graph change read closed history that reaches back over closures until it has the needed candles
+  (at most 16 times, each doubling the span); a venue without closures is read once, exactly as before. The closures of
+  that history go to the restored or new engine.
+- Runtime reads (warm-up, rules, gaps) use the bot's own credential as market data access only for a venue that
+  declares `IVenueMarketDataAccess`; for any other venue no credential is decrypted for reads.

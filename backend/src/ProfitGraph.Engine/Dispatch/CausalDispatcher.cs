@@ -38,7 +38,7 @@ public sealed class CausalDispatcher
     private readonly List<AppliedActionFact> _facts = new List<AppliedActionFact>();
     private readonly ReplayDispatchBatch _replayBatch;
     private readonly Dictionary<long, string> _orderGraphVersions = new Dictionary<long, string>();
-    private readonly IReadOnlyList<MarketClosure> _closures;
+    private readonly List<MarketClosure> _closures;
     private CompiledTradingGraph _graph;
     private EngineExecutionInputs _inputs;
     private CandleValueEvaluator _evaluator;
@@ -88,7 +88,7 @@ public sealed class CausalDispatcher
 
         _graph = graph;
         Account = account;
-        _closures = closures ?? [];
+        _closures = [.. closures ?? []];
         _inputs = inputs ?? EngineExecutionInputs.Empty;
         GraphVersionId = graphVersionId;
         _replayBatch = new ReplayDispatchBatch(_facts, _occurrences);
@@ -219,9 +219,10 @@ public sealed class CausalDispatcher
         ExecutionSettings settings,
         InstrumentRules rules,
         IReadOnlyList<Candle> closedHistory,
-        EngineExecutionInputs? inputs = null)
+        EngineExecutionInputs? inputs = null,
+        IReadOnlyList<MarketClosure>? closures = null)
     {
-        return RestoreCore(checkpoint, graph, settings, rules, closedHistory, inputs, enqueueRestart: true);
+        return RestoreCore(checkpoint, graph, settings, rules, closedHistory, inputs, enqueueRestart: true, closures);
     }
 
     public static CausalDispatcher RestoreWithoutResume(
@@ -230,9 +231,10 @@ public sealed class CausalDispatcher
         ExecutionSettings settings,
         InstrumentRules rules,
         IReadOnlyList<Candle> closedHistory,
-        EngineExecutionInputs? inputs = null)
+        EngineExecutionInputs? inputs = null,
+        IReadOnlyList<MarketClosure>? closures = null)
     {
-        return RestoreCore(checkpoint, graph, settings, rules, closedHistory, inputs, enqueueRestart: false);
+        return RestoreCore(checkpoint, graph, settings, rules, closedHistory, inputs, enqueueRestart: false, closures);
     }
 
     private static CausalDispatcher RestoreCore(
@@ -242,7 +244,8 @@ public sealed class CausalDispatcher
         InstrumentRules rules,
         IReadOnlyList<Candle> closedHistory,
         EngineExecutionInputs? inputs,
-        bool enqueueRestart)
+        bool enqueueRestart,
+        IReadOnlyList<MarketClosure>? closures)
     {
         ArgumentNullException.ThrowIfNull(checkpoint);
         ArgumentNullException.ThrowIfNull(closedHistory);
@@ -254,7 +257,7 @@ public sealed class CausalDispatcher
         }
 
         ExternallyExecutedAccount account = ExternallyExecutedAccount.Restore(checkpoint.Account, settings, rules);
-        var dispatcher = new CausalDispatcher(graph, account, inputs)
+        var dispatcher = new CausalDispatcher(graph, account, inputs, closures: closures)
         {
             _nextEventId = checkpoint.NextEventId,
             _nextAttemptId = checkpoint.NextAttemptId,
@@ -909,6 +912,21 @@ public sealed class CausalDispatcher
         _queue.Enqueue((occurrence, context));
 
         return occurrence;
+    }
+
+    /// <summary>
+    ///     Adds a market closure a live venue reported after the last one, so position age leaves it out (ADR 0023, TC3).
+    /// </summary>
+    public void RecordClosure(MarketClosure closure)
+    {
+        ArgumentNullException.ThrowIfNull(closure);
+
+        if (closure.From >= closure.To || (_closures.Count > 0 && closure.From < _closures[^1].To))
+        {
+            throw new ArgumentException("A live market closure must be nonempty and follow the last one.", nameof(closure));
+        }
+
+        _closures.Add(closure);
     }
 
     private void TrackPositionOpening(decimal before, decimal after, ReachedMarketContext context, DateTimeOffset? openingTime)

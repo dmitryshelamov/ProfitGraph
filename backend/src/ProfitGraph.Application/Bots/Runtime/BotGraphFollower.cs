@@ -22,6 +22,7 @@ public sealed class BotGraphFollower(
     IBotRepository bots,
     VenuePorts<IHistoricalCandleSource> histories,
     BacktestCompiler compiler,
+    BotMarketDataAccess access,
     ISender sender)
 {
     public async Task Follow(Bot bot, LeaseHolderId holder, long epoch, BotEngineSession session, CancellationToken cancellationToken)
@@ -47,9 +48,20 @@ public sealed class BotGraphFollower(
             CompiledTradingGraph plan = compiler.Compile(latest.Definition, values);
             Timeframe timeframe = bot.Series.Timeframe;
             IHistoricalCandleSource history = histories.Find(bot.Series.Venue) ?? throw new InvalidOperationException("The venue has no candle history.");
-            DateTimeOffset from = last.OpenTime - timeframe.Duration * plan.WarmupCandles;
-            IReadOnlyList<Candle> closed =
-                LiveWarmupHistory.Contiguous(await history.Get(bot.Series.Symbol, timeframe, from, last.OpenTime + timeframe.Duration, cancellationToken));
+            IReadOnlyList<Candle> closed;
+
+            using (await access.Open(bot, cancellationToken))
+            {
+                closed = (await LiveHistory.Read(
+                    history,
+                    bot.Series.Symbol,
+                    timeframe,
+                    last.OpenTime,
+                    last.OpenTime + timeframe.Duration,
+                    plan.WarmupCandles + 1,
+                    cancellationToken)).Candles;
+            }
+
             refused = await session.ChangeGraph(
                 latest.Id,
                 compiler.Lower(latest.Definition, values),
