@@ -19,6 +19,7 @@ internal sealed class TInvestGatewayHarness
 {
     public const string AccountId = "2000000001";
     public const string ShareUid = "e6123145-9665-43e0-8413-cd61b8aa9b13";
+    public const string Exchange = "moex_mrng_evng_e_wknd_dlr";
 
     public static readonly DateTimeOffset Now = new DateTimeOffset(year: 2026, month: 10, day: 27, hour: 8, minute: 0, second: 0, TimeSpan.Zero);
 
@@ -50,9 +51,19 @@ internal sealed class TInvestGatewayHarness
             options);
         var reads = new TInvestOrderReads(transport);
         TInvestSymbol.TryParse("TQBR:SBER", out TInvestSymbol? symbol).ShouldBeTrue();
-        var share = new TInvestShare(symbol, ShareUid, "Invented SBER", Lot: 10m, PriceIncrement: 0.01m, FirstMinuteCandle: null, FirstDayCandle: null);
+        var share = new TInvestShare(
+            symbol,
+            ShareUid,
+            "Invented SBER",
+            Lot: 10m,
+            PriceIncrement: 0.01m,
+            FirstMinuteCandle: null,
+            FirstDayCandle: null,
+            Exchange);
         var contexts = new FixedTInvestBotContexts(new TInvestBotContext(Bot, new TInvestToken("t.invented-token"), AccountId, share));
-        var streams = new TInvestOrderStreams(transport, reads, Attempts, Updates, options, Clock, NullLogger<TInvestOrderStreams>.Instance);
+        var progress = new TInvestOrderProgress(Attempts, Waits, Clock);
+        var streams = new TInvestOrderStreams(transport, reads, Attempts, Updates, progress, options, NullLogger<TInvestOrderStreams>.Instance);
+        var schedules = new TInvestSchedules(transport, Clock, NullLogger<TInvestSchedules>.Instance);
         Gateway = new TInvestOrderGateway(
             contexts,
             Attempts,
@@ -62,7 +73,9 @@ internal sealed class TInvestGatewayHarness
             new TInvestPrices(transport),
             new TInvestTradingStatuses(transport),
             new TInvestPriceBands(transport, Clock),
+            schedules,
             Waits,
+            progress,
             transport,
             options,
             Clock);
@@ -72,6 +85,7 @@ internal sealed class TInvestGatewayHarness
             Waits,
             streams,
             Gateway,
+            schedules,
             Updates,
             options,
             Clock,

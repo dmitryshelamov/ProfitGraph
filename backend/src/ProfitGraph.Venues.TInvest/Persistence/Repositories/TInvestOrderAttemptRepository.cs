@@ -54,6 +54,11 @@ internal sealed class TInvestOrderAttemptRepository(NpgsqlDataSource dataSource)
                     WaitingCode = next.WaitingCode?.ToString(),
                     next.BandLow,
                     next.BandHigh,
+                    CancelledBy = next.CancelledBy?.ToString(),
+                    CarriedFrom = next.CarriedFrom?.ToDateTime(TimeOnly.MinValue),
+                    next.ExecutedLots,
+                    next.ExecutedQuote,
+                    next.ExecutedFee,
                     next.UpdatedAt,
                     Expected = expected.ToString()
                 },
@@ -65,6 +70,24 @@ internal sealed class TInvestOrderAttemptRepository(NpgsqlDataSource dataSource)
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
         IEnumerable<TInvestOrderAttemptDb> rows = await connection.QueryAsync<TInvestOrderAttemptDb>(
             new CommandDefinition(TInvestOrderAttemptQueries.Waiting, cancellationToken: cancellationToken));
+
+        return [.. rows.Select(ToAttempt)];
+    }
+
+    public async Task<IReadOnlyList<TInvestOrderAttempt>> Working(CancellationToken cancellationToken)
+    {
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        IEnumerable<TInvestOrderAttemptDb> rows = await connection.QueryAsync<TInvestOrderAttemptDb>(
+            new CommandDefinition(TInvestOrderAttemptQueries.Working, cancellationToken: cancellationToken));
+
+        return [.. rows.Select(ToAttempt)];
+    }
+
+    public async Task<IReadOnlyList<TInvestOrderAttempt>> ForOrder(Guid botId, long engineOrderId, CancellationToken cancellationToken)
+    {
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        IEnumerable<TInvestOrderAttemptDb> rows = await connection.QueryAsync<TInvestOrderAttemptDb>(
+            new CommandDefinition(TInvestOrderAttemptQueries.ForOrder, new { botId, engineOrderId }, cancellationToken: cancellationToken));
 
         return [.. rows.Select(ToAttempt)];
     }
@@ -103,7 +126,12 @@ internal sealed class TInvestOrderAttemptRepository(NpgsqlDataSource dataSource)
             UpdatedAt = attempt.UpdatedAt.UtcDateTime,
             WaitingCode = attempt.WaitingCode?.ToString(),
             BandLow = attempt.BandLow,
-            BandHigh = attempt.BandHigh
+            BandHigh = attempt.BandHigh,
+            CancelledBy = attempt.CancelledBy?.ToString(),
+            CarriedFrom = attempt.CarriedFrom?.ToDateTime(TimeOnly.MinValue),
+            ExecutedLots = attempt.ExecutedLots,
+            ExecutedQuote = attempt.ExecutedQuote,
+            ExecutedFee = attempt.ExecutedFee
         };
     }
 
@@ -126,6 +154,11 @@ internal sealed class TInvestOrderAttemptRepository(NpgsqlDataSource dataSource)
             new DateTimeOffset(DateTime.SpecifyKind(row.UpdatedAt, DateTimeKind.Utc)),
             row.WaitingCode is null ? null : Enum.Parse<OrderWaitingCode>(row.WaitingCode),
             row.BandLow,
-            row.BandHigh);
+            row.BandHigh,
+            row.CarriedFrom is { } carried ? DateOnly.FromDateTime(carried) : null,
+            row.CancelledBy is null ? null : Enum.Parse<TInvestCancelReason>(row.CancelledBy),
+            row.ExecutedLots,
+            row.ExecutedQuote,
+            row.ExecutedFee);
     }
 }

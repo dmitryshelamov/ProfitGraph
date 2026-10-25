@@ -1,7 +1,8 @@
 namespace ProfitGraph.Venues.TInvest.MarketData;
 
 /// <summary>
-///     A tradable MOEX share as ProfitGraph uses it: identity, lot in shares, exact price increment and the first candles.
+///     A tradable MOEX share as ProfitGraph uses it: identity, lot in shares, exact price increment, the first candles and
+///     the trading calendar its schedules are read from.
 /// </summary>
 internal sealed record TInvestShare(
     TInvestSymbol Symbol,
@@ -10,4 +11,5 @@ internal sealed record TInvestShare(
     decimal Lot,
     decimal PriceIncrement,
     DateTimeOffset? FirstMinuteCandle,
-    DateTimeOffset? FirstDayCandle);
+    DateTimeOffset? FirstDayCandle,
+    string Exchange = "");

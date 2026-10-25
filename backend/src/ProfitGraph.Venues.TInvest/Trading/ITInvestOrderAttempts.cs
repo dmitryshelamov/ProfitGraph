@@ -19,7 +19,8 @@ internal interface ITInvestOrderAttempts
     Task<TInvestOrderAttempt?> ByRequestId(Guid requestId, CancellationToken cancellationToken);
 
     /// <summary>
-    ///     Stores the attempt's new state, exchange order ID, broker code, price and waiting reason when it is still in
+    ///     Stores the attempt's new state, exchange order ID, broker code, price, waiting reason, cancel reason, carry-over date
+    ///     and executed totals when it is still in
     ///     <paramref name="expected" />.
     /// </summary>
     Task<bool> Transition(TInvestOrderAttempt next, TInvestOrderAttemptState expected, CancellationToken cancellationToken);
@@ -28,6 +29,16 @@ internal interface ITInvestOrderAttempts
     ///     Every attempt that waits locally, by bot and engine order.
     /// </summary>
     Task<IReadOnlyList<TInvestOrderAttempt>> Waiting(CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Every attempt that may be working at T-Invest and that the gateway may carry over.
+    /// </summary>
+    Task<IReadOnlyList<TInvestOrderAttempt>> Working(CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Every attempt of the engine order, oldest first.
+    /// </summary>
+    Task<IReadOnlyList<TInvestOrderAttempt>> ForOrder(Guid botId, long engineOrderId, CancellationToken cancellationToken);
 
     /// <summary>
     ///     The bots that own the request IDs, among those the table knows.

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.Ports;
+using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Accounting;
@@ -35,7 +36,9 @@ internal sealed class TInvestOrderGateway(
     TInvestPrices prices,
     TInvestTradingStatuses statuses,
     TInvestPriceBands bands,
+    TInvestSchedules schedules,
     ITInvestOrderWaits waits,
+    TInvestOrderProgress progress,
     TInvestTransport transport,
     IOptions<TInvestOptions> options,
     TimeProvider clock) : IOrderGateway
@@ -135,7 +138,18 @@ internal sealed class TInvestOrderGateway(
         {
             // The attempt is recorded before any request, so an order without a sent attempt never reached T-Invest.
             if (attempt is not null &&
-                !await attempts.Transition(attempt with { State = TInvestOrderAttemptState.Final, UpdatedAt = clock.GetUtcNow() }, attempt.State, cancellationToken))
+                !await attempts.Transition(
+                    attempt with
+                    {
+                        State = TInvestOrderAttemptState.Final,
+                        WaitingCode = null,
+                        BandLow = null,
+                        BandHigh = null,
+                        CancelledBy = TInvestCancelReason.Owner,
+                        UpdatedAt = clock.GetUtcNow()
+                    },
+                    attempt.State,
+                    cancellationToken))
             {
                 throw new TInvestOrderUnresolvedException();
             }
@@ -148,6 +162,13 @@ internal sealed class TInvestOrderGateway(
         if (attempt is { State: TInvestOrderAttemptState.Final, ExchangeOrderId: null })
         {
             return;
+        }
+
+        if (attempt.State != TInvestOrderAttemptState.Final && attempt.CancelledBy != TInvestCancelReason.Owner)
+        {
+            // An owner or strategy cancel wins over a carry-over in progress, and is recorded before the request leaves.
+            TInvestOrderAttempt marked = attempt with { CancelledBy = TInvestCancelReason.Owner, UpdatedAt = clock.GetUtcNow() };
+            attempt = await attempts.Transition(marked, attempt.State, cancellationToken) ? marked : throw new TInvestOrderUnresolvedException();
         }
 
         TInvestBotContext context = await contexts.Get(botId, cancellationToken);
@@ -298,18 +319,69 @@ internal sealed class TInvestOrderGateway(
     }
 
     /// <summary>
-    ///     Only the current trading status authorizes a send; a limit order must also fit the price band.
+    ///     Only the current trading status authorizes a send, and a holiday interval of the schedule counts as closed; a limit
+    ///     order must also fit the price band. A carried remainder leaves only on a later trading date than the one it was
+    ///     carried from, which needs the schedule; it keeps its carry-over reason until then.
     /// </summary>
     private async Task<TInvestSendDecision> Decide(TInvestBotContext context, TInvestOrderAttempt attempt, CancellationToken cancellationToken)
     {
-        if (!await statuses.Allows(context, attempt.Type, cancellationToken))
+        DateTimeOffset now = clock.GetUtcNow();
+        IReadOnlyList<TInvestTradingDay>? days = await schedules.Days(context, cancellationToken);
+        bool carried = attempt.WaitingCode == OrderWaitingCode.CarryOver;
+        OrderWaitingCode closed = carried ? OrderWaitingCode.CarryOver : OrderWaitingCode.SessionClosed;
+
+        if (carried && (days is null || TInvestSchedules.Current(days, now) is not { } day || day.Date <= attempt.CarriedFrom))
         {
-            return TInvestSendDecision.Wait(OrderWaitingCode.SessionClosed, band: null);
+            return TInvestSendDecision.Wait(OrderWaitingCode.CarryOver, band: null);
+        }
+
+        bool holiday = days?.Any(day => day.Sessions.Any(session => session.Holiday && session.From <= now && now < session.To)) == true;
+
+        if (holiday || !await statuses.Allows(context, attempt.Type, cancellationToken))
+        {
+            return TInvestSendDecision.Wait(closed, band: null);
         }
 
         return attempt.Price is { } price
             ? TInvestSendDecisions.ForLimit(attempt.Side, price, await bands.Get(context, cancellationToken), context.Share.PriceIncrement)
             : TInvestSendDecision.Send(price: null);
+    }
+
+    /// <summary>
+    ///     Cancels a working DAY limit attempt before its trading day ends, to carry its remainder to the next one (ADR 0023,
+    ///     T12b; Profit Fox Designer ADR 0075). The carry-over is recorded before the cancel leaves; the engine order stays
+    ///     working. A cancel that is not final yet is tried again by the next round.
+    /// </summary>
+    internal async Task CarryOver(TInvestBotContext context, TInvestOrderAttempt attempt, DateOnly tradingDay, CancellationToken cancellationToken)
+    {
+        if (attempt.CancelledBy is null)
+        {
+            TInvestOrderAttempt marked = attempt with { CancelledBy = TInvestCancelReason.CarryOver, CarriedFrom = tradingDay, UpdatedAt = clock.GetUtcNow() };
+
+            if (!await attempts.Transition(marked, attempt.State, cancellationToken))
+            {
+                return;
+            }
+
+            attempt = marked;
+        }
+
+        try
+        {
+            await transport.Unary(
+                context.Token,
+                TInvestMethodGroup.Orders,
+                (invoker, callOptions) => new OrdersService.OrdersServiceClient(invoker).CancelOrderAsync(
+                    new CancelOrderRequest { AccountId = context.AccountId, OrderId = attempt.RequestId.ToString("D"), OrderIdType = OrderIdType.Request },
+                    callOptions),
+                cancellationToken);
+        }
+        catch (TInvestRpcException)
+        {
+            // The final state read below decides; a filled order needs no cancel.
+        }
+
+        await PublishExisting(context, attempt, cancellationToken);
     }
 
     /// <summary>
@@ -404,8 +476,15 @@ internal sealed class TInvestOrderGateway(
                 return new BotReconciliationInternal(found, orders, BotStatusReason.UnresolvedOrder);
             }
 
-            await TInvestAttemptStates.Record(attempts, attempt, state, clock.GetUtcNow(), cancellationToken);
-            found.AddRange(TInvestOrderTranslation.Updates(order.EngineOrderId, state, context.Share.Lot));
+            try
+            {
+                found.AddRange(await progress.Apply(context, attempt, state, cancellationToken));
+            }
+            catch (OrderGatewaySafetyException safety)
+            {
+                return new BotReconciliationInternal(found, orders, safety.Reason);
+            }
+
             orders.Add(new ReconciledOrderInternal(order.ClientOrderId, TInvestOrderTranslation.IsFinal(state)));
         }
 
@@ -422,8 +501,7 @@ internal sealed class TInvestOrderGateway(
     private async Task<OrderState> PublishExisting(TInvestBotContext context, TInvestOrderAttempt attempt, CancellationToken cancellationToken)
     {
         OrderState state = await reads.ByRequestId(context, attempt.RequestId, cancellationToken) ?? throw new TInvestOrderUnresolvedException();
-        await TInvestAttemptStates.Record(attempts, attempt, state, clock.GetUtcNow(), cancellationToken);
-        updates.Publish(context.BotId, TInvestOrderTranslation.Updates(attempt.EngineOrderId, state, context.Share.Lot));
+        updates.Publish(context.BotId, await progress.Apply(context, attempt, state, cancellationToken));
 
         return state;
     }

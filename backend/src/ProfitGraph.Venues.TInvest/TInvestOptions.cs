@@ -53,10 +53,16 @@ public sealed class TInvestOptions
     /// </summary>
     public TimeSpan WaitingRecheckInterval { get; init; } = TimeSpan.FromSeconds(30);
 
+    /// <summary>
+    ///     How long before the end of the trading day's last exchange interval working DAY orders are cancelled to carry their
+    ///     remainder to the next trading date (ADR 0023). Positive and at most an hour.
+    /// </summary>
+    public TimeSpan CarryOverLead { get; init; } = TimeSpan.FromMinutes(5);
+
     internal bool IsValid()
     {
         if (RequestTimeout <= TimeSpan.Zero || CandleCloseGrace < TimeSpan.Zero || CommissionProbeNotional <= 0m || MarketBuySlippage is < 0m or >= 0.2m ||
-            WaitingRecheckInterval <= TimeSpan.Zero ||
+            WaitingRecheckInterval <= TimeSpan.Zero || CarryOverLead <= TimeSpan.Zero || CarryOverLead > TimeSpan.FromHours(1) ||
             !Limits.IsValid() || !History.IsValid() ||
             string.IsNullOrWhiteSpace(AppName) ||
             string.IsNullOrWhiteSpace(TrustedRootsPath))
