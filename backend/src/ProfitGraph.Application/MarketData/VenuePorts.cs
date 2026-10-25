@@ -11,6 +11,11 @@ public sealed class VenuePorts<TPort>(IEnumerable<TPort> ports)
 {
     private readonly IReadOnlyList<TPort> _ports = ports.ToArray();
 
+    /// <summary>
+    ///     The venues this process has the port for.
+    /// </summary>
+    public IReadOnlyList<VenueId> Venues => [.. _ports.Select(port => port.Venue)];
+
     public TPort? Find(VenueId venue)
     {
         return _ports.FirstOrDefault(port => port.Venue == venue);

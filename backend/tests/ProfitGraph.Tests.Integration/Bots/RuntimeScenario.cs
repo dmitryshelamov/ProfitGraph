@@ -222,8 +222,16 @@ internal sealed class RuntimeScenario
             FROM bots WHERE desired_state = 'Running'
             """);
 
+        IEnumerable<string> waiting = await connection.QueryAsync<string>(
+            """
+            SELECT intent.kind || ' ' || intent.status || ' attempts ' || intent.attempts || ' bot ' || bot.desired_state || ' venue ' || bot.venue
+                || ' lease ' || coalesce(left(lease.holder_id::text, 8) || ' ttl ' || (lease.expires_at - now())::text, '-')
+            FROM bot_order_intents AS intent JOIN bots AS bot ON bot.id = intent.bot_id LEFT JOIN bot_leases AS lease ON lease.bot_id = intent.bot_id
+            WHERE intent.status IN ('Pending', 'Sending') ORDER BY intent.sequence LIMIT 12
+            """);
+
         return
-            $"Halted: {halted}; live leases: [{string.Join("; ", leases)}]; bots that should run: [{string.Join("; ", running)}]; blocked or open sessions: [{string.Join("; ", sessions)}].";
+            $"Halted: {halted}; live leases: [{string.Join("; ", leases)}]; bots that should run: [{string.Join("; ", running)}]; waiting intents: [{string.Join("; ", waiting)}]; blocked or open sessions: [{string.Join("; ", sessions)}].";
     }
 
     private static Dictionary<string, string?> Settings()

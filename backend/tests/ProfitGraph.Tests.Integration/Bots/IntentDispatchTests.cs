@@ -59,6 +59,30 @@ public sealed class IntentDispatchTests
     }
 
     [Test]
+    public async Task CancelNoGatewayHereCanSendDoesNotHoldOthersBack()
+    {
+        var scenario = new RuntimeScenario();
+        using IHost worker = scenario.Worker();
+        Bot elsewhere = await BotSeed.NewBot();
+        await BotStore.Add(worker, elsewhere);
+
+        for (var order = 1; order <= 25; order++)
+        {
+            await Add(
+                worker,
+                OrderIntent.Cancel(OrderIntentId.New(), elsewhere.Id, order, new ClientOrderId($"pg-elsewhere-{order}"), fromKill: true, DateTimeOffset.UtcNow));
+        }
+
+        Bot bot = await RuntimeScenario.RunningLadder(worker);
+
+        await worker.StartAsync();
+        await RuntimeScenario.Until(async () => await RuntimeScenario.Intents(worker, bot.Id) is [{ Status: OrderIntentStatus.Sent }], "the submit is sent");
+        await worker.StopAsync();
+
+        (await RuntimeScenario.Intents(worker, elsewhere.Id)).ShouldAllBe(intent => intent.Status == OrderIntentStatus.Pending);
+    }
+
+    [Test]
     public async Task SubmitThatMayHaveReachedTheVenueIsLookedUpInsteadOfPlacedAgain()
     {
         var scenario = new RuntimeScenario();

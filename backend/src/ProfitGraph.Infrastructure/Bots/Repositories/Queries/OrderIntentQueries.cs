@@ -36,7 +36,8 @@ internal static class OrderIntentQueries
                                                    SELECT intent.id FROM bot_order_intents AS intent
                                                    JOIN bots AS bot ON bot.id = intent.bot_id
                                                    LEFT JOIN bot_leases AS lease ON lease.bot_id = intent.bot_id
-                                                   WHERE (intent.status = 'Pending' AND (intent.next_attempt_at IS NULL OR intent.next_attempt_at <= @now)
+                                                   WHERE bot.venue = ANY(@venues)
+                                                       AND (intent.status = 'Pending' AND (intent.next_attempt_at IS NULL OR intent.next_attempt_at <= @now)
                                                            OR intent.status = 'Sending' AND intent.claimed_at <= @staleBefore)
                                                        AND (intent.kind = 'Submit' AND lease.holder_id = @holderId AND lease.expires_at > @now
                                                            OR intent.kind = 'Cancel' AND (lease.bot_id IS NULL OR lease.expires_at <= @now OR lease.holder_id = @holderId))

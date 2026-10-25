@@ -130,7 +130,8 @@ gateway amend it in later stage 5 pull requests.
 ## Amendment: order intent delivery (stage 5.6)
 
 - **Dispatcher.** The `live` role delivers due intents one at a time (`DispatchOrderIntentCommand`); each step is a short
-  transaction and no transaction spans a venue call. A process delivers submits only for the bots it leases, and
+  transaction and no transaction spans a venue call. A process considers only intents of bots on venues it has a gateway
+  for, so an intent it cannot send never holds the others back. A process delivers submits only for the bots it leases, and
   cancels also for bots no runtime leases. An intent waits behind earlier undelivered intents of its bot, except that
   a cancel passes submits of other orders, and every submit of a bot that should stop.
 - **Submit.** It is claimed only while the bot should run, is healthy, trading is not halted and the holder's lease has

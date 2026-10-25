@@ -135,7 +135,7 @@ internal sealed class DispatchOrderIntentCommandHandler(
             {
                 DateTimeOffset now = clock.GetUtcNow();
 
-                foreach (OrderIntentId id in await intents.ListDeliveryCandidates(holder, now, CandidateLimit, cancellationToken))
+                foreach (OrderIntentId id in await intents.ListDeliveryCandidates(holder, gateways.Venues, now, CandidateLimit, cancellationToken))
                 {
                     OrderIntent? intent = await intents.GetForUpdate(id, cancellationToken);
 

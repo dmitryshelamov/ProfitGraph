@@ -14,4 +14,6 @@ public sealed record BotRootCommit(
     GraphEngineCheckpoint Checkpoint,
     BotParameters AppliedParameters,
     IReadOnlyList<OrderIntent> Intents,
-    BotRootManualOrder? ManualOrder = null);
+    BotRootManualOrder? ManualOrder = null,
+    IReadOnlyList<BotFill>? Fills = null,
+    BotRootPosition? Position = null);

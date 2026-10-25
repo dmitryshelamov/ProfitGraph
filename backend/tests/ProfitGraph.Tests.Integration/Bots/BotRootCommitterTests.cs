@@ -112,6 +112,35 @@ public sealed class BotRootCommitterTests
     }
 
     [Test]
+    public async Task FencedRootLeavesNoFillOrPositionCycle()
+    {
+        (Bot bot, LeaseHolderId holder) = await LeasedBot();
+        _clock.Now = BotSeed.Now + LeaseDuration;
+        BotFill fill = BotFill.Record(
+            BotFillId.New(),
+            bot.Id,
+            engineOrderId: 1,
+            OrderSide.Buy,
+            "entry",
+            grossBase: 0.1m,
+            grossQuote: 10m,
+            fee: 0m,
+            cumulativeGrossBase: 0.1m,
+            BotSeed.Now);
+
+        await Should.ThrowAsync<BotLeaseLostException>(() => Commit(
+            Root(bot, holder, epoch: 1) with { Fills = [fill], Position = new BotRootPosition(BotPositionChange.Opened, BotSeed.Now, RealizedPnl: 0m) }));
+
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+        (await connection.ExecuteScalarAsync<int>("SELECT count(*) FROM bot_fills WHERE bot_id = @id", new { id = bot.Id.Value })).ShouldBe(0);
+        (await connection.ExecuteScalarAsync<int>("SELECT count(*) FROM bot_position_cycles WHERE bot_id = @id", new { id = bot.Id.Value })).ShouldBe(0);
+        (await connection.ExecuteScalarAsync<int>(
+                "SELECT count(*) FROM outbox_messages WHERE type IN ('BotFillRecorded', 'BotPositionOpened') AND payload->>'BotId' = @id",
+                new { id = bot.Id.Value.ToString() }))
+            .ShouldBe(0);
+    }
+
+    [Test]
     public async Task OnlyTheCurrentHolderAndEpochCommitAmongConcurrentWriters()
     {
         (Bot bot, LeaseHolderId first) = await LeasedBot();
