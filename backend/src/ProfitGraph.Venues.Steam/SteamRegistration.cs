@@ -10,6 +10,7 @@ using ProfitGraph.Application.Common.Operations;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Venues.Steam.Accounts;
 using ProfitGraph.Venues.Steam.Persistence.Repositories;
+using ProfitGraph.Venues.Steam.Protection;
 using ProfitGraph.Venues.Steam.Session;
 
 namespace ProfitGraph.Venues.Steam;
@@ -38,6 +39,9 @@ public static class SteamRegistration
             })
             .RemoveAllLoggers();
         services.AddSingleton<SteamRequestScheduler>();
+        services.AddSingleton<ISteamAccountProtectionStore, SteamAccountProtectionRepository>();
+        services.AddSingleton<SteamAccountProtection>();
+        services.AddSingleton<IVenueAccountProtection>(provider => provider.GetRequiredService<SteamAccountProtection>());
         services.AddSingleton<SteamAccountSessions>();
         services.AddOptions<SteamOptions>()
             .Bind(configuration.GetSection(SteamOptions.SectionName))

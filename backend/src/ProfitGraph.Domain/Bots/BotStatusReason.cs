@@ -26,6 +26,12 @@ public enum BotStatusReason
     HistoryDataCorrection,
 
     /// <summary>
+    ///     The venue account's protection stopped every bot of the credential (ADR 0022, C7); resuming the protection
+    ///     re-arms them.
+    /// </summary>
+    VenueAccountProtection,
+
+    /// <summary>
     ///     A per-bot or global kill switch stopped the bot.
     /// </summary>
     Killed,

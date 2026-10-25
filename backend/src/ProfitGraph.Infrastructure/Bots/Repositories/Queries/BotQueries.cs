@@ -33,6 +33,9 @@ internal static class BotQueries
                                                        ORDER BY id
                                                        """;
 
+    internal const string ListDesiredRunningOnCredential =
+        "SELECT id FROM bots WHERE desired_state = 'Running' AND exchange_credential_id = @credentialId ORDER BY id";
+
     internal const string AnyUsesCredential = "SELECT EXISTS (SELECT 1 FROM bots WHERE exchange_credential_id = @credentialId)";
 
     internal const string Insert = """

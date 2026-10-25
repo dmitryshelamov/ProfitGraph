@@ -61,6 +61,29 @@ public sealed class SteamOptions
     /// </summary>
     public int ReadRetries { get; init; } = 2;
 
+    /// <summary>
+    ///     Consecutive refusals of one kind (unauthorized, forbidden, rate limited, transient or unreadable) that open the
+    ///     account's protection.
+    /// </summary>
+    public int ProtectionThreshold { get; init; } = 3;
+
+    /// <summary>
+    ///     The share of failures among the last <see cref="ProtectionErrorSample" /> answers that opens the protection.
+    /// </summary>
+    public double ProtectionErrorRatio { get; init; } = 0.5;
+
+    public int ProtectionErrorSample { get; init; } = 10;
+
+    /// <summary>
+    ///     How long a protection opened by transient noise waits before it resumes by itself, times the automatic resumes
+    ///     already used in <see cref="SoftResumeWindow" /> plus one (Profit Fox Designer ADR 0089).
+    /// </summary>
+    public TimeSpan SoftResumeDelay { get; init; } = TimeSpan.FromMinutes(5);
+
+    public int SoftResumeLimit { get; init; } = 3;
+
+    public TimeSpan SoftResumeWindow { get; init; } = TimeSpan.FromHours(6);
+
     public bool IsValid()
     {
         (string Address, string Host)[] origins =
@@ -71,7 +94,9 @@ public sealed class SteamOptions
         ];
         bool timings = MaximumResponseBytes is >= 1024 and <= 64 * 1024 * 1024 && RequestTimeout > TimeSpan.Zero && SessionLifetime > SessionRenewalLead &&
             SessionRenewalLead >= TimeSpan.Zero && ServerClockRefresh > TimeSpan.Zero && QueueDeadline > TimeSpan.Zero && WriteSpacing >= TimeSpan.Zero &&
-            InitialCooldown > TimeSpan.Zero && MaximumCooldown >= InitialCooldown && ReadRetries is >= 0 and <= 5;
+            InitialCooldown > TimeSpan.Zero && MaximumCooldown >= InitialCooldown && ReadRetries is >= 0 and <= 5 && ProtectionThreshold > 0 &&
+            ProtectionErrorRatio is > 0 and <= 1 && ProtectionErrorSample > 0 && SoftResumeDelay > TimeSpan.Zero && SoftResumeLimit >= 0 &&
+            SoftResumeWindow > TimeSpan.Zero;
 
         return timings && origins.All(origin => Enabled
             ? IsAllowedOrigin(origin.Address, origin.Host)

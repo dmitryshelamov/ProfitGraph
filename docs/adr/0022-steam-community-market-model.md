@@ -139,7 +139,8 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
 - **Account protection.** CAPTCHA, restrictions, family view, repeated 401/403/429 and a high error ratio open a persisted
   breaker that degrades every Steam bot of the account; transient reasons resume automatically at most three times in six
   hours (Profit Fox Designer ADR 0089), hard reasons wait for the Owner. **Core change C7:** a neutral port
-  `IVenueAccountProtection` (status, reason code, resume) behind `GET` and `POST /api/exchange-credentials/{id}/protection`,
+  `IVenueAccountProtection` (status, reason code, resume) behind `GET /api/exchange-credentials/{id}/protection` and
+  `POST .../protection/resume` for the credential's owner,
   and the safety reason `VenueAccountProtection`. The global halt and per-bot kill of ADR 0018 apply as for Bybit; there
   are no separate Steam kill flags.
 

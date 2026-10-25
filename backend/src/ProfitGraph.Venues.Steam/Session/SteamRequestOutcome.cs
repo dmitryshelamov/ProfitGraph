@@ -16,6 +16,16 @@ internal enum SteamRequestOutcome
     Forbidden,
 
     /// <summary>
+    ///     Steam asks for a CAPTCHA; nothing may bypass it.
+    /// </summary>
+    Captcha,
+
+    /// <summary>
+    ///     Steam restricts the account's market use.
+    /// </summary>
+    Restricted,
+
+    /// <summary>
     ///     HTTP 429; the caller waits at least <see cref="SteamRequestResult.RetryAfter" />.
     /// </summary>
     RateLimited,

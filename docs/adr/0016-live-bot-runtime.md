@@ -191,3 +191,11 @@ gateway amend it in later stage 5 pull requests.
   it, and `GET /api/bots/{id}` returns it as `sellerFees`. A change of the schedule is a fee rate change.
 - `IVenueExecutionDefaults` gives a venue's defaults for a new backtest; `GET /api/market-data/venues` returns them as
   `executionDefaults`. A run stores what its request gave, never the defaults.
+
+## Amendment: venue account protection (ADR 0022, C7)
+
+- `VenueAccountProtection` is a safety reason: a venue module whose account protection opens sends
+  `StopBotsForVenueAccountCommand`, which degrades every bot of the credential that should run. Orders stay as they are.
+- Resuming the protection (`POST /api/exchange-credentials/{id}/protection/resume`, or the module by itself for transient
+  noise) sends `RearmBotsForVenueAccountCommand`: those bots return to Created, and the runtime leases and reconciles them
+  before any submit.

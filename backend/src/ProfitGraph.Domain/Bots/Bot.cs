@@ -370,6 +370,26 @@ public sealed class Bot : AggregateRoot
     }
 
     /// <summary>
+    ///     Returns a bot that the venue account's protection stopped to Created once the protection is resumed, so the runtime
+    ///     takes it again and reconciles before sending. Any other state is left as it is. Returns whether the bot changed.
+    /// </summary>
+    public bool ClearVenueAccountProtection(DateTimeOffset now)
+    {
+        if (DesiredState != BotDesiredState.Running || !IsDegraded || StatusReason != BotStatusReason.VenueAccountProtection)
+        {
+            return false;
+        }
+
+        RuntimeStatus = BotRuntimeStatus.Created;
+        StatusReason = null;
+        NextRestartAt = null;
+        UpdatedAt = now;
+        AddDomainEvent(new BotRecovered(Id, now));
+
+        return true;
+    }
+
+    /// <summary>
     ///     A root saved after a live closed candle proves the bot works again, so the restart streak starts over.
     /// </summary>
     public void ResetRestartStreak(DateTimeOffset now)

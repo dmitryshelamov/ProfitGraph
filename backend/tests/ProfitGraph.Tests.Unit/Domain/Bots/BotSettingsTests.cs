@@ -109,6 +109,24 @@ public sealed class BotSettingsTests
     }
 
     [Test]
+    public void ResumingAVenueAccountReArmsOnlyTheBotsItStopped()
+    {
+        Bot held = BotFixture.Running();
+        held.Degrade(BotStatusReason.VenueAccountProtection, Now).ShouldBeTrue();
+        Bot otherwise = BotFixture.DegradedBy(BotStatusReason.KeyPermissions);
+        held.ClearDomainEvents();
+
+        held.ClearVenueAccountProtection(Now).ShouldBeTrue();
+        otherwise.ClearVenueAccountProtection(Now).ShouldBeFalse();
+
+        held.RuntimeStatus.ShouldBe(BotRuntimeStatus.Created);
+        held.StatusReason.ShouldBeNull();
+        held.DomainEvents.ShouldBe([new BotRecovered(held.Id, Now)]);
+        otherwise.StatusReason.ShouldBe(BotStatusReason.KeyPermissions);
+        BotStatusReasons.IsSafety(BotStatusReason.VenueAccountProtection).ShouldBeTrue();
+    }
+
+    [Test]
     public void FeeRatesNeedAUtcReadTime()
     {
         Should.Throw<BotRuleException>(() => new BotFeeRates(limitRate: 0.001m, marketRate: 0.001m, new DateTimeOffset(Now.DateTime, TimeSpan.FromHours(3))));

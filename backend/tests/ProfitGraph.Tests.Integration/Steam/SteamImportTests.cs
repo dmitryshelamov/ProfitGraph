@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 
@@ -67,6 +68,36 @@ public sealed class SteamImportTests
 
         again.ShouldBe(1);
         refused.ShouldContain("already stored");
+    }
+
+    [Test]
+    public async Task TheOwnerReadsAndResumesTheAccountsProtection()
+    {
+        UserInternal owner = await _factory.CreateAccount(UserRole.User);
+        UserInternal other = await _factory.CreateAccount(UserRole.User);
+        var steamId = $"7656119{Random.Shared.NextInt64(minValue: 1_000_000_000, maxValue: 9_999_999_999)}";
+        (await Import(Input(owner.Login, steamId))).Code.ShouldBe(0);
+        using HttpClient client = await _factory.SignIn(owner);
+        using HttpClient stranger = await _factory.SignIn(other);
+        var id = (await client.GetFromJsonAsync<JsonArray>("/api/exchange-credentials"))!.Single()!["id"]!.GetValue<Guid>();
+        var path = $"/api/exchange-credentials/{id}/protection";
+
+        (await client.GetFromJsonAsync<JsonNode>(path))!["open"]!.GetValue<bool>().ShouldBeFalse();
+
+        await using (var connection = new NpgsqlConnection(TestDatabase.ConnectionString))
+        {
+            await connection.ExecuteAsync("INSERT INTO steam_account_protection (credential_id, reason, opened_at) VALUES (@id, 'Captcha', now())", new { id });
+        }
+
+        var open = (await client.GetFromJsonAsync<JsonNode>(path))!;
+        open["open"]!.GetValue<bool>().ShouldBeTrue();
+        open["reason"]!.GetValue<string>().ShouldBe("Captcha");
+        open["automaticResumeAt"].ShouldBeNull();
+        (await stranger.GetAsync(path)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await stranger.PostAsync($"{path}/resume", content: null)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        (await client.PostAsync($"{path}/resume", content: null)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (await client.GetFromJsonAsync<JsonNode>(path))!["open"]!.GetValue<bool>().ShouldBeFalse();
     }
 
     [Test]

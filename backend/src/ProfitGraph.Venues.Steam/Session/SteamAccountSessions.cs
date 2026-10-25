@@ -3,6 +3,8 @@ using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
+using ProfitGraph.Venues.Steam.Protection;
+
 namespace ProfitGraph.Venues.Steam.Session;
 
 /// <summary>
@@ -12,6 +14,7 @@ namespace ProfitGraph.Venues.Steam.Session;
 internal sealed class SteamAccountSessions(
     SteamHttpTransport transport,
     SteamRequestScheduler scheduler,
+    SteamAccountProtection protection,
     IServiceScopeFactory scopes,
     IOptions<SteamOptions> options,
     TimeProvider clock)
@@ -20,7 +23,9 @@ internal sealed class SteamAccountSessions(
 
     public SteamAccountSession For(Guid ownerId, Guid credentialId)
     {
-        SteamAccountSession session = _sessions.GetOrAdd(credentialId, id => new SteamAccountSession(ownerId, id, transport, scheduler, scopes, options, clock));
+        SteamAccountSession session = _sessions.GetOrAdd(
+            credentialId,
+            id => new SteamAccountSession(ownerId, id, transport, scheduler, protection, scopes, options, clock));
 
         return session.OwnerId == ownerId ? session : throw new InvalidOperationException("The Steam credential belongs to another user.");
     }

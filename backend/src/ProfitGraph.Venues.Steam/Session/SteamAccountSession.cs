@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.ReadExchangeCredentialSecrets;
 using ProfitGraph.Venues.Steam.Accounts;
+using ProfitGraph.Venues.Steam.Protection;
 
 namespace ProfitGraph.Venues.Steam.Session;
 
@@ -26,6 +27,7 @@ internal sealed class SteamAccountSession(
     Guid credentialId,
     SteamHttpTransport transport,
     SteamRequestScheduler scheduler,
+    SteamAccountProtection protection,
     IServiceScopeFactory scopes,
     IOptions<SteamOptions> options,
     TimeProvider clock)
@@ -78,11 +80,32 @@ internal sealed class SteamAccountSession(
     }
 
     /// <summary>
-    ///     Every physical request of this account goes through its queue.
+    ///     Every physical request of this account goes through its queue. A successful sign-in says nothing about the
+    ///     account's market access, so only a failed one counts for the protection.
     /// </summary>
-    private Task<SteamRequestResult> Send(SteamHttpRequest request, string? cookies, CancellationToken cancellationToken)
+    private Task<SteamRequestResult> Send(SteamHttpRequest request, string? cookies, CancellationToken cancellationToken, bool signIn = false)
     {
-        return scheduler.Execute(credentialId, request, token => transport.Send(request, cookies, token), cancellationToken);
+        return scheduler.Execute(
+            credentialId,
+            request,
+            async token =>
+            {
+                // Read at the moment of sending, so a request queued before the protection opened is held back too.
+                if (await protection.Holds(credentialId, token))
+                {
+                    return new SteamRequestResult(SteamRequestOutcome.NotSent);
+                }
+
+                SteamRequestResult result = await transport.Send(request, cookies, token);
+
+                if (!signIn || result.Outcome != SteamRequestOutcome.Success)
+                {
+                    await protection.Observe(credentialId, result.Outcome, token);
+                }
+
+                return result;
+            },
+            cancellationToken);
     }
 
     private static SteamHttpRequest WithSessionId(SteamHttpRequest request, SteamSessionSnapshot session)
@@ -168,7 +191,8 @@ internal sealed class SteamAccountSession(
             await Send(
                 new SteamHttpRequest(SteamEndpoint.Login, "/jwt/finalizelogin", finalize, IsRead: false, Multipart: true, SteamRequestClass.Status),
                 cookies: null,
-                cancellationToken));
+                cancellationToken,
+                signIn: true));
 
         try
         {
@@ -201,7 +225,8 @@ internal sealed class SteamAccountSession(
                 await Send(
                     new SteamHttpRequest(SteamEndpoint.Community, destination.PathAndQuery, values, IsRead: false, Multipart: true, SteamRequestClass.Status),
                     cookies: null,
-                    cancellationToken));
+                    cancellationToken,
+                    signIn: true));
             var cookies = new Dictionary<string, string>(StringComparer.Ordinal);
 
             foreach (string header in transferred.SetCookies)

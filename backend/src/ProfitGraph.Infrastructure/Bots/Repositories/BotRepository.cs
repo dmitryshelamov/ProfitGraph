@@ -71,6 +71,14 @@ internal sealed class BotRepository(NpgsqlConnection connection, PostgresTransac
         return [.. ids.Select(id => new BotId(id))];
     }
 
+    public async Task<IReadOnlyList<BotId>> ListDesiredRunningOnCredential(ExchangeCredentialId credentialId, CancellationToken cancellationToken)
+    {
+        IEnumerable<Guid> ids =
+            await connection.QueryAsync<Guid>(Command(BotQueries.ListDesiredRunningOnCredential, new { credentialId = credentialId.Value }, cancellationToken));
+
+        return [.. ids.Select(id => new BotId(id))];
+    }
+
     public Task<bool> AnyUsesCredential(ExchangeCredentialId credentialId, CancellationToken cancellationToken)
     {
         return connection.ExecuteScalarAsync<bool>(Command(BotQueries.AnyUsesCredential, new { credentialId = credentialId.Value }, cancellationToken));
