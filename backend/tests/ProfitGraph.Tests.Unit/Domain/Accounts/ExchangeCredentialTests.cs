@@ -21,8 +21,7 @@ public sealed class ExchangeCredentialTests
             new VenueId("bybit"),
             new ExchangeCredentialLabel("  main key  "),
             ApiKeyLast4.Of("test-api-key-not-real"),
-            key,
-            secret,
+            Secrets(key, secret),
             Created);
 
         credential.ShouldSatisfyAllConditions(
@@ -31,8 +30,9 @@ public sealed class ExchangeCredentialTests
             () => credential.Venue.ShouldBe(new VenueId("bybit")),
             () => credential.Label.Value.ShouldBe("main key"),
             () => credential.ApiKeyLast4.Value.ShouldBe("real"),
-            () => credential.ApiKey.ShouldBeSameAs(key),
-            () => credential.ApiSecret.ShouldBeSameAs(secret),
+            () => credential.Secrets.Keys.ShouldBe(["apiKey", "apiSecret"]),
+            () => credential.Secrets["apiKey"].ShouldBeSameAs(key),
+            () => credential.Secrets["apiSecret"].ShouldBeSameAs(secret),
             () => credential.CreatedAt.ShouldBe(Created));
     }
 
@@ -55,8 +55,51 @@ public sealed class ExchangeCredentialTests
             venue: default,
             new ExchangeCredentialLabel("main"),
             new ApiKeyLast4("abcd"),
-            Secret(0x01),
-            Secret(0x02),
+            Secrets(Secret(0x01), Secret(0x02)),
+            Created));
+    }
+
+    [Test]
+    public void KeepsAnyNamedFieldsTheVenueDeclares()
+    {
+        var credential = ExchangeCredential.Create(
+            ExchangeCredentialId.New(),
+            UserId.New(),
+            new VenueId("other"),
+            new ExchangeCredentialLabel("account"),
+            new ApiKeyLast4("1234"),
+            new Dictionary<string, EncryptedSecret> { ["sharedSecret"] = Secret(0x03), ["identity2"] = Secret(0x04) },
+            Created);
+
+        credential.Secrets.Keys.ShouldBe(["identity2", "sharedSecret"]);
+    }
+
+    [TestCase("")]
+    [TestCase("api key")]
+    [TestCase("api-key")]
+    [TestCase("abcdefghijklmnopqrstuvwxyz0123456")]
+    public void FieldNamesAreShortAsciiWords(string field)
+    {
+        Should.Throw<ArgumentException>(() => ExchangeCredential.Create(
+            ExchangeCredentialId.New(),
+            UserId.New(),
+            new VenueId("other"),
+            new ExchangeCredentialLabel("account"),
+            new ApiKeyLast4("1234"),
+            new Dictionary<string, EncryptedSecret> { [field] = Secret(0x03) },
+            Created));
+    }
+
+    [Test]
+    public void ACredentialHasAtLeastOneValue()
+    {
+        Should.Throw<ArgumentException>(() => ExchangeCredential.Create(
+            ExchangeCredentialId.New(),
+            UserId.New(),
+            new VenueId("other"),
+            new ExchangeCredentialLabel("account"),
+            new ApiKeyLast4("1234"),
+            new Dictionary<string, EncryptedSecret>(),
             Created));
     }
 
@@ -120,9 +163,13 @@ public sealed class ExchangeCredentialTests
             new VenueId("bybit"),
             new ExchangeCredentialLabel("main"),
             new ApiKeyLast4("abcd"),
-            Secret(0x01),
-            Secret(0x02),
+            Secrets(Secret(0x01), Secret(0x02)),
             Created);
+    }
+
+    private static Dictionary<string, EncryptedSecret> Secrets(EncryptedSecret key, EncryptedSecret secret)
+    {
+        return new Dictionary<string, EncryptedSecret> { ["apiSecret"] = secret, ["apiKey"] = key };
     }
 
     private static EncryptedSecret Secret(byte fill)

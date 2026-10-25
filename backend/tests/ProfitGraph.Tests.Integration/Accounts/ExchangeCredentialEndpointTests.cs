@@ -70,10 +70,13 @@ public sealed class ExchangeCredentialEndpointTests
         JsonDocument.Parse(await secondClient.GetStringAsync(Path)).RootElement.GetArrayLength().ShouldBe(0);
 
         await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
-        var row = await connection.QuerySingleAsync<(Guid UserId, byte[] Key, byte[] Secret)>(
-            "SELECT user_id, api_key_ciphertext, api_secret_ciphertext FROM exchange_credentials WHERE id = @id",
+        var row = await connection.QuerySingleAsync<(Guid UserId, string Secrets, byte[] Key, byte[] Secret)>(
+            "SELECT user_id, secrets::text, decode(secrets -> 'apiKey' ->> 'ciphertext', 'base64'), " +
+            "decode(secrets -> 'apiSecret' ->> 'ciphertext', 'base64') FROM exchange_credentials WHERE id = @id",
             new { id });
         row.UserId.ShouldBe(first.Id);
+        row.Secrets.ShouldNotContain(ApiKey);
+        row.Secrets.ShouldNotContain(ApiSecret);
         Encoding.UTF8.GetString(row.Key).ShouldNotContain(ApiKey);
         Encoding.UTF8.GetString(row.Secret).ShouldNotContain(ApiSecret);
     }
@@ -120,6 +123,7 @@ public sealed class ExchangeCredentialEndpointTests
     [TestCase("bybit", "main", "abc", ApiSecret, "invalid_api_key")]
     [TestCase("bybit", "main", "key with spaces", ApiSecret, "invalid_api_key")]
     [TestCase("bybit", "main", ApiKey, "", "invalid_api_secret")]
+    [TestCase("steam", "main", ApiKey, ApiSecret, "credential_input_unsupported")]
     public async Task InvalidInputIsRejectedWithoutEchoingIt(string? venue, string label, string apiKey, string apiSecret, string code)
     {
         using HttpClient client = await _factory.CreateSignedInClient();

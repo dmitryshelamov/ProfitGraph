@@ -1,5 +1,6 @@
 using FluentValidation;
 
+using ProfitGraph.Application.Accounts.Ports;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Domain.Accounts;
 
@@ -12,12 +13,16 @@ internal sealed class CreateExchangeCredentialCommandValidator : AbstractValidat
 {
     private const int MaxSecretLength = 512;
 
-    public CreateExchangeCredentialCommandValidator(VenueRegistry venues)
+    public CreateExchangeCredentialCommandValidator(VenueRegistry venues, VenuePorts<IVenueCredentialSchema> schemas)
     {
         RuleFor(command => command.Venue)
             .Must(venue => venues.Find(venue) is not null)
             .WithErrorCode("unknown_venue")
-            .WithMessage("The venue is not registered.");
+            .WithMessage("The venue is not registered.")
+            .DependentRules(() => RuleFor(command => command.Venue)
+                .Must(venue => schemas.Find(venues.Find(venue)!.Id)?.Fields is [ExchangeCredentialFields.ApiKey, ExchangeCredentialFields.ApiSecret])
+                .WithErrorCode(ExchangeCredentialErrorCodes.InputUnsupported)
+                .WithMessage("The venue's credentials are not entered as an API key and secret."));
         RuleFor(command => command.Label)
             .Must(label => label?.Trim() is { Length: > 0 and <= ExchangeCredentialLabel.MaxLength })
             .WithErrorCode(AccountRuleException.InvalidCredentialLabel)

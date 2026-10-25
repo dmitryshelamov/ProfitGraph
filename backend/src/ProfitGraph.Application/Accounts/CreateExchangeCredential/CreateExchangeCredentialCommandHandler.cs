@@ -22,8 +22,11 @@ internal sealed class CreateExchangeCredentialCommandHandler(IExchangeCredential
             new VenueId(command.Venue!),
             new ExchangeCredentialLabel(command.Label),
             ApiKeyLast4.Of(apiKey),
-            protector.Encrypt(id, ownerId, ExchangeCredentialFields.ApiKey, apiKey),
-            protector.Encrypt(id, ownerId, ExchangeCredentialFields.ApiSecret, command.ApiSecret!.Trim()),
+            new Dictionary<string, EncryptedSecret>(StringComparer.Ordinal)
+            {
+                [ExchangeCredentialFields.ApiKey] = protector.Encrypt(id, ownerId, ExchangeCredentialFields.ApiKey, apiKey),
+                [ExchangeCredentialFields.ApiSecret] = protector.Encrypt(id, ownerId, ExchangeCredentialFields.ApiSecret, command.ApiSecret!.Trim())
+            },
             clock.GetUtcNow());
         await credentials.Add(credential, cancellationToken);
 

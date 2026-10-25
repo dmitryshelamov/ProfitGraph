@@ -20,6 +20,13 @@ namespace ProfitGraph.Tests.Integration.Bots;
 /// </summary>
 internal static class BotSeed
 {
+    /// <summary>
+    ///     Invented encrypted values that no key decrypts.
+    /// </summary>
+    internal const string InventedSecrets = """
+                                            {"apiKey":{"keyId":"test","nonce":"AAAAAAAAAAAAAAAA","ciphertext":"AQ==","tag":"AAAAAAAAAAAAAAAAAAAAAA=="},"apiSecret":{"keyId":"test","nonce":"AAAAAAAAAAAAAAAA","ciphertext":"AQ==","tag":"AAAAAAAAAAAAAAAAAAAAAA=="}}
+                                            """;
+
     internal static readonly DateTimeOffset Now = new DateTimeOffset(year: 2026, month: 10, day: 25, hour: 12, minute: 0, second: 0, TimeSpan.Zero);
 
     internal static async Task<Bot> NewBot()
@@ -35,10 +42,8 @@ internal static class BotSeed
                  VALUES (@owner, 'bot-owner-' || @owner, 'not-a-real-hash', 'User', 'Active', @now, @now);
                  INSERT INTO strategies (id, owner_id, name, current_version, created_at, updated_at) VALUES (@strategy, @owner, 'bot strategy', 1, @now, @now);
                  INSERT INTO strategy_versions (id, strategy_id, version_number, snapshot_json, created_at) VALUES (@version, @strategy, 1, '{}', @now);
-                 INSERT INTO exchange_credentials (
-                     id, user_id, venue, label, api_key_last4, api_key_key_id, api_key_nonce, api_key_ciphertext, api_key_tag,
-                     api_secret_key_id, api_secret_nonce, api_secret_ciphertext, api_secret_tag, created_at)
-                 VALUES (@credential, @owner, 'bybit', 'invented', 'abcd', 'test', @nonce, @cipher, @tag, 'test', @nonce, @cipher, @tag, @now);
+                 INSERT INTO exchange_credentials (id, user_id, venue, label, api_key_last4, secrets, created_at)
+                 VALUES (@credential, @owner, 'bybit', 'invented', 'abcd', CAST(@secrets AS jsonb), @now);
                  """,
             new
             {
@@ -47,9 +52,7 @@ internal static class BotSeed
                 version = version.Value,
                 credential = credential.Value,
                 now = Now,
-                nonce = new byte[12],
-                cipher = new byte[] { 1 },
-                tag = new byte[16]
+                secrets = InventedSecrets
             });
 
         return Bot.Create(
