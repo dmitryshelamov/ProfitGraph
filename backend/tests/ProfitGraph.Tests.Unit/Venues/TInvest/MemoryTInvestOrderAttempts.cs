@@ -58,9 +58,29 @@ internal sealed class MemoryTInvestOrderAttempts : ITInvestOrderAttempts
                 return Task.FromResult(false);
             }
 
-            _rows[next.RequestId] = current with { State = next.State, ExchangeOrderId = next.ExchangeOrderId, BrokerCode = next.BrokerCode, UpdatedAt = next.UpdatedAt };
+            _rows[next.RequestId] = current with
+            {
+                State = next.State,
+                ExchangeOrderId = next.ExchangeOrderId,
+                BrokerCode = next.BrokerCode,
+                Price = next.Price,
+                WaitingCode = next.WaitingCode,
+                BandLow = next.BandLow,
+                BandHigh = next.BandHigh,
+                UpdatedAt = next.UpdatedAt
+            };
 
             return Task.FromResult(true);
+        }
+    }
+
+    public Task<IReadOnlyList<TInvestOrderAttempt>> Waiting(CancellationToken cancellationToken)
+    {
+        lock (_rows)
+        {
+            IReadOnlyList<TInvestOrderAttempt> waiting = [.. _rows.Values.Where(row => row.WaitingCode is not null).OrderBy(row => row.EngineOrderId)];
+
+            return Task.FromResult(waiting);
         }
     }
 

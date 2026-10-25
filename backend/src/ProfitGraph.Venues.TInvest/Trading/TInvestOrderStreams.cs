@@ -54,6 +54,14 @@ internal sealed class TInvestOrderStreams(
         }
     }
 
+    /// <summary>
+    ///     Whether the bot's runner in this process reconciled and reads its updates now.
+    /// </summary>
+    public bool IsOpen(BotId botId)
+    {
+        return _streams.ContainsKey(botId);
+    }
+
     public async Task Close(BotId botId)
     {
         if (_streams.TryRemove(botId, out TInvestOrderStream? stream))

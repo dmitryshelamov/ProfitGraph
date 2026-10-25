@@ -231,5 +231,8 @@ gateway amend it in later stage 5 pull requests.
   (`OrderWaitingEnded`); a new reason for the same order ends the current wait and then starts a new one, while new
   details of the same reason and repeated reports are not reported. A root whose checkpoint no longer has the order
   working (filled, cancelled or rejected) ends its wait, whatever the venue reported.
+- A module that holds an order locally asks `AuthorizeWaitingReleaseCommand` right before it sends that order later
+  outside a runner turn. It answers with the gates of a place start: the bot should run and is healthy, no trading halt,
+  and a live lease with an open submit gate. The lease and the bot are read under their locks in one transaction.
 - `GET /api/bots/{id}/waiting-orders` lists them for the owner; the bot page shows them with fixed texts such as
   «Ждёт ценового коридора (коридор 90–110)» or «Перенос на следующую торговую сессию».

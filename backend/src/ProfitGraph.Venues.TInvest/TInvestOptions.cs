@@ -48,9 +48,15 @@ public sealed class TInvestOptions
     /// </summary>
     public decimal MarketBuySlippage { get; init; } = 0.01m;
 
+    /// <summary>
+    ///     How often the trading status and the price band of locally waiting orders are read again (ADR 0023).
+    /// </summary>
+    public TimeSpan WaitingRecheckInterval { get; init; } = TimeSpan.FromSeconds(30);
+
     internal bool IsValid()
     {
         if (RequestTimeout <= TimeSpan.Zero || CandleCloseGrace < TimeSpan.Zero || CommissionProbeNotional <= 0m || MarketBuySlippage is < 0m or >= 0.2m ||
+            WaitingRecheckInterval <= TimeSpan.Zero ||
             !Limits.IsValid() || !History.IsValid() ||
             string.IsNullOrWhiteSpace(AppName) ||
             string.IsNullOrWhiteSpace(TrustedRootsPath))

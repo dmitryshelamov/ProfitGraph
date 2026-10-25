@@ -29,4 +29,10 @@ internal sealed class TInvestOrderAttemptDb
     public DateTime CreatedAt { get; init; }
 
     public DateTime UpdatedAt { get; init; }
+
+    public string? WaitingCode { get; init; }
+
+    public decimal? BandLow { get; init; }
+
+    public decimal? BandHigh { get; init; }
 }

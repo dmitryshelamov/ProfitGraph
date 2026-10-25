@@ -2,6 +2,7 @@ using Dapper;
 
 using Npgsql;
 
+using ProfitGraph.Domain.Bots;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Venues.TInvest.Persistence.Repositories.Contracts;
 using ProfitGraph.Venues.TInvest.Persistence.Repositories.Queries;
@@ -49,10 +50,23 @@ internal sealed class TInvestOrderAttemptRepository(NpgsqlDataSource dataSource)
                     State = next.State.ToString(),
                     next.ExchangeOrderId,
                     next.BrokerCode,
+                    next.Price,
+                    WaitingCode = next.WaitingCode?.ToString(),
+                    next.BandLow,
+                    next.BandHigh,
                     next.UpdatedAt,
                     Expected = expected.ToString()
                 },
                 cancellationToken: cancellationToken)) == 1;
+    }
+
+    public async Task<IReadOnlyList<TInvestOrderAttempt>> Waiting(CancellationToken cancellationToken)
+    {
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        IEnumerable<TInvestOrderAttemptDb> rows = await connection.QueryAsync<TInvestOrderAttemptDb>(
+            new CommandDefinition(TInvestOrderAttemptQueries.Waiting, cancellationToken: cancellationToken));
+
+        return [.. rows.Select(ToAttempt)];
     }
 
     public async Task<IReadOnlyDictionary<Guid, Guid>> Owners(IReadOnlyCollection<Guid> requestIds, CancellationToken cancellationToken)
@@ -86,7 +100,10 @@ internal sealed class TInvestOrderAttemptRepository(NpgsqlDataSource dataSource)
             ExchangeOrderId = attempt.ExchangeOrderId,
             BrokerCode = attempt.BrokerCode,
             CreatedAt = attempt.CreatedAt.UtcDateTime,
-            UpdatedAt = attempt.UpdatedAt.UtcDateTime
+            UpdatedAt = attempt.UpdatedAt.UtcDateTime,
+            WaitingCode = attempt.WaitingCode?.ToString(),
+            BandLow = attempt.BandLow,
+            BandHigh = attempt.BandHigh
         };
     }
 
@@ -106,6 +123,9 @@ internal sealed class TInvestOrderAttemptRepository(NpgsqlDataSource dataSource)
             row.ExchangeOrderId,
             row.BrokerCode,
             new DateTimeOffset(DateTime.SpecifyKind(row.CreatedAt, DateTimeKind.Utc)),
-            new DateTimeOffset(DateTime.SpecifyKind(row.UpdatedAt, DateTimeKind.Utc)));
+            new DateTimeOffset(DateTime.SpecifyKind(row.UpdatedAt, DateTimeKind.Utc)),
+            row.WaitingCode is null ? null : Enum.Parse<OrderWaitingCode>(row.WaitingCode),
+            row.BandLow,
+            row.BandHigh);
     }
 }
