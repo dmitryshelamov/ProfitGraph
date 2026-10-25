@@ -21,6 +21,7 @@ const reasonLabels: Record<BotStatusReason, string> = {
   UnsupportedFeeAsset: 'комиссия в неподдерживаемой валюте',
   InsufficientBalance: 'недостаточно средств',
   HistoryDataCorrection: 'история свечей исправлена',
+  VenueAccountProtection: 'аккаунт площадки под защитой, сначала проверьте его',
   Killed: 'аварийная остановка',
   DailyLossLimit: 'достигнут дневной лимит убытка',
 };

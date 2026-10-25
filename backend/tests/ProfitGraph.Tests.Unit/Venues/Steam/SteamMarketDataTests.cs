@@ -85,6 +85,7 @@ public sealed class SteamMarketDataTests
 
     [TestCase("dreams", "730")]
     [TestCase("570: arcana", "570")]
+    [TestCase("KZT:570:arcana", "570")]
     public async Task SearchFindsItemsInTheWalletsCurrency(string query, string appId)
     {
         var harness = new SteamSessionHarness();

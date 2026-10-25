@@ -1,8 +1,8 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { type FormEvent, type ReactElement, type ReactNode, useState } from 'react';
 
 import type { BackgroundJob } from '@/modules/jobs';
-import { SeriesFields } from '@/modules/market-data';
+import { SeriesFields, type SeriesSelection, venuesQuery } from '@/modules/market-data';
 import { isPercentageParameter, parameterReadableName, type Strategy } from '@/modules/strategies';
 import { ApiErrorMessage } from '@/shared/ui/ApiErrorMessage';
 import { Button } from '@/shared/ui/Button';
@@ -17,6 +17,7 @@ import {
   type BacktestSetupField,
   backtestSetupRequest,
   type BacktestSetupValues,
+  withVenueDefaults,
 } from '../model/backtestSetup';
 
 function Checked({
@@ -56,13 +57,49 @@ export function BacktestSetupForm({
   );
   const [errors, setErrors] = useState<BacktestSetupErrors>({});
   const start = useMutation({ mutationFn: startBacktest, onSuccess: onStarted });
+  const venues = useQuery(venuesQuery());
 
   function set<K extends keyof BacktestSetupValues>(key: K, value: BacktestSetupValues[K]) {
     setValues((current) => ({ ...current, [key]: value }));
   }
 
+  /** A new venue brings its own fees and hold; the rest of the form stays. */
+  function setSeries(series: SeriesSelection) {
+    setValues((current) =>
+      current.series.venue === series.venue
+        ? { ...current, series }
+        : withVenueDefaults(
+            { ...current, series },
+            venues.data?.find((venue) => venue.id === series.venue),
+          ),
+    );
+  }
+
+  function sellerFeeField(index: number, label: string) {
+    const field = `sellerFeePercents.${index}` as const;
+    const fees = values.sellerFees!;
+
+    return (
+      <Checked key={field} label={label} error={errors[field]}>
+        <Input
+          inputMode="decimal"
+          value={fees.percents[index] ?? ''}
+          aria-invalid={errors[field] ? true : undefined}
+          onChange={(event) =>
+            set('sellerFees', {
+              ...fees,
+              percents: fees.percents.map((percent, position) =>
+                position === index ? event.target.value : percent,
+              ),
+            })
+          }
+        />
+      </Checked>
+    );
+  }
+
   function text(
-    field: Exclude<BacktestSetupField, `parameters.${string}`>,
+    field: Exclude<BacktestSetupField, `parameters.${string}` | `sellerFeePercents.${number}` | 'sellerFeeMinimum' | 'holdDays'>,
     label: ReactNode,
     inputMode: 'decimal' | undefined = 'decimal',
   ) {
@@ -102,7 +139,7 @@ export function BacktestSetupForm({
     <form className="space-y-6" aria-label="Настройка прогона" onSubmit={submit} noValidate>
       <Card title="Рынок и период">
         <div className="space-y-4">
-          <SeriesFields value={values.series} onChange={(series) => set('series', series)} />
+          <SeriesFields value={values.series} onChange={setSeries} />
           <div className="grid gap-4 sm:grid-cols-2">
             {text('from', 'С (UTC), пусто — с начала истории', undefined)}
             {text('to', 'По (UTC), пусто — до последней закрытой свечи', undefined)}
@@ -113,8 +150,38 @@ export function BacktestSetupForm({
         <div className="grid gap-4 sm:grid-cols-2">
           {text('startingCapital', 'Начальный капитал, в валюте котировки')}
           {text('slippagePercent', 'Проскальзывание рыночных ордеров, %')}
-          {text('limitFeePercent', 'Комиссия лимитных ордеров, %')}
-          {text('marketFeePercent', 'Комиссия рыночных ордеров, %')}
+          {values.sellerFees ? (
+            <>
+              {values.sellerFees.percents.map((_, index) =>
+                sellerFeeField(index, `Комиссия продавца, часть ${index + 1}, % с единицы`),
+              )}
+              <Checked label="Минимум каждой части комиссии" error={errors.sellerFeeMinimum}>
+                <Input
+                  inputMode="decimal"
+                  value={values.sellerFees.minimum}
+                  aria-invalid={errors.sellerFeeMinimum ? true : undefined}
+                  onChange={(event) =>
+                    set('sellerFees', { ...values.sellerFees!, minimum: event.target.value })
+                  }
+                />
+              </Checked>
+            </>
+          ) : (
+            <>
+              {text('limitFeePercent', 'Комиссия лимитных ордеров, %')}
+              {text('marketFeePercent', 'Комиссия рыночных ордеров, %')}
+            </>
+          )}
+          {values.holdDays === null ? null : (
+            <Checked label="Продажа купленного не раньше чем через, дней" error={errors.holdDays}>
+              <Input
+                inputMode="numeric"
+                value={values.holdDays}
+                aria-invalid={errors.holdDays ? true : undefined}
+                onChange={(event) => set('holdDays', event.target.value)}
+              />
+            </Checked>
+          )}
           {text('holdoutPercent', 'Отложенная выборка в конце периода, %')}
         </div>
       </Card>

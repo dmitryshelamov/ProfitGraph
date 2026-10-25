@@ -45,6 +45,8 @@ export const queuedRun: Schemas['BacktestRunResponse'] = {
     marketFeeRate: '0.001',
     outOfSampleFraction: '0.25',
     warmupCandles: 50,
+    sellerFees: null,
+    settlementHoldSeconds: null,
   },
   stage: null,
   history: null,

@@ -12,6 +12,11 @@ function percent(fraction: string): string {
   return `${fractionToPercent(fraction) ?? fraction}%`;
 }
 
+/** A settlement hold in whole days when it is one, otherwise in hours. */
+function holdLabel(seconds: number): string {
+  return seconds % 86_400 === 0 ? `${seconds / 86_400} дн.` : `${Math.round(seconds / 3_600)} ч`;
+}
+
 /** What the run froze when it started, and the history it was given. */
 export function RunConfiguration({ run }: { run: BacktestRun }) {
   const configuration = run.configuration;
@@ -37,8 +42,13 @@ export function RunConfiguration({ run }: { run: BacktestRun }) {
     ['Начальный капитал', configuration.startingCapital],
     [
       'Комиссии',
-      `лимитные ${percent(configuration.limitFeeRate)}, рыночные ${percent(configuration.marketFeeRate)}`,
+      configuration.sellerFees
+        ? `продавец платит ${configuration.sellerFees.rates.map(percent).join(' + ')} с каждой единицы, не меньше ${configuration.sellerFees.minimum} за часть`
+        : `лимитные ${percent(configuration.limitFeeRate)}, рыночные ${percent(configuration.marketFeeRate)}`,
     ],
+    ...(configuration.settlementHoldSeconds === null
+      ? []
+      : [['Задержка продажи купленного', holdLabel(configuration.settlementHoldSeconds)] as [string, ReactNode]]),
     ['Проскальзывание', percent(configuration.slippage)],
     ['Отложенная выборка', percent(configuration.outOfSampleFraction)],
     ...Object.entries(configuration.parameters).map(([name, value]): [string, ReactNode] => [

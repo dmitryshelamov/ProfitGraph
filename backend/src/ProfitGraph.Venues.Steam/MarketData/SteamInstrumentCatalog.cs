@@ -13,7 +13,8 @@ namespace ProfitGraph.Venues.Steam.MarketData;
 
 /// <summary>
 ///     Finds Steam items with the market search (<c>/market/search/render/?norender=1</c>) as the market-data account sees
-///     them, priced in its wallet currency. A query may start with an App ID and a colon (<c>570:arcana</c>); otherwise
+///     them, priced in its wallet currency. A query may start with a currency and an App ID (<c>KZT:570:arcana</c>, the
+///     currency is ignored) or with an App ID (<c>570:arcana</c>); otherwise
 ///     <see cref="SteamOptions.DefaultAppId" /> is searched. An empty query lists the app's most traded items.
 /// </summary>
 internal sealed class SteamInstrumentCatalog(SteamMarketDataAccount account, IOptions<SteamOptions> options) : IInstrumentCatalog
@@ -44,6 +45,12 @@ internal sealed class SteamInstrumentCatalog(SteamMarketDataAccount account, IOp
 
     private (int AppId, string Text) Split(string query)
     {
+        // A query typed as a whole symbol starts with its currency, which the wallet decides anyway.
+        if (query.Length > 4 && query[3] == ':' && SteamCurrency.Find(query[..3]) is not null)
+        {
+            query = query[4..].Trim();
+        }
+
         int colon = query.IndexOf(value: ':', StringComparison.Ordinal);
 
         return colon > 0 && int.TryParse(query[..colon], NumberStyles.None, CultureInfo.InvariantCulture, out int appId) && appId > 0
