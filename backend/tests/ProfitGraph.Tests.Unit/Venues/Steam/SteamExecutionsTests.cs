@@ -159,6 +159,49 @@ public sealed class SteamExecutionsTests
     }
 
     [Test]
+    public async Task ARemovedListingIsReleasedAndItsCancelConfirmedOnceHistoryShowsTheItemBack()
+    {
+        _owned.Assets.Add(new SteamOwnedAsset(AppId: 730, "2", "1001", DateTimeOffset.UnixEpoch));
+        IOptions<SteamOptions> options = Options.Create(_harness.Options);
+        var settlement = new SteamSellSettlement(_journal, _updates, _waiting, _harness.Clock);
+        var sells = new SteamSells(_journal, _owned, _harness.Sessions(), new SteamListingClient(options), settlement, _updates, _waiting, _harness.Clock);
+        var confirmations = new SteamConfirmations(
+            _journal,
+            _harness.Sessions(),
+            new SteamConfirmationClient(_harness.Scopes()),
+            new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _waiting, _harness.Clock),
+            settlement,
+            _waiting,
+            _harness.Clock);
+        var order = new OrderSnapshot(
+            Id: 1,
+            Tag: null,
+            OrderSide.Sell,
+            OrderType.Limit,
+            Quantity: 1m,
+            LimitPrice: 100m,
+            QuoteBudget: null,
+            Reservation: 1m,
+            "node",
+            EligibleFromCandleIndex: 0,
+            OrderStatus.Active);
+        await sells.Submit(Account(), "pg-1", order, _ => Task.CompletedTask, CancellationToken.None);
+        await sells.Advance(SteamSessionHarness.Owner, SteamSessionHarness.Credential, CancellationToken.None);
+        await confirmations.Advance(SteamSessionHarness.Owner, SteamSessionHarness.Credential, CancellationToken.None);
+        await sells.Cancel(Account(), "pg-1", CancellationToken.None);
+        SteamAssetReservation removed = (await _journal.Reservations("pg-1", CancellationToken.None)).Single();
+        removed.State.ShouldBe(SteamReservationState.Removed);
+
+        _harness.Steam.History.Add(new MockSteamHistoryEvent(Type: 2, removed.ListingId!, Now(), "1001"));
+        await Advance();
+
+        (await _journal.Reservations("pg-1", CancellationToken.None)).Single().State.ShouldBe(SteamReservationState.Released);
+        (await Entry("pg-1")).Outcome.ShouldBe(SteamOrderOutcome.Cancelled);
+        (await _attributions.Of(SteamSessionHarness.Credential, CancellationToken.None)).ShouldHaveSingleItem().ClientOrderId.ShouldBe("pg-1");
+        (await Published()).ShouldContain(ExternalOrderUpdate.ConfirmCancel(orderId: 1));
+    }
+
+    [Test]
     public async Task TheBotOwnsWhatItBoughtWhileItIsInTheInventory()
     {
         await Buy(quantity: 2);
