@@ -7,6 +7,7 @@ using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Venues.Steam;
 using ProfitGraph.Venues.Steam.Orders;
 using ProfitGraph.Venues.Steam.Protection;
+using ProfitGraph.Venues.Steam.Trading;
 
 namespace ProfitGraph.Tests.Unit.Venues.Steam;
 
@@ -24,11 +25,13 @@ public sealed class SteamBuyOrdersTests
     private SteamSessionHarness _harness = null!;
     private InMemorySteamOrderJournal _journal = null!;
     private SteamOrderUpdates _updates = null!;
+    private SteamBotSettings _settings = null!;
 
     [SetUp]
     public void SetUp()
     {
-        _harness = new SteamSessionHarness { Options = Options(slippage: 0m) };
+        _harness = new SteamSessionHarness { Options = Options() };
+        _settings = SteamBotSettings.Defaults;
         _journal = new InMemorySteamOrderJournal();
         _updates = new SteamOrderUpdates();
     }
@@ -209,7 +212,7 @@ public sealed class SteamBuyOrdersTests
     [Test]
     public async Task AMarketBuyPaysTheLowestListingPlusSlippageAndCancelsItsRemainderAfterTheDeadline()
     {
-        _harness.Options = Options(slippage: 0.05m);
+        _settings = SteamBotSettings.Defaults with { MarketBuySlippage = 0.05m };
         SteamBuyOrders orders = Orders();
 
         await Submit(orders, "pg-1", Market(id: 1, budget: 1100m));
@@ -254,7 +257,7 @@ public sealed class SteamBuyOrdersTests
         _harness.Steam.Count(CreatePath).ShouldBe(0);
     }
 
-    private static SteamOptions Options(decimal slippage)
+    private static SteamOptions Options()
     {
         return new SteamOptions
         {
@@ -262,16 +265,15 @@ public sealed class SteamBuyOrdersTests
             CommunityBaseAddress = MockSteam.Community,
             LoginBaseAddress = MockSteam.Login,
             ApiBaseAddress = MockSteam.Api,
-            WriteSpacing = TimeSpan.Zero,
-            MarketBuySlippage = slippage
+            WriteSpacing = TimeSpan.Zero
         };
     }
 
-    private static SteamBotAccount Account()
+    private SteamBotAccount Account()
     {
         SteamInstrument.TryParse($"KZT:730:{Item}", out SteamInstrument? instrument).ShouldBeTrue();
 
-        return new SteamBotAccount(Bot, SteamSessionHarness.Owner, SteamSessionHarness.Credential, instrument);
+        return new SteamBotAccount(Bot, SteamSessionHarness.Owner, SteamSessionHarness.Credential, instrument, Settings: _settings);
     }
 
     private static OrderSnapshot Limit(long id, decimal quantity, decimal price)
@@ -310,7 +312,7 @@ public sealed class SteamBuyOrdersTests
     {
         IOptions<SteamOptions> options = Microsoft.Extensions.Options.Options.Create(_harness.Options);
 
-        return new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, options, _harness.Clock);
+        return new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _harness.Clock);
     }
 
     private Task<ExternalOrderUpdate?> Submit(SteamBuyOrders orders, string clientOrderId, OrderSnapshot order)

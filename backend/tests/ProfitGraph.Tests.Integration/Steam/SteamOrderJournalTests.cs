@@ -66,6 +66,7 @@ public sealed class SteamOrderJournalTests
         (await journal.Transition(second with { State = SteamOrderJournalState.Placing }, SteamOrderJournalState.Waiting, CancellationToken.None)).ShouldBeTrue();
 
         (await journal.Open(bot.CredentialId.Value, CancellationToken.None)).Select(entry => entry.ClientOrderId).ShouldBe([second.ClientOrderId]);
+        (await journal.OpenAccounts(CancellationToken.None)).ShouldContain((bot.CredentialId.Value, bot.Id.Value));
     }
 
     [Test]

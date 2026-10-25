@@ -66,6 +66,20 @@ internal sealed class InMemorySteamOrderJournal : ISteamOrderJournal
         }
     }
 
+    public Task<IReadOnlyList<(Guid CredentialId, Guid BotId)>> OpenAccounts(CancellationToken cancellationToken)
+    {
+        lock (_entries)
+        {
+            return Task.FromResult<IReadOnlyList<(Guid CredentialId, Guid BotId)>>(
+            [
+                .. _entries.Values
+                    .Where(entry => entry.State != SteamOrderJournalState.Done)
+                    .GroupBy(entry => entry.CredentialId)
+                    .Select(group => (group.Key, group.OrderBy(entry => entry.CreatedAt).First().BotId))
+            ]);
+        }
+    }
+
     public Task<bool> AddSell(SteamOrderJournalEntry entry, IReadOnlyList<SteamAssetReservation> reservations, CancellationToken cancellationToken)
     {
         lock (_entries)

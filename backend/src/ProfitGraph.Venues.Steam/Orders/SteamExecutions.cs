@@ -252,7 +252,7 @@ internal sealed class SteamExecutions(
     ///     The order's cumulative fill: items, what the buyers paid, and for a sale Steam's fees, the difference to what the
     ///     seller received. A buyer pays the listed price and no fee of its own.
     /// </summary>
-    private static ExternalOrderUpdate Fill(SteamOrderJournalEntry entry, IReadOnlyList<SteamMarketReceipt> receipts, SteamCurrency currency, bool final)
+    internal static ExternalOrderUpdate Fill(SteamOrderJournalEntry entry, IReadOnlyList<SteamMarketReceipt> receipts, SteamCurrency currency, bool final)
     {
         decimal items = receipts.Sum(receipt => receipt.Quantity);
         decimal buyers = receipts.Sum(receipt => receipt.BuyerPaysMinorUnits) * currency.MinorUnit;

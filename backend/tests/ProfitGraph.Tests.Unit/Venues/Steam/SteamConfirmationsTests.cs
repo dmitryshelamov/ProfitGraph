@@ -198,7 +198,7 @@ public sealed class SteamConfirmationsTests
     private (SteamBuyOrders Buys, SteamConfirmations Confirmations) Create()
     {
         IOptions<SteamOptions> options = Options.Create(_harness.Options);
-        var buys = new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, options, _harness.Clock);
+        var buys = new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _harness.Clock);
         IServiceScopeFactory scopes = _harness.Scopes();
 
         return (buys, new SteamConfirmations(

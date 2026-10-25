@@ -107,8 +107,9 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   cancelling, unknown) holds it. A request refused before it left the process (protection, queue deadline) goes back
   to waiting with the `RateLimited` code and is placed later. No Steam refusal code is confirmed as a rejection yet,
   so every refusal is `Unknown` until the owner lists a code (`DefiniteRejectionCodes`, empty by default, as in
-  Profit Fox Designer). A market buy reads the lowest listing from `priceoverview` in the item's currency and adds
-  `MarketBuySlippage` (default 0, at most 10%). A cancel is confirmed only when the order's counters show it inactive
+  Profit Fox Designer). A market buy reads the lowest listing from `priceoverview` in the item's currency and adds the
+  bot's `marketBuySlippage` (C9; default 0, at most 10%), and its remainder is cancelled after the bot's
+  `marketBuyDeadlineSeconds`. A cancel is confirmed only when the order's counters show it inactive
   with nothing bought; an order with purchases waits for its history receipts. A buy still awaiting its mobile
   confirmation cancels locally, and the confirmation worker approves only entries that wait.
 - **Mobile confirmations are part of placing.** A listing, and a buy that Steam answers with `need_confirmation`, are
@@ -150,10 +151,19 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   items are what its attributed buys bought and its cancelled listings returned, less what it sold, while they are in the
   inventory, with the inventory's unlock time. A
   foreign buy order or listing on the bot's item is `ForeignOrder` unless the bot allows foreign orders.
-- **Reconciliation.** `Reconcile` reads the account snapshot (wallet, buy orders, listings, inventory, history since the
-  cursor) and answers as ADR 0016 requires: updates of found orders, final states, and a safety reason. A credential
-  whose Guard state is not `Ready`, a wallet currency other than the symbol's, or an open account breaker answers
-  `KeyPermissions`.
+- **Reconciliation.** `Reconcile` answers as ADR 0016 requires: updates of found orders, final states, and a safety
+  reason. A credential whose Guard state is not `Ready`, or a wallet in another currency than the symbol, answers
+  `KeyPermissions`; an open account protection answers `VenueAccountProtection` (C7). A buy order of the account on the
+  bot's item that the journal does not know is `ForeignOrder` unless the bot allows foreign orders; listings are not
+  compared, since `mylistings` does not name the item and the bot lists only its own reserved items. The updates come
+  from the journal and its attributed receipts alone, so a reconnecting runner hears acceptance, proven fills and the
+  end of each order again; an order the journal never saw was never sent, and an entry or asset whose write may have
+  reached Steam without a clear answer is `UnresolvedOrder`.
+- **Gateway and worker.** A Worker with the live role and `Live:Trading:Enabled` registers `SteamOrderGateway` and the
+  order worker, which every `OrderWorkerInterval` (15 s) moves each account with open orders along: buy slots and
+  deadlines, unlocks and listings, confirmations, and fills from history. `Venues:Steam:Enabled` still holds back every
+  request. Imported accounts stay in Guard `Checking` until the eligibility check (W3.16) proves them `Ready`, so no
+  Steam bot trades before it.
 
 ### Account, session and request budget
 

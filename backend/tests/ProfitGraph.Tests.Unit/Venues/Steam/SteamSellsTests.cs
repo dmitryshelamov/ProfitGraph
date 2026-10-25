@@ -221,7 +221,7 @@ public sealed class SteamSellsTests
         IOptions<SteamOptions> options = Options.Create(_harness.Options);
         var settlement = new SteamSellSettlement(_journal, _updates, _harness.Clock);
         var sells = new SteamSells(_journal, _owned, _harness.Sessions(), new SteamListingClient(options), settlement, _updates, _harness.Clock);
-        var buys = new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, options, _harness.Clock);
+        var buys = new SteamBuyOrders(_journal, _harness.Sessions(), new SteamBuyOrderClient(options), _updates, new FakeSteamBotAccounts(Account), _harness.Clock);
 
         return (sells, new SteamConfirmations(_journal, _harness.Sessions(), new SteamConfirmationClient(_harness.Scopes()), buys, settlement, _harness.Clock));
     }

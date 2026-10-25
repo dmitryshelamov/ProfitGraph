@@ -19,6 +19,13 @@ internal static class SteamOrderJournalQueries
                                                        ORDER BY created_at, client_order_id
                                                        """;
 
+    internal const string OpenAccounts = """
+                                         SELECT DISTINCT ON (credential_id) credential_id AS CredentialId, bot_id AS BotId
+                                         FROM steam_order_journal
+                                         WHERE state <> 'Done'
+                                         ORDER BY credential_id, created_at
+                                         """;
+
     internal const string Add = """
                                 INSERT INTO steam_order_journal (
                                     client_order_id, bot_id, credential_id, engine_order_id, instrument, side, order_type, quantity,
