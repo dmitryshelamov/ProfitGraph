@@ -112,6 +112,30 @@ public sealed class SteamOptions
     /// </summary>
     public TimeSpan MarkPriceInterval { get; init; } = TimeSpan.FromMinutes(1);
 
+    /// <summary>
+    ///     Items per inventory page (Profit Fox read 2000) and the most pages read of one context; an inventory that does not
+    ///     end within them is incomplete, and nothing is listed from it.
+    /// </summary>
+    public int InventoryPageSize { get; init; } = 2000;
+
+    public int InventoryMaximumPages { get; init; } = 20;
+
+    /// <summary>
+    ///     Steam <c>success</c> codes the owner confirmed as a definite refusal of a market write. None is confirmed, so by
+    ///     default every refusal is unknown and waits for reconciliation (Profit Fox Designer kept the same list empty).
+    /// </summary>
+    public int[] DefiniteRejectionCodes { get; init; } = [];
+
+    /// <summary>
+    ///     How far above the lowest listing a market buy may pay, as a fraction; Profit Fox Designer paid the listing itself.
+    /// </summary>
+    public decimal MarketBuySlippage { get; init; }
+
+    /// <summary>
+    ///     How long a market buy's order stays on Steam before its remainder is cancelled.
+    /// </summary>
+    public TimeSpan MarketBuyDeadline { get; init; } = TimeSpan.FromMinutes(2);
+
     public bool IsValid()
     {
         (string Address, string Host)[] origins =
@@ -125,7 +149,9 @@ public sealed class SteamOptions
             InitialCooldown > TimeSpan.Zero && MaximumCooldown >= InitialCooldown && ReadRetries is >= 0 and <= 5 && ProtectionThreshold > 0 &&
             ProtectionErrorRatio is > 0 and <= 1 && ProtectionErrorSample > 0 && SoftResumeDelay > TimeSpan.Zero && SoftResumeLimit >= 0 &&
             SoftResumeWindow > TimeSpan.Zero && CandleCloseDelay >= TimeSpan.Zero && HistoryReuse >= TimeSpan.Zero && WalletReuse >= TimeSpan.Zero &&
-            DefaultAppId > 0 && MarkPriceInterval > TimeSpan.Zero;
+            DefaultAppId > 0 && MarkPriceInterval > TimeSpan.Zero && InventoryPageSize is > 0 and <= 5000 && InventoryMaximumPages > 0 &&
+            DefiniteRejectionCodes.All(code => code > 1) && MarketBuySlippage is >= 0m and <= 0.1m &&
+            MarketBuyDeadline > TimeSpan.Zero && MarketBuyDeadline <= TimeSpan.FromHours(1);
 
         return timings && origins.All(origin => Enabled
             ? IsAllowedOrigin(origin.Address, origin.Host)

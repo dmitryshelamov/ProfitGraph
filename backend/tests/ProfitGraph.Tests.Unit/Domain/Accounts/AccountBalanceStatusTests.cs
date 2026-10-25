@@ -49,8 +49,9 @@ public sealed class AccountBalanceStatusTests
             AccountSnapshotId.New(),
             ExchangeCredentialId.New(),
             Now.AddMinutes(7).AddSeconds(42),
-            totalValueUsd: 1m,
-            availableValueUsd: null,
+            totalValue: 1m,
+            "USD",
+            availableValue: null,
             []);
 
         snapshot.BucketStart.ShouldBe(Now.AddMinutes(5));

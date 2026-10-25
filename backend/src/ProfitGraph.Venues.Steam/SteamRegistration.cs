@@ -10,8 +10,10 @@ using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.Common.Operations;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Venues.Steam.Accounts;
+using ProfitGraph.Venues.Steam.Inventory;
 using ProfitGraph.Venues.Steam.LiveData;
 using ProfitGraph.Venues.Steam.MarketData;
+using ProfitGraph.Venues.Steam.Orders;
 using ProfitGraph.Venues.Steam.Persistence.Repositories;
 using ProfitGraph.Venues.Steam.Protection;
 using ProfitGraph.Venues.Steam.Session;
@@ -48,12 +50,18 @@ public static class SteamRegistration
         services.AddSingleton<IVenueAccountProtection>(provider => provider.GetRequiredService<SteamAccountProtection>());
         services.AddSingleton<SteamAccountSessions>();
         services.AddSingleton<SteamMarketDataAccount>();
+        services.AddSingleton<SteamInventoryReader>();
+        services.AddSingleton<ISteamOrderJournal, SteamOrderJournalRepository>();
+        services.AddSingleton<SteamBuyOrderClient>();
+        services.AddSingleton<SteamOrderUpdates>();
+        services.AddSingleton<SteamBuyOrders>();
         services.AddSingleton<IHistoricalCandleSource, SteamHistoricalCandleSource>();
         services.AddSingleton<IInstrumentRulesSource, SteamInstrumentRulesSource>();
         services.AddSingleton<IInstrumentCatalog, SteamInstrumentCatalog>();
         services.AddSingleton<ILiveCandleSource, SteamLiveCandleSource>();
         services.AddSingleton<ILiveMarkPriceSource, SteamLiveMarkPriceSource>();
         services.AddSingleton<IVenueFeeRateReader, SteamFeeRateReader>();
+        services.AddSingleton<IAccountBalanceReader, SteamAccountBalanceReader>();
         services.AddSingleton<IVenueBotSettings, SteamBotSettingsSchema>();
         services.AddOptions<SteamOptions>()
             .Bind(configuration.GetSection(SteamOptions.SectionName))

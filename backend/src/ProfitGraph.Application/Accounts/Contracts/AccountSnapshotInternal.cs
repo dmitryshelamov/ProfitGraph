@@ -2,6 +2,7 @@ namespace ProfitGraph.Application.Accounts.Contracts;
 
 public sealed record AccountSnapshotInternal(
     DateTimeOffset CapturedAt,
-    decimal TotalValueUsd,
-    decimal? AvailableValueUsd,
+    decimal TotalValue,
+    string ValueCurrency,
+    decimal? AvailableValue,
     IReadOnlyList<AccountCoinBalanceInternal> Coins);

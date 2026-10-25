@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -50,6 +51,21 @@ internal sealed class MockSteam : HttpMessageHandler
 
     public string OrderBook { get; set; } = """{"data":{"success":1,"data":{"eCurrency":37,"amtMaxBuyOrder":51234,"amtMinSellOrder":52000}}}""";
 
+    /// <summary>
+    ///     The item's lowest listing as <c>priceoverview</c> writes it, or null when nobody sells it.
+    /// </summary>
+    public string? LowestPrice { get; set; } = "520,00₸";
+
+    /// <summary>
+    ///     The account's buy orders by Steam ID; one active order per item, as Steam allows.
+    /// </summary>
+    public Dictionary<string, MockSteamBuyOrder> BuyOrders { get; } = new Dictionary<string, MockSteamBuyOrder>(StringComparer.Ordinal);
+
+    /// <summary>
+    ///     The form fields of the last <c>createbuyorder</c>.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> LastBuyForm { get; private set; } = new Dictionary<string, string>();
+
     public int Count(string path)
     {
         lock (_requests)
@@ -91,13 +107,79 @@ internal sealed class MockSteam : HttpMessageHandler
             ("community.steam.invalid", "/market/pricehistory/") => Json(PriceHistory),
             ("community.steam.invalid", "/market/search/render/") => Json(SearchResults),
             ("community.steam.invalid", "/market/orderbook") => Json(OrderBook),
+            ("community.steam.invalid", "/market/priceoverview/") => Json(
+                LowestPrice is null ? """{"success":true,"volume":"0"}""" : $$"""{"success":true,"lowest_price":"{{LowestPrice}}","volume":"12"}"""),
+            ("community.steam.invalid", "/market/createbuyorder/") => CreateBuyOrder(form),
+            ("community.steam.invalid", "/market/cancelbuyorder/") => CancelBuyOrder(form),
+            ("community.steam.invalid", "/market/getbuyorderstatus/") => BuyOrderStatus(request.RequestUri),
             _ => new HttpResponseMessage(HttpStatusCode.NotFound)
         };
+    }
+
+    private static Dictionary<string, string> Fields(string form)
+    {
+        return form.Split(separator: '&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(pair => pair.Split(separator: '=', count: 2))
+            .ToDictionary(
+                pair => Uri.UnescapeDataString(pair[0].Replace(oldChar: '+', newChar: ' ')),
+                pair => Uri.UnescapeDataString(pair[1].Replace(oldChar: '+', newChar: ' ')));
     }
 
     private static HttpResponseMessage Json(string body)
     {
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+    }
+
+    private HttpResponseMessage CreateBuyOrder(string form)
+    {
+        Dictionary<string, string> fields = Fields(form);
+
+        lock (BuyOrders)
+        {
+            LastBuyForm = fields;
+            string name = fields["market_hash_name"];
+
+            if (BuyOrders.Values.Any(order => order.Active && order.MarketHashName == name))
+            {
+                return Json("""{"success":29}""");
+            }
+
+            var id = (9000 + BuyOrders.Count + 1).ToString(CultureInfo.InvariantCulture);
+            BuyOrders[id] = new MockSteamBuyOrder(
+                name,
+                int.Parse(fields["quantity"], CultureInfo.InvariantCulture),
+                long.Parse(fields["price_total"], CultureInfo.InvariantCulture));
+
+            return Json($$"""{"success":1,"buy_orderid":"{{id}}"}""");
+        }
+    }
+
+    private HttpResponseMessage CancelBuyOrder(string form)
+    {
+        lock (BuyOrders)
+        {
+            if (!BuyOrders.TryGetValue(Fields(form)["buy_orderid"], out MockSteamBuyOrder? order))
+            {
+                return Json("""{"success":8}""");
+            }
+
+            order.Active = false;
+
+            return Json("""{"success":1}""");
+        }
+    }
+
+    private HttpResponseMessage BuyOrderStatus(Uri address)
+    {
+        string id = Uri.UnescapeDataString(address.Query.Split("buy_orderid=")[1]);
+
+        lock (BuyOrders)
+        {
+            return BuyOrders.TryGetValue(id, out MockSteamBuyOrder? order)
+                ? Json(
+                    $$"""{"success":1,"active":{{(order.Active ? 1 : 0)}},"purchased":{{order.Quantity - order.Remaining}},"quantity":"{{order.Quantity}}","quantity_remaining":"{{order.Remaining}}","purchases":[]}""")
+                : Json("""{"success":8}""");
+        }
     }
 
     private HttpResponseMessage SetToken()

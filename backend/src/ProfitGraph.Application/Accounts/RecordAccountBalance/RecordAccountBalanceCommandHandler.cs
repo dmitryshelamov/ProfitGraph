@@ -22,8 +22,9 @@ internal sealed class RecordAccountBalanceCommandHandler(IAccountBalanceStatusRe
                     AccountSnapshotId.New(),
                     credentialId,
                     observation.ObservedAt,
-                    observation.TotalValueUsd,
-                    observation.AvailableValueUsd,
+                    observation.TotalValue,
+                    observation.ValueCurrency,
+                    observation.AvailableValue,
                     [.. observation.Coins.Select(coin => new AccountCoinBalance(coin.Coin, coin.Balance, coin.UsdValue))]),
                 cancellationToken);
         }

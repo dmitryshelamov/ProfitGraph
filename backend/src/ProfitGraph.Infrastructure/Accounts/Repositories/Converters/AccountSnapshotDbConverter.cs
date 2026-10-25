@@ -16,8 +16,9 @@ internal static class AccountSnapshotDbConverter
             new AccountSnapshotId(row.Id),
             new ExchangeCredentialId(row.CredentialId),
             row.CapturedAt,
-            row.TotalValueUsd,
-            row.AvailableValueUsd,
+            row.TotalValue,
+            row.ValueCurrency,
+            row.AvailableValue,
             [
                 .. coins.Select(coin => new AccountCoinBalance(
                     coin.Coin,
@@ -34,8 +35,9 @@ internal static class AccountSnapshotDbConverter
             CredentialId = snapshot.CredentialId.Value,
             CapturedAt = snapshot.CapturedAt,
             BucketStart = snapshot.BucketStart,
-            TotalValueUsd = snapshot.TotalValueUsd,
-            AvailableValueUsd = snapshot.AvailableValueUsd,
+            TotalValue = snapshot.TotalValue,
+            ValueCurrency = snapshot.ValueCurrency,
+            AvailableValue = snapshot.AvailableValue,
             Coins = JsonSerializer.Serialize(
                 snapshot.Coins.Select(coin => new AccountCoinBalanceDb
                 {

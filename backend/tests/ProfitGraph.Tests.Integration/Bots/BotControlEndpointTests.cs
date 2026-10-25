@@ -296,8 +296,9 @@ public sealed class BotControlEndpointTests
                         owner.CredentialId,
                         AccountBalanceReadInternal.Observed(
                             new AccountBalanceObservationInternal(
-                                TotalValueUsd: 1234.5m,
-                                AvailableValueUsd: 1000m,
+                                TotalValue: 1234.5m,
+                                "USD",
+                                AvailableValue: 1000m,
                                 [new AccountCoinBalanceInternal("BTC", Balance: 0.0035m, UsdValue: 234.5m)],
                                 at))));
         }
@@ -310,8 +311,8 @@ public sealed class BotControlEndpointTests
         history.NextAttemptAt.ShouldNotBeNull();
         AccountSnapshotResponse snapshot = history.Snapshots.ShouldHaveSingleItem();
         snapshot.CapturedAt.ShouldBe(at, TimeSpan.FromMilliseconds(1));
-        snapshot.TotalValueUsd.ShouldBe("1234.5");
-        snapshot.AvailableValueUsd.ShouldBe("1000");
+        snapshot.TotalValue.ShouldBe("1234.5");
+        snapshot.AvailableValue.ShouldBe("1000");
         AccountCoinBalanceResponse coin = snapshot.Coins.ShouldHaveSingleItem();
         coin.Coin.ShouldBe("BTC");
         coin.Balance.ShouldBe("0.0035");

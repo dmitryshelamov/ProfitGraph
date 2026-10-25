@@ -51,7 +51,7 @@ internal sealed class BybitAccountBalanceReader(BybitReadClient read, TimeProvid
             }
 
             return AccountBalanceReadInternal.Observed(
-                new AccountBalanceObservationInternal(equity, Decimal(account, "totalAvailableBalance"), coins, clock.GetUtcNow()));
+                new AccountBalanceObservationInternal(equity, "USD", Decimal(account, "totalAvailableBalance"), coins, clock.GetUtcNow()));
         }
         catch (Exception exception) when (exception is KeyNotFoundException or InvalidOperationException or IndexOutOfRangeException)
         {

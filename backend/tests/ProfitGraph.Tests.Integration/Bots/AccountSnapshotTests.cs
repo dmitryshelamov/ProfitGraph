@@ -46,13 +46,13 @@ public sealed class AccountSnapshotTests
         Bot bot = await RuntimeScenario.RunningLadder(host);
         var bucket = new DateTimeOffset(DateTimeOffset.UtcNow.UtcTicks - DateTimeOffset.UtcNow.UtcTicks % AccountSnapshot.Bucket.Ticks, TimeSpan.Zero);
 
-        bool first = await Record(host, bot, Observed(totalValueUsd: 100m, bucket.AddSeconds(10)));
-        bool duplicate = await Record(host, bot, Observed(totalValueUsd: 101m, bucket.AddSeconds(20)));
+        bool first = await Record(host, bot, Observed(totalValue: 100m, bucket.AddSeconds(10)));
+        bool duplicate = await Record(host, bot, Observed(totalValue: 101m, bucket.AddSeconds(20)));
         await Record(host, bot, AccountBalanceReadInternal.Failed("venue_unavailable", "503"));
 
         await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
         (first, duplicate).ShouldBe((true, false));
-        (await connection.QueryAsync<decimal>("SELECT total_value_usd FROM account_value_snapshots WHERE credential_id = @id", new { id = bot.CredentialId.Value }))
+        (await connection.QueryAsync<decimal>("SELECT total_value FROM account_value_snapshots WHERE credential_id = @id", new { id = bot.CredentialId.Value }))
             .ShouldBe([100m]);
         var status = await connection.QuerySingleAsync<(DateTime? LastSuccessAt, string? FailureReason, int Failures)>(
             "SELECT last_success_at, failure_reason, consecutive_failures FROM account_balance_status WHERE credential_id = @id",
@@ -68,11 +68,11 @@ public sealed class AccountSnapshotTests
         using IHost host = BotTestHost.Create();
         Bot bot = await RuntimeScenario.RunningLadder(host);
         DateTimeOffset hour = new DateTimeOffset(DateTimeOffset.UtcNow.AddDays(-10).Date, TimeSpan.Zero).AddHours(10);
-        await Record(host, bot, Observed(totalValueUsd: 1m, hour.AddMinutes(5)));
-        await Record(host, bot, Observed(totalValueUsd: 2m, hour.AddMinutes(35)));
-        await Record(host, bot, Observed(totalValueUsd: 3m, hour.AddMinutes(65)));
-        await Record(host, bot, Observed(totalValueUsd: 4m, DateTimeOffset.UtcNow.AddMinutes(-15)));
-        await Record(host, bot, Observed(totalValueUsd: 5m, DateTimeOffset.UtcNow.AddMinutes(-5)));
+        await Record(host, bot, Observed(totalValue: 1m, hour.AddMinutes(5)));
+        await Record(host, bot, Observed(totalValue: 2m, hour.AddMinutes(35)));
+        await Record(host, bot, Observed(totalValue: 3m, hour.AddMinutes(65)));
+        await Record(host, bot, Observed(totalValue: 4m, DateTimeOffset.UtcNow.AddMinutes(-15)));
+        await Record(host, bot, Observed(totalValue: 5m, DateTimeOffset.UtcNow.AddMinutes(-5)));
 
         using (IServiceScope scope = host.Services.CreateScope())
         {
@@ -81,7 +81,7 @@ public sealed class AccountSnapshotTests
 
         await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
         (await connection.QueryAsync<decimal>(
-                "SELECT total_value_usd FROM account_value_snapshots WHERE credential_id = @id ORDER BY captured_at",
+                "SELECT total_value FROM account_value_snapshots WHERE credential_id = @id ORDER BY captured_at",
                 new { id = bot.CredentialId.Value }))
             .ShouldBe([2m, 3m, 4m, 5m]);
     }
@@ -108,10 +108,10 @@ public sealed class AccountSnapshotTests
         await worker.StopAsync();
     }
 
-    private static AccountBalanceReadInternal Observed(decimal totalValueUsd, DateTimeOffset at)
+    private static AccountBalanceReadInternal Observed(decimal totalValue, DateTimeOffset at)
     {
         return AccountBalanceReadInternal.Observed(
-            new AccountBalanceObservationInternal(totalValueUsd, AvailableValueUsd: null, [new AccountCoinBalanceInternal("USDT", totalValueUsd, totalValueUsd)], at));
+            new AccountBalanceObservationInternal(totalValue, "USD", AvailableValue: null, [new AccountCoinBalanceInternal("USDT", totalValue, totalValue)], at));
     }
 
     private static async Task<bool> Record(IHost host, Bot bot, AccountBalanceReadInternal read)

@@ -42,6 +42,21 @@ public sealed class SteamLiveDataTests
     }
 
     [Test]
+    public async Task AnAccountIsWorthItsWalletInTheWalletsCurrency()
+    {
+        var harness = new SteamSessionHarness();
+        var reader = new SteamAccountBalanceReader(harness.MarketData(), harness.Clock);
+
+        AccountBalanceReadInternal read = await reader.Read(
+            new ExchangeCredentialSecretsInternal(SteamSessionHarness.Credential, "steam", new Dictionary<string, string>()),
+            CancellationToken.None);
+
+        read.Observation!.TotalValue.ShouldBe(1234.56m);
+        read.Observation.ValueCurrency.ShouldBe("KZT");
+        read.Observation.Coins.ShouldBe([new AccountCoinBalanceInternal("KZT", Balance: 1234.56m, UsdValue: null)]);
+    }
+
+    [Test]
     public async Task TheDisplayPriceIsTheHighestBuyOrder()
     {
         var harness = new SteamSessionHarness();

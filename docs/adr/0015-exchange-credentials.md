@@ -71,3 +71,10 @@ requires the owner to enter credentials again, so nothing is imported. Stage 5 p
   whose fields are exactly `apiKey` and `apiSecret` (Bybit); any other venue answers `400 credential_input_unsupported`
   and brings its own way to create credentials. The four-character public hint stays.
 - `ReadExchangeCredentialSecretsQuery` decrypts every field; a venue reads them by name.
+
+## Amendment: valuation currency (ADR 0022)
+
+- An account's value is stored in the currency its venue values it in (`account_value_snapshots.value_currency`, migration
+  `202610250024`, which also renamed `total_value_usd` and `available_value_usd` to `total_value` and `available_value`).
+  Bybit values in USD; Steam values a wallet in the wallet's currency and converts nothing. A coin's USD value stays
+  optional. The API returns `totalValue`, `valueCurrency` and `availableValue`.

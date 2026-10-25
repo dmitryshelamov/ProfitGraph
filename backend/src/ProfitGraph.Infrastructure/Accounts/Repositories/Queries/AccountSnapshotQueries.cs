@@ -3,14 +3,14 @@ namespace ProfitGraph.Infrastructure.Accounts.Repositories.Queries;
 internal static class AccountSnapshotQueries
 {
     internal const string Insert = """
-                                   INSERT INTO account_value_snapshots (id, credential_id, captured_at, bucket_start, total_value_usd, available_value_usd, coins)
-                                   VALUES (@Id, @CredentialId, @CapturedAt, @BucketStart, @TotalValueUsd, @AvailableValueUsd, CAST(@Coins AS jsonb))
+                                   INSERT INTO account_value_snapshots (id, credential_id, captured_at, bucket_start, total_value, value_currency, available_value, coins)
+                                   VALUES (@Id, @CredentialId, @CapturedAt, @BucketStart, @TotalValue, @ValueCurrency, @AvailableValue, CAST(@Coins AS jsonb))
                                    ON CONFLICT (credential_id, bucket_start) DO NOTHING
                                    """;
 
     internal const string List = """
                                  SELECT id AS Id, credential_id AS CredentialId, captured_at AS CapturedAt, bucket_start AS BucketStart,
-                                     total_value_usd AS TotalValueUsd, available_value_usd AS AvailableValueUsd, coins::text AS Coins
+                                     total_value AS TotalValue, value_currency AS ValueCurrency, available_value AS AvailableValue, coins::text AS Coins
                                  FROM account_value_snapshots
                                  WHERE credential_id = @credentialId AND captured_at >= @from AND captured_at < @to
                                  ORDER BY captured_at
