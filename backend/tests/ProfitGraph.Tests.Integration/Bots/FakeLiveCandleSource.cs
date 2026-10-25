@@ -10,16 +10,21 @@ using ProfitGraph.Tests.Integration.MarketData;
 namespace ProfitGraph.Tests.Integration.Bots;
 
 /// <summary>
-///     Live candles of the test venue that a test pushes or fails by hand; every subscription reads the same pushes.
+///     Live candles of a venue, the test venue unless named, that a test pushes or fails by hand; every subscription reads
+///     the same pushes.
 /// </summary>
-public sealed class FakeLiveCandleSource : ILiveCandleSource
+public sealed class FakeLiveCandleSource(VenueId venue) : ILiveCandleSource
 {
     private readonly ConcurrentDictionary<Channel<Candle>, byte> _subscribers = new ConcurrentDictionary<Channel<Candle>, byte>();
     private Exception? _failure;
 
     public int Subscribers => _subscribers.Count;
 
-    public VenueId Venue { get; } = new VenueId(TestHistoryVenue.WithHistory);
+    public VenueId Venue { get; } = venue;
+
+    public FakeLiveCandleSource() : this(new VenueId(TestHistoryVenue.WithHistory))
+    {
+    }
 
     public async IAsyncEnumerable<Candle> Subscribe(
         InstrumentSymbol symbol,

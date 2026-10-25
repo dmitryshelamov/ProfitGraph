@@ -7,18 +7,23 @@ using ProfitGraph.Tests.Integration.MarketData;
 namespace ProfitGraph.Tests.Integration.Bots;
 
 /// <summary>
-///     Closed history of the test venue for live runtime tests: one candle per step at a flat price, up to the requested end,
-///     except in the ranges a test declares closed, which are reported as market closures (ADR 0023, TC3).
+///     Closed history of a venue, the test venue at 100 unless named, for live runtime tests: one candle per step at a flat
+///     price, up to the requested end, except in the ranges a test declares closed, which are reported as market closures
+///     (ADR 0023, TC3).
 /// </summary>
-public sealed class FlatHistorySource : IHistoricalCandleSource
+public sealed class FlatHistorySource(VenueId venue, decimal price) : IHistoricalCandleSource
 {
     private const decimal Price = 100m;
 
     public List<CandleRangeInternal> Closed { get; } = [];
 
-    public VenueId Venue { get; } = new VenueId(TestHistoryVenue.WithHistory);
+    public VenueId Venue { get; } = venue;
 
     public string Source => "flat";
+
+    public FlatHistorySource() : this(new VenueId(TestHistoryVenue.WithHistory), Price)
+    {
+    }
 
     public Task<DateTimeOffset?> FindFirst(InstrumentSymbol symbol, Timeframe timeframe, DateTimeOffset to, CancellationToken cancellationToken)
     {
@@ -40,7 +45,7 @@ public sealed class FlatHistorySource : IHistoricalCandleSource
             }
             else
             {
-                candles.Add(Candle(time));
+                candles.Add(new Candle(time, price, price, price, price, Volume: 1m));
             }
         }
 

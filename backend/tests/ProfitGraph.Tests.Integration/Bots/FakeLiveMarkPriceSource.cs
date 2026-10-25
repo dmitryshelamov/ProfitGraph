@@ -9,13 +9,17 @@ using ProfitGraph.Tests.Integration.MarketData;
 namespace ProfitGraph.Tests.Integration.Bots;
 
 /// <summary>
-///     Display prices of the test venue that a test pushes by hand.
+///     Display prices of a venue, the test venue unless named, that a test pushes by hand.
 /// </summary>
-public sealed class FakeLiveMarkPriceSource : ILiveMarkPriceSource
+public sealed class FakeLiveMarkPriceSource(VenueId venue) : ILiveMarkPriceSource
 {
     private readonly Channel<LiveMarkPriceInternal> _prices = Channel.CreateUnbounded<LiveMarkPriceInternal>();
 
-    public VenueId Venue { get; } = new VenueId(TestHistoryVenue.WithHistory);
+    public VenueId Venue { get; } = venue;
+
+    public FakeLiveMarkPriceSource() : this(new VenueId(TestHistoryVenue.WithHistory))
+    {
+    }
 
     public async IAsyncEnumerable<LiveMarkPriceInternal> Subscribe(InstrumentSymbol symbol, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
