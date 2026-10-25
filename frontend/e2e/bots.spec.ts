@@ -7,17 +7,24 @@ import type { components } from '../src/shared/api/generated/schema';
 type Schemas = components['schemas'];
 
 /**
- * A key and a bot are created in the UI, the bot is started and stopped, and its feed and position show it. Trading stays disabled in the e2e Worker, so a
- * started bot degrades with "trading is disabled in this process" and nothing reaches an exchange; the key is invented.
+ * A key and a Ladder bot are created in the UI, the bot is started, buys at once and is stopped. Trading stays disabled:
+ * the e2e Worker trades against its in-memory simulation (market orders fill at 100 with a 0.1% fee) and the stub
+ * pushes a ticker of 104, so the position is valued at the live price. Nothing reaches an exchange; the key is invented.
  */
-test('a bot is created with a key, started, stopped and reported', async ({ page }) => {
+test('a bot is created with a key, trades, is stopped and reported', async ({ page }) => {
   const templates = (await (
     await page.request.get('/api/strategy-templates')
   ).json()) as Schemas['StrategyTemplateResponse'][];
-  const template = templates.find((item) => item.kind === 'LadderSma') ?? templates[0]!;
+  const template = templates.find((item) => item.kind === 'Ladder')!;
+  const definition = {
+    ...template.definition,
+    parameters: template.definition.parameters.map((parameter) =>
+      parameter.name === 'buyAmount' ? { ...parameter, defaultValue: '10' } : parameter,
+    ),
+  };
   const strategyName = `E2E bot ${randomUUID()}`;
   const created = await page.request.post('/api/strategies', {
-    data: { name: strategyName, definition: template.definition, layout: template.layout },
+    data: { name: strategyName, definition, layout: template.layout },
   });
   expect(created.status()).toBe(201);
   const keyLabel = `E2E key ${randomUUID().slice(0, 8)}`;
@@ -42,17 +49,25 @@ test('a bot is created with a key, started, stopped and reported', async ({ page
   await expect(page.getByRole('heading', { name: 'BTCUSDT 1h' })).toBeVisible();
   await expect(page.getByText('Не запущен')).toBeVisible();
   await page.getByRole('button', { name: 'Запустить', exact: true }).click();
-  await expect(
-    page.getByText('Остановлен по безопасности: торговля в этом процессе выключена'),
-  ).toBeVisible({ timeout: 20_000 });
-  await page.getByRole('button', { name: 'Остановить', exact: true }).click();
-  await expect(page.getByText(/^Остановлен: торговля в этом процессе выключена$/)).toBeVisible();
+  await expect(page.getByText('Работает', { exact: true })).toBeVisible({ timeout: 20_000 });
 
-  // The feed is written from the outbox and refreshed by the page; the bot never traded, so it holds only the quote.
-  await page.reload();
+  // OnStart buys for 10 USDT at 100: 0.1 BTC less a 0.0001 BTC fee, valued at the ticker: 0.0999 × 104 − 10.
+  const fills = page.getByRole('table', { name: 'Сделки бота' });
+  await expect(fills.getByRole('cell', { name: '100', exact: true })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(fills.getByRole('cell', { name: '0.0001 (база)', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Цена для отображения')).toHaveText('104', { timeout: 20_000 });
+  await expect(page.getByText(/^тикер биржи/)).toBeVisible();
+  await expect(page.getByLabel('Нереализованная прибыль')).toHaveText('0.3896');
   const feed = page.getByRole('list', { name: 'Лента бота' });
   await expect(feed.getByText('Запущен', { exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(feed.getByText(/^Исполнение: покупка 0\.1 на 10/)).toBeVisible({ timeout: 20_000 });
+
+  await page.getByRole('button', { name: 'Остановить', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Запустить', exact: true })).toBeVisible({
+    timeout: 20_000,
+  });
   await expect(feed.getByText('Остановлен', { exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('Базовый актив')).toBeVisible();
-  await expect(page.getByText('Сделок пока нет.')).toBeVisible();
 });

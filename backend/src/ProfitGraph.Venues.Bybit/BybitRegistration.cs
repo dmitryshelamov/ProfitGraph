@@ -9,6 +9,7 @@ using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Venues.Bybit.Instruments;
 using ProfitGraph.Venues.Bybit.LiveData;
 using ProfitGraph.Venues.Bybit.MarketData;
+using ProfitGraph.Venues.Bybit.Simulation;
 using ProfitGraph.Venues.Bybit.Trading;
 
 namespace ProfitGraph.Venues.Bybit;
@@ -64,6 +65,21 @@ public static class BybitRegistration
         services.AddSingleton<IBybitPrivateStreamTransport, BybitPrivateWebSocketTransport>();
         services.AddSingleton<BybitPrivateStreams>();
         services.AddTransient<IOrderGateway, BybitOrderGateway>();
+
+        return services;
+    }
+
+    /// <summary>
+    ///     Registers Bybit order execution simulated in memory (<see cref="BybitSimulationOptions" />) for end-to-end tests:
+    ///     bots trade without any request leaving the process. Never together with <see cref="AddBybitTrading" />.
+    /// </summary>
+    public static IServiceCollection AddBybitSimulatedTrading(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<BybitSimulationOptions>()
+            .Bind(configuration.GetSection(BybitSimulationOptions.SectionName))
+            .Validate(options => options.IsValid(), "Live:Simulation needs a positive market price and a fee rate below 10%.")
+            .ValidateOnStart();
+        services.AddSingleton<IOrderGateway>(provider => new BybitSimulatedOrderGateway(provider.GetRequiredService<IOptions<BybitSimulationOptions>>().Value));
 
         return services;
     }

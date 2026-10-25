@@ -3,8 +3,10 @@ import {
   fractionToPercent,
   isBackendDecimal,
   isDecimalString,
+  multiplyDecimals,
   percentToFraction,
   roundDecimal,
+  subtractDecimals,
 } from './decimal';
 
 describe('decimal strings', () => {
@@ -69,5 +71,21 @@ describe('compareDecimals', () => {
     expect(compareDecimals('-1', '0.0001')).toBe(-1);
     expect(compareDecimals('100.000000000000000000000001', '100')).toBe(1);
     expect(compareDecimals('1e3', '1')).toBeNull();
+  });
+});
+
+describe('multiplyDecimals and subtractDecimals', () => {
+  it('compute exactly where floating point would not', () => {
+    expect(multiplyDecimals('0.1', '0.2')).toBe('0.02');
+    expect(multiplyDecimals('0.000999', '61500')).toBe('61.4385');
+    expect(multiplyDecimals('-2.5', '4')).toBe('-10');
+    expect(subtractDecimals('0.3', '0.1')).toBe('0.2');
+    expect(subtractDecimals('61.4385', '60')).toBe('1.4385');
+    expect(subtractDecimals('1', '1.000000000000000000000001')).toBe('-0.000000000000000000000001');
+  });
+
+  it('reject non-decimals', () => {
+    expect(multiplyDecimals('1e3', '1')).toBeNull();
+    expect(subtractDecimals('1', 'abc')).toBeNull();
   });
 });

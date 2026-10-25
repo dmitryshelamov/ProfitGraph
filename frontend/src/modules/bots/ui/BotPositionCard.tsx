@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
+import { multiplyDecimals, subtractDecimals } from '@/shared/lib/decimal';
 import { DateTime } from '@/shared/ui/DateTime';
 
 import { botPositionQuery } from '../api/botsApi';
@@ -15,8 +16,8 @@ function ageLabel(observedAt: string, now: number): string {
 
 /**
  * The bot's position at its display price: a fresh ticker from /ws/live-prices when one arrived after the stored
- * value, otherwise what the server chose (a fresh ticker or the last candle's close). Amounts stay decimal strings;
- * the unrealized profit shown with a live ticker is the server's until the next read.
+ * value, otherwise what the server chose (a fresh ticker or the last candle's close). With a pushed ticker the
+ * unrealized profit is recomputed here as the server does, base total × price − cost basis, in exact decimal strings.
  */
 export function BotPositionCard({ botId }: { botId: string }) {
   const position = useQuery(botPositionQuery(botId));
@@ -51,6 +52,9 @@ export function BotPositionCard({ botId }: { botId: string }) {
   const observedAt = fromLive ? live.observedAt : data.markPriceObservedAt;
   const source =
     fromLive || data.markPriceSource === 'Ticker' ? 'тикер биржи' : 'закрытие последней свечи';
+  const unrealizedPnl = fromLive
+    ? subtractDecimals(multiplyDecimals(data.baseTotal, live.price) ?? '', data.costBasis)
+    : data.unrealizedPnl;
 
   return (
     <div className="space-y-4">
@@ -66,7 +70,9 @@ export function BotPositionCard({ botId }: { botId: string }) {
         <dt className="text-text-secondary">Реализованная прибыль</dt>
         <dd className="font-mono">{data.realizedPnl}</dd>
         <dt className="text-text-secondary">Нереализованная прибыль</dt>
-        <dd className="font-mono">{data.unrealizedPnl ?? '—'}</dd>
+        <dd className="font-mono" aria-label="Нереализованная прибыль">
+          {unrealizedPnl ?? '—'}
+        </dd>
         <dt className="text-text-secondary">Цена</dt>
         <dd className="font-mono" aria-label="Цена для отображения">
           {price ?? '—'}

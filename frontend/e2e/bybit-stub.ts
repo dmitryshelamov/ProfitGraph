@@ -1,6 +1,8 @@
-// A local stand-in for Bybit's public REST API in end-to-end tests: deterministic Spot candles and instruments, so no
-// test ever reaches the exchange. Usage: node e2e/bybit-stub.ts <port>
+// A local stand-in for Bybit in end-to-end tests: deterministic Spot candles and instruments over REST, and a public
+// stream that pushes a fixed ticker, so no test ever reaches the exchange. Usage: node e2e/bybit-stub.ts <port>
+import { createHash } from 'node:crypto';
 import { createServer, type ServerResponse } from 'node:http';
+import type { Duplex } from 'node:stream';
 
 const port = Number(process.argv[2] ?? '5296');
 const listedAt = Date.UTC(2025, 11, 1);
@@ -17,6 +19,8 @@ const minutes: Record<string, number> = {
   '720': 720,
   D: 1440,
 };
+/** The last price every ticker of the public stream reports. */
+const tickerPrice = '104';
 const instruments = [
   { symbol: 'BTCUSDT', baseCoin: 'BTC', quoteCoin: 'USDT' },
   { symbol: 'ETHUSDT', baseCoin: 'ETH', quoteCoin: 'USDT' },
@@ -107,7 +111,87 @@ function instrumentsInfo(url: URL) {
   };
 }
 
-createServer((request, response) => {
+/** One unmasked server frame: text (0x1), close (0x8) or pong (0xA). */
+function frame(opcode: number, payload: Buffer = Buffer.alloc(0)): Buffer {
+  const length = payload.length;
+  const header =
+    length < 126
+      ? Buffer.from([0x80 | opcode, length])
+      : Buffer.from([0x80 | opcode, 126, length >> 8, length & 0xff]);
+
+  return Buffer.concat([header, payload]);
+}
+
+/**
+ * Bybit's public Spot WebSocket, as little as the Worker needs: a `tickers.SYMBOL` subscription receives the fixed
+ * price now and every two seconds; kline subscriptions stay silent, so bots run on the history the REST stub serves.
+ * The private stream is accepted and stays silent too: e2e bots trade against the Worker's in-memory simulation.
+ */
+function serveStream(socket: Duplex) {
+  const timers: NodeJS.Timeout[] = [];
+  let pending = Buffer.alloc(0);
+  const ticker = (topic: string) => {
+    const message = {
+      topic,
+      ts: Date.now(),
+      type: 'snapshot',
+      data: { symbol: topic.slice('tickers.'.length), lastPrice: tickerPrice },
+    };
+    socket.write(frame(0x1, Buffer.from(JSON.stringify(message))));
+  };
+
+  socket.on('data', (chunk: Buffer) => {
+    pending = Buffer.concat([pending, chunk]);
+
+    // Client frames are masked; messages here are small, so one frame carries one message.
+    while (pending.length >= 2) {
+      const opcode = pending[0]! & 0x0f;
+      let length = pending[1]! & 0x7f;
+      let offset = 2;
+
+      if (length === 126) {
+        length = pending.readUInt16BE(2);
+        offset = 4;
+      } else if (length === 127) {
+        socket.destroy();
+
+        return;
+      }
+
+      if (pending.length < offset + 4 + length) {
+        return;
+      }
+
+      const mask = pending.subarray(offset, offset + 4);
+      const payload = Buffer.from(pending.subarray(offset + 4, offset + 4 + length));
+      payload.forEach((byte, index) => (payload[index] = byte ^ mask[index % 4]!));
+      pending = pending.subarray(offset + 4 + length);
+
+      if (opcode === 0x8) {
+        socket.end(frame(0x8));
+
+        return;
+      }
+
+      if (opcode === 0x9) {
+        socket.write(frame(0xa, payload));
+      } else if (opcode === 0x1) {
+        const message = JSON.parse(payload.toString()) as { op?: string; args?: string[] };
+
+        for (const topic of message.op === 'subscribe' ? (message.args ?? []) : []) {
+          if (topic.startsWith('tickers.')) {
+            ticker(topic);
+            timers.push(setInterval(() => ticker(topic), 2000));
+          }
+        }
+      }
+    }
+  });
+  socket.on('close', () => timers.forEach((timer) => clearInterval(timer)));
+  socket.on('error', () => socket.destroy());
+}
+
+const server = createServer((request, response) => {
   const url = new URL(request.url ?? '/', `http://127.0.0.1:${port}`);
 
   if (url.pathname === '/health') {
@@ -132,4 +216,24 @@ createServer((request, response) => {
   } else {
     send(response, { retCode: 10001, retMsg: `Not stubbed: ${url.pathname}`, result: {} }, 404);
   }
-}).listen(port, '127.0.0.1');
+});
+
+server.on('upgrade', (request, socket) => {
+  const key = request.headers['sec-websocket-key'];
+
+  if (!key || !['/v5/public/spot', '/v5/private'].includes(request.url ?? '')) {
+    socket.destroy();
+
+    return;
+  }
+
+  const accept = createHash('sha1')
+    .update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`)
+    .digest('base64');
+  socket.write(
+    'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n' +
+      `Sec-WebSocket-Accept: ${accept}\r\n\r\n`,
+  );
+  serveStream(socket);
+});
+server.listen(port, '127.0.0.1');

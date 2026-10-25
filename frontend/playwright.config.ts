@@ -13,8 +13,10 @@ const webPort = 5275;
 const bybitPort = 5296;
 const shared = [
   `ConnectionStrings__Postgres="Host=localhost;Port=5436;Database=${database};Username=postgres;Password=postgres"`,
-  // Tests never reach Bybit: its public API is served by e2e/bybit-stub.ts.
+  // Tests never reach Bybit: its REST API and streams are served by e2e/bybit-stub.ts.
   `Venues__Bybit__BaseAddress=http://127.0.0.1:${bybitPort}/`,
+  `Venues__Bybit__PublicSpotStreamAddress=ws://127.0.0.1:${bybitPort}/v5/public/spot`,
+  `Venues__Bybit__PrivateStreamAddress=ws://127.0.0.1:${bybitPort}/v5/private`,
   // Exchange keys in e2e are invented; the master key that encrypts them is generated per run.
   'Secrets__ActiveKeyId=e2e',
   `Secrets__MasterKeys__e2e="$PROFITGRAPH_E2E_MASTER_KEY"`,
@@ -33,6 +35,9 @@ const worker = [
   'DOTNET_ENVIRONMENT=Testing',
   ...shared,
   'BackgroundJobs__PollingInterval=00:00:00.200',
+  // Bots trade against the Worker's in-memory simulation; trading itself stays disabled and nothing leaves the process.
+  'Live__Simulation__Enabled=true',
+  'Live__Simulation__MarketPrice=100',
   'dotnet run --no-launch-profile --project ../backend/src/ProfitGraph.Worker',
 ].join(' ');
 
