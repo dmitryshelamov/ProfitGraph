@@ -32,9 +32,21 @@ public sealed class TInvestOptions
 
     public TInvestHistoryOptions History { get; init; } = new TInvestHistoryOptions();
 
+    /// <summary>
+    ///     How long after a candle closes the live feed waits before it reads the interval, so late trades are in.
+    /// </summary>
+    public TimeSpan CandleCloseGrace { get; init; } = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    ///     The least order value used to derive the account's commission rate from <c>GetOrderPrice</c>, so rounding to the
+    ///     kopeck does not distort it.
+    /// </summary>
+    public decimal CommissionProbeNotional { get; init; } = 100_000m;
+
     internal bool IsValid()
     {
-        if (RequestTimeout <= TimeSpan.Zero || !Limits.IsValid() || !History.IsValid() || string.IsNullOrWhiteSpace(AppName) ||
+        if (RequestTimeout <= TimeSpan.Zero || CandleCloseGrace < TimeSpan.Zero || CommissionProbeNotional <= 0m || !Limits.IsValid() || !History.IsValid() ||
+            string.IsNullOrWhiteSpace(AppName) ||
             string.IsNullOrWhiteSpace(TrustedRootsPath))
         {
             return false;

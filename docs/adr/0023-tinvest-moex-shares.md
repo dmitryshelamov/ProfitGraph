@@ -209,3 +209,20 @@ withdrawals); and that the endpoint certificate is still issued by the Russian T
 - The first candle of a series is the share's first minute candle date rounded up to the grid.
 - Search lists main-board shares that API trading allows (`FindInstrument`) with base asset the ticker and quote `RUB`.
 - Backtests take their fee rates from the request; T-Invest registers no execution defaults.
+
+## Amendment: live reads (T9b)
+
+- **Live candles by polling, not the stream.** After each interval closes plus `Venues:TInvest:CandleCloseGrace` (20 s)
+  the module reads the share's history up to the latest settled close with the history rules (reference share, candles
+  without trades) and publishes its candles in order; closures are not published, the bot reads them from history at its
+  next candle (ADR 0016, live market closures). An interval published without trades that later shows a real candle ends
+  the feed with `HistoryDataCorrection`. Live decides a segment with what is known so far, so the first quiet minutes of
+  a session can be closures live and candles without trades in a later backtest. Polling replaces the
+  `MarketDataStream` subscription of the decision; each poll reads one padded day of the share and the reference, which a
+  later change may narrow.
+- **Commission rate.** `GetOrderPrice` for a limit buy at the last price (`GetLastPrices`) of at least
+  `Venues:TInvest:CommissionProbeNotional` (100 000 RUB); the rate is deal commission over order amount, rounded to six
+  decimal places, for limit and market orders alike.
+- **Account value.** `GetPortfolio` in roubles: the portfolio total and each position by ticker; the available value is
+  left unknown.
+- **Display price.** None yet: `ILiveMarkPriceSource` runs without a bot's credential, so T-Invest registers none.
