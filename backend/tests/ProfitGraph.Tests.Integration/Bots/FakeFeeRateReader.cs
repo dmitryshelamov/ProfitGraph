@@ -11,7 +11,9 @@ namespace ProfitGraph.Tests.Integration.Bots;
 /// </summary>
 public sealed class FakeFeeRateReader : IVenueFeeRateReader
 {
-    public VenueFeeRatesInternal Rates { get; set; } = new VenueFeeRatesInternal(MakerRate: 0.0008m, TakerRate: 0.001m);
+    public static readonly VenueFeeRatesInternal DefaultRates = new VenueFeeRatesInternal(MakerRate: 0.0008m, TakerRate: 0.001m);
+
+    public VenueFeeRatesInternal Rates { get; set; } = DefaultRates;
 
     public string? LastApiKey { get; private set; }
 

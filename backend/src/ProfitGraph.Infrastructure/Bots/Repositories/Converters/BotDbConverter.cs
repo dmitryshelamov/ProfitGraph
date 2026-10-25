@@ -2,7 +2,10 @@ using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Strategies;
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Market;
+using ProfitGraph.Infrastructure.Backtesting;
+using ProfitGraph.Infrastructure.Backtesting.Repositories.Contracts;
 using ProfitGraph.Infrastructure.Bots.Repositories.Contracts;
 
 namespace ProfitGraph.Infrastructure.Bots.Repositories.Converters;
@@ -22,7 +25,7 @@ internal static class BotDbConverter
                 BotParametersDbConverter.ToParameters(row.Parameters),
                 row.AllocationCap,
                 new BotRiskLimits(row.MaxOrderQuote, row.DailyLossLimitQuote),
-                new BotFeeRates(row.LimitFeeRate, row.MarketFeeRate, row.FeeRatesReadAt.ToUniversalTime()),
+                new BotFeeRates(row.LimitFeeRate, row.MarketFeeRate, row.FeeRatesReadAt.ToUniversalTime(), SellerFees(row.SellerFees)),
                 row.AllowForeignOrders,
                 Enum.Parse<BotDesiredState>(row.DesiredState),
                 Enum.Parse<BotRuntimeStatus>(row.RuntimeStatus),
@@ -59,6 +62,7 @@ internal static class BotDbConverter
             LimitFeeRate = snapshot.FeeRates.LimitRate,
             MarketFeeRate = snapshot.FeeRates.MarketRate,
             FeeRatesReadAt = snapshot.FeeRates.ReadAt,
+            SellerFees = SellerFeesJson(snapshot.FeeRates.SellerFees),
             AllowForeignOrders = snapshot.AllowForeignOrders,
             DesiredState = snapshot.DesiredState.ToString(),
             RuntimeStatus = snapshot.RuntimeStatus.ToString(),
@@ -74,5 +78,22 @@ internal static class BotDbConverter
             CreatedAt = snapshot.CreatedAt,
             UpdatedAt = snapshot.UpdatedAt
         };
+    }
+
+    private static SellerFeeSchedule? SellerFees(string? json)
+    {
+        if (json is null)
+        {
+            return null;
+        }
+
+        var row = BacktestJsonSerializer.Deserialize<SellerFeeScheduleDb>(json);
+
+        return new SellerFeeSchedule(row.Rates, row.Minimum);
+    }
+
+    private static string? SellerFeesJson(SellerFeeSchedule? fees)
+    {
+        return fees is null ? null : BacktestJsonSerializer.Serialize(new SellerFeeScheduleDb { Rates = [.. fees.Rates], Minimum = fees.Minimum });
     }
 }

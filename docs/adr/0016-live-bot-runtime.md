@@ -183,3 +183,11 @@ gateway amend it in later stage 5 pull requests.
 - **Expiry.** A request nobody took within 60 s reads as rejected with `expired`; the runner rejects it so without the
   engine, and a new request stores it so. A request that expires while its root runs fails that commit, so the engine
   restarts from its stored state without the order.
+
+## Amendment: seller fees (ADR 0022)
+
+- A venue whose marketplace charges the seller per unit returns a seller fee schedule from `IVenueFeeRateReader`
+  instead of maker and taker rates. The bot stores it (`bots.seller_fees`) with both rates zero, its engine account uses
+  it, and `GET /api/bots/{id}` returns it as `sellerFees`. A change of the schedule is a fee rate change.
+- `IVenueExecutionDefaults` gives a venue's defaults for a new backtest; `GET /api/market-data/venues` returns them as
+  `executionDefaults`. A run stores what its request gave, never the defaults.

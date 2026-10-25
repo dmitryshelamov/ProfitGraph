@@ -22,6 +22,7 @@ public static class TestHistoryRegistration
         services.AddSingleton<FakeInstrumentSource>();
         services.AddSingleton<IInstrumentRulesSource>(provider => provider.GetRequiredService<FakeInstrumentSource>());
         services.AddSingleton<IInstrumentCatalog>(provider => provider.GetRequiredService<FakeInstrumentSource>());
+        services.AddSingleton<IVenueExecutionDefaults>(new TestExecutionDefaults());
         services.AddSingleton<FakeFeeRateReader>();
         services.AddSingleton<IVenueFeeRateReader>(provider => provider.GetRequiredService<FakeFeeRateReader>());
 

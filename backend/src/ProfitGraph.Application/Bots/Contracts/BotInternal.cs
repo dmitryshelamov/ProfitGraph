@@ -1,3 +1,4 @@
+using ProfitGraph.Application.Backtesting.Contracts;
 using ProfitGraph.Domain.Bots;
 
 namespace ProfitGraph.Application.Bots.Contracts;
@@ -26,4 +27,5 @@ public sealed record BotInternal(
     DateTimeOffset? NextRestartAt,
     bool HasRun,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    SellerFeeScheduleInternal? SellerFees);
