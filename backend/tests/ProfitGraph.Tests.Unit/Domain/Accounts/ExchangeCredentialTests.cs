@@ -103,6 +103,24 @@ public sealed class ExchangeCredentialTests
             Created));
     }
 
+    [Test]
+    public void ACredentialMayRecordTheFingerprintOfItsVenueAccount()
+    {
+        ExchangeCredential plain = WithFingerprint(fingerprint: null);
+        ExchangeCredential selected = WithFingerprint("0123abcd");
+
+        plain.AccountFingerprint.ShouldBeNull();
+        selected.AccountFingerprint.ShouldBe("0123abcd");
+    }
+
+    [TestCase("")]
+    [TestCase("with space")]
+    public void AnAccountFingerprintIsAShortWord(string fingerprint)
+    {
+        Should.Throw<ArgumentException>(() => WithFingerprint(fingerprint));
+        Should.Throw<ArgumentException>(() => WithFingerprint(new string(c: 'a', count: 129)));
+    }
+
     [TestCase(null)]
     [TestCase("")]
     [TestCase("   ")]
@@ -175,5 +193,18 @@ public sealed class ExchangeCredentialTests
     private static EncryptedSecret Secret(byte fill)
     {
         return new EncryptedSecret("test-v1", new byte[EncryptedSecret.NonceLength], [fill, fill], new byte[EncryptedSecret.TagLength]);
+    }
+
+    private static ExchangeCredential WithFingerprint(string? fingerprint)
+    {
+        return ExchangeCredential.Create(
+            ExchangeCredentialId.New(),
+            UserId.New(),
+            new VenueId("other"),
+            new ExchangeCredentialLabel("account"),
+            new ApiKeyLast4("1234"),
+            new Dictionary<string, EncryptedSecret> { ["token"] = Secret(0x05) },
+            Created,
+            fingerprint);
     }
 }

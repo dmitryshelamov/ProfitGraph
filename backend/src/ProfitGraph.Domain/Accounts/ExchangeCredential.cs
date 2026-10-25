@@ -7,12 +7,14 @@ namespace ProfitGraph.Domain.Accounts;
 
 /// <summary>
 ///     A user's secrets for one venue (ADR 0015): named values the venue declares, such as an API key and secret, each
-///     stored encrypted (ADR 0022, C6). Only a four-character public hint is visible. A credential belongs to its owner and
-///     never changes after creation.
+///     stored encrypted (ADR 0022, C6). Only a four-character public hint is visible. A venue whose credential selects one of
+///     several venue accounts records a keyed fingerprint of that account, so one account is stored once (ADR 0023, TC5). A
+///     credential belongs to its owner and never changes after creation.
 /// </summary>
 public sealed class ExchangeCredential : AggregateRoot
 {
     private const int MaxFieldLength = 32;
+    private const int MaxFingerprintLength = 128;
     public ExchangeCredentialId Id { get; }
     public UserId OwnerId { get; }
     public VenueId Venue { get; }
@@ -26,6 +28,11 @@ public sealed class ExchangeCredential : AggregateRoot
 
     public DateTimeOffset CreatedAt { get; }
 
+    /// <summary>
+    ///     The keyed fingerprint of the venue account the credential selects, or null for a venue without account selection.
+    /// </summary>
+    public string? AccountFingerprint { get; }
+
     private ExchangeCredential(
         ExchangeCredentialId id,
         UserId ownerId,
@@ -33,7 +40,8 @@ public sealed class ExchangeCredential : AggregateRoot
         ExchangeCredentialLabel label,
         ApiKeyLast4 apiKeyLast4,
         IReadOnlyDictionary<string, EncryptedSecret> secrets,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        string? accountFingerprint)
     {
         ArgumentNullException.ThrowIfNull(label);
         ArgumentNullException.ThrowIfNull(apiKeyLast4);
@@ -49,6 +57,11 @@ public sealed class ExchangeCredential : AggregateRoot
             throw new ArgumentException("A credential needs a venue.", nameof(venue));
         }
 
+        if (accountFingerprint is not null && (accountFingerprint.Length is 0 or > MaxFingerprintLength || accountFingerprint.Any(char.IsWhiteSpace)))
+        {
+            throw new ArgumentException($"An account fingerprint has 1 to {MaxFingerprintLength} characters without spaces.", nameof(accountFingerprint));
+        }
+
         Id = id;
         OwnerId = ownerId;
         Venue = venue;
@@ -56,6 +69,7 @@ public sealed class ExchangeCredential : AggregateRoot
         ApiKeyLast4 = apiKeyLast4;
         Secrets = secrets.ToImmutableSortedDictionary(StringComparer.Ordinal);
         CreatedAt = createdAt;
+        AccountFingerprint = accountFingerprint;
     }
 
     public static ExchangeCredential Create(
@@ -65,9 +79,10 @@ public sealed class ExchangeCredential : AggregateRoot
         ExchangeCredentialLabel label,
         ApiKeyLast4 apiKeyLast4,
         IReadOnlyDictionary<string, EncryptedSecret> secrets,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        string? accountFingerprint = null)
     {
-        return new ExchangeCredential(id, ownerId, venue, label, apiKeyLast4, secrets, now);
+        return new ExchangeCredential(id, ownerId, venue, label, apiKeyLast4, secrets, now, accountFingerprint);
     }
 
     public static ExchangeCredential Restore(
@@ -77,9 +92,10 @@ public sealed class ExchangeCredential : AggregateRoot
         ExchangeCredentialLabel label,
         ApiKeyLast4 apiKeyLast4,
         IReadOnlyDictionary<string, EncryptedSecret> secrets,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        string? accountFingerprint = null)
     {
-        return new ExchangeCredential(id, ownerId, venue, label, apiKeyLast4, secrets, createdAt);
+        return new ExchangeCredential(id, ownerId, venue, label, apiKeyLast4, secrets, createdAt, accountFingerprint);
     }
 
     public bool IsOwnedBy(UserId userId)

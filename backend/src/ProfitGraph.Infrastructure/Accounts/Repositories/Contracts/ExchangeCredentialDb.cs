@@ -14,4 +14,5 @@ internal sealed class ExchangeCredentialDb
     public string Secrets { get; init; } = "{}";
 
     public DateTimeOffset CreatedAt { get; init; }
+    public string? AccountFingerprint { get; init; }
 }
