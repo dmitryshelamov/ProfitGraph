@@ -226,7 +226,7 @@ internal sealed class BacktestRunState
             {
                 Order candidate = active[orderIndex];
 
-                if (candidate.Type == OrderType.Market && candidate.IsEligibleAt(_candleIndex) &&
+                if (candidate.Type == OrderType.Market && candidate.IsEligibleAt(_candleIndex) && _account.CanExecute(candidate) &&
                     (market is null || candidate.Id < market.Id))
                 {
                     market = candidate;
@@ -483,6 +483,9 @@ internal sealed class BacktestRunState
         _phase = phase;
         _marketPrice = price;
         _capturedCursor = null;
+
+        // A point inside or at the end of a candle is known only at its close; settlement holds count from there.
+        _account.AdvanceMarketTime(phase == PricePhase.Open ? candle.OpenTime : candle.OpenTime.Add(_input.Timeframe.Duration));
     }
 
     private void Move(PricePhase phase, decimal price)

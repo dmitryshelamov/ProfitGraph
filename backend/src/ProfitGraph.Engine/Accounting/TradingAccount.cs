@@ -8,6 +8,8 @@ namespace ProfitGraph.Engine.Accounting;
 public sealed class TradingAccount : IGraphAccount
 {
     private readonly OrderSizingService _sizing = new OrderSizingService();
+    private readonly SettlementHoldBook? _holds;
+    private DateTimeOffset? _marketTime;
     public Portfolio Portfolio { get; }
     public OrderBook Orders { get; }
 
@@ -20,6 +22,7 @@ public sealed class TradingAccount : IGraphAccount
         Rules = rules;
         Portfolio = new Portfolio(settings.StartingCapital);
         Orders = new OrderBook();
+        _holds = settings.SettlementHold is { } hold ? new SettlementHoldBook(hold) : null;
     }
 
     public AccountSnapshot Capture()
@@ -96,6 +99,29 @@ public sealed class TradingAccount : IGraphAccount
     }
 
     /// <summary>
+    ///     Сообщает текущее рыночное время replay; нужно только при задержке продажи.
+    /// </summary>
+    public void AdvanceMarketTime(DateTimeOffset time)
+    {
+        if (_marketTime > time)
+        {
+            throw new TradingInvariantException("Market time cannot move backwards.");
+        }
+
+        _marketTime = time;
+    }
+
+    /// <summary>
+    ///     Можно ли исполнить ордер сейчас: продажа при задержке ждёт, пока разблокируется хотя бы часть купленного.
+    /// </summary>
+    public bool CanExecute(Order order)
+    {
+        ArgumentNullException.ThrowIfNull(order);
+
+        return _holds is null || order.Side == OrderSide.Buy || _holds.Sellable(RequireMarketTime()) > 0m;
+    }
+
+    /// <summary>
     ///     Исполняет активный ордер целиком. Рыночный ордер исполняется по опорной цене с неблагоприятным проскальзыванием,
     ///     лимитный — по своей лимитной цене без улучшения (опорная цена для него не используется). Рыночный ордер,
     ///     который по фактической цене не проходит минимумы, отклоняется с освобождением резерва.
@@ -113,6 +139,21 @@ public sealed class TradingAccount : IGraphAccount
 
         decimal price = order.Type == OrderType.Limit ? order.LimitPrice!.Value : SlippageModel.Apply(referencePrice, order.Side, Settings.Slippage);
         decimal grossBase = order.Quantity ?? OrderNormalizer.NormalizeQuantity(order.QuoteBudget!.Value / price, Rules);
+        var partial = false;
+
+        // Under a settlement hold a sell fills only what is unlocked; the rest stays working.
+        if (order.Side == OrderSide.Sell && _holds is not null)
+        {
+            decimal sellable = _holds.Sellable(RequireMarketTime());
+
+            if (sellable <= 0m)
+            {
+                throw new TradingInvariantException($"Order {orderId} has nothing past its settlement hold to sell.");
+            }
+
+            partial = sellable < order.Reservation;
+            grossBase = Math.Min(order.Reservation, sellable);
+        }
 
         if (order.Type == OrderType.Market && OrderNormalizer.CheckMinimums(grossBase, price, Rules) is { } reason)
         {
@@ -126,7 +167,15 @@ public sealed class TradingAccount : IGraphAccount
 
         decimal rate = Settings.FeeRate(order.Type);
 
-        Release(order, OrderStatus.Filled);
+        if (partial)
+        {
+            Portfolio.ReleaseBase(grossBase);
+            order.ConsumeReservation(grossBase);
+        }
+        else
+        {
+            Release(order, OrderStatus.Filled);
+        }
 
         if (order.Side == OrderSide.Buy)
         {
@@ -135,6 +184,7 @@ public sealed class TradingAccount : IGraphAccount
             if (Rules.BuyFeeAsset == FeeAsset.Quote)
             {
                 Portfolio.BuyWithQuoteFee(quoteSpent, grossBase, quoteFee, price);
+                _holds?.Acquire(grossBase, RequireMarketTime());
 
                 return new OrderExecution(
                     new Fill(
@@ -154,6 +204,7 @@ public sealed class TradingAccount : IGraphAccount
 
             decimal fee = FeeCalculator.Calculate(grossBase, rate, Rules.BasePrecision);
             Portfolio.Buy(quoteSpent, grossBase, fee, price);
+            _holds?.Acquire(grossBase - fee, RequireMarketTime());
 
             return new OrderExecution(
                 new Fill(order.Id, order.Tag, order.Side, order.Type, price, grossBase, grossBase - fee, -quoteSpent, fee, FeeAsset.Base, RealizedPnl: 0m),
@@ -167,6 +218,7 @@ public sealed class TradingAccount : IGraphAccount
                 ? grossQuote * rate
                 : FeeCalculator.Calculate(grossQuote, rate, Rules.QuotePrecision);
         decimal realized = Portfolio.Sell(grossBase, grossQuote, sellFee);
+        _holds?.Consume(grossBase, RequireMarketTime());
 
         return new OrderExecution(
             new Fill(order.Id, order.Tag, order.Side, order.Type, price, grossBase, -grossBase, grossQuote - sellFee, sellFee, FeeAsset.Quote, realized),
@@ -232,5 +284,10 @@ public sealed class TradingAccount : IGraphAccount
         };
 
         return new OrderRejection(reason, message, side, type, tag, originNodeId, orderId);
+    }
+
+    private DateTimeOffset RequireMarketTime()
+    {
+        return _marketTime ?? throw new TradingInvariantException("A settlement hold needs the replay's market time.");
     }
 }

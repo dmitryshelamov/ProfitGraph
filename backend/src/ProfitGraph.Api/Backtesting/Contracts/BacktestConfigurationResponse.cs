@@ -14,4 +14,5 @@ public sealed record BacktestConfigurationResponse(
     string MarketFeeRate,
     string OutOfSampleFraction,
     int WarmupCandles,
-    SellerFeeScheduleResponse? SellerFees);
+    SellerFeeScheduleResponse? SellerFees,
+    long? SettlementHoldSeconds);

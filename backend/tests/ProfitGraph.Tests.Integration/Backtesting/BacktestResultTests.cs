@@ -214,7 +214,7 @@ public sealed class BacktestResultTests
     }
 
     [Test]
-    public async Task SellerFeesAreFrozenWithTheRunAndOmittedWithoutThem()
+    public async Task SellerFeesAndHoldAreFrozenWithTheRunAndOmittedWithoutThem()
     {
         Guid strategyId = await BacktestScenario.CreateStrategy(_application, _userId);
         Guid withFees = await CompletedRun(
@@ -230,7 +230,8 @@ public sealed class BacktestResultTests
                 startingCapital = "1000",
                 slippage = "0.001",
                 outOfSampleFraction = "0.25",
-                sellerFees = new { rates = new[] { "0.05", "0.10" }, minimum = "0.01" }
+                sellerFees = new { rates = new[] { "0.05", "0.10" }, minimum = "0.01" },
+                settlementHoldSeconds = 7200
             });
         Guid withRates = await CompletedRun(BacktestScenario.Request(strategyId, _symbol));
 
@@ -238,7 +239,10 @@ public sealed class BacktestResultTests
         configuration["limitFeeRate"]!.GetValue<string>().ShouldBe("0");
         configuration["sellerFees"]!["rates"]!.AsArray().Select(rate => rate!.GetValue<string>()).ShouldBe(["0.05", "0.1"]);
         configuration["sellerFees"]!["minimum"]!.GetValue<string>().ShouldBe("0.01");
+        configuration["settlementHoldSeconds"]!.GetValue<long>().ShouldBe(7200);
         (await Get($"/api/backtests/{withRates}"))["configuration"]!["sellerFees"].ShouldBeNull();
+        (await Get($"/api/backtests/{withRates}"))["configuration"]!["settlementHoldSeconds"].ShouldBeNull();
+        (await Scalar<bool>("SELECT configuration ? 'settlementHoldSeconds' FROM backtest_runs WHERE id = @id", new { id = withRates })).ShouldBeFalse();
         (await Scalar<bool>("SELECT configuration ? 'sellerFees' FROM backtest_runs WHERE id = @id", new { id = withRates })).ShouldBeFalse();
     }
 
@@ -258,6 +262,27 @@ public sealed class BacktestResultTests
                 startingCapital = "1000",
                 limitFeeRate = "0.001",
                 sellerFees = new { rates = new[] { "0.05" }, minimum = "0.01" }
+            });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await response.Content.ReadAsStringAsync());
+    }
+
+    [TestCase(-1L)]
+    [TestCase(315_360_001L)]
+    public async Task ASettlementHoldOutsideItsRangeIsRejected(long seconds)
+    {
+        HttpResponseMessage response = await _client.PostAsJsonAsync(
+            "/api/backtests",
+            new
+            {
+                strategyId = await BacktestScenario.CreateStrategy(_application, _userId),
+                venue = TestHistoryVenue.WithHistory,
+                symbol = _symbol,
+                timeframe = "1h",
+                from = BacktestScenario.From,
+                to = BacktestScenario.To,
+                startingCapital = "1000",
+                settlementHoldSeconds = seconds
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await response.Content.ReadAsStringAsync());

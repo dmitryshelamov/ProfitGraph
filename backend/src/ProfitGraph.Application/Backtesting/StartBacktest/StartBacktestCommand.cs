@@ -6,7 +6,8 @@ namespace ProfitGraph.Application.Backtesting.StartBacktest;
 
 /// <summary>
 ///     Freezes a run of a strategy version and queues it (stage 3 plan, S3-5). Omitted parameters keep the version's values;
-///     an omitted holdout fraction is 0.2. Seller fees replace the limit and market rates, which must then be zero.
+///     an omitted holdout fraction is 0.2. Seller fees replace the limit and market rates, which must then be zero; a
+///     settlement hold delays selling what was bought (ADR 0022).
 /// </summary>
 public sealed record StartBacktestCommand(
     Guid UserId,
@@ -23,4 +24,5 @@ public sealed record StartBacktestCommand(
     decimal LimitFeeRate,
     decimal MarketFeeRate,
     decimal? OutOfSampleFraction,
-    SellerFeeScheduleInternal? SellerFees = null) : ICommand<BackgroundJobInternal>;
+    SellerFeeScheduleInternal? SellerFees = null,
+    long? SettlementHoldSeconds = null) : ICommand<BackgroundJobInternal>;

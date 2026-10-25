@@ -18,7 +18,8 @@ public static class MarketDataResponseConverter
                 ? new VenueExecutionDefaultsResponse(
                     defaults.SellerFees is { } fees
                         ? new SellerFeeScheduleResponse([.. fees.Rates.Select(ExactGraphNumberParser.Format)], ExactGraphNumberParser.Format(fees.Minimum))
-                        : null)
+                        : null,
+                    defaults.SettlementHoldSeconds)
                 : null);
     }
 
