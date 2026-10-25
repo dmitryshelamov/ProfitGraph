@@ -71,7 +71,10 @@ export function backtestSetupDefaults(definition: StrategyDefinition): BacktestS
  * The venue's own execution defaults: a marketplace's seller fees and its hold, or the two rates and no hold. Kept
  * values the user typed for rates stay as they are.
  */
-export function withVenueDefaults(values: BacktestSetupValues, venue: Venue | undefined): BacktestSetupValues {
+export function withVenueDefaults(
+  values: BacktestSetupValues,
+  venue: Venue | undefined,
+): BacktestSetupValues {
   const defaults = venue?.executionDefaults ?? null;
   const fees = defaults?.sellerFees ?? null;
   const hold = defaults?.settlementHoldSeconds ?? null;
@@ -79,7 +82,10 @@ export function withVenueDefaults(values: BacktestSetupValues, venue: Venue | un
   return {
     ...values,
     sellerFees: fees
-      ? { percents: fees.rates.map((rate) => fractionToPercent(rate) ?? rate), minimum: fees.minimum }
+      ? {
+          percents: fees.rates.map((rate) => fractionToPercent(rate) ?? rate),
+          minimum: fees.minimum,
+        }
       : null,
     holdDays: hold === null ? null : String(hold / 86_400),
   };

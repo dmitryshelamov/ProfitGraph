@@ -99,7 +99,10 @@ export function BacktestSetupForm({
   }
 
   function text(
-    field: Exclude<BacktestSetupField, `parameters.${string}` | `sellerFeePercents.${number}` | 'sellerFeeMinimum' | 'holdDays'>,
+    field: Exclude<
+      BacktestSetupField,
+      `parameters.${string}` | `sellerFeePercents.${number}` | 'sellerFeeMinimum' | 'holdDays'
+    >,
     label: ReactNode,
     inputMode: 'decimal' | undefined = 'decimal',
   ) {

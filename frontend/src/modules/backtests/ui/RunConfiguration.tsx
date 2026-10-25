@@ -48,7 +48,12 @@ export function RunConfiguration({ run }: { run: BacktestRun }) {
     ],
     ...(configuration.settlementHoldSeconds === null
       ? []
-      : [['Задержка продажи купленного', holdLabel(configuration.settlementHoldSeconds)] as [string, ReactNode]]),
+      : [
+          ['Задержка продажи купленного', holdLabel(configuration.settlementHoldSeconds)] as [
+            string,
+            ReactNode,
+          ],
+        ]),
     ['Проскальзывание', percent(configuration.slippage)],
     ['Отложенная выборка', percent(configuration.outOfSampleFraction)],
     ...Object.entries(configuration.parameters).map(([name, value]): [string, ReactNode] => [

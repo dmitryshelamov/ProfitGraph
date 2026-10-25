@@ -12,7 +12,10 @@ const marketplace: Venue = {
   id: 'steam',
   name: 'Steam Community Market',
   timeframes: ['1h', '1d'],
-  executionDefaults: { sellerFees: { rates: ['0.05', '0.1'], minimum: '0.01' }, settlementHoldSeconds: 604_800 },
+  executionDefaults: {
+    sellerFees: { rates: ['0.05', '0.1'], minimum: '0.01' },
+    settlementHoldSeconds: 604_800,
+  },
 };
 
 const definition = {
@@ -132,7 +135,14 @@ describe('backtest setup', () => {
 
     expect(steam.sellerFees).toEqual({ percents: ['5', '10'], minimum: '0.01' });
     expect(steam.holdDays).toBe('7');
-    expect(withVenueDefaults(steam, { id: 'bybit', name: 'Bybit', timeframes: ['1h'], executionDefaults: null })).toMatchObject({
+    expect(
+      withVenueDefaults(steam, {
+        id: 'bybit',
+        name: 'Bybit',
+        timeframes: ['1h'],
+        executionDefaults: null,
+      }),
+    ).toMatchObject({
       sellerFees: null,
       holdDays: null,
     });
@@ -181,5 +191,4 @@ describe('backtest setup', () => {
     expect(result).toHaveProperty('request');
     expect(result).not.toHaveProperty('request.settlementHoldSeconds');
   });
-
 });
