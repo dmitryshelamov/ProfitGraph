@@ -133,7 +133,10 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   hold waits with `SettlementHold` and is listed once it unlocks. Steam's answer names no listing, so `mylistings` (Profit
   Fox Designer's `RemoveMarketListing` and `CancelMarketListingConfirmation` controls, totals that must add up) binds the
   listing ID, which is the confirmation's creator, and shows when a listing is active. A cancel removes each listing with
-  `removelisting`; only Steam's success releases the asset, and anything unclear leaves it `Unknown`.
+  `removelisting`; anything unclear leaves the asset `Unknown`. Steam's success leaves it `Removed`: still reserved
+  until market history's cancelled event, attributed by the listing ID, shows the item back, possibly under a new asset
+  ID. Only then is the asset released and the cancel confirmed, so the next sell finds the returned item among the bot's
+  own.
 - **History receipts.** `myhistory/render` pages become receipts as Profit Fox Designer ADR 0087 defines them (event types
   1 to 4, every listing, purchase and asset resolved in the page, settled purchases in the wallet currency, the sale's
   buyer price from the fee schedule). `steam_market_receipts` keeps them at absolute positions, written once. A read

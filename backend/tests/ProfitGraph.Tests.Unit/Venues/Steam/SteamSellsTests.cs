@@ -155,7 +155,7 @@ public sealed class SteamSellsTests
     }
 
     [Test]
-    public async Task ACancelRemovesTheListingsAndFreesTheItems()
+    public async Task ACancelFreesUnlistedItemsAndRemovesTheListings()
     {
         _owned.Assets.AddRange([Asset("1001"), Asset("1002", locked: true)]);
         (SteamSells sells, SteamConfirmations confirmations) = Create();
@@ -166,11 +166,15 @@ public sealed class SteamSellsTests
         await sells.Cancel(Account(), "pg-1", CancellationToken.None);
         ExternalOrderUpdate? again = await Submit(sells, "pg-2", Limit(quantity: 2m, price: 100m, id: 2));
 
-        _harness.Steam.Count("/market/removelisting/" + (await _journal.Reservations("pg-1", CancellationToken.None))[0].ListingId).ShouldBe(1);
-        (await _journal.Reservations("pg-1", CancellationToken.None)).ShouldAllBe(reservation => reservation.State == SteamReservationState.Released);
-        (await Entry("pg-1")).Outcome.ShouldBe(SteamOrderOutcome.Cancelled);
-        again.ShouldBeNull();
-        (await Published()).ShouldContain(ExternalOrderUpdate.ConfirmCancel(orderId: 1));
+        IReadOnlyList<SteamAssetReservation> released = await _journal.Reservations("pg-1", CancellationToken.None);
+        _harness.Steam.Count("/market/removelisting/" + released.Single(reservation => reservation.AssetId == "1001").ListingId).ShouldBe(1);
+        released.Select(reservation => (reservation.AssetId, reservation.State))
+            .ShouldBe([("1001", SteamReservationState.Removed), ("1002", SteamReservationState.Released)], ignoreOrder: true);
+        (await Entry("pg-1")).State.ShouldBe(SteamOrderJournalState.Cancelling);
+        (await Published()).ShouldNotContain(ExternalOrderUpdate.ConfirmCancel(orderId: 1));
+
+        // The removed listing's item stays reserved until market history shows it back.
+        again.ShouldNotBeNull().Reason.ShouldBe(RejectionReason.InsufficientBase);
     }
 
     [Test]
