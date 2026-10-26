@@ -98,7 +98,7 @@ never blocked. What changes is *what it measures* and *when for a deferred order
 | Rechecked, still waits | `Deferred` (new `NextCheckAt`, details) | unchanged | details changed, not re-reported |
 | Rechecked, reason changed | `Deferred` (new code) | unchanged | old wait ended, new started |
 | Ready | `Sending`, then `Sent` | via gateway | wait ended (`OrderWaitingEnded`) |
-| Strategy cancels while deferred | `Deferred` -> `Rejected` (`Cancelled by owner`)... see below | `ConfirmCancel` | wait ended |
+| Strategy cancels while deferred | `Deferred` -> `Sent` as a local cancel (see below) | `ConfirmCancel` | wait ended |
 | Kill / halt | `Rejected` (`KillSwitch`) | rejected | wait ended |
 | Owner stops the bot | `Deferred`, held | working | stays; reason adds "bot stopped" |
 | Restart / takeover | `Deferred`, re-evaluated | restored from checkpoint | row re-created if missing |
