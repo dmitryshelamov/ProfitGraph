@@ -19,6 +19,7 @@ function botRoutes(current = bot) {
     [`GET ${botPath}/feed?limit=50`]: () => json({ items: [], next: null }),
     [`GET ${botPath}/position?cycles=20`]: () => json(flatPosition),
     [`GET ${botPath}/open-orders`]: () => json([]),
+    [`GET /api/strategies/${strategy.id}`]: () => json(strategy),
   };
 }
 
@@ -172,6 +173,14 @@ describe('bots', () => {
     expect(await exit.findByText('Отложен')).toBeInTheDocument();
     expect(exit.getByText(/Ждёт снятия трейд-холда до/)).toBeInTheDocument();
     expect(exit.queryByText('Стоит на бирже')).not.toBeInTheDocument();
+  });
+
+  it('links the bot page to the strategy it runs', async () => {
+    fakeApi(botRoutes());
+    renderApp(`/bots/${bot.id}`);
+
+    const link = await screen.findByRole('link', { name: strategy.name });
+    expect(link).toHaveAttribute('href', `/strategies/${strategy.id}`);
   });
 
   it('says so when the bot has no open orders', async () => {
