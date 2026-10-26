@@ -12,4 +12,6 @@ public sealed class TestCredentialSchema(string venue) : IVenueCredentialSchema
     public VenueId Venue { get; } = new VenueId(venue);
 
     public IReadOnlyList<string> Fields { get; } = [ExchangeCredentialFields.ApiKey, ExchangeCredentialFields.ApiSecret];
+
+    public string PublicField => ExchangeCredentialFields.ApiKey;
 }

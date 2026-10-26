@@ -3,14 +3,21 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApiErrorMessage } from '@/shared/ui/ApiErrorMessage';
 import { Button } from '@/shared/ui/Button';
 import { DateTime } from '@/shared/ui/DateTime';
+import { InlineRename } from '@/shared/ui/InlineRename';
 
-import { credentialKeys, deleteCredential } from '../api/credentialsApi';
+import { credentialKeys, deleteCredential, renameCredential } from '../api/credentialsApi';
+import { credentialKeyDisplay } from '../model/keyDisplay';
 import type { ExchangeCredential } from '../model/types';
 
 export function CredentialsTable({ credentials }: { credentials: readonly ExchangeCredential[] }) {
   const queryClient = useQueryClient();
   const remove = useMutation({
     mutationFn: deleteCredential,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: credentialKeys.all }),
+  });
+
+  const rename = useMutation({
+    mutationFn: ({ id, label }: { id: string; label: string }) => renameCredential(id, label),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: credentialKeys.all }),
   });
 
@@ -29,9 +36,21 @@ export function CredentialsTable({ credentials }: { credentials: readonly Exchan
         <tbody>
           {credentials.map((credential) => (
             <tr key={credential.id} className="border-t border-line">
-              <td className="py-2">{credential.label}</td>
+              <td className="py-2">
+                <InlineRename
+                  initial={credential.label}
+                  label={`Название ключа ${credential.label}`}
+                  maxLength={100}
+                  onSave={(label) => rename.mutateAsync({ id: credential.id, label })}
+                >
+                  {credential.label}
+                </InlineRename>
+              </td>
               <td className="py-2">{credential.venue}</td>
-              <td className="py-2 font-mono">…{credential.apiKeyLast4}</td>
+              <td className="py-2 font-mono">
+                <div>{credentialKeyDisplay(credential).visible}</div>
+                <div className="text-muted">{credentialKeyDisplay(credential).mask}</div>
+              </td>
               <td className="py-2">
                 <DateTime value={credential.createdAt} />
               </td>

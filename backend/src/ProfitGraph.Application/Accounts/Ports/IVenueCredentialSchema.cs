@@ -10,4 +10,10 @@ namespace ProfitGraph.Application.Accounts.Ports;
 public interface IVenueCredentialSchema : IVenuePort
 {
     IReadOnlyList<string> Fields { get; }
+
+    /// <summary>
+    ///     The one field that holds a non-secret identifier of the account, such as an account number or an API access key; the
+    ///     keys page shows it beside the masked key.
+    /// </summary>
+    string PublicField { get; }
 }

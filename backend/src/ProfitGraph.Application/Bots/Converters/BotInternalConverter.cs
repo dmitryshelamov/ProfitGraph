@@ -11,6 +11,7 @@ public static class BotInternalConverter
         return new BotInternal(
             bot.Id.Value,
             bot.StrategyId.Value,
+            bot.Name?.Value,
             bot.StrategyVersionId.Value,
             bot.CredentialId.Value,
             bot.Series.Venue.Value,

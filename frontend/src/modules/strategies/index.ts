@@ -2,6 +2,7 @@ export type { SaveStrategyInput } from './api/strategiesApi';
 export {
   blockCatalogQuery,
   createStrategy,
+  renameStrategy,
   saveStrategy,
   strategiesQuery,
   strategyKeys,

@@ -14,4 +14,6 @@ public sealed class TestAccountCredentialSchema : IVenueCredentialSchema
     public VenueId Venue { get; } = new VenueId(TestHistoryVenue.WithAccounts);
 
     public IReadOnlyList<string> Fields { get; } = [Account, Secret];
+
+    public string PublicField => Account;
 }

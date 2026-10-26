@@ -50,6 +50,15 @@ internal static class StrategyQueries
             cancellationToken: cancellationToken);
     }
 
+    public static CommandDefinition Rename(StrategyDb row, NpgsqlTransaction? transaction, CancellationToken cancellationToken)
+    {
+        return new CommandDefinition(
+            "UPDATE strategies SET name = @Name, updated_at = @UpdatedAt WHERE id = @Id",
+            new { row.Id, row.Name, row.UpdatedAt },
+            transaction,
+            cancellationToken: cancellationToken);
+    }
+
     public static CommandDefinition Save(StrategyDb row, int expectedVersion, NpgsqlTransaction? transaction, CancellationToken cancellationToken)
     {
         return new CommandDefinition(

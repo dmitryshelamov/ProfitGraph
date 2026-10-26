@@ -57,16 +57,17 @@ public sealed class ExchangeCredentialEndpointTests
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
         string createdBody = await created.Content.ReadAsStringAsync();
         createdBody.ShouldNotContain(ApiSecret);
-        createdBody.ShouldNotContain(ApiKey);
         JsonElement credential = JsonDocument.Parse(createdBody).RootElement;
         Guid id = credential.GetProperty("id").GetGuid();
         credential.GetProperty("venue").GetString().ShouldBe("bybit");
         credential.GetProperty("label").GetString().ShouldBe("main key");
         credential.GetProperty("apiKeyLast4").GetString().ShouldBe("real");
+        credential.GetProperty("publicId").GetString().ShouldBe(ApiKey);
 
         string own = await firstClient.GetStringAsync(Path);
         JsonDocument.Parse(own).RootElement.EnumerateArray().Select(item => item.GetProperty("id").GetGuid()).ShouldBe([id]);
         own.ShouldNotContain(ApiSecret);
+        JsonDocument.Parse(own).RootElement[0].GetProperty("publicId").GetString().ShouldBe(ApiKey);
         JsonDocument.Parse(await secondClient.GetStringAsync(Path)).RootElement.GetArrayLength().ShouldBe(0);
 
         await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
@@ -238,5 +239,40 @@ public sealed class ExchangeCredentialEndpointTests
     private static async Task<string?> Code(HttpResponseMessage response)
     {
         return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString();
+    }
+
+    [Test]
+    public async Task RenameChangesOnlyTheLabelAndOnlyForTheOwner()
+    {
+        using HttpClient owner = await _factory.CreateSignedInClient();
+        using HttpClient other = await _factory.CreateSignedInClient();
+        Guid id = await Create(owner);
+
+        HttpResponseMessage renamed = await owner.PutAsJsonAsync($"{Path}/{id}/label", new { label = "  second key " });
+        HttpResponseMessage blank = await owner.PutAsJsonAsync($"{Path}/{id}/label", new { label = "   " });
+        HttpResponseMessage foreign = await other.PutAsJsonAsync($"{Path}/{id}/label", new { label = "taken" });
+
+        renamed.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await renamed.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("label").GetString().ShouldBe("second key");
+        body.GetProperty("publicId").GetString().ShouldBe(ApiKey);
+        blank.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        foreign.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        JsonDocument.Parse(await owner.GetStringAsync(Path)).RootElement[0].GetProperty("label").GetString().ShouldBe("second key");
+    }
+
+    [Test]
+    public async Task CredentialStoredWithoutAPublicIdShowsTheVenuePublicField()
+    {
+        UserInternal account = await _factory.CreateAccount(UserRole.User);
+        using HttpClient client = await _factory.SignIn(account);
+        Guid id = await Create(client);
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+        await connection.ExecuteAsync("UPDATE exchange_credentials SET public_id = NULL WHERE id = @id", new { id });
+
+        string list = await client.GetStringAsync(Path);
+
+        JsonDocument.Parse(list).RootElement[0].GetProperty("publicId").GetString().ShouldBe(ApiKey);
+        list.ShouldNotContain(ApiSecret);
     }
 }

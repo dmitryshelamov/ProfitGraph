@@ -15,4 +15,5 @@ internal sealed class ExchangeCredentialDb
 
     public DateTimeOffset CreatedAt { get; init; }
     public string? AccountFingerprint { get; init; }
+    public string? PublicId { get; init; }
 }

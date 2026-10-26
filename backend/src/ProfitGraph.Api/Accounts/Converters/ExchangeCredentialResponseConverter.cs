@@ -7,6 +7,6 @@ internal static class ExchangeCredentialResponseConverter
 {
     public static ExchangeCredentialResponse ToResponse(this ExchangeCredentialInternal credential)
     {
-        return new ExchangeCredentialResponse(credential.Id, credential.Venue, credential.Label, credential.ApiKeyLast4, credential.CreatedAt);
+        return new ExchangeCredentialResponse(credential.Id, credential.Venue, credential.Label, credential.ApiKeyLast4, credential.PublicId, credential.CreatedAt);
     }
 }

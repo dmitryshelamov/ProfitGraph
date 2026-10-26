@@ -71,7 +71,7 @@ internal sealed class SteamCredentialEnrollment(
             return Stopped("authenticator_exists");
         }
 
-        var state = new SteamEnrollmentState(label.Trim(), signIn.SteamId, signIn.ClientId, signIn.RequestId, "android:" + Guid.NewGuid());
+        var state = new SteamEnrollmentState(label.Trim(), signIn.SteamId, signIn.ClientId, signIn.RequestId, "android:" + Guid.NewGuid(), AccountName: accountName);
         bool email = signIn.Confirmations.Contains(2);
         DateTimeOffset now = clock.GetUtcNow();
         await store.Add(
@@ -331,7 +331,8 @@ internal sealed class SteamCredentialEnrollment(
                     [SteamCredentialFields.SharedSecret] = state.SharedSecret!,
                     [SteamCredentialFields.IdentitySecret] = state.IdentitySecret!,
                     [SteamCredentialFields.DeviceId] = state.DeviceId
-                }));
+                },
+                state.AccountName ?? state.SteamId));
     }
 
     private static CredentialEnrollmentStepInternal View(string step, string? problem = null)

@@ -266,4 +266,42 @@ public sealed class BotSettingsTests
 
         Should.Throw<ArgumentException>(() => Bot.Restore(snapshot));
     }
+
+    [Test]
+    public void RenameNamesTheBotInAnyStateWithoutTouchingTrading()
+    {
+        Bot bot = BotFixture.Running();
+        BotDesiredState desired = bot.DesiredState;
+        BotRuntimeStatus runtime = bot.RuntimeStatus;
+
+        bool renamed = bot.Rename(new BotName("  Main  "), Now);
+        bool unchanged = bot.Rename(new BotName("Main"), Now.AddMinutes(1));
+
+        renamed.ShouldBeTrue();
+        unchanged.ShouldBeFalse();
+        bot.ShouldSatisfyAllConditions(
+            () => bot.Name!.Value.ShouldBe("Main"),
+            () => bot.DesiredState.ShouldBe(desired),
+            () => bot.RuntimeStatus.ShouldBe(runtime),
+            () => bot.UpdatedAt.ShouldBe(Now),
+            () => bot.DomainEvents.ShouldBeEmpty());
+    }
+
+    [Test]
+    public void RenameToNullClearsTheName()
+    {
+        Bot bot = BotFixture.Stopped();
+        bot.Rename(new BotName("Main"), Now);
+
+        bot.Rename(name: null, Now.AddMinutes(1)).ShouldBeTrue();
+
+        bot.Name.ShouldBeNull();
+    }
+
+    [TestCase("")]
+    [TestCase("   ")]
+    public void BotNameMustNotBeBlank(string value)
+    {
+        Should.Throw<BotRuleException>(() => new BotName(value)).Code.ShouldBe(BotRuleException.InvalidName);
+    }
 }

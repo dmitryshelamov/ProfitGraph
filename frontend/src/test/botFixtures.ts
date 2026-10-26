@@ -9,12 +9,14 @@ export const credential: Schemas['ExchangeCredentialResponse'] = {
   venue: 'bybit',
   label: 'Основной',
   apiKeyLast4: 'abcd',
+  publicId: null,
   createdAt: '2026-10-24T08:00:00Z',
 };
 
 export const bot: Schemas['BotResponse'] = {
   id: '7a1b2c3d-4e5f-4a6b-8c9d-0e1f2a3b4c5d',
   strategyId: strategy.id,
+  name: null,
   strategyVersionId: '9e8d7c6b-5a49-4382-9170-6f5e4d3c2b1a',
   credentialId: credential.id,
   venue: 'bybit',

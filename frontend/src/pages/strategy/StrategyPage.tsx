@@ -1,14 +1,21 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, Link } from '@tanstack/react-router';
+import { useState } from 'react';
 
 import { StrategyRuns } from '@/modules/backtests';
 import { StrategyOptimizations } from '@/modules/optimizations';
-import { strategyQuery, strategyTemplateLabel } from '@/modules/strategies';
+import {
+  renameStrategy,
+  strategyKeys,
+  strategyQuery,
+  strategyTemplateLabel,
+} from '@/modules/strategies';
 import { ApiError } from '@/shared/api/client';
-import { buttonClassName } from '@/shared/ui/Button';
+import { Button, buttonClassName } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
 import { DateTime } from '@/shared/ui/DateTime';
 import { PageHeader } from '@/shared/ui/PageHeader';
+import { RenameForm } from '@/shared/ui/RenameForm';
 
 import { StrategyParameters } from './StrategyParameters';
 import { StrategyValidationCard } from './StrategyValidationCard';
@@ -31,6 +38,12 @@ function loadFailure(error: Error): string {
 export function StrategyPage() {
   const { strategyId } = route.useParams();
   const strategy = useQuery(strategyQuery(strategyId));
+  const queryClient = useQueryClient();
+  const [renaming, setRenaming] = useState(false);
+  const rename = useMutation({
+    mutationFn: (name: string) => renameStrategy(strategyId, name),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: strategyKeys.all }),
+  });
   const back = (
     <nav aria-label="Путь" className="text-sm text-muted">
       <Link to="/strategies" className="hover:text-link">
@@ -61,6 +74,22 @@ export function StrategyPage() {
       <PageHeader
         back={back}
         title={current.name}
+        titleAction={
+          <Button size="sm" variant="ghost" onClick={() => setRenaming(true)}>
+            Переименовать
+          </Button>
+        }
+        editor={
+          renaming ? (
+            <RenameForm
+              initial={current.name}
+              label="Название стратегии"
+              maxLength={200}
+              onSave={(name) => rename.mutateAsync(name)}
+              onDone={() => setRenaming(false)}
+            />
+          ) : undefined
+        }
         meta={
           <>
             {strategyTemplateLabel(current.definition.templateKind)} · версия{' '}

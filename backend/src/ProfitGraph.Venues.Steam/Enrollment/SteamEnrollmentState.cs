@@ -14,7 +14,8 @@ internal sealed record SteamEnrollmentState(
     string? RefreshToken = null,
     string? AccessToken = null,
     string? SharedSecret = null,
-    string? IdentitySecret = null)
+    string? IdentitySecret = null,
+    string? AccountName = null)
 {
     public override string ToString()
     {

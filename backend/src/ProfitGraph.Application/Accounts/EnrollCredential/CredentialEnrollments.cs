@@ -52,7 +52,8 @@ public sealed class CredentialEnrollments(
                 new ExchangeCredentialLabel(completed.Label),
                 new ApiKeyLast4(completed.PublicHint),
                 completed.Fields.ToDictionary(field => field.Key, field => protector.Encrypt(id, owner, field.Key, field.Value), StringComparer.Ordinal),
-                clock.GetUtcNow());
+                clock.GetUtcNow(),
+                publicId: completed.PublicId is null ? null : new CredentialPublicId(completed.PublicId));
             await transactions.ExecuteAsync(
                 async () =>
                 {

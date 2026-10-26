@@ -18,6 +18,7 @@ using ProfitGraph.Application.Bots.GetBotUnresolvedOrders;
 using ProfitGraph.Application.Bots.GetBotWaitingOrders;
 using ProfitGraph.Application.Bots.GetManualOrder;
 using ProfitGraph.Application.Bots.KillBot;
+using ProfitGraph.Application.Bots.RenameBot;
 using ProfitGraph.Application.Bots.StartBot;
 using ProfitGraph.Application.Bots.StopBot;
 
@@ -165,6 +166,15 @@ public sealed class BotsController(ISender sender) : ControllerBase
     public async Task<ActionResult<BotResponse>> ChangeParameters(Guid id, ChangeBotParametersRequest request, CancellationToken cancellationToken)
     {
         return (await sender.Send(request.ToCommand(UserId(), id), cancellationToken)).ToResponse();
+    }
+
+    /// <summary>
+    ///     Names the bot in any state; it changes neither trading nor the desired state.
+    /// </summary>
+    [HttpPut("{id:guid}/name")]
+    public async Task<ActionResult<BotResponse>> Rename(Guid id, RenameBotRequest request, CancellationToken cancellationToken)
+    {
+        return (await sender.Send(new RenameBotCommand(UserId(), id, request.Name), cancellationToken)).ToResponse();
     }
 
     [HttpPut("{id:guid}/risk-limits")]

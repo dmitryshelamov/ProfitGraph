@@ -1,5 +1,7 @@
 import { fractionToPercent, percentToFraction, roundDecimal } from '@/shared/lib/decimal';
 
+import type { Bot } from './types';
+
 /** How a bot's amounts are shown: the venue's own decimal places and the traded assets' names. */
 export interface BotDisplay {
   readonly basePlaces: number | null;
@@ -55,4 +57,9 @@ export function parameterStoredValue(text: string, isPercent: boolean): string {
   const trimmed = text.trim();
 
   return isPercent ? (percentToFraction(trimmed) ?? trimmed) : trimmed;
+}
+
+/** The owner's name for a bot, or its symbol and timeframe while it has none. */
+export function botTitle(bot: Pick<Bot, 'name' | 'symbol' | 'timeframe'>): string {
+  return bot.name ?? `${bot.symbol} ${bot.timeframe}`;
 }

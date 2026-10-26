@@ -21,4 +21,9 @@ public interface IStrategyRepository
     ///     Saves the new version only when the stored current version still equals <paramref name="expectedVersion" />.
     /// </summary>
     Task<bool> Save(Strategy strategy, StrategyVersion version, StrategyVersionNumber expectedVersion, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Writes the name of a renamed strategy; no version is added.
+    /// </summary>
+    Task Rename(Strategy strategy, CancellationToken cancellationToken);
 }

@@ -21,7 +21,8 @@ internal static class ExchangeCredentialDbConverter
             JsonSerializer.Deserialize<Dictionary<string, EncryptedSecretDb>>(row.Secrets, Options)!
                 .ToDictionary(secret => secret.Key, secret => new EncryptedSecret(secret.Value.KeyId, secret.Value.Nonce, secret.Value.Ciphertext, secret.Value.Tag)),
             row.CreatedAt,
-            row.AccountFingerprint);
+            row.AccountFingerprint,
+            row.PublicId is null ? null : new CredentialPublicId(row.PublicId));
     }
 
     public static ExchangeCredentialDb ToDb(this ExchangeCredential credential)
@@ -40,7 +41,8 @@ internal static class ExchangeCredentialDbConverter
                         { KeyId = secret.Value.KeyId, Nonce = secret.Value.Nonce, Ciphertext = secret.Value.Ciphertext, Tag = secret.Value.Tag }),
                 Options),
             CreatedAt = credential.CreatedAt,
-            AccountFingerprint = credential.AccountFingerprint
+            AccountFingerprint = credential.AccountFingerprint,
+            PublicId = credential.PublicId?.Value
         };
     }
 }

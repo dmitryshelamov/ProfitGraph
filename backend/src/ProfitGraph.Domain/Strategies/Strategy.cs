@@ -80,4 +80,22 @@ public sealed class Strategy : AggregateRoot
 
         return new StrategyVersion(StrategyVersionId.New(), Id, CurrentVersion, definition, layout, now);
     }
+
+    /// <summary>
+    ///     Renames the strategy without a new version, so running bots keep their version (ADR 0019). Returns whether the name changed.
+    /// </summary>
+    public bool Rename(StrategyName name, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+
+        if (name == Name)
+        {
+            return false;
+        }
+
+        Name = name;
+        UpdatedAt = now;
+
+        return true;
+    }
 }

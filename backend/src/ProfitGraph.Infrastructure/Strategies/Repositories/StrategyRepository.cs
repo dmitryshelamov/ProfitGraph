@@ -74,6 +74,13 @@ internal sealed class StrategyRepository(
         return true;
     }
 
+    public async Task Rename(Strategy strategy, CancellationToken cancellationToken)
+    {
+        RequireTransaction();
+        await connection.ExecuteAsync(StrategyQueries.Rename(strategy.ToDb(), transactions.Current, cancellationToken));
+        transactions.RegisterDomainEventClear(strategy);
+    }
+
     private Task AddVersion(StrategyVersion version, CancellationToken cancellationToken)
     {
         var row = new StrategyVersionDb

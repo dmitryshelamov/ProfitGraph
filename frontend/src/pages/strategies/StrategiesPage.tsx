@@ -1,14 +1,20 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { Amount } from '@/modules/backtests';
 import { jobStatusLabel } from '@/modules/jobs';
-import { strategiesQuery, strategyTemplateLabel } from '@/modules/strategies';
+import {
+  renameStrategy,
+  strategiesQuery,
+  strategyKeys,
+  strategyTemplateLabel,
+} from '@/modules/strategies';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
 import { DateTime } from '@/shared/ui/DateTime';
 import { EmptyState } from '@/shared/ui/EmptyState';
+import { InlineRename } from '@/shared/ui/InlineRename';
 import { PageHeader } from '@/shared/ui/PageHeader';
 
 import { CreateFromTemplate } from './CreateFromTemplate';
@@ -17,6 +23,11 @@ const allTemplates = 'all';
 
 export function StrategiesPage() {
   const strategies = useQuery(strategiesQuery());
+  const queryClient = useQueryClient();
+  const rename = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => renameStrategy(id, name),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: strategyKeys.all }),
+  });
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState<string>(allTemplates);
@@ -122,13 +133,20 @@ export function StrategiesPage() {
                 {visible.map((strategy) => (
                   <tr key={strategy.id} className="border-b border-line last:border-0">
                     <td className="px-4 py-3">
-                      <Link
-                        to="/strategies/$strategyId"
-                        params={{ strategyId: strategy.id }}
-                        className="font-medium hover:text-link"
+                      <InlineRename
+                        initial={strategy.name}
+                        label={`Название стратегии ${strategy.name}`}
+                        maxLength={200}
+                        onSave={(name) => rename.mutateAsync({ id: strategy.id, name })}
                       >
-                        {strategy.name}
-                      </Link>
+                        <Link
+                          to="/strategies/$strategyId"
+                          params={{ strategyId: strategy.id }}
+                          className="font-medium hover:text-link"
+                        >
+                          {strategy.name}
+                        </Link>
+                      </InlineRename>
                     </td>
                     <td className="px-4 py-3 text-text-secondary">
                       {strategyTemplateLabel(strategy.templateKind)}

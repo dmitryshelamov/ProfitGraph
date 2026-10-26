@@ -8,4 +8,6 @@ internal sealed class TInvestCredentialSchema : IVenueCredentialSchema
     public VenueId Venue => TInvestVenue.VenueId;
 
     public IReadOnlyList<string> Fields { get; } = [TInvestCredentialFields.AccountId, TInvestCredentialFields.Token];
+
+    public string PublicField => TInvestCredentialFields.AccountId;
 }

@@ -128,3 +128,10 @@ export async function validateStrategy(id: string, definition: StrategyDefinitio
     }),
   );
 }
+
+/** Renames a strategy without saving a version, so running bots are not touched. */
+export async function renameStrategy(id: string, name: string): Promise<Strategy> {
+  return unwrap(
+    await api.PUT('/api/strategies/{id}/name', { params: { path: { id } }, body: { name } }),
+  );
+}

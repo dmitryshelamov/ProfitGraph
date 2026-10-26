@@ -117,7 +117,9 @@ be blocked. The first Owner is created from private startup configuration while 
 ### Exchange Credential
 
 A user's secrets for one trading venue, such as an API key and secret, stored encrypted per value and never shown
-again; only a four-character public hint is visible. For a venue whose credential selects one of several accounts, such
+again; only a four-character public hint and a non-secret public identifier (an account number, a login or an API access
+key) are visible; the keys page shows the identifier above a `***` mask. The owner may rename a credential, a strategy
+and a bot; renaming never creates a strategy version and never touches a bot's trading or desired state. For a venue whose credential selects one of several accounts, such
 as a T-Invest brokerage account, the account is chosen from the venue's list when the credential is saved, and one venue
 account has at most one credential. A credential belongs to its owner, and another user's credential is reported as
 missing. See [ADR 0015](docs/adr/0015-exchange-credentials.md).

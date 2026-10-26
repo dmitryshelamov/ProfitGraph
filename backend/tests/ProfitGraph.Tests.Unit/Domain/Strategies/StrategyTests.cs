@@ -83,4 +83,21 @@ public sealed class StrategyTests
     {
         return Strategy.Create(StrategyId.New(), UserId.New(), Sma, Definition, Layout, Created).Strategy;
     }
+
+    [Test]
+    public void RenameChangesOnlyTheNameAndKeepsTheVersion()
+    {
+        (Strategy strategy, _) = Strategy.Create(StrategyId.New(), UserId.New(), Sma, Definition, Layout, Created);
+
+        bool renamed = strategy.Rename(new StrategyName("  Renamed  "), Later);
+        bool unchanged = strategy.Rename(new StrategyName("Renamed"), Later.AddHours(1));
+
+        renamed.ShouldBeTrue();
+        unchanged.ShouldBeFalse();
+        strategy.ShouldSatisfyAllConditions(
+            () => strategy.Name.Value.ShouldBe("Renamed"),
+            () => strategy.CurrentVersion.ShouldBe(StrategyVersionNumber.First),
+            () => strategy.CreatedAt.ShouldBe(Created),
+            () => strategy.UpdatedAt.ShouldBe(Later));
+    }
 }

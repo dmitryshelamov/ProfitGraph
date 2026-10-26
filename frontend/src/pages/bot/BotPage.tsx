@@ -1,15 +1,18 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
+import { useState } from 'react';
 
 import {
   AlertsList,
   BotControls,
   BotFeedList,
   BotFillsTable,
+  botKeys,
   BotOpenOrders,
   BotPositionCard,
   botQuery,
   BotStatusBadge,
+  botTitle,
   BotUnresolvedOrders,
   BotWaitingOrders,
   diagnosticLabel,
@@ -17,6 +20,7 @@ import {
   fractionLabel,
   ManualOrderForm,
   ParametersForm,
+  renameBot,
   RiskLimitsForm,
   TradingHaltBanner,
   useBotDisplay,
@@ -24,9 +28,11 @@ import {
 import { venuesQuery } from '@/modules/market-data';
 import { isPercentageParameter, strategyQuery } from '@/modules/strategies';
 import { ApiErrorMessage } from '@/shared/ui/ApiErrorMessage';
+import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
 import { DateTime } from '@/shared/ui/DateTime';
 import { PageHeader } from '@/shared/ui/PageHeader';
+import { RenameForm } from '@/shared/ui/RenameForm';
 
 /**
  * One bot: its state and controls, position at a live price, limits, parameters, foreign orders, alerts, manual order,
@@ -41,6 +47,12 @@ export function BotPage() {
     enabled: strategyId !== undefined,
   });
 
+  const queryClient = useQueryClient();
+  const [renaming, setRenaming] = useState(false);
+  const rename = useMutation({
+    mutationFn: (name: string) => renameBot(botId, name),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: botKeys.all }),
+  });
   const venues = useQuery(venuesQuery());
   const display = useBotDisplay({
     venue: bot.data?.venue ?? '',
@@ -70,7 +82,24 @@ export function BotPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader
-        title={`${current.symbol} ${current.timeframe}`}
+        title={botTitle(current)}
+        titleAction={
+          <Button size="sm" variant="ghost" onClick={() => setRenaming(true)}>
+            Переименовать
+          </Button>
+        }
+        editor={
+          renaming ? (
+            <RenameForm
+              initial={current.name ?? ''}
+              label="Название бота"
+              maxLength={100}
+              allowEmpty
+              onSave={(name) => rename.mutateAsync(name)}
+              onDone={() => setRenaming(false)}
+            />
+          ) : undefined
+        }
         back={
           <Link to="/bots" className="text-sm text-text-secondary hover:text-text">
             ← Боты

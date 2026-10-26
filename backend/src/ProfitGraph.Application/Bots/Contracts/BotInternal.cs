@@ -6,6 +6,7 @@ namespace ProfitGraph.Application.Bots.Contracts;
 public sealed record BotInternal(
     Guid Id,
     Guid StrategyId,
+    string? Name,
     Guid StrategyVersionId,
     Guid CredentialId,
     string Venue,

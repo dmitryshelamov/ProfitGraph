@@ -13,7 +13,7 @@ requires the owner to enter credentials again, so nothing is imported. Stage 5 p
 
 - **Aggregate.** `ExchangeCredential` (feature `Accounts`) has an identifier, the owning user, a `VenueId`, a label of
   1 to 100 characters, the final four characters of the API key, the encrypted key, the encrypted secret and the
-  creation time. It never changes after creation. A bot will take its venue from its credential (Profit Fox Designer
+  creation time. Only its label changes after creation (`PUT /api/exchange-credentials/{id}/label`). A bot will take its venue from its credential (Profit Fox Designer
   ADR 0070). The request names the venue; an unregistered venue is `unknown_venue`, there is no default (ADR 0003).
 - **Encryption.** Each value is encrypted separately with AES-256-GCM, a fresh random 12-byte nonce and a 16-byte tag.
   The associated data is `{credentialId:D}|{ownerId:D}|{field}` with fields `apiKey` and `apiSecret`, so a value moved
@@ -91,3 +91,8 @@ requires the owner to enter credentials again, so nothing is imported. Stage 5 p
 - The credential records a keyed fingerprint of `{venue}:{account}` from `ISecretProtector.Fingerprints`
   (`exchange_credentials.account_fingerprint`, unique per venue): one venue account is stored once, for any user
   (`409 exchange_credential_account_exists`).
+- A credential also records a non-secret public identifier (`exchange_credentials.public_id`), shown in full above a `***`
+  mask: the API key of a key-and-secret venue, the account number for T-Invest, the sign-in login for Steam when it is
+  known and the Steam ID otherwise. Each venue names its public field in `IVenueCredentialSchema.PublicField`; a
+  credential stored without the identifier shows that field's value, decrypted for the list answer only. No secret field
+  is read for it and no response carries one.
