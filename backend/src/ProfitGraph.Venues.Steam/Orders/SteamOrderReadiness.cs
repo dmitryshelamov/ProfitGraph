@@ -1,8 +1,11 @@
+using Microsoft.Extensions.Logging;
+
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Accounting;
+using ProfitGraph.Venues.Steam.Inventory;
 
 namespace ProfitGraph.Venues.Steam.Orders;
 
@@ -13,7 +16,12 @@ namespace ProfitGraph.Venues.Steam.Orders;
 ///     rate-limit waits in the module, and a sell the module already journaled or cannot cover is left to it. Reads the
 ///     module's own state only; it reserves and writes nothing.
 /// </summary>
-internal sealed class SteamOrderReadiness(ISteamBotAccounts accounts, ISteamOrderJournal journal, SteamSells sells, TimeProvider clock) : IOrderReadiness
+internal sealed class SteamOrderReadiness(
+    ISteamBotAccounts accounts,
+    ISteamOrderJournal journal,
+    SteamSells sells,
+    TimeProvider clock,
+    ILogger<SteamOrderReadiness> logger) : IOrderReadiness
 {
     public VenueId Venue => SteamVenue.VenueId;
 
@@ -28,7 +36,19 @@ internal sealed class SteamOrderReadiness(ISteamBotAccounts accounts, ISteamOrde
         }
 
         SteamBotAccount bot = await accounts.Get(submit.BotId.Value, cancellationToken);
-        IReadOnlyList<SteamOwnedAsset> free = await sells.FreeAssets(bot, (int)wanted, cancellationToken);
+        IReadOnlyList<SteamOwnedAsset> free;
+
+        try
+        {
+            free = await sells.FreeAssets(bot, (int)wanted, cancellationToken);
+        }
+        catch (Exception exception) when (exception is SteamInventoryException or SteamOrderUnresolvedException)
+        {
+            // These messages name the cause and never carry provider text.
+            logger.LogWarning("The items of bot {BotId} could not be read for a sell: {Cause}", submit.BotId.Value, exception.Message);
+
+            throw;
+        }
 
         if (free.Count < wanted)
         {

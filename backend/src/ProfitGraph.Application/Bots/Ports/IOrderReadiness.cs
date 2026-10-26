@@ -11,7 +11,7 @@ public interface IOrderReadiness : IVenuePort
 {
     /// <summary>
     ///     A pure read: it neither sends, reserves nor writes at the venue, and answers from the module's own state and
-    ///     cache. An exception means the answer is not known and the submit waits.
+    ///     cache. An exception means the answer is not known and the submit waits; the venue logs the cause itself.
     /// </summary>
     Task<OrderReadinessInternal> Evaluate(OrderSubmitInternal submit, CancellationToken cancellationToken);
 }

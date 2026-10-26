@@ -1,6 +1,7 @@
 using MediatR;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 
 using NSubstitute;
@@ -83,7 +84,10 @@ internal sealed class SteamSessionHarness
 
     public SteamHttpTransport Transport()
     {
-        return new SteamHttpTransport(new HttpClient(Steam), Microsoft.Extensions.Options.Options.Create(Options));
+        return new SteamHttpTransport(
+            new HttpClient(Steam),
+            Microsoft.Extensions.Options.Options.Create(Options),
+            NullLogger<SteamHttpTransport>.Instance);
     }
 
     public SteamAccountProtection Protection()
