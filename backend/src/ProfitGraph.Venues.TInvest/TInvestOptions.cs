@@ -23,6 +23,11 @@ public sealed class TInvestOptions
     public TimeSpan RequestTimeout { get; init; } = TimeSpan.FromSeconds(10);
 
     /// <summary>
+    ///     The pause before an order state is read again after its executed lots and trade stages disagreed.
+    /// </summary>
+    public TimeSpan OrderReadRetryDelay { get; init; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>
     ///     The directory with the pinned Russian Trusted Root and Sub CA files, relative to the application directory. It
     ///     moves the files, never the trust: their fingerprints are pinned in code (Profit Fox Designer ADR 0085).
     /// </summary>
