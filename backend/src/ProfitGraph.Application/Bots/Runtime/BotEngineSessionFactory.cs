@@ -48,9 +48,12 @@ public sealed class BotEngineSessionFactory(
             ?? throw new InvalidOperationException("The bot's strategy version does not exist.");
         CompiledTradingGraph plan = compiler.Compile(version.Definition, applied.Values);
         InstrumentRules instrument = (await Port(rules, bot).Get(bot.Series.Symbol, cancellationToken)).Rules;
+
+        // A stored run keeps its own capital until its settings are applied (ADR 0025); a new one starts with the bot's.
+        decimal capital = stored?.Engine.Account.StartingCapital ?? bot.AllocationCap;
         ExecutionSettings settings = bot.FeeRates.SellerFees is { } sellerFees
-            ? new ExecutionSettings(bot.AllocationCap, slippage: 0m, sellerFees)
-            : new ExecutionSettings(bot.AllocationCap, slippage: 0m, bot.FeeRates.LimitRate, bot.FeeRates.MarketRate);
+            ? new ExecutionSettings(capital, slippage: 0m, sellerFees)
+            : new ExecutionSettings(capital, slippage: 0m, bot.FeeRates.LimitRate, bot.FeeRates.MarketRate);
         Timeframe timeframe = bot.Series.Timeframe;
         DateTimeOffset to = timeframe.FloorToGrid(clock.GetUtcNow());
         DateTimeOffset through = stored?.Engine.LastClosedCandle.OpenTime ?? to - timeframe.Duration;

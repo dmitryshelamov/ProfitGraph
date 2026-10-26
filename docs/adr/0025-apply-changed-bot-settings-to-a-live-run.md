@@ -1,6 +1,8 @@
 # ADR 0025: Apply Changed Bot Settings to a Live Run
 
-Status: Proposed, 2026-10-26. No code until the owner accepts it; the owner's answers to the questions at the end amend it.
+Status: Accepted, 2026-10-26: the owner approved the design ("ок, делаем"). Questions 1 to 3 are taken as the proposed
+answers (a stored run takes the values once on the start after the change; placed orders stay; a decrease is allowed down
+to what is reserved). Questions 4 and 5 are left open: no template changes and no merging of the two allocation settings.
 
 ## Context
 
@@ -120,3 +122,17 @@ new method on the externally executed account used only by the live runner.
    missing averaging order)? This changes a template; the alternative is that you add the wire in your own strategy.
 5. Should the bot's allocation and the strategy's `allocationCap` be one setting, with the strategy value derived from the
    bot's allocation, instead of two the owner must keep in step?
+
+## Amendment: stage 1 as built
+
+- `Portfolio` and `ExternallyExecutedAccount` gain `CanAdjustCapital` and `AdjustCapital` (the difference moves the quote
+  balance; refused when less than the reserved quote would be left).
+- `BotGraphFollower.ApplySettings` runs in the runner right after the engine opens and before reconciliation. It compares the
+  bot's values and allocation with the run's, compiles the same version with the bot's values, and `BotEngineSession.ApplySettings`
+  checks the capital first, switches the graph (`ChangeGraph`, one `Resume(GraphChanged)`), adjusts the capital, takes the
+  new applied values and commits one root.
+- The session factory now restores a stored run with its own capital. Before this a start after an allocation change threw
+  "Checkpoint capital does not match execution settings" when the runner opened the run.
+- A refusal is recorded as a rejected strategy version of the version the run runs (`GraphChangeRejected` diagnostic and one
+  alert); the run keeps its values. Another start retries it and records nothing new while the diagnostic stands.
+- Not built yet: the `SettingsApplied` feed event and the applied values in the API and on the bot page (stage 2).

@@ -9,7 +9,7 @@ public sealed class Portfolio
 {
     private bool _externalQuoteShortfallAllowed;
     internal decimal PendingFeeReserve { get; private set; }
-    public decimal StartingCapital { get; }
+    public decimal StartingCapital { get; private set; }
     public decimal QuoteTotal { get; private set; }
     public decimal QuoteReserved { get; private set; }
     public decimal BaseTotal { get; private set; }
@@ -56,6 +56,31 @@ public sealed class Portfolio
     public decimal UnrealizedPnl(decimal close)
     {
         return BaseTotal * close - CostBasis;
+    }
+
+    /// <summary>
+    ///     Whether the account's money can become <paramref name="newCapital" />: what the capital changes is free quote, so it
+    ///     must stay at least what is reserved.
+    /// </summary>
+    internal bool CanAdjustCapital(decimal newCapital)
+    {
+        return newCapital > 0m && QuoteTotal + newCapital - StartingCapital - QuoteReserved - PendingFeeReserve >= 0m;
+    }
+
+    /// <summary>
+    ///     Gives the account a new starting capital while it runs (ADR 0025): the difference is added to, or taken from, the quote
+    ///     balance. Cost basis, realized profit, fees and fills are untouched.
+    /// </summary>
+    internal void AdjustCapital(decimal newCapital)
+    {
+        if (!CanAdjustCapital(newCapital))
+        {
+            throw new TradingInvariantException($"The capital {newCapital} leaves less quote than is reserved ({QuoteReserved}).");
+        }
+
+        QuoteTotal += newCapital - StartingCapital;
+        StartingCapital = newCapital;
+        EnsureInvariants();
     }
 
     internal void ReserveQuote(decimal amount)

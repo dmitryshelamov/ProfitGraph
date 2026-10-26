@@ -126,6 +126,77 @@ public sealed class GraphChangeTests
         await worker.StopAsync();
     }
 
+    [Test]
+    public async Task AStoredRunTakesTheBotsNewValuesAndAllocationOnItsNextOpen()
+    {
+        var scenario = new RuntimeScenario();
+        Bot bot;
+
+        using (IHost first = scenario.Worker())
+        {
+            bot = (await RuntimeScenario.RunningLadders(first, count: 1))[0];
+            await first.StartAsync();
+            await EntriesAccepted(first, [bot]);
+            await first.StopAsync();
+        }
+
+        using IHost reader = scenario.Worker();
+        BotCheckpoint before = (await RuntimeScenario.Checkpoint(reader, bot.Id))!;
+
+        await using (var connection = new NpgsqlConnection(TestDatabase.ConnectionString))
+        {
+            await connection.ExecuteAsync(
+                "UPDATE bots SET allocation_cap = 250, parameters = CAST(@parameters AS jsonb) WHERE id = @id",
+                new
+                {
+                    id = bot.Id.Value,
+                    parameters = JsonSerializer.Serialize(bot.Parameters.Values.ToDictionary(pair => pair.Key, pair => pair.Key == "drop" ? 0.07m : pair.Value))
+                });
+        }
+
+        using IHost second = scenario.Worker();
+        await second.StartAsync();
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Checkpoint(second, bot.Id))?.Engine.Account.StartingCapital == 250m,
+            "the run takes the new allocation");
+        await second.StopAsync();
+
+        BotCheckpoint after = (await RuntimeScenario.Checkpoint(second, bot.Id))!;
+        after.AppliedParameters.Values["drop"].ShouldBe(0.07m);
+        after.Engine.Account.QuoteTotal.ShouldBe(before.Engine.Account.QuoteTotal + 250m - before.Engine.Account.StartingCapital);
+        after.Engine.Account.CostBasis.ShouldBe(before.Engine.Account.CostBasis);
+        after.Engine.Account.Orders.Select(order => order.Id).ShouldBe(before.Engine.Account.Orders.Select(order => order.Id));
+    }
+
+    [Test]
+    public async Task AnAllocationBelowWhatTheRunReservedLeavesTheRunAsItWasAndIsRejected()
+    {
+        var scenario = new RuntimeScenario();
+        Bot bot;
+
+        using (IHost first = scenario.Worker())
+        {
+            bot = (await RuntimeScenario.RunningLadders(first, count: 1))[0];
+            await first.StartAsync();
+            await EntriesAccepted(first, [bot]);
+            await first.StopAsync();
+        }
+
+        await using (var connection = new NpgsqlConnection(TestDatabase.ConnectionString))
+        {
+            await connection.ExecuteAsync("UPDATE bots SET allocation_cap = 5 WHERE id = @id", new { id = bot.Id.Value });
+        }
+
+        using IHost second = scenario.Worker();
+        await second.StartAsync();
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Read(second, bot.Id)).Diagnostics.HasFlag(BotDiagnostics.GraphChangeRejected),
+            "the settings are refused");
+        await second.StopAsync();
+
+        (await RuntimeScenario.Checkpoint(second, bot.Id))!.Engine.Account.StartingCapital.ShouldBe(100m);
+    }
+
     private static async Task EntriesAccepted(IHost worker, IReadOnlyList<Bot> bots)
     {
         foreach (Bot bot in bots)

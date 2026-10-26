@@ -116,6 +116,22 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
     }
 
     /// <summary>
+    ///     Whether the account can take <paramref name="newCapital" /> without leaving less free quote than is reserved.
+    /// </summary>
+    public bool CanAdjustCapital(decimal newCapital)
+    {
+        return _account.Portfolio.CanAdjustCapital(newCapital);
+    }
+
+    /// <summary>
+    ///     Changes the starting capital of a running account (ADR 0025); the difference moves the quote balance.
+    /// </summary>
+    public void AdjustCapital(decimal newCapital)
+    {
+        _account.Portfolio.AdjustCapital(newCapital);
+    }
+
+    /// <summary>
     ///     A live run that starts over after a forgotten one continues its order identifiers, so no client order identifier
     ///     repeats at the venue. Only before the first order.
     /// </summary>

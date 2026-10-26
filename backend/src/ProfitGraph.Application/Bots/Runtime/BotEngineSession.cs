@@ -38,7 +38,7 @@ public sealed class BotEngineSession
     /// <summary>
     ///     The parameter values the run applies to every version it switches to.
     /// </summary>
-    public BotParameters AppliedParameters { get; }
+    public BotParameters AppliedParameters { get; private set; }
 
     /// <summary>
     ///     The last closed candle the engine processed, or null before the first.
@@ -248,6 +248,44 @@ public sealed class BotEngineSession
         }
 
         _version = candidate;
+        await Save(liveCandle: false, cancellationToken);
+
+        return null;
+    }
+
+    /// <summary>
+    ///     Gives a stored run the bot's current values and allocation (ADR 0025): the engine switches to the same version
+    ///     compiled with <paramref name="applied" />, the account's capital becomes <paramref name="allocationCap" /> (the
+    ///     difference moves the quote balance), and one <c>Resume(GraphChanged)</c> is drained; the root is committed. Returns null
+    ///     when it applied, or the reason it was refused, in which case nothing changed.
+    /// </summary>
+    internal async Task<string?> ApplySettings(
+        BotParameters applied,
+        decimal allocationCap,
+        LoweredStrategyGraph lowered,
+        IReadOnlyList<Candle> closedHistory,
+        CancellationToken cancellationToken)
+    {
+        if (_dispatcher.Account is not ExternallyExecutedAccount account || !account.CanAdjustCapital(allocationCap))
+        {
+            return "The allocation cannot be below what the run has reserved.";
+        }
+
+        GraphChangeResult result = _dispatcher.ChangeGraph(
+            lowered.Graph,
+            lowered.Catalog,
+            EngineExecutionInputs.Empty,
+            _version.Value.ToString("D"),
+            closedHistory,
+            LastCandle!.OpenTime + _timeframe.Duration);
+
+        if (!result.Applied)
+        {
+            return result.Diagnostic ?? "The engine refused the new values.";
+        }
+
+        account.AdjustCapital(allocationCap);
+        AppliedParameters = applied;
         await Save(liveCandle: false, cancellationToken);
 
         return null;
