@@ -1,0 +1,72 @@
+# API and Worker in Linux containers for macOS, where .NET cannot complete the TLS handshake with the T-Invest endpoint.
+# PostgreSQL stays in docker-compose.dev.yml (localhost:5435, host.docker.internal from here). Start that stack first.
+# T-Invest is enabled only here; committed appsettings keep it off and Live:Trading:Enabled is not touched.
+name: profitgraph-app
+
+x-app: &app
+  image: profitgraph-dev-app:local
+  build:
+    context: .
+    dockerfile: docker/dev-app.Dockerfile
+    additional_contexts:
+      nugetcache: ${NUGET_PACKAGES:-${HOME}/.nuget/packages}
+  restart: unless-stopped
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  environment: &app-env
+    ASPNETCORE_ENVIRONMENT: Development
+    DOTNET_ENVIRONMENT: Development
+    ConnectionStrings__Postgres: "Host=host.docker.internal;Port=5435;Database=profitgraph_dev;Username=postgres;Password=postgres"
+    Venues__TInvest__Enabled: "true"
+    Venues__TInvest__Endpoint: "https://invest-public-api.tbank.ru:443"
+
+services:
+  api:
+    <<: *app
+    container_name: profitgraph-api-dev
+    working_dir: /app/api
+    command: [ "dotnet", "ProfitGraph.Api.dll" ]
+    environment:
+      <<: *app-env
+      ASPNETCORE_URLS: "http://+:5291"
+      # An explicit key directory also pins the application name, so cookies survive container re-creation.
+      DataProtection__KeyDirectory: /root/.aspnet/DataProtection-Keys
+    ports:
+      - "127.0.0.1:${PROFITGRAPH_API_PORT:-5291}:5291"
+    volumes:
+      - profitgraph_dev_dataprotection:/root/.aspnet/DataProtection-Keys
+      - type: bind
+        source: ${HOME}/.microsoft/usersecrets/profitgraph-api-development
+        target: /root/.microsoft/usersecrets/profitgraph-api-development
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - exec 3<>/dev/tcp/127.0.0.1/5291 && printf 'GET /api/health HTTP/1.0\r\n\r\n' >&3 && head -n1 <&3 | grep -q ' 200 '
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  worker:
+    <<: *app
+    container_name: profitgraph-worker-dev
+    working_dir: /app/worker
+    command: [ "dotnet", "ProfitGraph.Worker.dll" ]
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ${HOME}/.microsoft/usersecrets/profitgraph-worker-development
+        target: /root/.microsoft/usersecrets/profitgraph-worker-development
+        read_only: true
+        bind:
+          create_host_path: false
+
+volumes:
+  profitgraph_dev_dataprotection:
