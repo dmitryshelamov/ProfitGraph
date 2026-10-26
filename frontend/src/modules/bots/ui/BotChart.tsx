@@ -7,11 +7,10 @@ import { Button } from '@/shared/ui/Button';
 import { DateTime } from '@/shared/ui/DateTime';
 
 import { botCandlesQuery, botKeys, botNewCandlesQuery, botOpenOrdersQuery } from '../api/botsApi';
-import { mergeCandlePages, tooFarBehind } from '../model/botCandles';
+import { mergeCandlePages, timeframeSeconds, tooFarBehind } from '../model/botCandles';
 import { atPlaces, type BotDisplay } from '../model/botDisplay';
+import { orderLevels } from '../model/orderLevels';
 import type { Bot, BotCandlesPage } from '../model/types';
-
-const sideLabel = { Buy: 'Покупка', Sell: 'Продажа' } as const;
 
 /** Why the venue could not be read, by the stable code of its history error. */
 function unavailableText(code: string | null): string {
@@ -73,19 +72,7 @@ export function BotChart({ bot, display }: { bot: Bot; display: BotDisplay }) {
     [merged.fills, display.pricePlaces],
   );
   const levels = useMemo<ChartLevel[]>(
-    () =>
-      (orders.data ?? []).flatMap((order) =>
-        order.limitPrice === null
-          ? []
-          : [
-              {
-                id: String(order.engineOrderId),
-                side: order.side,
-                price: order.limitPrice,
-                title: `${sideLabel[order.side]} ${atPlaces(order.limitPrice, display.pricePlaces)}`,
-              },
-            ],
-      ),
+    () => orderLevels(orders.data ?? [], display.pricePlaces),
     [orders.data, display.pricePlaces],
   );
   const loadEarlier = () => {
@@ -104,6 +91,7 @@ export function BotChart({ bot, display }: { bot: Bot; display: BotDisplay }) {
         candles={merged.candles}
         trades={trades}
         levels={levels}
+        candleSeconds={timeframeSeconds[bot.timeframe] ?? 3600}
         label="Свечи бота"
         onReachStart={loadEarlier}
       />

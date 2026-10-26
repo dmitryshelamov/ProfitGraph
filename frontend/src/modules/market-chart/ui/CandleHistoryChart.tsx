@@ -17,9 +17,9 @@ import {
   type ChartLevel,
   type ChartTrade,
   drawableCandles,
-  drawableTrades,
   type HistoryCandle,
 } from '../model/candleHistory';
+import { markerPosition, tradeMarkers } from '../model/tradeMarkers';
 
 /** How many candles the chart shows when it first opens. */
 const initialBars = 120;
@@ -35,19 +35,22 @@ function token(name: string, fallback: string): string {
 }
 
 /**
- * Closed candles in UTC with trade markers at their prices and dashed levels. Scrolling towards the oldest loaded
+ * Closed candles in UTC with trade markers whose arrow tips touch their prices and dashed levels. Scrolling to the oldest loaded
  * candle calls `onReachStart`; candles added before it keep the view where it was.
  */
 export function CandleHistoryChart({
   candles,
   trades,
   levels = [],
+  candleSeconds,
   label,
   onReachStart,
 }: {
   candles: readonly HistoryCandle[];
   trades: readonly ChartTrade[];
   levels?: readonly ChartLevel[];
+  /** The length of one candle; a trade is drawn only inside a candle's period. */
+  candleSeconds: number;
   label: string;
   onReachStart?: () => void;
 }) {
@@ -61,7 +64,10 @@ export function CandleHistoryChart({
   const firstTime = useRef<number | null>(null);
   const reachStart = useRef(onReachStart);
   const drawn = useMemo(() => drawableCandles(candles), [candles]);
-  const placed = useMemo(() => drawableTrades(drawn, trades), [drawn, trades]);
+  const placed = useMemo(
+    () => tradeMarkers(drawn, trades, candleSeconds),
+    [drawn, trades, candleSeconds],
+  );
 
   useEffect(() => {
     reachStart.current = onReachStart;
@@ -149,7 +155,7 @@ export function CandleHistoryChart({
       placed.map((trade) => ({
         id: trade.id,
         time: trade.time as UTCTimestamp,
-        position: 'atPriceMiddle' as const,
+        position: markerPosition(trade.side),
         price: trade.price,
         shape: trade.side === 'Buy' ? ('arrowUp' as const) : ('arrowDown' as const),
         color: trade.side === 'Buy' ? up : down,
