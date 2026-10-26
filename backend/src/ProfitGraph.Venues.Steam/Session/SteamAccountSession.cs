@@ -34,6 +34,7 @@ internal sealed class SteamAccountSession(
     TimeProvider clock)
 {
     private const int MaximumPageRedirects = 3;
+    private const string EligibilityCheckPath = "/market/eligibilitycheck/";
 
     private readonly SteamPageCookies _pageCookies = new SteamPageCookies();
     private readonly SemaphoreSlim _renewal = new SemaphoreSlim(initialCount: 1, maxCount: 1);
@@ -44,6 +45,11 @@ internal sealed class SteamAccountSession(
     private long _generation;
 
     public Guid OwnerId { get; } = ownerId;
+
+    /// <summary>
+    ///     The account's market eligibility as this process last learned it, from the check or from a market page read.
+    /// </summary>
+    public SteamEligibilityEvidence Eligibility { get; } = new SteamEligibilityEvidence(options, clock);
 
     public async Task<SteamRequestResult> Execute(SteamHttpRequest request, CancellationToken cancellationToken)
     {
@@ -77,7 +83,8 @@ internal sealed class SteamAccountSession(
     /// <summary>
     ///     Reads a Community page as a browser navigation does, following at most three redirects within the host (Profit Fox
     ///     Designer <c>SteamAccountSession.ReadPage</c>): Steam sends the market page through its eligibility check and back.
-    ///     Each step is a read of its own in the account's queue; a longer chain is an invalid response.
+    ///     Each step is a read of its own in the account's queue; a longer chain is an invalid response. A step from the check
+    ///     back into the market is positive <see cref="Eligibility" />; a check that was throttled or failed backs it off.
     /// </summary>
     public async Task<SteamRequestResult> ReadPage(string pathAndQuery, SteamRequestClass requestClass, CancellationToken cancellationToken)
     {
@@ -89,8 +96,15 @@ internal sealed class SteamAccountSession(
                 new SteamHttpRequest(SteamEndpoint.Community, current.PathAndQuery, Class: requestClass, FollowsRedirects: true),
                 cancellationToken);
 
+            bool atCheck = current.AbsolutePath == EligibilityCheckPath;
+
             if (result.Outcome != SteamRequestOutcome.Success || result.Response is not { StatusCode: >= 300 and < 400, Location: { } location })
             {
+                if (atCheck && result.Outcome is SteamRequestOutcome.RateLimited or SteamRequestOutcome.TransientFailure)
+                {
+                    Eligibility.RecordThrottled();
+                }
+
                 return result;
             }
 
@@ -101,6 +115,11 @@ internal sealed class SteamAccountSession(
 
             // The transport took the redirect only within the host.
             current = new Uri(current, location);
+
+            if (atCheck && current.AbsolutePath is "/market/" or "/market")
+            {
+                Eligibility.Record(eligible: true);
+            }
         }
     }
 

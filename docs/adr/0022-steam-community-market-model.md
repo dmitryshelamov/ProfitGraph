@@ -192,10 +192,15 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   (10 minutes) of ours, `/market/eligibilitycheck/` redirecting back into the market, a readable wallet in a supported
   currency, and signed mobile confirmations listed. `Restricted` needs Steam's positive refusal: a non-market answer to
   the eligibility check, a restriction or CAPTCHA, an unsupported wallet, or refused confirmations. Anything that only
-  failed to answer stays `Checking`. The attempt is recorded before Steam is asked, and an unconfirmed account is
-  checked again after `EligibilityRecheck` (15 minutes), a restricted one after `RestrictedRecheck` (an hour, since Steam
-  lifts many restrictions on its own and a refusal is never reused for good), and a ready one is left to its owner. No
-  Steam bot trades before its account is `Ready`.
+  failed to answer stays `Checking`. Steam rate limits the eligibility check (HTTP 429 observed live), so the wallet is
+  read first: a market page that went through the check back into the market, or a positive check within
+  `EligibilityReuse` (6 hours), spares the check, and after a throttled or failed check the next waits
+  `EligibilityBackoff` (10 minutes) while the account stays `Checking`; a refusal or an unknown answer is never reused
+  (Profit Fox Designer `SteamWalletReadCache`). The evidence lives in the account's session in this process. The
+  attempt is recorded before Steam is asked, and an unconfirmed account is checked again after `EligibilityRecheck`
+  (15 minutes), a restricted one after `RestrictedRecheck` (an hour, since Steam lifts many restrictions on its own and
+  a refusal is never reused for good), and a ready one is left to its owner. No Steam bot trades before its account is
+  `Ready`.
 
 ### Account, session and request budget
 

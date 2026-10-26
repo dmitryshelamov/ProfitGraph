@@ -162,6 +162,15 @@ public sealed class SteamOptions
     /// </summary>
     public TimeSpan RestrictedRecheck { get; init; } = TimeSpan.FromHours(1);
 
+    /// <summary>
+    ///     How long a positive market eligibility answer is reused, and how long the next check waits after a throttled or
+    ///     failed one: Steam rate limits <c>/market/eligibilitycheck/</c> (Profit Fox Designer's local policy, 6 hours and
+    ///     10 minutes).
+    /// </summary>
+    public TimeSpan EligibilityReuse { get; init; } = TimeSpan.FromHours(6);
+
+    public TimeSpan EligibilityBackoff { get; init; } = TimeSpan.FromMinutes(10);
+
     public TimeSpan ClockTolerance { get; init; } = TimeSpan.FromMinutes(10);
 
     /// <summary>
@@ -192,7 +201,9 @@ public sealed class SteamOptions
             DefiniteRejectionCodes.All(code => code > 1) &&
             ListingPagesMaximum is > 0 and <= 100 && HistoryPageSize is > 0 and <= 100 && HistoryMaximumPages is > 0 and <= 100 &&
             HistoryOverlap > 0 && HistoryOverlap < HistoryPageSize && OrderWorkerInterval >= TimeSpan.FromSeconds(1) &&
-            EligibilityInterval >= TimeSpan.FromSeconds(1) && EligibilityRecheck > TimeSpan.Zero && RestrictedRecheck > TimeSpan.Zero && ClockTolerance > TimeSpan.Zero &&
+            EligibilityInterval >= TimeSpan.FromSeconds(1) && EligibilityRecheck > TimeSpan.Zero && RestrictedRecheck > TimeSpan.Zero &&
+            EligibilityReuse >= TimeSpan.Zero &&
+            EligibilityBackoff >= TimeSpan.Zero && ClockTolerance > TimeSpan.Zero &&
             EnrollmentLifetime > TimeSpan.Zero && EnrollmentLifetime <= TimeSpan.FromHours(1) && CoolingDownEstimate >= TimeSpan.Zero &&
             CoolingDownEstimate <= TimeSpan.FromDays(30) && ActivationAttempts is >= 1 and <= 5;
 
