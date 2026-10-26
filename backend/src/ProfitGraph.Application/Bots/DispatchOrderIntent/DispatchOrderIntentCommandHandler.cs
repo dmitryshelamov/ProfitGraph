@@ -2,10 +2,12 @@ using MediatR;
 
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.Ports;
+using ProfitGraph.Application.Bots.RecordOrderWaiting;
 using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Application.Bots.DispatchOrderIntent;
@@ -17,9 +19,10 @@ namespace ProfitGraph.Application.Bots.DispatchOrderIntent;
 ///     failure retries with backoff, and the tenth fails the intent and degrades the bot. A safety reason from the venue
 ///     degrades the bot at once and returns the intent for a later lookup. A first buy above the bot's per-order limit
 ///     (a sell is bounded by the position the engine reserved, not by the limit) is rejected with <c>RiskLimit</c> before
-///     it is sent, as is a limit sell below half of the last close (<see cref="SellPriceFloor" />); a rejection for an insufficient balance degrades the bot with
-///     <c>InsufficientBalance</c>. Stopped bots
-///     hold their submits.
+///     it is sent, as is a limit sell below half of the last close (<see cref="SellPriceFloor" />). Then the venue's
+///     readiness is asked (ADR 0024): a submit that cannot go yet is deferred, claimed again at its next check, and
+///     cancelled locally if the strategy cancels it. A rejection for an insufficient balance degrades the bot with
+///     <c>InsufficientBalance</c>. Stopped bots hold their submits.
 /// </summary>
 internal sealed class DispatchOrderIntentCommandHandler(
     IOrderIntentRepository intents,
@@ -28,6 +31,8 @@ internal sealed class DispatchOrderIntentCommandHandler(
     IBotCheckpointRepository checkpoints,
     ITradingHaltRepository halts,
     VenuePorts<IOrderGateway> gateways,
+    VenuePorts<IOrderReadiness> readiness,
+    IBotOrderWaitingRepository waiting,
     BotUpdateBus updates,
     ITransactionExecutor transactions,
     TimeProvider clock) : IRequestHandler<DispatchOrderIntentCommand, bool>
@@ -61,24 +66,26 @@ internal sealed class DispatchOrderIntentCommandHandler(
             {
                 var submit = new OrderSubmitInternal(intent.BotId, intent.ClientOrderId, intent.Order!, intent.MustLookUpBeforeSubmit);
 
-                if (!submit.MustLookUpBeforeSubmit && PerOrderLimit.Exceeds(intent.Order!, claimed.MaxOrderQuote))
+                if (!submit.MustLookUpBeforeSubmit)
                 {
-                    await Reject(
-                        intent,
-                        ExternalOrderUpdate.Reject(intent.EngineOrderId, RejectionReason.RiskLimit, "The order exceeds the bot's per-order limit."),
-                        cancellationToken);
+                    if (await RiskRejection(intent, claimed.MaxOrderQuote, cancellationToken) is { } risk)
+                    {
+                        await EndWait(intent, cancellationToken);
+                        await Reject(intent, ExternalOrderUpdate.Reject(intent.EngineOrderId, RejectionReason.RiskLimit, risk), cancellationToken);
 
-                    return true;
-                }
+                        return true;
+                    }
 
-                if (!submit.MustLookUpBeforeSubmit && await BelowSellPriceFloor(intent, cancellationToken))
-                {
-                    await Reject(
-                        intent,
-                        ExternalOrderUpdate.Reject(intent.EngineOrderId, RejectionReason.RiskLimit, "The sell's limit price is below half of the last close."),
-                        cancellationToken);
+                    OrderReadinessInternal ready = await Readiness(claimed.Venue, submit, cancellationToken);
 
-                    return true;
+                    if (!ready.IsReady)
+                    {
+                        await Defer(intent, ready, cancellationToken);
+
+                        return true;
+                    }
+
+                    await EndWait(intent, cancellationToken);
                 }
 
                 ExternalOrderUpdate? rejection = await gateway.Submit(submit, token => MarkPlaceStarted(intent, holder, claimed.Epoch!.Value, token), cancellationToken);
@@ -90,7 +97,7 @@ internal sealed class DispatchOrderIntentCommandHandler(
                     return true;
                 }
             }
-            else
+            else if (!await CancelDeferredSubmit(intent, cancellationToken))
             {
                 await gateway.Cancel(intent.BotId, intent.ClientOrderId, cancellationToken);
             }
@@ -229,12 +236,144 @@ internal sealed class DispatchOrderIntentCommandHandler(
     ///     What a submit commits in quote: a market buy its budget, a limit buy its price times quantity, a sell its
     ///     quantity at its limit or at the last closed candle (Profit Fox Designer ADR 0056).
     /// </summary>
-    private async Task<bool> BelowSellPriceFloor(OrderIntent intent, CancellationToken cancellationToken)
+    /// <summary>
+    ///     Why a submit breaks the bot's risk limits (ADR 0018), or null: a buy above the per-order limit, or a limit sell below
+    ///     the price floor.
+    /// </summary>
+    private async Task<string?> RiskRejection(OrderIntent intent, decimal maxOrderQuote, CancellationToken cancellationToken)
     {
         OrderSnapshot order = intent.Order!;
 
+        if (PerOrderLimit.Exceeds(order, maxOrderQuote))
+        {
+            return "The order exceeds the bot's per-order limit.";
+        }
+
         return order.Side == OrderSide.Sell && order.LimitPrice is not null &&
-            (await checkpoints.Get(intent.BotId, cancellationToken))?.Engine.LastClosedCandle.Close is { } close && SellPriceFloor.IsBelow(order, close);
+            (await checkpoints.Get(intent.BotId, cancellationToken))?.Engine.LastClosedCandle.Close is { } close && SellPriceFloor.IsBelow(order, close)
+                ? "The sell's limit price is below half of the last close."
+                : null;
+    }
+
+    /// <summary>
+    ///     Asks the venue whether the submit may go. A venue without the port is ready; an unreadable answer is not.
+    /// </summary>
+    private async Task<OrderReadinessInternal> Readiness(VenueId venue, OrderSubmitInternal submit, CancellationToken cancellationToken)
+    {
+        if (readiness.Find(venue) is not { } port)
+        {
+            return OrderReadinessInternal.Ready;
+        }
+
+        try
+        {
+            return await port.Evaluate(submit, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return new OrderReadinessInternal(OrderWaitingCode.RateLimited, RecheckAt: clock.GetUtcNow() + OrderDeferralSchedule.UnknownRetry);
+        }
+    }
+
+    /// <summary>
+    ///     Holds the claimed submit and records why, in one transaction; it is claimed again at its next check.
+    /// </summary>
+    private Task Defer(OrderIntent claimed, OrderReadinessInternal ready, CancellationToken cancellationToken)
+    {
+        return transactions.ExecuteAsync(
+            async () =>
+            {
+                DateTimeOffset now = clock.GetUtcNow();
+                OrderIntent? intent = await intents.GetForUpdate(claimed.Id, cancellationToken);
+
+                if (intent is not { Status: OrderIntentStatus.Sending })
+                {
+                    return true;
+                }
+
+                OrderWaitingCode code = ready.Code!.Value;
+                intent.Defer(new OrderDeferral(code, now, ready.Until, ready.Low, ready.High), OrderDeferralSchedule.NextCheck(ready.RecheckAt, ready.Until, now), now);
+                await intents.Update(intent, cancellationToken);
+                await OrderWaitingRecorder.Record(waiting, intent.BotId, intent.EngineOrderId, code, now, ready.Until, ready.Low, ready.High, cancellationToken);
+
+                return true;
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    ///     Ends the wait of an order that was deferred and is now sent or rejected.
+    /// </summary>
+    private Task EndWait(OrderIntent claimed, CancellationToken cancellationToken)
+    {
+        if (claimed.Deferral is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return transactions.ExecuteAsync(
+            async () =>
+            {
+                await OrderWaitingRecorder.Record(
+                    waiting,
+                    claimed.BotId,
+                    claimed.EngineOrderId,
+                    code: null,
+                    clock.GetUtcNow(),
+                    until: null,
+                    low: null,
+                    high: null,
+                    cancellationToken);
+
+                return true;
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    ///     A cancel of a submit still deferred is local: nothing is at the venue, so the submit is rejected as cancelled and the
+    ///     engine is told the order is cancelled. Returns whether it was.
+    /// </summary>
+    private async Task<bool> CancelDeferredSubmit(OrderIntent cancel, CancellationToken cancellationToken)
+    {
+        if (await intents.GetSubmit(cancel.BotId, cancel.EngineOrderId, cancellationToken) is not { Status: OrderIntentStatus.Deferred } found)
+        {
+            return false;
+        }
+
+        bool cancelled = await transactions.ExecuteAsync(
+            async () =>
+            {
+                DateTimeOffset now = clock.GetUtcNow();
+
+                if (await intents.GetForUpdate(found.Id, cancellationToken) is not { Status: OrderIntentStatus.Deferred } submit)
+                {
+                    return false;
+                }
+
+                submit.CancelDeferred(now);
+                await intents.Update(submit, cancellationToken);
+                await OrderWaitingRecorder.Record(
+                    waiting,
+                    submit.BotId,
+                    submit.EngineOrderId,
+                    code: null,
+                    now,
+                    until: null,
+                    low: null,
+                    high: null,
+                    cancellationToken);
+
+                return true;
+            },
+            cancellationToken);
+
+        if (cancelled)
+        {
+            updates.Publish(cancel.BotId, ExternalOrderUpdate.ConfirmCancel(cancel.EngineOrderId));
+        }
+
+        return cancelled;
     }
 
     private Task Fail(OrderIntent claimed, CancellationToken cancellationToken)

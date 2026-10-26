@@ -43,6 +43,14 @@ internal sealed class OrderIntentRepository(NpgsqlConnection connection, Postgre
         return [.. rows.Select(row => row.ToDomain())];
     }
 
+    public async Task<OrderIntent?> GetSubmit(BotId botId, long engineOrderId, CancellationToken cancellationToken)
+    {
+        var row = await connection.QuerySingleOrDefaultAsync<OrderIntentDb>(
+            Command(OrderIntentQueries.GetSubmit, new { botId = botId.Value, engineOrderId }, cancellationToken));
+
+        return row?.ToDomain();
+    }
+
     public async Task Update(OrderIntent intent, CancellationToken cancellationToken)
     {
         await connection.ExecuteAsync(Command(OrderIntentQueries.Update, intent.ToDb(), cancellationToken));

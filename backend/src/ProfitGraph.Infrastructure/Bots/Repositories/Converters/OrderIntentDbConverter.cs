@@ -32,7 +32,10 @@ internal static class OrderIntentDbConverter
                 row.RejectionReason is null ? null : new OrderIntentRejection(Enum.Parse<RejectionReason>(row.RejectionReason), row.RejectionMessage),
                 row.CreatedAt,
                 row.ConfirmedAbsentAt,
-                row.ConfirmedAbsentBy is { } by ? new UserId(by) : null));
+                row.ConfirmedAbsentBy is { } by ? new UserId(by) : null,
+                row.DeferralCode is null
+                    ? null
+                    : new OrderDeferral(Enum.Parse<OrderWaitingCode>(row.DeferralCode), row.DeferralSince!.Value, row.DeferralUntil, row.DeferralLow, row.DeferralHigh)));
     }
 
     public static OrderIntentDb ToDb(this OrderIntent intent)
@@ -58,7 +61,12 @@ internal static class OrderIntentDbConverter
             RejectionMessage = snapshot.Rejection?.Message,
             CreatedAt = snapshot.CreatedAt,
             ConfirmedAbsentAt = snapshot.ConfirmedAbsentAt,
-            ConfirmedAbsentBy = snapshot.ConfirmedAbsentBy?.Value
+            ConfirmedAbsentBy = snapshot.ConfirmedAbsentBy?.Value,
+            DeferralCode = snapshot.Deferral?.Code.ToString(),
+            DeferralSince = snapshot.Deferral?.Since,
+            DeferralUntil = snapshot.Deferral?.Until,
+            DeferralLow = snapshot.Deferral?.Low,
+            DeferralHigh = snapshot.Deferral?.High
         };
     }
 }
