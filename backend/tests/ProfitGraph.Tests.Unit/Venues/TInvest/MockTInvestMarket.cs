@@ -40,6 +40,9 @@ internal sealed class MockTInvestMarket
             First1MinCandleDate = Timestamp.FromDateTimeOffset(firstMinute),
             First1DayCandleDate = Timestamp.FromDateTimeOffset(firstMinute)
         };
+        share.Sector = "energy";
+        share.CountryOfRiskName = "Российская Федерация";
+        share.Brand = new BrandData { LogoName = "RU000A0JR4A1.png", LogoBaseColor = "#0A2E8C", };
         _shares[ticker] = share;
         _candles[share.Uid] = [];
 

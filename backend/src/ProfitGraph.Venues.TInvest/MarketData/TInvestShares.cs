@@ -77,6 +77,9 @@ internal sealed class TInvestShares(TInvestTransport transport, TimeProvider clo
             increment,
             share.First1MinCandleDate?.ToUtc(),
             share.First1DayCandleDate?.ToUtc(),
-            share.Exchange);
+            share.Exchange,
+            share.Brand is null ? null : new TInvestBrand(share.Brand.LogoName, share.Brand.LogoBaseColor),
+            share.Sector,
+            share.CountryOfRiskName);
     }
 }

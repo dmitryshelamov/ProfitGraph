@@ -62,6 +62,22 @@ internal sealed class BybitInstrumentCatalog(
             instrument.BaseAsset != instrument.QuoteAsset && instrument.BaseAsset + instrument.QuoteAsset == instrument.Name;
     }
 
+    /// <summary>
+    ///     Bybit publishes no coin icons without a key, so the base coin's picture comes from CoinCap's public icon set by
+    ///     ticker; a coin it lacks shows the plate on the page.
+    /// </summary>
+    private static InstrumentAppearanceInternal? Appearance(string baseAsset)
+    {
+        return baseAsset.Length <= 12 && baseAsset.All(char.IsAsciiLetterOrDigit)
+            ? new InstrumentAppearanceInternal(
+                $"https://assets.coincap.io/assets/icons/{baseAsset.ToLowerInvariant()}@2x.png",
+                Kind: null,
+                NameColor: null,
+                BackgroundColor: null,
+                [])
+            : null;
+    }
+
     private async Task<IReadOnlyList<InstrumentInternal>> Load(CancellationToken cancellationToken)
     {
         try
@@ -85,7 +101,12 @@ internal sealed class BybitInstrumentCatalog(
             [
                 .. data.List
                     .Where(instrument => instrument.Status == SymbolStatus.Trading && IsConsistent(instrument))
-                    .Select(instrument => new InstrumentInternal(BybitVenue.VenueId.Value, instrument.Name, instrument.BaseAsset, instrument.QuoteAsset))
+                    .Select(instrument => new InstrumentInternal(
+                        BybitVenue.VenueId.Value,
+                        instrument.Name,
+                        instrument.BaseAsset,
+                        instrument.QuoteAsset,
+                        Appearance(instrument.BaseAsset)))
                     .DistinctBy(instrument => instrument.Symbol)
                     .OrderBy(instrument => instrument.Symbol, StringComparer.Ordinal)
             ];

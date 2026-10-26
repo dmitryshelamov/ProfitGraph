@@ -12,4 +12,7 @@ internal sealed record TInvestShare(
     decimal PriceIncrement,
     DateTimeOffset? FirstMinuteCandle,
     DateTimeOffset? FirstDayCandle,
-    string Exchange = "");
+    string Exchange = "",
+    TInvestBrand? Brand = null,
+    string Sector = "",
+    string Country = "");
