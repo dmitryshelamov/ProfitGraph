@@ -6,9 +6,14 @@ namespace ProfitGraph.Tests.Integration.Steam;
 
 /// <summary>
 ///     A minimal in-process Steam for end-to-end checks: sign-in with the imported refresh token, server time, a KZT market
-///     page and the daily median history it is given. Hosts end in <c>.invalid</c>, so nothing leaves the process.
+///     page with a wallet of the given currency increment and the daily median history it is given. Hosts end in
+///     <c>.invalid</c>, so nothing leaves the process.
 /// </summary>
-internal sealed class MockSteamCommunity(string steamId, string refreshToken, IReadOnlyList<(DateTimeOffset Day, decimal Median, int Sold)> history) : HttpMessageHandler
+internal sealed class MockSteamCommunity(
+    string steamId,
+    string refreshToken,
+    IReadOnlyList<(DateTimeOffset Day, decimal Median, int Sold)> history,
+    long currencyIncrement = 1) : HttpMessageHandler
 {
     public const string Community = "https://community.steam.invalid/";
     public const string Login = "https://login.steam.invalid/";
@@ -41,7 +46,7 @@ internal sealed class MockSteamCommunity(string steamId, string refreshToken, IR
             ("community.steam.invalid", "/login/settoken") => SetToken(),
             ("api.steam.invalid", "/ITwoFactorService/QueryTime/v1/") => Json($$$"""{"response":{"server_time":"{{{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}}}"}}"""),
             ("community.steam.invalid", "/market/") => Html(
-                """<script>var g_rgWalletInfo = {"wallet_currency":37,"wallet_fee_percent":"0.05","wallet_publisher_fee_percent_default":"0.10","wallet_balance":"10000000","wallet_market_minimum":1,"wallet_currency_increment":1};</script>"""),
+                $$"""<script>var g_rgWalletInfo = {"wallet_currency":37,"wallet_fee_percent":"0.05","wallet_publisher_fee_percent_default":"0.10","wallet_balance":"10000000","wallet_market_minimum":1,"wallet_currency_increment":{{currencyIncrement}}};</script>"""),
             ("community.steam.invalid", "/market/pricehistory/") => History(),
             _ => new HttpResponseMessage(HttpStatusCode.NotFound)
         };

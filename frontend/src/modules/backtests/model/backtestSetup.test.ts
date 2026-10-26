@@ -5,6 +5,8 @@ import {
   backtestSetupDefaults,
   backtestSetupRequest,
   type BacktestSetupValues,
+  tickIncrement,
+  withSeries,
   withVenueDefaults,
 } from './backtestSetup';
 
@@ -13,7 +15,7 @@ const marketplace: Venue = {
   name: 'Steam Community Market',
   timeframes: ['1h', '1d'],
   executionDefaults: {
-    sellerFees: { rates: ['0.05', '0.1'], minimum: '0.01' },
+    sellerFees: { rates: ['0.05', '0.1'], minimum: '0.01', increment: 1 },
     settlementHoldSeconds: 604_800,
   },
   botSettings: null,
@@ -135,7 +137,7 @@ describe('backtest setup', () => {
   it('takes a marketplace venue’s seller fees and hold, and drops them for a venue without', () => {
     const steam = withVenueDefaults(values(), marketplace);
 
-    expect(steam.sellerFees).toEqual({ percents: ['5', '10'], minimum: '0.01' });
+    expect(steam.sellerFees).toEqual({ percents: ['5', '10'], minimum: '0.01', increment: null });
     expect(steam.holdDays).toBe('7');
     expect(
       withVenueDefaults(steam, {
@@ -152,28 +154,89 @@ describe('backtest setup', () => {
     });
   });
 
-  it('sends seller fees instead of the rates and the hold in seconds', () => {
-    const result = backtestSetupRequest('s', 1, definition, {
-      ...withVenueDefaults(values(), marketplace),
-      series: { venue: 'steam', symbol: 'KZT:730:Dreams & Nightmares Case', timeframe: '1d' },
-    });
+  it('sends seller fees instead of the rates, in the increment of the instrument’s tick, and the hold in seconds', () => {
+    const result = backtestSetupRequest(
+      's',
+      1,
+      definition,
+      {
+        ...withVenueDefaults(values(), marketplace),
+        series: { venue: 'steam', symbol: 'KZT:730:Dreams & Nightmares Case', timeframe: '1d' },
+      },
+      '100',
+    );
 
     expect(result).toMatchObject({
       request: {
         symbol: 'KZT:730:Dreams & Nightmares Case',
         limitFeeRate: '0',
         marketFeeRate: '0',
-        sellerFees: { rates: ['0.05', '0.1'], minimum: '0.01' },
+        sellerFees: { rates: ['0.05', '0.1'], minimum: '0.01', increment: 100 },
         settlementHoldSeconds: 604_800,
       },
     });
+  });
+
+  it('sends a typed seller fee increment over the tick’s and asks for one without either', () => {
+    const steam = withVenueDefaults(values(), marketplace);
+    const typed = { ...steam, sellerFees: { ...steam.sellerFees!, increment: ' 1 ' } };
+
+    expect(backtestSetupRequest('s', 1, definition, typed, '100')).toMatchObject({
+      request: { sellerFees: { increment: 1 } },
+    });
+    expect(backtestSetupRequest('s', 1, definition, steam)).toEqual({
+      errors: { sellerFeeIncrement: 'Укажите шаг: правила инструмента не прочитаны.' },
+    });
+  });
+
+  it.each(['0', '10001', '1.5', '-1', 'сто'])(
+    'rejects the seller fee increment %s',
+    (increment) => {
+      const steam = withVenueDefaults(values(), marketplace);
+
+      expect(
+        backtestSetupRequest('s', 1, definition, {
+          ...steam,
+          sellerFees: { ...steam.sellerFees!, increment },
+        }),
+      ).toEqual({ errors: { sellerFeeIncrement: 'Целое число от 1 до 10000.' } });
+    },
+  );
+
+  it('takes the increment from the tick in minor units, and none from a tick finer than one', () => {
+    const rules = {
+      quantityStep: '1',
+      priceTick: '1.00',
+      minQuantity: '1',
+      minNotional: '1.15',
+      basePrecision: 0,
+      quotePrecision: 2,
+    };
+
+    expect(tickIncrement(rules)).toBe('100');
+    expect(tickIncrement({ ...rules, priceTick: '0.01' })).toBe('1');
+    expect(tickIncrement({ ...rules, priceTick: '0.001' })).toBeNull();
+    expect(tickIncrement(undefined)).toBeNull();
+  });
+
+  it('lets a new symbol’s tick replace a typed increment, and keeps it for the same symbol', () => {
+    const steam = withVenueDefaults(values(), marketplace);
+    const typed = { ...steam, sellerFees: { ...steam.sellerFees!, increment: '100' } };
+
+    expect(withSeries(typed, { ...typed.series, timeframe: '1d' }).sellerFees?.increment).toBe(
+      '100',
+    );
+    expect(
+      withSeries(typed, { ...typed.series, symbol: 'KZT:730:Kilowatt Case' }).sellerFees?.increment,
+    ).toBeNull();
+    expect(withSeries(values(), { ...values().series, symbol: 'ETHUSDT' }).sellerFees).toBeNull();
   });
 
   it('explains a seller fee, minimum or hold it cannot send', () => {
     const steam = withVenueDefaults(values(), marketplace);
     const result = backtestSetupRequest('s', 1, definition, {
       ...steam,
-      sellerFees: { percents: ['5', '60'], minimum: '-1' },
+      sellerFees: { percents: ['5', '60'], minimum: '-1', increment: '1' },
       holdDays: '1.5',
     });
 
@@ -187,10 +250,13 @@ describe('backtest setup', () => {
   });
 
   it('sends no hold when its field is left empty', () => {
-    const result = backtestSetupRequest('s', 1, definition, {
-      ...withVenueDefaults(values(), marketplace),
-      holdDays: '',
-    });
+    const result = backtestSetupRequest(
+      's',
+      1,
+      definition,
+      { ...withVenueDefaults(values(), marketplace), holdDays: '' },
+      '1',
+    );
 
     expect(result).toHaveProperty('request');
     expect(result).not.toHaveProperty('request.settlementHoldSeconds');

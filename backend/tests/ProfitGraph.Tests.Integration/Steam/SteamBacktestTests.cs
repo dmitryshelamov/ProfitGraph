@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 
@@ -107,6 +108,68 @@ public sealed class SteamBacktestTests
             fills.Sells.ShouldBeGreaterThan(0);
             fills.SellFees.ShouldBeGreaterThan(0m);
             fills.BuyFees.ShouldBe(0m);
+        }
+    }
+
+    /// <summary>
+    ///     Medians in tiyn, as no KZT market reports them: only the wallet's increment keeps every seller amount in whole tenge,
+    ///     while minor units let some land on tiyn. Steam tests share the cached history, so the medians may be another test's.
+    /// </summary>
+    [TestCase(arg1: 100L, arg2: true)]
+    [TestCase(arg1: 1L, arg2: false)]
+    public async Task AWholeTengeWalletsSellerReceivesWholeTengeOnlyWithItsIncrement(long increment, bool wholeTenge)
+    {
+        UserInternal owner = await _api.CreateAccount(UserRole.User);
+        using HttpClient client = await _api.SignIn(owner);
+        var steamId = $"7656119{Random.Shared.NextInt64(minValue: 1_000_000_000, maxValue: 9_999_999_999)}";
+        Guid credential = await Import(owner.Login, steamId);
+        var today = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
+        (DateTimeOffset Day, decimal Median, int Sold)[] history =
+        [
+            .. Enumerable.Range(start: 0, count: 160).Select(index => (today.AddDays(index - 200), 500.37m + 60m * (decimal)Math.Sin(index / 4.0), 1000 + index))
+        ];
+        var steam = new MockSteamCommunity(steamId, RefreshToken, history, currencyIncrement: 100);
+        Guid strategy = await BacktestScenario.CreateStrategy(_api, owner.Id, "Steam SMA in whole tenge");
+        var request = new
+        {
+            strategyId = strategy,
+            venue = "steam",
+            symbol = Symbol,
+            timeframe = "1d",
+            from = today.AddDays(-180),
+            to = today.AddDays(-45),
+            parameters = new Dictionary<string, string> { ["buyAmount"] = "2000" },
+            startingCapital = "100000",
+            outOfSampleFraction = "0.2",
+            sellerFees = new { rates = new[] { "0.05", "0.10" }, minimum = "0.01", increment }
+        };
+
+        using IHost worker = Worker(credential, steam);
+        await worker.StartAsync();
+        (Guid id, JsonNode run) = await Run(client, request);
+        await worker.StopAsync();
+
+        run["result"]!["outcome"]!.GetValue<string>().ShouldBe("completed", run.ToJsonString());
+        decimal.Parse(run["history"]!["rules"]!["priceTick"]!.GetValue<string>(), CultureInfo.InvariantCulture).ShouldBe(1m);
+        run["configuration"]!["sellerFees"]!["increment"]!.GetValue<long>().ShouldBe(increment);
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+        var sells = await connection.QuerySingleAsync<(long Count, long OffTenge)>(
+            sql: """
+                 SELECT count(*),
+                        count(*) FILTER (WHERE (snapshot -> 'fill' ->> 'quoteChange')::numeric % 1 <> 0)
+                 FROM backtest_ledger
+                 WHERE run_id = @id AND snapshot ->> 'kind' = 'Filled' AND snapshot -> 'fill' ->> 'side' = 'Sell'
+                 """,
+            new { id });
+        sells.Count.ShouldBeGreaterThan(expected: 0, "The strategy must sell for the check to mean anything.");
+
+        if (wholeTenge)
+        {
+            sells.OffTenge.ShouldBe(0);
+        }
+        else
+        {
+            sells.OffTenge.ShouldBeGreaterThan(0);
         }
     }
 

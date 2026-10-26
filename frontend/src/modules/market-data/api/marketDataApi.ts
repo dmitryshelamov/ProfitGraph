@@ -8,6 +8,8 @@ export const marketDataKeys = {
   venues: ['market-data', 'venues'] as const,
   instruments: (venue: string, query: string, credentialId?: string) =>
     ['market-data', 'instruments', venue, query, credentialId ?? ''] as const,
+  instrumentRules: (venue: string, symbol: string, credentialId?: string) =>
+    ['market-data', 'instrument-rules', venue, symbol, credentialId ?? ''] as const,
 };
 
 export function venuesQuery() {
@@ -32,6 +34,28 @@ export function instrumentsQuery(venue: string, query: string, credentialId?: st
         }),
       ),
     enabled: venue !== '' && (!venuesReadWithKey.has(venue) || credentialId !== undefined),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * The venue's current rules of one instrument, read and not stored. A partly typed symbol is simply not one, so a failure
+ * is not retried; a venue read with the user's key reads them only once a key is chosen.
+ */
+export function instrumentRulesQuery(venue: string, symbol: string, credentialId?: string) {
+  return queryOptions({
+    queryKey: marketDataKeys.instrumentRules(venue, symbol, credentialId),
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/api/market-data/instrument-rules', {
+          params: { query: { venue, symbol, ...(credentialId ? { credentialId } : {}) } },
+        }),
+      ),
+    enabled:
+      venue !== '' &&
+      symbol !== '' &&
+      (!venuesReadWithKey.has(venue) || credentialId !== undefined),
+    retry: false,
     staleTime: 5 * 60 * 1000,
   });
 }

@@ -2,10 +2,13 @@ using MediatR;
 
 using Microsoft.AspNetCore.Mvc;
 
+using ProfitGraph.Api.Backtesting.Contracts;
+using ProfitGraph.Api.Backtesting.Converters;
 using ProfitGraph.Api.Common.Authentication;
 using ProfitGraph.Api.MarketData.Contracts;
 using ProfitGraph.Api.MarketData.Converters;
 using ProfitGraph.Application.MarketData.Contracts;
+using ProfitGraph.Application.MarketData.GetInstrumentRules;
 using ProfitGraph.Application.MarketData.GetInstruments;
 using ProfitGraph.Application.MarketData.GetVenues;
 
@@ -40,5 +43,23 @@ public sealed class MarketDataController(ISender sender) : ControllerBase
             cancellationToken);
 
         return instruments.Select(instrument => instrument.ToResponse()).ToArray();
+    }
+
+    /// <summary>
+    ///     The venue's current rules of one instrument, read now and not stored; a backtest captures its own when it runs.
+    /// </summary>
+    [HttpGet("instrument-rules")]
+    public async Task<ActionResult<InstrumentRulesResponse>> InstrumentRules(
+        [FromQuery] string? venue,
+        [FromQuery] string? symbol,
+        CancellationToken cancellationToken,
+        [FromQuery] Guid? credentialId = null)
+    {
+        Guid userId = AuthenticationSetup.UserId(User) ?? throw new InvalidOperationException("An authorized request has no user identifier.");
+        InstrumentRulesDefinitionInternal definition = await sender.Send(
+            new GetInstrumentRulesQuery(venue ?? string.Empty, symbol ?? string.Empty, userId, credentialId),
+            cancellationToken);
+
+        return definition.Rules.ToResponse();
     }
 }

@@ -2,7 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 
+using Dapper;
+
 using Microsoft.Extensions.DependencyInjection;
+
+using Npgsql;
 
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.MarketData.Contracts;
@@ -149,6 +153,60 @@ public sealed class InstrumentTests
         using HttpClient anonymous = _application.CreateClient();
 
         (await anonymous.GetAsync($"/api/market-data/instruments?venue={TestHistoryVenue.WithHistory}")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    [Test]
+    public async Task InstrumentRulesEndpoint_ReadsTheVenuesRulesWithoutStoringThem()
+    {
+        string symbol = UniqueSymbol();
+        using HttpClient client = await _application.CreateSignedInClient();
+
+        var rules = (await client.GetFromJsonAsync<JsonNode>($"/api/market-data/instrument-rules?venue={TestHistoryVenue.WithHistory}&symbol={symbol}"))!;
+
+        rules["priceTick"]!.GetValue<string>().ShouldBe("0.01");
+        rules["quantityStep"]!.GetValue<string>().ShouldBe("0.000001");
+        rules["minNotional"]!.GetValue<string>().ShouldBe("5");
+        rules["quotePrecision"]!.GetValue<int>().ShouldBe(8);
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+        (await connection.ExecuteScalarAsync<long>("SELECT count(*) FROM instrument_rules WHERE symbol = @symbol", new { symbol })).ShouldBe(0);
+    }
+
+    [TestCase("venue=missing&symbol=BTCUSDT", "unknown_venue")]
+    [TestCase("venue=" + TestHistoryVenue.WithoutHistory + "&symbol=BTCUSDT", InstrumentRulesErrorCodes.InvalidRequest)]
+    [TestCase("venue=" + TestHistoryVenue.WithHistory + "&symbol=btc-usdt", "invalid_symbol")]
+    [TestCase("venue=" + TestHistoryVenue.WithHistory, "invalid_symbol")]
+    public async Task InstrumentRulesEndpoint_RejectsInvalidRequests(string query, string code)
+    {
+        using HttpClient client = await _application.CreateSignedInClient();
+
+        HttpResponseMessage response = await client.GetAsync($"/api/market-data/instrument-rules?{query}");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var problem = (await response.Content.ReadFromJsonAsync<JsonNode>())!;
+        problem["errors"]!.AsArray().Select(error => error!["code"]!.GetValue<string>()).ShouldContain(code);
+    }
+
+    [Test]
+    public async Task InstrumentRulesEndpoint_ReportsAnUnknownInstrumentAs422AndRulesOfAnotherAs502()
+    {
+        using HttpClient client = await _application.CreateSignedInClient();
+
+        HttpResponseMessage unknown = await client.GetAsync($"/api/market-data/instrument-rules?venue={TestHistoryVenue.WithHistory}&symbol=BTCEUR");
+        _instruments.Rules = _ => FakeInstrumentSource.Definition("OTHERUSDT");
+        HttpResponseMessage other = await client.GetAsync($"/api/market-data/instrument-rules?venue={TestHistoryVenue.WithHistory}&symbol={UniqueSymbol()}");
+
+        unknown.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        (await unknown.Content.ReadFromJsonAsync<JsonNode>())!["code"]!.GetValue<string>().ShouldBe(InstrumentRulesErrorCodes.InvalidRequest);
+        other.StatusCode.ShouldBe(HttpStatusCode.BadGateway);
+    }
+
+    [Test]
+    public async Task InstrumentRulesEndpoint_RequiresSignIn()
+    {
+        using HttpClient anonymous = _application.CreateClient();
+
+        (await anonymous.GetAsync($"/api/market-data/instrument-rules?venue={TestHistoryVenue.WithHistory}&symbol=BTCUSDT")).StatusCode
+            .ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     private async Task<InstrumentRulesSnapshotInternal> Capture(string venue, string symbol)

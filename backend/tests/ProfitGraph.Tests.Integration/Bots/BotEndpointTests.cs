@@ -97,6 +97,8 @@ public sealed class BotEndpointTests
             var bots = scope.ServiceProvider.GetRequiredService<IBotRepository>();
             (await bots.Get(new BotId(wholeTenge), CancellationToken.None))!.FeeRates.SellerFees!.Increment.ShouldBe(100);
             (await bots.Get(new BotId(minorUnits), CancellationToken.None))!.FeeRates.SellerFees!.Increment.ShouldBe(1);
+            (await BotApi.Json(await owner.Client.GetAsync($"{BotApi.Path}/{wholeTenge}"))).GetProperty("sellerFees").GetProperty("increment").GetInt64().ShouldBe(100);
+            (await BotApi.Json(await owner.Client.GetAsync($"{BotApi.Path}/{minorUnits}"))).GetProperty("sellerFees").GetProperty("increment").GetInt64().ShouldBe(1);
             await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
             (await connection.ExecuteScalarAsync<long>("SELECT (seller_fees->>'increment')::bigint FROM bots WHERE id = @id", new { id = wholeTenge })).ShouldBe(100);
             (await connection.ExecuteScalarAsync<bool>("SELECT seller_fees ? 'increment' FROM bots WHERE id = @id", new { id = minorUnits })).ShouldBeFalse();

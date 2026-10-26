@@ -166,6 +166,70 @@ describe('backtest setup', () => {
     ).toBeInTheDocument();
   });
 
+  it('starts a Steam run whose seller amounts step in the whole tenge of the item’s tick', async () => {
+    const bodies: unknown[] = [];
+    const steam = {
+      id: 'steam',
+      name: 'Steam Community Market',
+      timeframes: ['1h', '1d'],
+      executionDefaults: {
+        sellerFees: { rates: ['0.05', '0.1'], minimum: '0.01', increment: 1 },
+        settlementHoldSeconds: 604_800,
+      },
+      botSettings: null,
+      backtestLimits: [],
+    };
+    const symbol = 'KZT:730:Dreams & Nightmares Case';
+    const requests = fakeApi({
+      ...routes(async (request) => {
+        bodies.push(await request.json());
+
+        return json(queued, 202);
+      }),
+      'GET /api/market-data/venues': () => json([...venues, steam]),
+      'GET /api/market-data/instrument-rules': (request) =>
+        new URL(request.url).searchParams.get('symbol') === symbol
+          ? json({
+              quantityStep: '1',
+              priceTick: '1.00',
+              minQuantity: '1',
+              minNotional: '1.15',
+              basePrecision: 0,
+              quotePrecision: 2,
+            })
+          : json({ status: 400, code: 'validation_failed' }, 400),
+    });
+    const { history } = renderApp(`/strategies/${strategy.id}/backtest`);
+
+    const form = await screen.findByRole('form', { name: 'Настройка прогона' });
+    await waitFor(() => expect(within(form).getByLabelText('Площадка')).toHaveValue('bybit'));
+    await userEvent.selectOptions(within(form).getByLabelText('Площадка'), 'steam');
+    const pair = within(form).getByLabelText('Пара');
+    await userEvent.clear(pair);
+    await userEvent.type(pair, symbol);
+    await waitFor(() =>
+      expect(
+        within(form).getByLabelText('Шаг суммы продавца, минимальных единиц валюты'),
+      ).toHaveValue('100'),
+    );
+    await userEvent.click(within(form).getByRole('button', { name: 'Запустить прогон' }));
+
+    await waitFor(() => expect(history.location.pathname).toBe('/backtests/run-1'));
+    expect(bodies[0]).toMatchObject({
+      venue: 'steam',
+      symbol,
+      limitFeeRate: '0',
+      marketFeeRate: '0',
+      sellerFees: { rates: ['0.05', '0.1'], minimum: '0.01', increment: 100 },
+      settlementHoldSeconds: 604_800,
+    });
+    expect(
+      requests
+        .filter((request) => request.url.includes('/instrument-rules'))
+        .every((request) => new URL(request.url).searchParams.get('venue') === 'steam'),
+    ).toBe(true);
+  });
+
   it('explains invalid settings without starting a run', async () => {
     const requests = fakeApi(routes(() => json(queued, 202)));
     renderApp(`/strategies/${strategy.id}/backtest`);
