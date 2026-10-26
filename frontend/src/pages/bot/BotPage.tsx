@@ -6,6 +6,7 @@ import {
   BotControls,
   BotFeedList,
   BotFillsTable,
+  BotOpenOrders,
   BotPositionCard,
   botQuery,
   BotStatusBadge,
@@ -96,6 +97,9 @@ export function BotPage() {
           <ParametersForm key={current.updatedAt} bot={current} />
           <ForeignOrdersToggle bot={current} />
         </div>
+      </Card>
+      <Card title="Активные ордера">
+        <BotOpenOrders botId={current.id} />
       </Card>
       <BotWaitingOrders botId={current.id} />
       <Card title="Алерты">

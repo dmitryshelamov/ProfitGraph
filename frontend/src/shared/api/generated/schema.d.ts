@@ -1741,6 +1741,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bots/{id}/open-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotOpenOrderResponse"][];
+                        "application/json": components["schemas"]["BotOpenOrderResponse"][];
+                        "text/json": components["schemas"]["BotOpenOrderResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bots/{id}/feed": {
         parameters: {
             query?: never;
@@ -3327,6 +3366,18 @@ export interface components {
             filledAt: string;
             commissionPending: boolean;
         };
+        BotOpenOrderResponse: {
+            /** Format: int64 */
+            engineOrderId: number;
+            tag: null | string;
+            side: components["schemas"]["OrderSide"];
+            type: components["schemas"]["OrderType"];
+            status: components["schemas"]["OrderStatus"];
+            quantity: null | string;
+            limitPrice: null | string;
+            quoteBudget: null | string;
+            filledBase: string;
+        };
         BotOrderWaitingResponse: {
             /** Format: int64 */
             engineOrderId: number;
@@ -3745,6 +3796,10 @@ export interface components {
         };
         /** @enum {unknown} */
         OrderSide: "Buy" | "Sell";
+        /** @enum {unknown} */
+        OrderStatus: "Active" | "Filled" | "Cancelled" | "Rejected" | "PendingSubmit" | "PendingCancel";
+        /** @enum {unknown} */
+        OrderType: "Market" | "Limit";
         /** @enum {unknown} */
         OrderWaitingCode: "PriceBand" | "SessionClosed" | "CarryOver" | "SettlementHold" | "SingleBuyOrderSlot" | "AwaitingConfirmation" | "RateLimited";
         SampleMetricsResponse: {
