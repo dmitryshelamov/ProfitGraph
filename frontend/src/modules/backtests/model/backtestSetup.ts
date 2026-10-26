@@ -1,4 +1,4 @@
-import type { SeriesSelection, Venue } from '@/modules/market-data';
+import type { InstrumentRules, SeriesSelection, Venue } from '@/modules/market-data';
 import { utcDayStart } from '@/modules/market-data';
 import { isPercentageParameter, type StrategyDefinition } from '@/modules/strategies';
 import type { Schemas } from '@/shared/api/client';
@@ -6,6 +6,7 @@ import {
   fractionToPercent,
   isBackendDecimal,
   isDecimalString,
+  multiplyDecimals,
   percentToFraction,
 } from '@/shared/lib/decimal';
 
@@ -22,8 +23,15 @@ export interface BacktestSetupValues {
   readonly slippagePercent: string;
   readonly holdoutPercent: string;
   readonly parameters: Readonly<Record<string, string>>;
-  /** Fees the seller pays per unit instead of the two rates, as the venue's marketplace charges them; null for rates. */
-  readonly sellerFees: { readonly percents: readonly string[]; readonly minimum: string } | null;
+  /**
+   * Fees the seller pays per unit instead of the two rates, as the venue's marketplace charges them; null for rates. The
+   * increment is the step of seller amounts in whole minor units as typed, null to follow the instrument's price tick.
+   */
+  readonly sellerFees: {
+    readonly percents: readonly string[];
+    readonly minimum: string;
+    readonly increment: string | null;
+  } | null;
   /** Days before a bought unit may be sold; null when the venue has no such hold, empty for none. */
   readonly holdDays: string | null;
 }
@@ -37,6 +45,7 @@ export type BacktestSetupField =
   | 'slippagePercent'
   | 'holdoutPercent'
   | 'sellerFeeMinimum'
+  | 'sellerFeeIncrement'
   | 'holdDays'
   | `sellerFeePercents.${number}`
   | `parameters.${string}`;
@@ -85,9 +94,42 @@ export function withVenueDefaults(
       ? {
           percents: fees.rates.map((rate) => fractionToPercent(rate) ?? rate),
           minimum: fees.minimum,
+          increment: null,
         }
       : null,
     holdDays: hold === null ? null : String(hold / 86_400),
+  };
+}
+
+/** The largest seller fee increment the API accepts, in minor units. */
+const maxSellerFeeIncrement = 10_000;
+
+/**
+ * The step of seller amounts that the instrument's price tick sets, in whole minor units: a tick of 1.00 at two decimals
+ * is 100, as on a Steam wallet that counts only whole tenge. Null without rules or for a tick finer than a minor unit.
+ */
+export function tickIncrement(rules: InstrumentRules | undefined): string | null {
+  const units = rules
+    ? multiplyDecimals(rules.priceTick, `1${'0'.repeat(rules.quotePrecision)}`)
+    : null;
+
+  return units !== null && /^[1-9]\d*$/.test(units) ? units : null;
+}
+
+/** A new symbol brings its own price tick, so an increment typed for the previous one follows the new tick instead. */
+export function withSeries(
+  values: BacktestSetupValues,
+  series: SeriesSelection,
+): BacktestSetupValues {
+  const symbolChanged = series.symbol.trim() !== values.series.symbol.trim();
+
+  return {
+    ...values,
+    series,
+    sellerFees:
+      values.sellerFees && symbolChanged
+        ? { ...values.sellerFees, increment: null }
+        : values.sellerFees,
   };
 }
 
@@ -121,13 +163,15 @@ function isAtMost(value: string, limit: number): boolean {
 
 /**
  * Turns the form into the exact request, or explains each invalid field. Percents become fractions as text, days
- * become UTC midnight, and parameters marked as percent go back to fractions, so no value passes through number.
+ * become UTC midnight, and parameters marked as percent go back to fractions, so no value passes through number. A seller
+ * fee increment nobody typed is the one the instrument's tick sets, given as `ruleIncrement`.
  */
 export function backtestSetupRequest(
   strategyId: string,
   version: number,
   definition: StrategyDefinition,
   values: BacktestSetupValues,
+  ruleIncrement: string | null = null,
 ): { request: StartBacktestRequest } | { errors: BacktestSetupErrors } {
   const errors: BacktestSetupErrors = {};
   const from = values.from === '' ? null : utcDayStart(values.from);
@@ -168,6 +212,19 @@ export function backtestSetupRequest(
 
   if (values.sellerFees && (sellerMinimum === null || sellerMinimum.startsWith('-'))) {
     errors.sellerFeeMinimum = 'Укажите неотрицательную сумму.';
+  }
+
+  const incrementText = (values.sellerFees?.increment ?? ruleIncrement ?? '').trim();
+  const sellerIncrement = /^\d{1,5}$/.test(incrementText) ? Number(incrementText) : null;
+
+  if (
+    values.sellerFees &&
+    (sellerIncrement === null || sellerIncrement < 1 || sellerIncrement > maxSellerFeeIncrement)
+  ) {
+    errors.sellerFeeIncrement =
+      incrementText === ''
+        ? 'Укажите шаг: правила инструмента не прочитаны.'
+        : `Целое число от 1 до ${maxSellerFeeIncrement}.`;
   }
 
   const holdText = values.holdDays?.trim() ?? '';
@@ -231,7 +288,13 @@ export function backtestSetupRequest(
       marketFeeRate: marketFeeRate!,
       outOfSampleFraction: outOfSampleFraction!,
       ...(values.sellerFees
-        ? { sellerFees: { rates: sellerRates as string[], minimum: sellerMinimum! } }
+        ? {
+            sellerFees: {
+              rates: sellerRates as string[],
+              minimum: sellerMinimum!,
+              increment: sellerIncrement!,
+            },
+          }
         : {}),
       ...(holdDays === null ? {} : { settlementHoldSeconds: holdDays * 86_400 }),
       ...(values.series.credentialId ? { credentialId: values.series.credentialId } : {}),

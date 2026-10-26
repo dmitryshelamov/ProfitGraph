@@ -23,7 +23,8 @@ public static class StartBacktestRequestConverter
         SellerFeeScheduleInternal? sellerFees = request.SellerFees is { } fees
             ? new SellerFeeScheduleInternal(
                 (fees.Rates ?? []).Select((rate, index) => Number(rate, $"SellerFees.Rates[{index}]", errors) ?? 0m).ToArray(),
-                Number(fees.Minimum, "SellerFees.Minimum", errors) ?? 0m)
+                Number(fees.Minimum, "SellerFees.Minimum", errors) ?? 0m,
+                fees.Increment ?? 1)
             : null;
 
         if (errors.Count > 0)

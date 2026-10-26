@@ -37,7 +37,7 @@ internal static class BotResponseConverter
             bot.CreatedAt,
             bot.UpdatedAt,
             bot.SellerFees is { } fees
-                ? new SellerFeeScheduleResponse([.. fees.Rates.Select(ExactGraphNumberParser.Format)], ExactGraphNumberParser.Format(fees.Minimum))
+                ? new SellerFeeScheduleResponse([.. fees.Rates.Select(ExactGraphNumberParser.Format)], ExactGraphNumberParser.Format(fees.Minimum), fees.Increment)
                 : null,
             bot.VenueSettingsVersion,
             JsonElement.Parse(bot.VenueSettings));

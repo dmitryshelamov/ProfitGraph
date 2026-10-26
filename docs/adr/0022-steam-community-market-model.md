@@ -74,8 +74,8 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   normalization), in which case both rates are zero. A stored configuration without a schedule keeps its shape, so
   Bybit fingerprints and pinned replay hashes stay byte-identical; a stored schedule writes its increment only when it
   is not one, so schedules stored before increments existed read back unchanged. Replay, sizing and the live account
-  use the same calculator; the schedule assumes a price tick of one increment. The backtest request and the venue
-  defaults do not carry an increment yet, so a backtest's schedule steps in minor units.
+  use the same calculator; the schedule assumes a price tick of one increment. The backtest request carries the
+  increment in whole minor units (one when omitted, at most 10 000), and every response with a schedule returns it.
 - **Core change C3, fee model of a bot.** `BotFeeRates` (maker, taker) may carry a seller fee schedule instead;
   `IVenueFeeRateReader` returns either. Bybit returns `Proportional`. Steam reads `wallet_fee_percent`, `wallet_publisher_fee_percent_default`,
   the minimum and the currency increment from the wallet page with the bot's credential; missing evidence refuses the
@@ -83,7 +83,13 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
 - **Core change C4, venue execution defaults.** A new optional port `IVenueExecutionDefaults` gives the default fee
   model, settlement hold and whole-item sizing of a venue for a new backtest; `GET /api/market-data/venues` returns
   them and the backtest form starts from them. The backtest request carries the fee model and hold explicitly, so a
-  run stays reproducible when defaults change.
+  run stays reproducible when defaults change. The defaults are venue-wide, but the increment belongs to the wallet
+  currency (a hundred for KZT), so the form does not take it from them: it reads the chosen instrument's current rules
+  from `GET /api/market-data/instrument-rules`, which neither captures nor stores them, and sends the price tick in
+  minor units as the increment. For a Steam item that is the market-data wallet's increment, so a KZT backtest prices
+  sells in whole tenge as a KZT bot does. The user may type another increment; without readable rules the form asks for
+  one rather than assume a minor unit. Until 2026-10-26 every backtest stepped in minor units, and a raised sell price
+  could land a few tiyn above a whole tenge.
 
 ### Holding periods
 

@@ -6,6 +6,7 @@ import { fractionToPercent } from '@/shared/lib/decimal';
 import { Card } from '@/shared/ui/Card';
 import { DateTime } from '@/shared/ui/DateTime';
 
+import { sellerFeesLabel } from '../model/format';
 import type { BacktestRun } from '../model/types';
 import { BacktestLimits } from './BacktestLimits';
 
@@ -44,7 +45,7 @@ export function RunConfiguration({ run }: { run: BacktestRun }) {
     [
       'Комиссии',
       configuration.sellerFees
-        ? `продавец платит ${configuration.sellerFees.rates.map(percent).join(' + ')} с каждой единицы, не меньше ${configuration.sellerFees.minimum} за часть`
+        ? sellerFeesLabel(configuration.sellerFees)
         : `лимитные ${percent(configuration.limitFeeRate)}, рыночные ${percent(configuration.marketFeeRate)}`,
     ],
     ...(configuration.settlementHoldSeconds === null

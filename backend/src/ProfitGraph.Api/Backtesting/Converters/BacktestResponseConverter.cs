@@ -58,7 +58,7 @@ public static class BacktestResponseConverter
             Text(configuration.MarketFeeRate),
             Text(configuration.OutOfSampleFraction),
             configuration.WarmupCandles,
-            configuration.SellerFees is { } fees ? new SellerFeeScheduleResponse([.. fees.Rates.Select(Text)], Text(fees.Minimum)) : null,
+            configuration.SellerFees is { } fees ? new SellerFeeScheduleResponse([.. fees.Rates.Select(Text)], Text(fees.Minimum), fees.Increment) : null,
             configuration.SettlementHoldSeconds);
     }
 
@@ -74,7 +74,7 @@ public static class BacktestResponseConverter
             history.RulesSnapshotId,
             history.BaseAsset,
             history.QuoteAsset,
-            Rules(history.Rules));
+            history.Rules.ToResponse());
     }
 
     public static BacktestObservationResponse ToResponse(this BacktestObservationInternal observation)
@@ -213,7 +213,7 @@ public static class BacktestResponseConverter
         return new BacktestSummaryPageResponse([.. page.Items.Select(item => item.ToResponse())], page.Next);
     }
 
-    private static InstrumentRulesResponse Rules(InstrumentRules rules)
+    public static InstrumentRulesResponse ToResponse(this InstrumentRules rules)
     {
         return new InstrumentRulesResponse(
             Text(rules.QuantityStep),

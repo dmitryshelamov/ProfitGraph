@@ -1,8 +1,19 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { type FormEvent, type ReactElement, type ReactNode, useState } from 'react';
+import {
+  type FormEvent,
+  type ReactElement,
+  type ReactNode,
+  useDeferredValue,
+  useState,
+} from 'react';
 
 import type { BackgroundJob } from '@/modules/jobs';
-import { SeriesFields, type SeriesSelection, venuesQuery } from '@/modules/market-data';
+import {
+  instrumentRulesQuery,
+  SeriesFields,
+  type SeriesSelection,
+  venuesQuery,
+} from '@/modules/market-data';
 import { isPercentageParameter, parameterReadableName, type Strategy } from '@/modules/strategies';
 import { ApiErrorMessage } from '@/shared/ui/ApiErrorMessage';
 import { Button } from '@/shared/ui/Button';
@@ -17,6 +28,8 @@ import {
   type BacktestSetupField,
   backtestSetupRequest,
   type BacktestSetupValues,
+  tickIncrement,
+  withSeries,
   withVenueDefaults,
 } from '../model/backtestSetup';
 import { BacktestLimits } from './BacktestLimits';
@@ -59,16 +72,24 @@ export function BacktestSetupForm({
   const [errors, setErrors] = useState<BacktestSetupErrors>({});
   const start = useMutation({ mutationFn: startBacktest, onSuccess: onStarted });
   const venues = useQuery(venuesQuery());
+  const symbol = useDeferredValue(values.series.symbol.trim());
+  const rulesQuery = instrumentRulesQuery(values.series.venue, symbol, values.series.credentialId);
+  // Only seller fees step in the instrument's price tick, so rates need no rules.
+  const rules = useQuery({
+    ...rulesQuery,
+    enabled: values.sellerFees !== null && rulesQuery.enabled !== false,
+  });
+  const ruleIncrement = tickIncrement(rules.data);
 
   function set<K extends keyof BacktestSetupValues>(key: K, value: BacktestSetupValues[K]) {
     setValues((current) => ({ ...current, [key]: value }));
   }
 
-  /** A new venue brings its own fees and hold; the rest of the form stays. */
+  /** A new venue brings its own fees and hold, a new symbol its own tick; the rest of the form stays. */
   function setSeries(series: SeriesSelection) {
     setValues((current) =>
       current.series.venue === series.venue
-        ? { ...current, series }
+        ? withSeries(current, series)
         : withVenueDefaults(
             { ...current, series },
             venues.data?.find((venue) => venue.id === series.venue),
@@ -102,7 +123,11 @@ export function BacktestSetupForm({
   function text(
     field: Exclude<
       BacktestSetupField,
-      `parameters.${string}` | `sellerFeePercents.${number}` | 'sellerFeeMinimum' | 'holdDays'
+      | `parameters.${string}`
+      | `sellerFeePercents.${number}`
+      | 'sellerFeeMinimum'
+      | 'sellerFeeIncrement'
+      | 'holdDays'
     >,
     label: ReactNode,
     inputMode: 'decimal' | undefined = 'decimal',
@@ -127,6 +152,7 @@ export function BacktestSetupForm({
       strategy.currentVersion,
       strategy.definition,
       values,
+      ruleIncrement,
     );
 
     if ('errors' in result) {
@@ -167,6 +193,20 @@ export function BacktestSetupForm({
                   aria-invalid={errors.sellerFeeMinimum ? true : undefined}
                   onChange={(event) =>
                     set('sellerFees', { ...values.sellerFees!, minimum: event.target.value })
+                  }
+                />
+              </Checked>
+              <Checked
+                label="Шаг суммы продавца, минимальных единиц валюты"
+                error={errors.sellerFeeIncrement}
+              >
+                <Input
+                  inputMode="numeric"
+                  value={values.sellerFees.increment ?? ruleIncrement ?? ''}
+                  placeholder="по шагу цены инструмента"
+                  aria-invalid={errors.sellerFeeIncrement ? true : undefined}
+                  onChange={(event) =>
+                    set('sellerFees', { ...values.sellerFees!, increment: event.target.value })
                   }
                 />
               </Checked>

@@ -234,13 +234,29 @@ public sealed class BacktestResultTests
                 settlementHoldSeconds = 7200
             });
         Guid withRates = await CompletedRun(BacktestScenario.Request(strategyId, _symbol));
+        Guid withIncrement = await CompletedRun(
+            new
+            {
+                strategyId,
+                venue = TestHistoryVenue.WithHistory,
+                symbol = _symbol,
+                timeframe = "1h",
+                from = BacktestScenario.From,
+                to = BacktestScenario.To,
+                parameters = new Dictionary<string, string> { ["buyAmount"] = "50" },
+                startingCapital = "1000",
+                sellerFees = new { rates = new[] { "0.05", "0.10" }, minimum = "0.01", increment = 100 }
+            });
 
         JsonNode configuration = (await Get($"/api/backtests/{withFees}"))["configuration"]!;
         configuration["limitFeeRate"]!.GetValue<string>().ShouldBe("0");
         configuration["sellerFees"]!["rates"]!.AsArray().Select(rate => rate!.GetValue<string>()).ShouldBe(["0.05", "0.1"]);
         configuration["sellerFees"]!["minimum"]!.GetValue<string>().ShouldBe("0.01");
         configuration["settlementHoldSeconds"]!.GetValue<long>().ShouldBe(7200);
+        configuration["sellerFees"]!["increment"]!.GetValue<long>().ShouldBe(1);
         (await Scalar<bool>("SELECT configuration->'sellerFees' ? 'increment' FROM backtest_runs WHERE id = @id", new { id = withFees })).ShouldBeFalse();
+        (await Get($"/api/backtests/{withIncrement}"))["configuration"]!["sellerFees"]!["increment"]!.GetValue<long>().ShouldBe(100);
+        (await Scalar<long>("SELECT (configuration->'sellerFees'->>'increment')::bigint FROM backtest_runs WHERE id = @id", new { id = withIncrement })).ShouldBe(100);
         (await Get($"/api/backtests/{withRates}"))["configuration"]!["sellerFees"].ShouldBeNull();
         (await Get($"/api/backtests/{withRates}"))["configuration"]!["settlementHoldSeconds"].ShouldBeNull();
         (await Scalar<bool>("SELECT configuration ? 'settlementHoldSeconds' FROM backtest_runs WHERE id = @id", new { id = withRates })).ShouldBeFalse();
@@ -263,6 +279,27 @@ public sealed class BacktestResultTests
                 startingCapital = "1000",
                 limitFeeRate = "0.001",
                 sellerFees = new { rates = new[] { "0.05" }, minimum = "0.01" }
+            });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await response.Content.ReadAsStringAsync());
+    }
+
+    [TestCase(0L)]
+    [TestCase(10_001L)]
+    public async Task ASellerFeeIncrementOutsideItsRangeIsRejected(long increment)
+    {
+        HttpResponseMessage response = await _client.PostAsJsonAsync(
+            "/api/backtests",
+            new
+            {
+                strategyId = await BacktestScenario.CreateStrategy(_application, _userId),
+                venue = TestHistoryVenue.WithHistory,
+                symbol = _symbol,
+                timeframe = "1h",
+                from = BacktestScenario.From,
+                to = BacktestScenario.To,
+                startingCapital = "1000",
+                sellerFees = new { rates = new[] { "0.05" }, minimum = "0.01", increment }
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await response.Content.ReadAsStringAsync());

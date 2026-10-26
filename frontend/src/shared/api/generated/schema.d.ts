@@ -1114,6 +1114,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/market-data/instrument-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    venue?: string;
+                    symbol?: string;
+                    credentialId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["InstrumentRulesResponse"];
+                        "application/json": components["schemas"]["InstrumentRulesResponse"];
+                        "text/json": components["schemas"]["InstrumentRulesResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/jobs/{id}": {
         parameters: {
             query?: never;
@@ -3737,10 +3778,14 @@ export interface components {
         SellerFeeScheduleRequest: {
             rates: null | string[];
             minimum: null | string;
+            /** Format: int64 */
+            increment?: null | number;
         };
         SellerFeeScheduleResponse: {
             rates: string[];
             minimum: string;
+            /** Format: int64 */
+            increment: number;
         };
         SignInRequest: {
             login: null | string;

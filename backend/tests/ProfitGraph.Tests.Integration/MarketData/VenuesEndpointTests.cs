@@ -23,6 +23,7 @@ public sealed class VenuesEndpointTests
         JsonNode steam = venues.Single(item => item!["id"]!.GetValue<string>() == "steam")!;
         steam["timeframes"]!.AsArray().Select(item => item!.GetValue<string>()).ShouldBe(["1h", "1d"]);
         steam["executionDefaults"]!["sellerFees"]!["minimum"]!.GetValue<string>().ShouldBe("0.01");
+        steam["executionDefaults"]!["sellerFees"]!["increment"]!.GetValue<long>().ShouldBe(1);
         steam["executionDefaults"]!["settlementHoldSeconds"]!.GetValue<long>().ShouldBe(604_800);
         venue["botSettings"].ShouldBeNull();
         steam["botSettings"]!["settlementHoldDays"]!.GetValue<int>().ShouldBe(7);

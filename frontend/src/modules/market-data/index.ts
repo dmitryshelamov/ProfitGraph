@@ -1,6 +1,7 @@
 export type { CsvImportInput, HistoryDownloadInput } from './api/marketDataApi';
 export {
   importCandlesCsv,
+  instrumentRulesQuery,
   instrumentsQuery,
   marketDataKeys,
   startHistoryDownload,
@@ -8,6 +9,6 @@ export {
 } from './api/marketDataApi';
 export type { SeriesSelection } from './model/seriesSelection';
 export { timeframeLabel, venuesReadWithKey } from './model/seriesSelection';
-export type { Instrument, Venue } from './model/types';
+export type { Instrument, InstrumentRules, Venue } from './model/types';
 export { utcDayStart, utcToday } from './model/utcDate';
 export { SeriesFields } from './ui/SeriesFields';
