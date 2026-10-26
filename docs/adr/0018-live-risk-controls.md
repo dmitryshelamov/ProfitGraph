@@ -56,3 +56,10 @@ decides how the runtime, the order delivery and the API apply them, and how the 
   entry did not, so the bot kept a position with no way to close it (Steam, 2026-10-26: a 692.00 exit refused against a
   600 limit).
 - `PerOrderLimit` holds the rule; the dispatcher no longer reads the last closed candle to value a sell.
+
+## Amendment: sell price floor (ADR 0024)
+
+- Because a sell is bounded by the position and not by the per-order limit, the one thing left to catch is a mistyped price
+  that gives the position away. A limit sell priced below half of the last closed candle's close is rejected with
+  `RiskLimit` before its first place; a market sell is not floored. The ratio is a constant, `0.5`; making it a bot
+  setting is open (ADR 0024, question 2).
