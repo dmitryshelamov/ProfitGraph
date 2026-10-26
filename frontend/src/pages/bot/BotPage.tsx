@@ -19,6 +19,7 @@ import {
   RiskLimitsForm,
   TradingHaltBanner,
 } from '@/modules/bots';
+import { strategyQuery } from '@/modules/strategies';
 import { ApiErrorMessage } from '@/shared/ui/ApiErrorMessage';
 import { Card } from '@/shared/ui/Card';
 import { DateTime } from '@/shared/ui/DateTime';
@@ -31,6 +32,11 @@ import { PageHeader } from '@/shared/ui/PageHeader';
 export function BotPage() {
   const { botId } = useParams({ from: '/_authenticated/_shell/bots/$botId' });
   const bot = useQuery(botQuery(botId));
+  const strategyId = bot.data?.strategyId;
+  const strategy = useQuery({
+    ...strategyQuery(strategyId ?? ''),
+    enabled: strategyId !== undefined,
+  });
 
   if (bot.isError) {
     return (
@@ -57,6 +63,16 @@ export function BotPage() {
         }
         meta={`Bybit Spot · комиссии лимит ${current.limitFeeRate}, рынок ${current.marketFeeRate}`}
       />
+      <p className="text-sm text-text-secondary">
+        Стратегия:{' '}
+        <Link
+          to="/strategies/$strategyId"
+          params={{ strategyId: current.strategyId }}
+          className="text-accent hover:underline"
+        >
+          {strategy.data?.name ?? 'открыть стратегию'}
+        </Link>
+      </p>
       <TradingHaltBanner />
       <Card title="Состояние" actions={<BotStatusBadge bot={current} />}>
         <div className="space-y-4">
