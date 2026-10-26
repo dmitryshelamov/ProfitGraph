@@ -111,7 +111,7 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
 
 | Engine order | Steam action |
 |---|---|
-| Limit buy | Buy order (`createbuyorder`) at the price for the quantity. At most one buy order per item per account: a further buy waits with `LocalAccepted` and a waiting code, the one nearest the market first, and is placed when the slot frees. Replay does not model the slot. |
+| Limit buy | Buy order (`createbuyorder`) at the price for the quantity, with the wallet's `currency` (Steam's currency ID; live Steam answers a buy without it with HTTP 400). At most one buy order per item per account: a further buy waits with `LocalAccepted` and a waiting code, the one nearest the market first, and is placed when the slot frees. Replay does not model the slot. |
 | Market buy | Buy order at the lowest listing plus the bot's market-buy slippage, rounded up to the wallet's currency increment; the remainder is cancelled after the bot's deadline (2 minutes by default) and reported as cancelled. Partial fills are real. |
 | Limit sell | One listing per owned, unlocked asset at the seller amount of the (raised) price, then a mobile confirmation. |
 | Market sell | A listing at the highest buy-order price, so it sells at once, then a mobile confirmation. |
