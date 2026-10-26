@@ -18,6 +18,12 @@ namespace ProfitGraph.Venues.Steam.MarketData;
 /// </summary>
 internal sealed class SteamMarketDataAccount(SteamAccountSessions sessions, IServiceScopeFactory scopes, IOptions<SteamOptions> options, TimeProvider clock)
 {
+    /// <summary>
+    ///     The signed-in market page in English, which carries the wallet and the buy orders (Profit Fox Designer
+    ///     <c>SteamAccountSession.ReadWalletPage</c>).
+    /// </summary>
+    public const string MarketPage = "/market/?l=english";
+
     private readonly ConcurrentDictionary<string, Lazy<Task<(SteamPriceHistory History, DateTimeOffset ReadAt)>>> _histories =
         new ConcurrentDictionary<string, Lazy<Task<(SteamPriceHistory History, DateTimeOffset ReadAt)>>>(StringComparer.Ordinal);
 
@@ -31,8 +37,7 @@ internal sealed class SteamMarketDataAccount(SteamAccountSessions sessions, ISer
         }
 
         SteamAccountSession session = await Session(cancellationToken);
-        SteamWallet wallet = SteamWalletParser.Read(
-            Body(await session.Execute(SteamHttpRequest.Get(SteamEndpoint.Community, "/market/", SteamRequestClass.Account), cancellationToken)));
+        SteamWallet wallet = SteamWalletParser.Read(Body(await session.ReadPage(MarketPage, SteamRequestClass.Account, cancellationToken)));
         _wallet = (wallet, clock.GetUtcNow());
 
         return wallet;
@@ -94,7 +99,7 @@ internal sealed class SteamMarketDataAccount(SteamAccountSessions sessions, ISer
     {
         SteamAccountSession session = await Session(credentialId, cancellationToken);
 
-        return Body(await session.Execute(SteamHttpRequest.Get(SteamEndpoint.Community, "/market/", SteamRequestClass.Account), cancellationToken));
+        return Body(await session.ReadPage(MarketPage, SteamRequestClass.Account, cancellationToken));
     }
 
     /// <summary>

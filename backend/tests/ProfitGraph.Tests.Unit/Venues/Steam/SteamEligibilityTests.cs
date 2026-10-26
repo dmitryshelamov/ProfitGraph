@@ -41,6 +41,41 @@ public sealed class SteamEligibilityTests
     }
 
     [Test]
+    public async Task AnAccountWhoseMarketGoesThroughTheCheckIsReady()
+    {
+        _harness.Steam.MarketGoesThroughEligibility = true;
+
+        (await Check()).ShouldBe(SteamGuardStatus.Ready);
+        _harness.Steam.Count("/market/eligibilitycheck/").ShouldBe(1);
+    }
+
+    [Test]
+    public async Task ARestrictedAccountIsCheckedAgainAfterAnHour()
+    {
+        _harness.Steam.EligibilityRedirect = null;
+        SteamEligibilityWorker worker = Worker();
+
+        await worker.Round(CancellationToken.None);
+
+        _store.Status.ShouldBe(SteamGuardStatus.Restricted);
+        _store.NextCheckAt.ShouldBe(_harness.Clock.GetUtcNow() + TimeSpan.FromHours(1));
+
+        _harness.Steam.EligibilityRedirect = "/market/";
+        _harness.Clock.Advance(TimeSpan.FromMinutes(59));
+        _harness.Steam.ServerTime = _harness.Clock.GetUtcNow();
+        await worker.Round(CancellationToken.None);
+
+        _store.Status.ShouldBe(SteamGuardStatus.Restricted);
+
+        _harness.Clock.Advance(TimeSpan.FromMinutes(1));
+        _harness.Steam.ServerTime = _harness.Clock.GetUtcNow();
+        await worker.Round(CancellationToken.None);
+
+        _store.Status.ShouldBe(SteamGuardStatus.Ready);
+        _store.NextCheckAt.ShouldBeNull();
+    }
+
+    [Test]
     public async Task OnlyAPositiveRefusalRestricts()
     {
         _harness.Steam.EligibilityRedirect = null;
@@ -141,7 +176,13 @@ public sealed class SteamEligibilityTests
     {
         IOptions<SteamOptions> options = Options.Create(_harness.Options);
 
-        return new SteamEligibility(_harness.Sessions(), _harness.MarketData(), new SteamConfirmationClient(_harness.Scopes()), options, _harness.Clock);
+        return new SteamEligibility(
+            _harness.Sessions(),
+            _harness.MarketData(),
+            new SteamConfirmationClient(_harness.Scopes()),
+            options,
+            _harness.Clock,
+            NullLogger<SteamEligibility>.Instance);
     }
 
     private Task<SteamGuardStatus> Check()
