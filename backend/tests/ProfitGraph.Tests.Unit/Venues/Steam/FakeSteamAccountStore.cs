@@ -83,7 +83,8 @@ internal sealed class FakeSteamAccountStore : ISteamAccountStore
 
     private static bool IsDue(SteamGuardStatus status, DateTimeOffset? nextCheckAt, DateTimeOffset now)
     {
-        return status is SteamGuardStatus.Checking or SteamGuardStatus.CoolingDown && nextCheckAt <= now;
+        return (status is SteamGuardStatus.Checking or SteamGuardStatus.CoolingDown && nextCheckAt <= now) ||
+            (status == SteamGuardStatus.Restricted && (nextCheckAt is null || nextCheckAt <= now));
     }
 
     private SteamAccount Account(Guid credentialId)

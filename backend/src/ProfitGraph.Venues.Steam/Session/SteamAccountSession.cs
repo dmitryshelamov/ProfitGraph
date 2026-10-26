@@ -20,7 +20,8 @@ namespace ProfitGraph.Venues.Steam.Session;
 ///     the stored refresh token, transfers it to Community and keeps the cookies; concurrent callers share one renewal. An
 ///     unauthorized read renews once and is sent once more; a write is never sent twice. The server clock is measured at
 ///     the first use and again after <see cref="SteamOptions.ServerClockRefresh" />. Every request, sign-in included, waits
-///     its turn in the account's <see cref="SteamRequestScheduler" /> queue.
+///     its turn in the account's <see cref="SteamRequestScheduler" /> queue. Page navigations and the market eligibility
+///     check carry and keep the <see cref="SteamPageCookies" /> Steam sets on them.
 /// </summary>
 internal sealed class SteamAccountSession(
     Guid ownerId,
@@ -32,6 +33,9 @@ internal sealed class SteamAccountSession(
     IOptions<SteamOptions> options,
     TimeProvider clock)
 {
+    private const int MaximumPageRedirects = 3;
+
+    private readonly SteamPageCookies _pageCookies = new SteamPageCookies();
     private readonly SemaphoreSlim _renewal = new SemaphoreSlim(initialCount: 1, maxCount: 1);
     private readonly SemaphoreSlim _clockRefresh = new SemaphoreSlim(initialCount: 1, maxCount: 1);
     private SteamSessionSnapshot? _current;
@@ -46,7 +50,7 @@ internal sealed class SteamAccountSession(
         try
         {
             SteamSessionSnapshot session = await Ensure(cancellationToken);
-            SteamRequestResult result = await Send(WithSessionId(request, session), session.Cookies, cancellationToken);
+            SteamRequestResult result = await Send(WithSessionId(request, session), session, cancellationToken);
 
             if (result.Outcome != SteamRequestOutcome.Unauthorized)
             {
@@ -62,11 +66,41 @@ internal sealed class SteamAccountSession(
 
             SteamSessionSnapshot renewed = await Ensure(cancellationToken);
 
-            return await Send(WithSessionId(request, renewed), renewed.Cookies, cancellationToken);
+            return await Send(WithSessionId(request, renewed), renewed, cancellationToken);
         }
         catch (SteamSessionException exception)
         {
             return new SteamRequestResult(exception.Outcome);
+        }
+    }
+
+    /// <summary>
+    ///     Reads a Community page as a browser navigation does, following at most three redirects within the host (Profit Fox
+    ///     Designer <c>SteamAccountSession.ReadPage</c>): Steam sends the market page through its eligibility check and back.
+    ///     Each step is a read of its own in the account's queue; a longer chain is an invalid response.
+    /// </summary>
+    public async Task<SteamRequestResult> ReadPage(string pathAndQuery, SteamRequestClass requestClass, CancellationToken cancellationToken)
+    {
+        var current = new Uri(options.Value.Address(SteamEndpoint.Community), pathAndQuery);
+
+        for (var redirects = 0;; redirects++)
+        {
+            SteamRequestResult result = await Execute(
+                new SteamHttpRequest(SteamEndpoint.Community, current.PathAndQuery, Class: requestClass, FollowsRedirects: true),
+                cancellationToken);
+
+            if (result.Outcome != SteamRequestOutcome.Success || result.Response is not { StatusCode: >= 300 and < 400, Location: { } location })
+            {
+                return result;
+            }
+
+            if (redirects == MaximumPageRedirects)
+            {
+                return new SteamRequestResult(SteamRequestOutcome.InvalidResponse);
+            }
+
+            // The transport took the redirect only within the host.
+            current = new Uri(current, location);
         }
     }
 
@@ -117,6 +151,28 @@ internal sealed class SteamAccountSession(
                 return result;
             },
             cancellationToken);
+    }
+
+    /// <summary>
+    ///     A request of the signed-in session; a page navigation or the eligibility check also carries the page cookies and
+    ///     keeps the ones Steam sets on it.
+    /// </summary>
+    private async Task<SteamRequestResult> Send(SteamHttpRequest request, SteamSessionSnapshot session, CancellationToken cancellationToken)
+    {
+        if (request.Endpoint != SteamEndpoint.Community || !(request.FollowsRedirects || request.ExpectsRedirect))
+        {
+            return await Send(request, session.Cookies, cancellationToken);
+        }
+
+        var address = new Uri(options.Value.Address(SteamEndpoint.Community), request.Path);
+        SteamRequestResult result = await Send(request, _pageCookies.Apply(address, session.Cookies), cancellationToken);
+
+        if (result.Response is { } response)
+        {
+            _pageCookies.Merge(address, response.SetCookies);
+        }
+
+        return result;
     }
 
     private static SteamHttpRequest WithSessionId(SteamHttpRequest request, SteamSessionSnapshot session)
