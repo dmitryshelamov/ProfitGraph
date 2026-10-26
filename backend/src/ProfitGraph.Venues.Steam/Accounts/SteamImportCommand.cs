@@ -51,7 +51,13 @@ internal sealed class SteamImportCommand(ISender sender, ISecretProtector protec
             }
 
             ExchangeCredentialInternal credential = await sender.Send(
-                new ImportExchangeCredentialCommand(parsed.Owner, SteamVenue.VenueId.Value, parsed.Label, parsed.SteamId[^4..], parsed.Fields()),
+                new ImportExchangeCredentialCommand(
+                    parsed.Owner,
+                    SteamVenue.VenueId.Value,
+                    parsed.Label,
+                    parsed.SteamId[^4..],
+                    parsed.Fields(),
+                    parsed.AccountName ?? parsed.SteamId),
                 cancellationToken);
 
             if (!await accounts.Add(SteamAccount.Imported(credential.Id, fingerprints[0], clock.GetUtcNow()), cancellationToken))

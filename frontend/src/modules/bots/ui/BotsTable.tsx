@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router';
 
+import { botTitle } from '../model/botDisplay';
 import type { Bot } from '../model/types';
 import { BotStatusBadge } from './BotStatusBadge';
 
@@ -19,7 +20,7 @@ export function BotsTable({ bots }: { bots: readonly Bot[] }) {
           <tr key={bot.id} className="border-t border-line">
             <td className="py-2">
               <Link to="/bots/$botId" params={{ botId: bot.id }} className="hover:underline">
-                {bot.symbol} {bot.timeframe}
+                {botTitle(bot)}
               </Link>
             </td>
             <td className="py-2">{bot.venue}</td>

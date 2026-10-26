@@ -27,6 +27,10 @@ internal sealed class ImportExchangeCredentialCommandValidator : AbstractValidat
             .Must(hint => hint is { Length: ApiKeyLast4.Length } && !hint.Any(char.IsWhiteSpace))
             .WithErrorCode(AccountRuleException.InvalidApiKey)
             .WithMessage($"The public hint has exactly {ApiKeyLast4.Length} characters without spaces.");
+        RuleFor(command => command.PublicId)
+            .Must(publicId => publicId is null || (publicId.Length is > 0 and <= CredentialPublicId.MaxLength && !publicId.Any(char.IsWhiteSpace)))
+            .WithErrorCode(AccountRuleException.InvalidPublicId)
+            .WithMessage($"The public identifier has 1 to {CredentialPublicId.MaxLength} characters without spaces.");
         RuleFor(command => command.Fields)
             .Must((command, fields) => venues.Find(command.Venue) is { } venue && schemas.Find(venue.Id)?.Fields is { } declared &&
                 declared.Order(StringComparer.Ordinal).SequenceEqual(fields.Keys.Order(StringComparer.Ordinal), StringComparer.Ordinal))

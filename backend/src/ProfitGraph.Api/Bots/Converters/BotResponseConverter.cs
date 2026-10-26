@@ -14,6 +14,7 @@ internal static class BotResponseConverter
         return new BotResponse(
             bot.Id,
             bot.StrategyId,
+            bot.Name,
             bot.StrategyVersionId,
             bot.CredentialId,
             bot.Venue,

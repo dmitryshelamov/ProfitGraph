@@ -162,3 +162,12 @@ export async function continueEnrollment(
     }),
   );
 }
+
+export async function renameCredential(id: string, label: string): Promise<ExchangeCredential> {
+  return unwrap(
+    await api.PUT('/api/exchange-credentials/{id}/label', {
+      params: { path: { id } },
+      body: { label },
+    }),
+  );
+}

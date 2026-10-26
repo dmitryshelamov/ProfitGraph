@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.MarketData;
 
@@ -206,5 +208,32 @@ public sealed class ExchangeCredentialTests
             new Dictionary<string, EncryptedSecret> { ["token"] = Secret(0x05) },
             Created,
             fingerprint);
+    }
+
+    [Test]
+    public void RenameChangesOnlyTheLabel()
+    {
+        ExchangeCredential credential = Credential(UserId.New());
+        ImmutableSortedDictionary<string, EncryptedSecret> secrets = credential.Secrets;
+
+        bool renamed = credential.Rename(new ExchangeCredentialLabel("  second  "));
+        bool unchanged = credential.Rename(new ExchangeCredentialLabel("second"));
+
+        renamed.ShouldBeTrue();
+        unchanged.ShouldBeFalse();
+        credential.ShouldSatisfyAllConditions(
+            () => credential.Label.Value.ShouldBe("second"),
+            () => credential.Secrets.ShouldBeSameAs(secrets),
+            () => credential.CreatedAt.ShouldBe(Created));
+    }
+
+    [Test]
+    public void PublicIdIsTrimmedAndNeverSpaced()
+    {
+        new CredentialPublicId("  trader-login ").Value.ShouldBe("trader-login");
+        Should.Throw<AccountRuleException>(() => new CredentialPublicId("two words")).Code.ShouldBe(AccountRuleException.InvalidPublicId);
+        Should.Throw<AccountRuleException>(() => new CredentialPublicId(" ")).Code.ShouldBe(AccountRuleException.InvalidPublicId);
+        Should.Throw<AccountRuleException>(() => new CredentialPublicId(new string(c: 'a', CredentialPublicId.MaxLength + 1)))
+            .Code.ShouldBe(AccountRuleException.InvalidPublicId);
     }
 }

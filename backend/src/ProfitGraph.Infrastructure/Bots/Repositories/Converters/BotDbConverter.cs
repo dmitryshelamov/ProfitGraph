@@ -40,7 +40,8 @@ internal static class BotDbConverter
                 row.RejectedVersionId is { } rejected ? new StrategyVersionId(rejected) : null,
                 row.CreatedAt,
                 row.UpdatedAt,
-                new BotVenueSettings(row.VenueSettingsVersion, row.VenueSettings)));
+                new BotVenueSettings(row.VenueSettingsVersion, row.VenueSettings),
+                row.Name is null ? null : new BotName(row.Name)));
     }
 
     public static BotDb ToDb(this Bot bot)
@@ -52,6 +53,7 @@ internal static class BotDbConverter
             Id = snapshot.Id.Value,
             UserId = snapshot.OwnerId.Value,
             StrategyId = snapshot.StrategyId.Value,
+            Name = snapshot.Name?.Value,
             StrategyVersionId = snapshot.StrategyVersionId.Value,
             ExchangeCredentialId = snapshot.CredentialId.Value,
             Venue = snapshot.Series.Venue.Value,

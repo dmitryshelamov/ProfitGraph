@@ -13,6 +13,7 @@ using ProfitGraph.Application.Strategies.GetStrategy;
 using ProfitGraph.Application.Strategies.GetStrategyLiveImpact;
 using ProfitGraph.Application.Strategies.GetStrategyVersion;
 using ProfitGraph.Application.Strategies.GetStrategyVersions;
+using ProfitGraph.Application.Strategies.RenameStrategy;
 using ProfitGraph.Application.Strategies.SaveStrategy;
 using ProfitGraph.Application.Strategies.ValidateStrategy;
 
@@ -62,6 +63,15 @@ public sealed class StrategiesController(ISender sender) : ControllerBase
             request.ConfirmLiveImpact);
 
         return (await sender.Send(command, cancellationToken)).ToResponse();
+    }
+
+    /// <summary>
+    ///     Renames the strategy without a new version, so running bots are not touched.
+    /// </summary>
+    [HttpPut("{id:guid}/name")]
+    public async Task<ActionResult<StrategyResponse>> Rename(Guid id, RenameStrategyRequest request, CancellationToken cancellationToken)
+    {
+        return (await sender.Send(new RenameStrategyCommand(UserId(), id, request.Name), cancellationToken)).ToResponse();
     }
 
     /// <summary>

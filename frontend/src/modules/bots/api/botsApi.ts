@@ -279,3 +279,8 @@ export function botPositionQuery(id: string) {
     refetchInterval: 10_000,
   });
 }
+
+/** Names a bot in any state without touching trading; an empty name clears it. */
+export async function renameBot(id: string, name: string): Promise<Bot> {
+  return unwrap(await api.PUT('/api/bots/{id}/name', { params: { path: { id } }, body: { name } }));
+}

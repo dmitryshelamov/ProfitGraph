@@ -7,6 +7,7 @@ namespace ProfitGraph.Domain.Bots;
 /// </summary>
 public sealed class BotRuleException(string code, string message) : DomainException(code, message)
 {
+    public const string InvalidName = "invalid_bot_name";
     public const string InvalidSettings = "invalid_bot_settings";
     public const string TradingHalted = "trading_halted";
     public const string MustBeStopped = "bot_must_be_stopped";

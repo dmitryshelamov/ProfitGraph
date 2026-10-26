@@ -31,4 +31,5 @@ public sealed record BotSnapshot(
     StrategyVersionId? RejectedVersionId,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    BotVenueSettings? VenueSettings = null);
+    BotVenueSettings? VenueSettings = null,
+    BotName? Name = null);

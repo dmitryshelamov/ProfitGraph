@@ -6,6 +6,7 @@ export {
   credentialsQuery,
   deleteCredential,
   listVenueAccounts,
+  renameCredential,
 } from './api/credentialsApi';
 export type { AccountHistory, ExchangeCredential, VenueAccount } from './model/types';
 export { AccountOverview } from './ui/AccountOverview';

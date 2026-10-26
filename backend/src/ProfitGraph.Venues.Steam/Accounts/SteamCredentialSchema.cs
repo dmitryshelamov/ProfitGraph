@@ -12,4 +12,6 @@ internal sealed class SteamCredentialSchema : IVenueCredentialSchema
     public VenueId Venue => SteamVenue.VenueId;
 
     public IReadOnlyList<string> Fields => SteamCredentialFields.All;
+
+    public string PublicField => SteamCredentialFields.SteamId;
 }

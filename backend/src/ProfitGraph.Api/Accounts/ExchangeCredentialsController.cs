@@ -16,6 +16,7 @@ using ProfitGraph.Application.Accounts.GetAccountStatus;
 using ProfitGraph.Application.Accounts.GetAuthenticatorCode;
 using ProfitGraph.Application.Accounts.GetExchangeCredentials;
 using ProfitGraph.Application.Accounts.ListVenueAccounts;
+using ProfitGraph.Application.Accounts.RenameExchangeCredential;
 using ProfitGraph.Application.Accounts.ResumeAccountProtection;
 
 namespace ProfitGraph.Api.Accounts;
@@ -55,6 +56,12 @@ public sealed class ExchangeCredentialsController(ISender sender, TimeProvider c
         IReadOnlyList<VenueAccountInternal> accounts = await sender.Send(new ListVenueAccountsQuery(UserId(), request.Venue, request.Fields), cancellationToken);
 
         return accounts.Select(account => account.ToResponse()).ToArray();
+    }
+
+    [HttpPut("{id:guid}/label")]
+    public async Task<ActionResult<ExchangeCredentialResponse>> Rename(Guid id, RenameExchangeCredentialRequest request, CancellationToken cancellationToken)
+    {
+        return (await sender.Send(new RenameExchangeCredentialCommand(UserId(), id, request.Label), cancellationToken)).ToResponse();
     }
 
     [HttpDelete("{id:guid}")]

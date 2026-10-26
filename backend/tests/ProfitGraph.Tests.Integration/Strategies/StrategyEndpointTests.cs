@@ -304,4 +304,26 @@ public sealed class StrategyEndpointTests
             () => response.Content.Headers.ContentType!.MediaType.ShouldBe("application/problem+json"),
             () => problem["code"]!.GetValue<string>().ShouldBe(code));
     }
+
+    [Test]
+    public async Task RenameKeepsTheVersionAndIsPrivate()
+    {
+        await using var application = new ProfitGraphApiFactory();
+        using HttpClient owner = await application.CreateSignedInClient();
+        using HttpClient other = await application.CreateSignedInClient();
+        JsonNode created = await Create(owner, StrategyRequestGenerator.Create());
+        var id = created["id"]!.GetValue<string>();
+
+        using HttpResponseMessage renamed = await owner.PutAsJsonAsync($"/api/strategies/{id}/name", new { name = "  Fresh name " });
+        using HttpResponseMessage blank = await owner.PutAsJsonAsync($"/api/strategies/{id}/name", new { name = " " });
+        using HttpResponseMessage foreign = await other.PutAsJsonAsync($"/api/strategies/{id}/name", new { name = "taken" });
+
+        renamed.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = (await renamed.Content.ReadFromJsonAsync<JsonNode>())!;
+        body["name"]!.GetValue<string>().ShouldBe("Fresh name");
+        body["currentVersion"]!.GetValue<int>().ShouldBe(1);
+        blank.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        foreign.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await owner.GetFromJsonAsync<JsonArray>($"/api/strategies/{id}/versions"))!.Count.ShouldBe(1);
+    }
 }

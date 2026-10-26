@@ -36,6 +36,13 @@ internal sealed class ExchangeCredentialRepository(NpgsqlConnection connection, 
         return added == 1;
     }
 
+    public async Task Update(ExchangeCredential credential, CancellationToken cancellationToken)
+    {
+        await connection.ExecuteAsync(
+            Command(ExchangeCredentialQueries.UpdateLabel, new { id = credential.Id.Value, label = credential.Label.Value }, cancellationToken));
+        transactions.RegisterDomainEventClear(credential);
+    }
+
     public async Task<bool> AnyAccountFingerprint(VenueId venue, IReadOnlyList<string> fingerprints, CancellationToken cancellationToken)
     {
         return await connection.ExecuteScalarAsync<bool>(

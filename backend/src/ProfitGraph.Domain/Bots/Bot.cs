@@ -17,6 +17,11 @@ public sealed class Bot : AggregateRoot
     public StrategyId StrategyId { get; }
 
     /// <summary>
+    ///     The owner's name for the bot, or null while it has none; naming never touches trading or the desired state.
+    /// </summary>
+    public BotName? Name { get; private set; }
+
+    /// <summary>
     ///     The strategy version the bot runs, or will run at its next start.
     /// </summary>
     public StrategyVersionId StrategyVersionId { get; private set; }
@@ -141,6 +146,7 @@ public sealed class Bot : AggregateRoot
         {
             AllowForeignOrders = snapshot.AllowForeignOrders,
             VenueSettings = snapshot.VenueSettings ?? BotVenueSettings.None,
+            Name = snapshot.Name,
             DesiredState = snapshot.DesiredState,
             RuntimeStatus = snapshot.RuntimeStatus,
             StatusReason = snapshot.StatusReason,
@@ -479,6 +485,23 @@ public sealed class Bot : AggregateRoot
     }
 
     /// <summary>
+    ///     Names the bot, or clears the name with null. The name may change in any state: it is not part of trading, the desired
+    ///     state or the run. Returns whether the name changed.
+    /// </summary>
+    public bool Rename(BotName? name, DateTimeOffset now)
+    {
+        if (name == Name)
+        {
+            return false;
+        }
+
+        Name = name;
+        UpdatedAt = now;
+
+        return true;
+    }
+
+    /// <summary>
     ///     Risk limits may change while the bot runs; the next submit checks the new ones.
     /// </summary>
     public void ChangeRiskLimits(BotRiskLimits riskLimits, DateTimeOffset now)
@@ -664,7 +687,8 @@ public sealed class Bot : AggregateRoot
             RejectedVersionId,
             CreatedAt,
             UpdatedAt,
-            VenueSettings);
+            VenueSettings,
+            Name);
     }
 
     /// <summary>

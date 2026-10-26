@@ -14,9 +14,10 @@ export {
   confirmOrderAbsent,
   createBot,
   liveImpactQuery,
+  renameBot,
   tradingHaltQuery,
 } from './api/botsApi';
-export { fractionLabel } from './model/botDisplay';
+export { botTitle, fractionLabel } from './model/botDisplay';
 export { botStatusLabel, diagnosticLabel, feedLabel } from './model/botStatus';
 export type { Bot, BotAlert, LiveImpactBot } from './model/types';
 export { useBotDisplay } from './model/useBotDisplay';

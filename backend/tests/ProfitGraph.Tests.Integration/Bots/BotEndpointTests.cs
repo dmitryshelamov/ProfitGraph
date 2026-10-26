@@ -337,4 +337,25 @@ public sealed class BotEndpointTests
                 },
                 CancellationToken.None);
     }
+
+    [Test]
+    public async Task RenameNamesARunningBotWithoutChangingItsDesiredState()
+    {
+        BotOwner owner = await BotApi.NewOwner(_factory);
+        BotOwner other = await BotApi.NewOwner(_factory);
+        Guid id = await BotApi.Create(owner);
+        await owner.Client.PostAsync($"{BotApi.Path}/{id}/start", content: null);
+
+        JsonElement named = await BotApi.Json(await owner.Client.PutAsJsonAsync($"{BotApi.Path}/{id}/name", new { name = "  Main bot " }));
+        HttpResponseMessage foreign = await other.Client.PutAsJsonAsync($"{BotApi.Path}/{id}/name", new { name = "taken" });
+        HttpResponseMessage tooLong = await owner.Client.PutAsJsonAsync($"{BotApi.Path}/{id}/name", new { name = new string(c: 'a', BotName.MaxLength + 1) });
+        JsonElement cleared = await BotApi.Json(await owner.Client.PutAsJsonAsync($"{BotApi.Path}/{id}/name", new { name = "  " }));
+
+        named.GetProperty("name").GetString().ShouldBe("Main bot");
+        named.GetProperty("desiredState").GetString().ShouldBe("Running");
+        foreign.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        tooLong.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        cleared.GetProperty("name").ValueKind.ShouldBe(JsonValueKind.Null);
+        cleared.GetProperty("desiredState").GetString().ShouldBe("Running");
+    }
 }

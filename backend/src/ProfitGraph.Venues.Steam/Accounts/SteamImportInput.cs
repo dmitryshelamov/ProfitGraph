@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Venues.Steam.Confirmations;
 
 namespace ProfitGraph.Venues.Steam.Accounts;
@@ -7,9 +8,17 @@ namespace ProfitGraph.Venues.Steam.Accounts;
 /// <summary>
 ///     What the owner gives the import on stdin: the ProfitGraph login that will own the credential, a label and the
 ///     authenticator file of an existing Steam Guard (the common <c>.maFile</c> layout, with the refresh token at its root or
-///     in <c>Session</c>). Values are kept only in memory and never printed.
+///     in <c>Session</c>; its account name, the sign-in login, is kept as the visible part when present). Values are kept only in memory and never printed.
 /// </summary>
-internal sealed record SteamImportInput(string Owner, string Label, string SteamId, string RefreshToken, string SharedSecret, string IdentitySecret, string DeviceId)
+internal sealed record SteamImportInput(
+    string Owner,
+    string Label,
+    string SteamId,
+    string RefreshToken,
+    string SharedSecret,
+    string IdentitySecret,
+    string DeviceId,
+    string? AccountName = null)
 {
     public const int MaxBytes = 64 * 1024;
 
@@ -63,7 +72,14 @@ internal sealed record SteamImportInput(string Owner, string Label, string Steam
                 return (null, "The identity_secret is not base64 of 16 to 64 bytes.");
             }
 
-            return (new SteamImportInput(owner, label, steamId, refreshToken, shared, identity, device), null);
+            string? accountName = Text(authenticator, "account_name", "AccountName") ?? Text(session, "AccountName", "account_name");
+
+            if (accountName is { } name && (name.Length > CredentialPublicId.MaxLength || name.Any(char.IsWhiteSpace)))
+            {
+                accountName = null;
+            }
+
+            return (new SteamImportInput(owner, label, steamId, refreshToken, shared, identity, device, accountName), null);
         }
         catch (JsonException)
         {

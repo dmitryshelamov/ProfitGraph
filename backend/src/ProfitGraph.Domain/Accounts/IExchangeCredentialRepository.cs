@@ -18,6 +18,11 @@ public interface IExchangeCredentialRepository
     Task<bool> Add(ExchangeCredential credential, CancellationToken cancellationToken);
 
     /// <summary>
+    ///     Writes the label of a stored credential, the only field that changes after creation.
+    /// </summary>
+    Task Update(ExchangeCredential credential, CancellationToken cancellationToken);
+
+    /// <summary>
     ///     Whether a credential of the venue records any of the fingerprints (one per configured master key).
     /// </summary>
     Task<bool> AnyAccountFingerprint(VenueId venue, IReadOnlyList<string> fingerprints, CancellationToken cancellationToken);

@@ -7,9 +7,9 @@ namespace ProfitGraph.Domain.Accounts;
 
 /// <summary>
 ///     A user's secrets for one venue (ADR 0015): named values the venue declares, such as an API key and secret, each
-///     stored encrypted (ADR 0022, C6). Only a four-character public hint is visible. A venue whose credential selects one of
+///     stored encrypted (ADR 0022, C6). Only a four-character public hint and a non-secret public identifier are visible. A venue whose credential selects one of
 ///     several venue accounts records a keyed fingerprint of that account, so one account is stored once (ADR 0023, TC5). A
-///     credential belongs to its owner and never changes after creation.
+///     credential belongs to its owner; only its label changes after creation.
 /// </summary>
 public sealed class ExchangeCredential : AggregateRoot
 {
@@ -18,7 +18,7 @@ public sealed class ExchangeCredential : AggregateRoot
     public ExchangeCredentialId Id { get; }
     public UserId OwnerId { get; }
     public VenueId Venue { get; }
-    public ExchangeCredentialLabel Label { get; }
+    public ExchangeCredentialLabel Label { get; private set; }
     public ApiKeyLast4 ApiKeyLast4 { get; }
 
     /// <summary>
@@ -33,6 +33,11 @@ public sealed class ExchangeCredential : AggregateRoot
     /// </summary>
     public string? AccountFingerprint { get; }
 
+    /// <summary>
+    ///     The non-secret identifier shown beside the masked key, or null for a credential stored before it was recorded.
+    /// </summary>
+    public CredentialPublicId? PublicId { get; }
+
     private ExchangeCredential(
         ExchangeCredentialId id,
         UserId ownerId,
@@ -41,7 +46,8 @@ public sealed class ExchangeCredential : AggregateRoot
         ApiKeyLast4 apiKeyLast4,
         IReadOnlyDictionary<string, EncryptedSecret> secrets,
         DateTimeOffset createdAt,
-        string? accountFingerprint)
+        string? accountFingerprint,
+        CredentialPublicId? publicId)
     {
         ArgumentNullException.ThrowIfNull(label);
         ArgumentNullException.ThrowIfNull(apiKeyLast4);
@@ -70,6 +76,7 @@ public sealed class ExchangeCredential : AggregateRoot
         Secrets = secrets.ToImmutableSortedDictionary(StringComparer.Ordinal);
         CreatedAt = createdAt;
         AccountFingerprint = accountFingerprint;
+        PublicId = publicId;
     }
 
     public static ExchangeCredential Create(
@@ -80,9 +87,10 @@ public sealed class ExchangeCredential : AggregateRoot
         ApiKeyLast4 apiKeyLast4,
         IReadOnlyDictionary<string, EncryptedSecret> secrets,
         DateTimeOffset now,
-        string? accountFingerprint = null)
+        string? accountFingerprint = null,
+        CredentialPublicId? publicId = null)
     {
-        return new ExchangeCredential(id, ownerId, venue, label, apiKeyLast4, secrets, now, accountFingerprint);
+        return new ExchangeCredential(id, ownerId, venue, label, apiKeyLast4, secrets, now, accountFingerprint, publicId);
     }
 
     public static ExchangeCredential Restore(
@@ -93,14 +101,33 @@ public sealed class ExchangeCredential : AggregateRoot
         ApiKeyLast4 apiKeyLast4,
         IReadOnlyDictionary<string, EncryptedSecret> secrets,
         DateTimeOffset createdAt,
-        string? accountFingerprint = null)
+        string? accountFingerprint = null,
+        CredentialPublicId? publicId = null)
     {
-        return new ExchangeCredential(id, ownerId, venue, label, apiKeyLast4, secrets, createdAt, accountFingerprint);
+        return new ExchangeCredential(id, ownerId, venue, label, apiKeyLast4, secrets, createdAt, accountFingerprint, publicId);
     }
 
     public bool IsOwnedBy(UserId userId)
     {
         return OwnerId == userId;
+    }
+
+    /// <summary>
+    ///     Gives the credential a new name; its secrets and the venue account it selects stay as they are. Returns whether the
+    ///     label changed.
+    /// </summary>
+    public bool Rename(ExchangeCredentialLabel label)
+    {
+        ArgumentNullException.ThrowIfNull(label);
+
+        if (label == Label)
+        {
+            return false;
+        }
+
+        Label = label;
+
+        return true;
     }
 
     private static bool IsFieldName(string? name)

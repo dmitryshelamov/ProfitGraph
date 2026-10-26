@@ -5,6 +5,7 @@ internal sealed class BotDb
     public Guid Id { get; init; }
     public Guid UserId { get; init; }
     public Guid StrategyId { get; init; }
+    public string? Name { get; init; }
     public Guid StrategyVersionId { get; init; }
     public Guid ExchangeCredentialId { get; init; }
     public string Venue { get; init; } = string.Empty;

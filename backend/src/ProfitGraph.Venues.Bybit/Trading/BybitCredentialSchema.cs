@@ -12,4 +12,6 @@ internal sealed class BybitCredentialSchema : IVenueCredentialSchema
     public VenueId Venue => BybitVenue.VenueId;
 
     public IReadOnlyList<string> Fields { get; } = [ExchangeCredentialFields.ApiKey, ExchangeCredentialFields.ApiSecret];
+
+    public string PublicField => ExchangeCredentialFields.ApiKey;
 }

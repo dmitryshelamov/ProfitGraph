@@ -284,6 +284,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/strategies/{id}/name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RenameStrategyRequest"];
+                    "text/json": components["schemas"]["RenameStrategyRequest"];
+                    "application/*+json": components["schemas"]["RenameStrategyRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["StrategyResponse"];
+                        "application/json": components["schemas"]["StrategyResponse"];
+                        "text/json": components["schemas"]["StrategyResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/strategies/{id}/live-impact": {
         parameters: {
             query?: never;
@@ -1983,6 +2028,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bots/{id}/name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RenameBotRequest"];
+                    "text/json": components["schemas"]["RenameBotRequest"];
+                    "application/*+json": components["schemas"]["RenameBotRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotResponse"];
+                        "application/json": components["schemas"]["BotResponse"];
+                        "text/json": components["schemas"]["BotResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bots/{id}/risk-limits": {
         parameters: {
             query?: never;
@@ -2647,6 +2737,51 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/exchange-credentials/{id}/label": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RenameExchangeCredentialRequest"];
+                    "text/json": components["schemas"]["RenameExchangeCredentialRequest"];
+                    "application/*+json": components["schemas"]["RenameExchangeCredentialRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ExchangeCredentialResponse"];
+                        "application/json": components["schemas"]["ExchangeCredentialResponse"];
+                        "text/json": components["schemas"]["ExchangeCredentialResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3493,6 +3628,7 @@ export interface components {
             id: string;
             /** Format: uuid */
             strategyId: string;
+            name: null | string;
             /** Format: uuid */
             strategyVersionId: string;
             /** Format: uuid */
@@ -3654,6 +3790,7 @@ export interface components {
             venue: string;
             label: string;
             apiKeyLast4: string;
+            publicId: null | string;
             /** Format: date-time */
             createdAt: string;
         };
@@ -3895,6 +4032,15 @@ export interface components {
         OrderType: "Market" | "Limit";
         /** @enum {unknown} */
         OrderWaitingCode: "PriceBand" | "SessionClosed" | "CarryOver" | "SettlementHold" | "SingleBuyOrderSlot" | "AwaitingConfirmation" | "RateLimited";
+        RenameBotRequest: {
+            name: null | string;
+        };
+        RenameExchangeCredentialRequest: {
+            label: string;
+        };
+        RenameStrategyRequest: {
+            name: string;
+        };
         SampleMetricsResponse: {
             /** Format: int32 */
             startIndex: number;

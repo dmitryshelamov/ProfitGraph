@@ -14,7 +14,7 @@ namespace ProfitGraph.Application.Accounts.CreateExchangeCredential;
 /// <summary>
 ///     A credential that selects a venue account (ADR 0023, TC5) is saved only if the venue lists that account as eligible
 ///     right now, and only once per venue account: its keyed fingerprint is unique per venue. Its public hint is the end of
-///     the account identifier.
+///     the account identifier, and the identifier itself is its public identifier.
 /// </summary>
 internal sealed class CreateExchangeCredentialCommandHandler(
     IExchangeCredentialRepository credentials,
@@ -57,7 +57,8 @@ internal sealed class CreateExchangeCredentialCommandHandler(
                 [ExchangeCredentialFields.ApiKey] = protector.Encrypt(id, ownerId, ExchangeCredentialFields.ApiKey, apiKey),
                 [ExchangeCredentialFields.ApiSecret] = protector.Encrypt(id, ownerId, ExchangeCredentialFields.ApiSecret, command.ApiSecret!.Trim())
             },
-            clock.GetUtcNow());
+            clock.GetUtcNow(),
+            publicId: new CredentialPublicId(apiKey));
     }
 
     private async Task<ExchangeCredential> WithAccount(
@@ -100,6 +101,7 @@ internal sealed class CreateExchangeCredentialCommandHandler(
             new ApiKeyLast4(accountId.Length >= ApiKeyLast4.Length ? accountId[^ApiKeyLast4.Length..] : accountId.PadLeft(ApiKeyLast4.Length, paddingChar: '0')),
             fields.ToDictionary(field => field.Key, field => protector.Encrypt(id, ownerId, field.Key, field.Value), StringComparer.Ordinal),
             clock.GetUtcNow(),
-            fingerprints[0]);
+            fingerprints[0],
+            new CredentialPublicId(accountId));
     }
 }

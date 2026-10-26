@@ -6,12 +6,14 @@ using ProfitGraph.Domain.Bots;
 namespace ProfitGraph.Api.Bots.Contracts;
 
 /// <summary>
-///     A bot as its owner sees it; decimals are exact invariant strings. <see cref="VenueSettings" /> is the venue module's
+///     A bot as its owner sees it; <see cref="Name" /> is the owner's name for it, null while it has none; decimals are exact invariant strings. <see cref="VenueSettings" /> is the
+///     venue module's
 ///     own settings object in version <see cref="VenueSettingsVersion" />, empty for a venue without settings.
 /// </summary>
 public sealed record BotResponse(
     Guid Id,
     Guid StrategyId,
+    string? Name,
     Guid StrategyVersionId,
     Guid CredentialId,
     string Venue,

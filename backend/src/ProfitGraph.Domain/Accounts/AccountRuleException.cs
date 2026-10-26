@@ -12,4 +12,5 @@ public sealed class AccountRuleException(string code, string message) : DomainEx
     public const string LastOwner = "last_owner";
     public const string InvalidCredentialLabel = "invalid_credential_label";
     public const string InvalidApiKey = "invalid_api_key";
+    public const string InvalidPublicId = "invalid_credential_public_id";
 }
