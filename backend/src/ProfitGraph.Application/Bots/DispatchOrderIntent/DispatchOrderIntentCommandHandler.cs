@@ -16,9 +16,9 @@ namespace ProfitGraph.Application.Bots.DispatchOrderIntent;
 ///     the venue is looked up before any retry. A definitive rejection is stored, then handed to the bot's runner. A
 ///     failure retries with backoff, and the tenth fails the intent and degrades the bot. A safety reason from the venue
 ///     degrades the bot at once and returns the intent for a later lookup. A first buy above the bot's per-order limit
-///     (a sell is bounded by the position the engine reserved, not by the limit) is rejected with <c>RiskLimit</c> before it is sent; a rejection for an insufficient balance degrades
-///     the bot with
-///     <c>InsufficientBalance</c>. Stopped bots hold their submits.
+///     (a sell is bounded by the position the engine reserved, not by the limit) is rejected with <c>RiskLimit</c> before
+///     it is sent; a rejection for an insufficient balance degrades the bot with <c>InsufficientBalance</c>. Stopped bots
+///     hold their submits.
 /// </summary>
 internal sealed class DispatchOrderIntentCommandHandler(
     IOrderIntentRepository intents,
