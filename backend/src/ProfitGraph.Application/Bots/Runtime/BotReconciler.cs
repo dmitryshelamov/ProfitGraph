@@ -85,6 +85,12 @@ public sealed class BotReconciler(IOrderIntentRepository intents, ISender sender
             }
         }
 
+        foreach (OrderIntent intent in stored.Where(intent => intent is { Kind: OrderIntentKind.Submit, Status: OrderIntentStatus.Deferred }))
+        {
+            // A deferred submit never left the process, however the engine sees it (ADR 0024).
+            orders[intent.EngineOrderId] = false;
+        }
+
         foreach (OrderIntent intent in stored)
         {
             if (intent.Status is OrderIntentStatus.Failed or OrderIntentStatus.Sending || intent is { Status: OrderIntentStatus.Pending, PlaceStartedAt: not null })

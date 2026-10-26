@@ -83,6 +83,9 @@ public sealed class SteamLadderTests
                 "the exit waits for the hold");
             scenario.Steam.Listings().ShouldBeEmpty();
             scenario.Steam.BuyOrders().ShouldBeEmpty();
+            await RuntimeScenario.Until(
+                async () => (await RuntimeScenario.Intents(worker, bot.Id)).Any(intent => intent.Status == OrderIntentStatus.Deferred),
+                "the core defers the exit");
 
             scenario.Clock.Advance(scenario.Steam.TradeHold + TimeSpan.FromMinutes(1));
             await RuntimeScenario.Until(

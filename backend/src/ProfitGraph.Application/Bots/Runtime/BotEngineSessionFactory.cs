@@ -101,23 +101,42 @@ public sealed class BotEngineSessionFactory(
     }
 
     /// <summary>
-    ///     A rejection stored after the last checkpoint, which the previous runner did not apply, reaches the engine now.
+    ///     What was stored after the last checkpoint and the previous runner did not apply reaches the engine now: a rejection
+    ///     of an order the venue never confirmed (pending, or accepted locally), the local acceptance of a deferred submit
+    ///     (ADR 0024) and the cancellation of one the strategy cancelled before it was sent.
     /// </summary>
     private async Task ApplyStoredRejections(BotId botId, BotEngineSession session, CancellationToken cancellationToken)
     {
         foreach (OrderIntent intent in await intents.ListByBot(botId, cancellationToken))
         {
-            if (intent is { Status: OrderIntentStatus.Rejected, Rejection: { } rejection } &&
-                session.Checkpoint!.Account.Orders.Any(order => order.Id == intent.EngineOrderId && order.Status == OrderStatus.PendingSubmit))
+            OrderSnapshot? order = session.Checkpoint!.Account.Orders.FirstOrDefault(candidate => candidate.Id == intent.EngineOrderId);
+
+            if (order is null)
+            {
+                continue;
+            }
+
+            if (intent is { Status: OrderIntentStatus.Rejected, Rejection: { } rejection } && IsUnconfirmed(session.Checkpoint, order))
             {
                 await session.ProcessExternalUpdate(ExternalOrderUpdate.Reject(intent.EngineOrderId, rejection.Reason, rejection.Message), cancellationToken);
             }
+            else if (intent is { Kind: OrderIntentKind.Submit, Status: OrderIntentStatus.Deferred } && order.Status == OrderStatus.PendingSubmit)
+            {
+                await session.ProcessExternalUpdate(ExternalOrderUpdate.AcceptLocally(intent.EngineOrderId), cancellationToken);
+            }
             else if (intent is { Status: OrderIntentStatus.Rejected, Rejection.Reason: RejectionReason.CancelledBeforeSend } &&
-                     session.Checkpoint!.Account.Orders.Any(order => order.Id == intent.EngineOrderId && order.Status == OrderStatus.PendingCancel))
+                     order.Status == OrderStatus.PendingCancel)
             {
                 await session.ProcessExternalUpdate(ExternalOrderUpdate.ConfirmCancel(intent.EngineOrderId), cancellationToken);
             }
         }
+    }
+
+    private static bool IsUnconfirmed(GraphEngineCheckpoint checkpoint, OrderSnapshot order)
+    {
+        return order.Status == OrderStatus.PendingSubmit ||
+            (order.Status == OrderStatus.Active &&
+                checkpoint.Account.Progress.Any(progress => progress.OrderId == order.Id && progress is { Confirmed: false, GrossBase: 0m }));
     }
 
     private static TPort Port<TPort>(VenuePorts<TPort> ports, Bot bot)

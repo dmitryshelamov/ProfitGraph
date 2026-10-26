@@ -81,6 +81,7 @@ internal sealed class DispatchOrderIntentCommandHandler(
                     if (!ready.IsReady)
                     {
                         await Defer(intent, ready, cancellationToken);
+                        updates.Publish(intent.BotId, ExternalOrderUpdate.AcceptLocally(intent.EngineOrderId));
 
                         return true;
                     }
