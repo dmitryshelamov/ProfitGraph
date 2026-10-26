@@ -203,10 +203,22 @@ Each stage is its own pull request with Bybit's fingerprints and pinned replay h
 - `IOrderReadiness` (Application port) is asked by the dispatcher after the risk check and before the place start; a venue
   without it is always ready, an exception means "not ready" (`RateLimited`, asked again in 30 s). The next check is the
   venue's `RecheckAt`, else `Until`, else 15 min, never sooner than 5 s.
-- **The engine is not told `LocalAccepted`.** A core deferral leaves the order `PendingSubmit` in the engine. Reconciliation then
-  does not treat it as possibly at the venue (an accepted order would be looked up and, not found, degrade the bot with
-  `UnresolvedOrder`). The wait shows through `bot_order_waiting` as before.
+- **The engine hears `LocalAccepted`.** A strategy can cancel or replace only a working order, so the dispatcher publishes
+  `AcceptLocally` when it defers a submit; a runner that restarts applies it from the stored intent. Reconciliation treats a
+  deferred submit as never having left the process, whatever the engine shows, so it is not looked up and cannot degrade the
+  bot with `UnresolvedOrder`. A rejection of an order the venue never confirmed (kill, risk check at release) also reaches an
+  engine order that is only accepted locally. (An earlier draft of stage 1 left the order `PendingSubmit`; the Steam ladder
+  scenario showed the strategy could then not manage its exit.)
 - A cancel of a deferred submit is local: the submit is rejected with the new `CancelledBeforeSend`, the cancel is sent, and the
   engine gets `ConfirmCancel` (or applies it from storage when the runner restarts). A kill rejects a deferred submit like a
   pending one. A deferred intent does not hold back other orders' intents.
 - `waiting-orders` and `open-orders` contracts and the UI are unchanged here (stages 2 and 3).
+
+## Amendment: stage 2, Steam as the first consumer
+
+- `SteamOrderReadiness` answers for sells: when none of the items the sell would take has left its trade hold, the sell is
+  deferred with `SettlementHold` until the earliest unlock (`Until` and `RecheckAt`); as soon as one item is tradable it is
+  ready and the module lists the unlocked items, keeping the partial listing and partial fills of ADR 0022. A sell the
+  module already journaled, one it cannot cover with free items (the gateway rejects it) and every buy are ready here.
+- Buys keep their single-slot and rate-limit waits in the module for now, and the module's own hold of a sell stays as a
+  fallback for the partially unlocked case. Moving them is a later step.

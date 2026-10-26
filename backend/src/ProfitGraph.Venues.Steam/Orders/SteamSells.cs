@@ -196,23 +196,15 @@ internal sealed class SteamSells(
             return (null, [], ExternalOrderUpdate.Reject(order.Id, RejectionReason.InvalidAmount, "A Steam sell needs a whole number of items."));
         }
 
-        IReadOnlyList<SteamAssetReservation> taken = await journal.Reserved(bot.CredentialId, cancellationToken);
         DateTimeOffset now = clock.GetUtcNow();
-        SteamOwnedAsset[] free =
-        [
-            .. (await owned.Owned(bot, cancellationToken))
-            .Where(asset => !taken.Any(other => other.AppId == asset.AppId && other.ContextId == asset.ContextId && other.AssetId == asset.AssetId))
-            .OrderBy(asset => asset.UnlockAt)
-            .ThenBy(asset => asset.AssetId, StringComparer.Ordinal)
-            .Take((int)wanted)
-        ];
+        IReadOnlyList<SteamOwnedAsset> free = await FreeAssets(bot, (int)wanted, cancellationToken);
 
-        if (free.Length < wanted)
+        if (free.Count < wanted)
         {
             return (null, [], ExternalOrderUpdate.Reject(
                 order.Id,
                 RejectionReason.InsufficientBase,
-                string.Create(CultureInfo.InvariantCulture, $"The bot owns {free.Length} free items of the {wanted} to sell.")));
+                string.Create(CultureInfo.InvariantCulture, $"The bot owns {free.Count} free items of the {wanted} to sell.")));
         }
 
         var entry = new SteamOrderJournalEntry(
@@ -251,6 +243,23 @@ internal sealed class SteamSells(
         ];
 
         return (entry, reservations, null);
+    }
+
+    /// <summary>
+    ///     The bot's items no open sell of the account reserves, earliest unlock first, at most <paramref name="wanted" />.
+    /// </summary>
+    public async Task<IReadOnlyList<SteamOwnedAsset>> FreeAssets(SteamBotAccount bot, int wanted, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<SteamAssetReservation> taken = await journal.Reserved(bot.CredentialId, cancellationToken);
+
+        return
+        [
+            .. (await owned.Owned(bot, cancellationToken))
+            .Where(asset => !taken.Any(other => other.AppId == asset.AppId && other.ContextId == asset.ContextId && other.AssetId == asset.AssetId))
+            .OrderBy(asset => asset.UnlockAt)
+            .ThenBy(asset => asset.AssetId, StringComparer.Ordinal)
+            .Take(wanted)
+        ];
     }
 
     /// <summary>

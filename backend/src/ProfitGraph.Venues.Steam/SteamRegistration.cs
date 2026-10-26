@@ -101,6 +101,7 @@ public static class SteamRegistration
     public static IServiceCollection AddSteamTrading(this IServiceCollection services)
     {
         services.AddSingleton<IOrderGateway, SteamOrderGateway>();
+        services.AddSingleton<IOrderReadiness, SteamOrderReadiness>();
         services.AddHostedService<SteamOrderWorker>();
         services.AddSingleton<SteamEligibility>();
         services.AddHostedService<SteamEligibilityWorker>();
