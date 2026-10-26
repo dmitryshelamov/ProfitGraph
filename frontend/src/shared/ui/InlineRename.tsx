@@ -40,7 +40,7 @@ export function InlineRename({
       <Button
         size="sm"
         variant="ghost"
-        aria-label={`Переименовать: ${label}`}
+        aria-label={`Переименовать «${initial}»`}
         onClick={() => setEditing(true)}
       >
         Переименовать

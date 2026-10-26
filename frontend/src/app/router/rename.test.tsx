@@ -57,9 +57,7 @@ describe('renaming', () => {
     });
     renderApp('/credentials');
 
-    await userEvent.click(
-      await screen.findByRole('button', { name: `Переименовать: Название ключа ${label}` }),
-    );
+    await userEvent.click(await screen.findByRole('button', { name: `Переименовать «${label}»` }));
     const field = screen.getByLabelText(`Название ключа ${label}`);
     await userEvent.clear(field);
     await userEvent.type(field, 'Рабочий');
@@ -79,9 +77,7 @@ describe('renaming', () => {
     });
     renderApp('/credentials');
 
-    await userEvent.click(
-      await screen.findByRole('button', { name: /Переименовать: Название ключа/ }),
-    );
+    await userEvent.click(await screen.findByRole('button', { name: /Переименовать «/ }));
     const field = screen.getByLabelText(`Название ключа ${credential.label}`);
     await userEvent.clear(field);
     expect(screen.getByRole('button', { name: 'Сохранить' })).toBeDisabled();
@@ -107,9 +103,7 @@ describe('renaming', () => {
     });
     renderApp('/strategies');
 
-    await userEvent.click(
-      await screen.findByRole('button', { name: `Переименовать: Название стратегии ${name}` }),
-    );
+    await userEvent.click(await screen.findByRole('button', { name: `Переименовать «${name}»` }));
     const field = screen.getByRole('textbox', { name: /Название стратегии/ });
     await userEvent.clear(field);
     await userEvent.type(field, 'Лесенка 2');
