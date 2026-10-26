@@ -8,7 +8,9 @@ using ProfitGraph.Api.Common.Authentication;
 using ProfitGraph.Api.Common.Errors;
 using ProfitGraph.Api.MarketData;
 using ProfitGraph.Api.Optimization.Realtime;
+using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Infrastructure;
+using ProfitGraph.Infrastructure.Bots.FormingCandles;
 using ProfitGraph.Infrastructure.Common;
 using ProfitGraph.Infrastructure.Common.Postgres;
 using ProfitGraph.Venues.Bybit;
@@ -64,6 +66,8 @@ public class Program
         builder.Services.AddSingleton<OptimizationProgressSubscriptions>();
         builder.Services.AddHostedService<OptimizationProgressPublisher>();
         builder.Services.AddHostedService<LivePricePublisher>();
+        builder.Services.AddSingleton<IFormingCandleSink, FormingCandleSink>();
+        builder.Services.AddFormingCandleFeeds();
         builder.AddProfitGraphAuthentication();
 
         WebApplication app = builder.Build();
@@ -96,6 +100,7 @@ public class Program
         app.MapHub<BacktestHub>(BacktestHub.Path);
         app.MapHub<OptimizationHub>(OptimizationHub.Path);
         app.MapHub<LivePriceHub>(LivePriceHub.Path);
+        app.MapHub<FormingCandleHub>(FormingCandleHub.Path);
         app.MapHealthChecks("/api/health", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
         app.MapHealthChecks("/api/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains(HealthTags.Ready) }).AllowAnonymous();
 

@@ -205,7 +205,7 @@ src/
   through `before` cursors. Its chart (`BotChart`, drawn by `CandleHistoryChart` in `modules/market-chart`) shows the
   bot's closed candles on its own timeframe from `/api/bots/{id}/candles`, 500 at a time going back as the view nears the
   oldest one, merged by open time, with the bot's fills as markers at their prices and its working limit orders as dashed
-  levels; candles closed since the newest page arrive every minute ([ADR 0026](adr/0026-bot-chart.md)). The position card subscribes to `/ws/live-prices` for the bot and shows a pushed ticker
+  levels; candles closed since the newest page arrive every minute ([ADR 0026](adr/0026-bot-chart.md)). The candle being formed follows `/ws/forming-candles`: the API keeps one venue connection per series and credential for all its followers, never stores the candle, and the chart draws it see-through after the closed history ([ADR 0027](adr/0027-forming-candle.md)). The position card subscribes to `/ws/live-prices` for the bot and shows a pushed ticker
   only when it is newer than the stored display price, with the price's source and age, and then recomputes the
   unrealized profit as the server does (base total × price − cost basis) in exact decimal strings. `CredentialsPage` shows each key's latest account value, its coins and why the last
   read failed. `modules/notifications` and the `/profile` page, opened from the login in the header, issue a Telegram

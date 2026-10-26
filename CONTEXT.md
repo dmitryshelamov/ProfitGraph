@@ -56,6 +56,12 @@ A candle of an open market in which nothing traded: flat at the last real close,
 candle-close work treat it as any candle, but a backtest fills no order on it; orders wait for a real candle. Only the
 venue marks a candle so, and a CSV file cannot replace one.
 
+### Forming Candle
+
+The candle of a series that is still being formed, as a venue's live stream reports it. It exists only in memory and only
+to be shown on the bot chart: it is never stored in the candle cache, never reaches a backtest, and a bot never decides on
+it. A closed candle of the history replaces it.
+
 ### Market Data Access
 
 The user's own credential that a venue without anonymous market data reads history, instrument search and rules with.

@@ -44,6 +44,7 @@ public static class BybitRegistration
         services.AddSingleton<IBybitPublicStreamTransport, BybitPublicWebSocketTransport>();
         services.AddSingleton<ILiveCandleSource, BybitLiveCandleSource>();
         services.AddSingleton<ILiveMarkPriceSource, BybitLiveMarkPriceSource>();
+        services.AddSingleton<IFormingCandleSource, BybitFormingCandleSource>();
         services.AddSingleton(_ => new BybitServerClock(TimeProvider.System));
         services.AddHttpClient<BybitReadClient>(Configure).RemoveAllLoggers();
         services.AddTransient<IVenueFeeRateReader, BybitFeeRateReader>();

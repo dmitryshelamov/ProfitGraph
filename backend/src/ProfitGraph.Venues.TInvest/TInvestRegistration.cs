@@ -42,6 +42,11 @@ public static class TInvestRegistration
             provider.GetRequiredService<IOptions<TInvestOptions>>(),
             TimeProvider.System));
         services.AddSingleton<ILiveCandleSource>(provider => provider.GetRequiredService<TInvestLiveCandleSource>());
+        services.AddSingleton<TInvestCandleStreams>();
+        services.AddSingleton<IFormingCandleSource>(provider => new TInvestFormingCandleSource(
+            provider.GetRequiredService<TInvestShares>(),
+            provider.GetRequiredService<TInvestCandleStreams>(),
+            TimeProvider.System));
         services.AddSingleton<IVenueFeeRateReader, TInvestFeeRateReader>();
         services.AddSingleton<IAccountBalanceReader>(provider => new TInvestAccountBalanceReader(provider.GetRequiredService<TInvestTransport>(), TimeProvider.System));
         services.AddSingleton<IInstrumentCatalog, TInvestInstrumentCatalog>();

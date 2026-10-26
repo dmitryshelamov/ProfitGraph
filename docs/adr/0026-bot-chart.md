@@ -83,7 +83,7 @@ window query scans one bot's fills, which is small at current volumes and is the
 
 Not part of this decision's first pull request:
 
-1. **Forming candle.** A separate live channel per instrument, not the source the bot decides on: the bot still evaluates
+1. **Forming candle** (built, see [ADR 0027](0027-forming-candle.md)). A separate live channel per instrument, not the source the bot decides on: the bot still evaluates
    closed candles only. Each update carries an explicit closed or forming flag, lives in memory only and is never written
    to `candles`; the client updates by open time, throttled to one or two updates per second, one feed per instrument. On
    opening the chart: history first, then subscribe, then reconcile the overlap. The forming candle is drawn in a distinct

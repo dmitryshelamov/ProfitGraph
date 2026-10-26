@@ -9,8 +9,10 @@ import { DateTime } from '@/shared/ui/DateTime';
 import { botCandlesQuery, botKeys, botNewCandlesQuery, botOpenOrdersQuery } from '../api/botsApi';
 import { mergeCandlePages, timeframeSeconds, tooFarBehind } from '../model/botCandles';
 import { atPlaces, type BotDisplay } from '../model/botDisplay';
+import { formingNote } from '../model/formingCandle';
 import { orderLevels } from '../model/orderLevels';
 import type { Bot, BotCandlesPage } from '../model/types';
+import { useFormingCandle } from '../model/useFormingCandle';
 
 /** Why the venue could not be read, by the stable code of its history error. */
 function unavailableText(code: string | null): string {
@@ -28,7 +30,8 @@ function unavailableText(code: string | null): string {
 
 /**
  * The bot's closed candles on its own timeframe, its fills as markers at their prices and its working limit orders as
- * dashed levels. Scrolling left loads older candles; candles closed since the page opened arrive every minute.
+ * dashed levels. Scrolling left loads older candles; candles closed since the page opened arrive every minute, and the
+ * candle being formed follows the venue's live channel (ADR 0027) without being stored.
  */
 export function BotChart({ bot, display }: { bot: Bot; display: BotDisplay }) {
   const queryClient = useQueryClient();
@@ -39,6 +42,7 @@ export function BotChart({ bot, display }: { bot: Bot; display: BotDisplay }) {
     enabled: newestTo !== undefined,
   });
   const orders = useQuery(botOpenOrdersQuery(bot.id));
+  const forming = useFormingCandle(bot.id);
 
   // Candles closed since the newest page are read in one request; once they no longer fit, the chart starts over.
   useEffect(() => {
@@ -91,10 +95,16 @@ export function BotChart({ bot, display }: { bot: Bot; display: BotDisplay }) {
         candles={merged.candles}
         trades={trades}
         levels={levels}
+        live={forming.live}
         candleSeconds={timeframeSeconds[bot.timeframe] ?? 3600}
         label="Свечи бота"
         onReachStart={loadEarlier}
       />
+      {formingNote(forming.feed) && (
+        <p role="status" data-forming={forming.feed} className="text-sm text-muted">
+          {formingNote(forming.feed)}
+        </p>
+      )}
       {history.isError && (
         <ApiErrorMessage error={history.error} fallback="Не удалось загрузить свечи." />
       )}
