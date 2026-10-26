@@ -15,15 +15,15 @@ namespace ProfitGraph.Application.Bots.DispatchOrderIntent;
 ///     0054 and 0055). Before a submit may leave the process its place start is recorded; a submit that might have reached
 ///     the venue is looked up before any retry. A definitive rejection is stored, then handed to the bot's runner. A
 ///     failure retries with backoff, and the tenth fails the intent and degrades the bot. A safety reason from the venue
-///     degrades the bot at once and returns the intent for a later lookup. A first submit above the bot's per-order limit
-///     is rejected with <c>RiskLimit</c> before it is sent; a rejection for an insufficient balance degrades the bot with
+///     degrades the bot at once and returns the intent for a later lookup. A first buy above the bot's per-order limit
+///     (a sell is bounded by the position the engine reserved, not by the limit) is rejected with <c>RiskLimit</c> before it is sent; a rejection for an insufficient balance degrades
+///     the bot with
 ///     <c>InsufficientBalance</c>. Stopped bots hold their submits.
 /// </summary>
 internal sealed class DispatchOrderIntentCommandHandler(
     IOrderIntentRepository intents,
     IBotRepository bots,
     IBotLeaseRepository leases,
-    IBotCheckpointRepository checkpoints,
     ITradingHaltRepository halts,
     VenuePorts<IOrderGateway> gateways,
     BotUpdateBus updates,
@@ -59,7 +59,7 @@ internal sealed class DispatchOrderIntentCommandHandler(
             {
                 var submit = new OrderSubmitInternal(intent.BotId, intent.ClientOrderId, intent.Order!, intent.MustLookUpBeforeSubmit);
 
-                if (!submit.MustLookUpBeforeSubmit && await Notional(intent, cancellationToken) > claimed.MaxOrderQuote)
+                if (!submit.MustLookUpBeforeSubmit && PerOrderLimit.Exceeds(intent.Order!, claimed.MaxOrderQuote))
                 {
                     await Reject(
                         intent,
@@ -217,20 +217,6 @@ internal sealed class DispatchOrderIntentCommandHandler(
     ///     What a submit commits in quote: a market buy its budget, a limit buy its price times quantity, a sell its
     ///     quantity at its limit or at the last closed candle (Profit Fox Designer ADR 0056).
     /// </summary>
-    private async Task<decimal> Notional(OrderIntent intent, CancellationToken cancellationToken)
-    {
-        OrderSnapshot order = intent.Order!;
-
-        if (order.Side == OrderSide.Buy)
-        {
-            return order.QuoteBudget ?? order.Quantity.GetValueOrDefault() * order.LimitPrice.GetValueOrDefault();
-        }
-
-        decimal price = order.LimitPrice ?? (await checkpoints.Get(intent.BotId, cancellationToken))?.Engine.LastClosedCandle.Close ?? 0m;
-
-        return order.Quantity.GetValueOrDefault() * price;
-    }
-
     private Task Fail(OrderIntent claimed, CancellationToken cancellationToken)
     {
         return transactions.ExecuteAsync(

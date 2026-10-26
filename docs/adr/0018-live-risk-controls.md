@@ -12,10 +12,10 @@ decides how the runtime, the order delivery and the API apply them, and how the 
 ## Decision
 
 - **Per-order limit.** Every bot has a positive `MaxOrderQuote`. Before the first place of a submit, the dispatcher
-  values it in quote: a market buy by its budget, a limit buy by price times quantity, a sell by its quantity at its
-  limit price or at the last closed candle. A submit above the limit is rejected with `RiskLimit` before anything is
-  sent; the rejection is stored and reaches the engine like a venue rejection. A lookup of a submit that may have been
-  sent is never blocked.
+  values it in quote: a market buy by its budget, a limit buy by price times quantity. A buy above the limit is
+  rejected with `RiskLimit` before anything is sent; the rejection is stored and reaches the engine like a venue
+  rejection. A sell is not valued against the limit (see the amendment). A lookup of a submit that may have been sent
+  is never blocked.
 - **Allocation.** The engine's allocation cap already rejects a buy that would exceed it, before an intent exists.
 - **Balance.** A venue rejection for an insufficient quote or base balance degrades the bot with
   `InsufficientBalance`; a start after the owner funds the account re-arms it. A pre-submit wallet read is left for
@@ -45,3 +45,14 @@ decides how the runtime, the order delivery and the API apply them, and how the 
   even when no runtime holds the bot; the runtime of a killed bot ends on its next pass.
 - Kill cancels are ordinary intents: they survive restarts and use the gateway's lookup on failure, and
   reconciliation applies their outcome when the bot opens again.
+
+## Amendment: sells are bounded by the position, not by the per-order limit
+
+- A sell closes a position that was bought under the limit, and it is limited by that position. The engine rejects a
+  sell above the available base with `InsufficientBase` before an intent exists and reserves the sold quantity
+  (`OrderSnapshot.Reservation`), so no sell can exceed what the bot holds. The per-order limit therefore applies to
+  buys only.
+- Valuing a sell at its limit price blocked exits: a ladder exit above the entry price could exceed the limit while the
+  entry did not, so the bot kept a position with no way to close it (Steam, 2026-10-26: a 692.00 exit refused against a
+  600 limit).
+- `PerOrderLimit` holds the rule; the dispatcher no longer reads the last closed candle to value a sell.
