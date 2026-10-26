@@ -9,6 +9,7 @@ using ProfitGraph.Application.Bots.ChangeBotForeignOrders;
 using ProfitGraph.Application.Bots.ConfirmOrderAbsent;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.GetBot;
+using ProfitGraph.Application.Bots.GetBotCandles;
 using ProfitGraph.Application.Bots.GetBotFeed;
 using ProfitGraph.Application.Bots.GetBotFills;
 using ProfitGraph.Application.Bots.GetBotOpenOrders;
@@ -92,6 +93,20 @@ public sealed class BotsController(ISender sender) : ControllerBase
     public async Task<ActionResult<ManualOrderResponse>> GetManualOrder(Guid id, Guid orderId, CancellationToken cancellationToken)
     {
         return (await sender.Send(new GetManualOrderQuery(UserId(), id, orderId), cancellationToken)).ToResponse();
+    }
+
+    /// <summary>
+    ///     A page of the bot's chart: its closed candles of the half-open UTC range [from, to), at most 1000 of them, with its
+    ///     fills of the same range. The venue, symbol, timeframe and market data access are the bot's own (ADR 0026).
+    /// </summary>
+    [HttpGet("{id:guid}/candles")]
+    public async Task<ActionResult<BotCandlesResponse>> Candles(
+        Guid id,
+        [FromQuery] DateTimeOffset from,
+        [FromQuery] DateTimeOffset to,
+        CancellationToken cancellationToken)
+    {
+        return (await sender.Send(new GetBotCandlesQuery(UserId(), id, from, to), cancellationToken)).ToResponse();
     }
 
     [HttpGet("{id:guid}/fills")]

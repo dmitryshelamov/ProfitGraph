@@ -35,6 +35,14 @@ internal sealed class BotFillRepository(NpgsqlConnection connection, PostgresTra
         return [.. rows.Select(row => row.ToDomain())];
     }
 
+    public async Task<IReadOnlyList<BotFill>> ListFilled(BotId botId, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken)
+    {
+        IEnumerable<BotFillDb> rows = await connection.QueryAsync<BotFillDb>(
+            Command(BotFillQueries.ListFilled, new { botId = botId.Value, from, to, limit }, cancellationToken));
+
+        return [.. rows.Select(row => row.ToDomain().Fill)];
+    }
+
     private CommandDefinition Command(string sql, object? parameters, CancellationToken cancellationToken)
     {
         return new CommandDefinition(sql, parameters, transactions.Current, cancellationToken: cancellationToken);

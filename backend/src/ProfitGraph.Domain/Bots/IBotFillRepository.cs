@@ -12,4 +12,9 @@ public interface IBotFillRepository
     ///     after the last item of a previous page.
     /// </summary>
     Task<IReadOnlyList<SequencedBotFill>> List(BotId botId, long? before, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     At most <paramref name="limit" /> of the bot's fills made in the half-open UTC range [from, to), oldest first.
+    /// </summary>
+    Task<IReadOnlyList<BotFill>> ListFilled(BotId botId, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken);
 }

@@ -36,6 +36,7 @@ internal static class BotsRegistration
         services.AddSingleton<ILiveMarkPriceNotifications, LiveMarkPriceNotifications>();
         services.AddScoped<BotRootCommitter>();
         services.AddScoped<BotKillSwitch>();
+        services.AddScoped<BotMarketDataAccess>();
         services.AddSingleton<BotUpdateBus>();
 
         return services;

@@ -16,7 +16,16 @@ vi.mock('lightweight-charts', () => {
     setData: vi.fn(),
     applyOptions: vi.fn(),
     priceScale: () => ({ applyOptions: vi.fn() }),
+    createPriceLine: vi.fn(() => ({})),
+    removePriceLine: vi.fn(),
   });
+  const timeScale = {
+    fitContent: vi.fn(),
+    getVisibleLogicalRange: vi.fn(() => null),
+    setVisibleLogicalRange: vi.fn(),
+    subscribeVisibleLogicalRangeChange: vi.fn(),
+    unsubscribeVisibleLogicalRangeChange: vi.fn(),
+  };
 
   return {
     CandlestickSeries: 'Candlestick',
@@ -26,8 +35,9 @@ vi.mock('lightweight-charts', () => {
       addSeries: series,
       removeSeries: vi.fn(),
       remove: vi.fn(),
-      timeScale: () => ({ fitContent: vi.fn() }),
+      timeScale: () => timeScale,
     }),
+    createSeriesMarkers: () => ({ setMarkers: vi.fn() }),
   };
 });
 

@@ -17,6 +17,9 @@ export type OrderWaitingCode = Schemas['OrderWaitingCode'];
 export type BotFeedEntry = Schemas['BotFeedEntryResponse'];
 export type BotFeedKind = Schemas['BotFeedKind'];
 export type BotPosition = Schemas['BotPositionResponse'];
+export type BotCandlesPage = Schemas['BotCandlesResponse'];
+export type BotChartFill = Schemas['BotChartFillResponse'];
+export type BotCandleHistoryStatus = Schemas['BotCandleHistoryStatus'];
 
 /** A `LivePrice` hub message (not in the HTTP schema): a venue's display price of an instrument. */
 export interface LivePrice {
