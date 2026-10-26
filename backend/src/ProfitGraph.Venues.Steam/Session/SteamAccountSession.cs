@@ -196,6 +196,13 @@ internal sealed class SteamAccountSession(
 
     private static SteamHttpRequest WithSessionId(SteamHttpRequest request, SteamSessionSnapshot session)
     {
+        // Steam answers a buy order's status read without the session ID in its query with HTTP 400 (Profit Fox Designer
+        // SteamAccountSession.Send).
+        if (request is { IsRead: true, Endpoint: SteamEndpoint.Community } && request.Path.StartsWith("/market/getbuyorderstatus/?", StringComparison.Ordinal))
+        {
+            return request with { Path = request.Path + "&sessionid=" + Uri.EscapeDataString(session.SessionId) };
+        }
+
         return request.Form is { } form && !request.IsRead
             ? request with { Form = new Dictionary<string, string>(form, StringComparer.Ordinal) { ["sessionid"] = session.SessionId } }
             : request;

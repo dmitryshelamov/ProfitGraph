@@ -457,7 +457,13 @@ internal sealed class MockSteam : HttpMessageHandler
 
     private HttpResponseMessage BuyOrderStatus(Uri address)
     {
-        string id = Uri.UnescapeDataString(address.Query.Split("buy_orderid=")[1]);
+        // Live Steam answers HTTP 400 to a status read without the session ID in its query.
+        if (!address.Query.Contains("&sessionid=", StringComparison.Ordinal))
+        {
+            return new HttpResponseMessage(HttpStatusCode.BadRequest);
+        }
+
+        string id = Uri.UnescapeDataString(address.Query.Split("buy_orderid=")[1].Split('&')[0]);
 
         lock (BuyOrders)
         {
