@@ -19,7 +19,8 @@ export function useBotDisplay(bot: Pick<Bot, 'venue' | 'symbol' | 'credentialId'
     basePlaces: rules.data ? rules.data.basePrecision : null,
     quotePlaces: rules.data ? rules.data.quotePrecision : null,
     pricePlaces: rules.data ? stepPlaces(rules.data.priceTick) : null,
-    baseAsset: instrument?.baseAsset ?? null,
+    // A Steam item is named by its full market name, which is no unit: its quantity counts pieces.
+    baseAsset: bot.venue === 'steam' ? 'шт.' : (instrument?.baseAsset ?? null),
     quoteAsset: instrument?.quoteAsset ?? null,
   };
 }
