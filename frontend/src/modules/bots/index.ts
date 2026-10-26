@@ -22,6 +22,7 @@ export { botStatusLabel, diagnosticLabel, feedLabel } from './model/botStatus';
 export type { Bot, BotAlert, LiveImpactBot } from './model/types';
 export { useBotDisplay } from './model/useBotDisplay';
 export { AlertsList } from './ui/AlertsList';
+export { BotAssetCard } from './ui/BotAssetCard';
 export { BotControls } from './ui/BotControls';
 export { BotFeedList } from './ui/BotFeedList';
 export { BotFillsTable } from './ui/BotFillsTable';

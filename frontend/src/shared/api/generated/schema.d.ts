@@ -3808,11 +3808,19 @@ export interface components {
         };
         /** Format: binary */
         IFormFile: string;
+        InstrumentAppearanceResponse: {
+            imageUrl: string | null;
+            kind: string | null;
+            nameColor: string | null;
+            backgroundColor: string | null;
+            description: string[];
+        };
         InstrumentResponse: {
             venue: string;
             symbol: string;
             baseAsset: string;
             quoteAsset: string;
+            appearance: components["schemas"]["InstrumentAppearanceResponse"] | null;
         };
         InstrumentRulesResponse: {
             quantityStep: string;
