@@ -59,6 +59,11 @@ npm run build
 - API: `dotnet run --project backend/src/ProfitGraph.Api --launch-profile http` on `localhost:5291`.
 - Worker: `dotnet run --project backend/src/ProfitGraph.Worker` runs background jobs (ADR 0011); without it jobs stay
   queued and `/api/health/ready` reports `Degraded`.
+- macOS and T-Invest: .NET on macOS does not complete the TLS handshake with `invest-public-api.tbank.ru` (cause not
+  proven), so run the API and Worker in Linux containers with `docker compose -f docker-compose.dev-app.yml up -d --build --wait`
+  and stop them with `docker compose -f docker-compose.dev-app.yml down` (never `-v`). Details: `docs/dev-containers.md`.
+  Stop the host-run API first (port 5291). Do not touch the dev database `5435` or the Profit Fox Designer stack
+  (5173, 5191, 5433, 5434) beyond that.
 - Frontend: `npm run dev` in `frontend/` on `localhost:5273` (`strictPort`); `/api` and `/ws` are proxied to the API.
   Regenerate the API client with `npm run generate:api` while the API runs.
 - Development PostgreSQL: `docker compose -f docker-compose.dev.yml up -d --wait` on `localhost:5435`.

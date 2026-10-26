@@ -94,6 +94,16 @@ docker compose -f docker-compose.dev.yml up -d --wait
 docker compose -f docker-compose.test.yml up -d --wait
 ```
 
+На macOS .NET не проходит TLS-рукопожатие с T-Invest, поэтому API и Worker для работы с T-Invest запускаются в Linux-контейнерах
+(NuGet восстанавливается офлайн из кэша хоста, `bin/` и `obj/` хоста не затрагиваются):
+
+```bash
+docker compose -f docker-compose.dev-app.yml up -d --build --wait
+docker compose -f docker-compose.dev-app.yml down
+```
+
+Подробности: [docs/dev-containers.md](docs/dev-containers.md).
+
 ## Правила разработки
 
 - Архитектура и правила кода: [docs/architecture.md](docs/architecture.md), решения: [docs/adr](docs/adr).
