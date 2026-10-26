@@ -109,6 +109,23 @@ public sealed class GraphChangeTests
             .ShouldBe(1);
     }
 
+    [Test]
+    public async Task ASavedVersionIsFollowedWithoutWaitingForACandle()
+    {
+        var scenario = new RuntimeScenario();
+        using IHost worker = scenario.Worker();
+        IReadOnlyList<Bot> bots = await RuntimeScenario.RunningLadders(worker, count: 1);
+        Bot bot = bots[0];
+        await worker.StartAsync();
+        await EntriesAccepted(worker, bots);
+
+        StrategyVersionId next = await Save(worker, bot, definition => Renamed(definition, "entry", "entryMoved"));
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Read(worker, bot.Id)).StrategyVersionId == next && scenario.Gateway.Cancels.Count == 1,
+            "the bot switches with no new candle and cancels the removed block's order");
+        await worker.StopAsync();
+    }
+
     private static async Task EntriesAccepted(IHost worker, IReadOnlyList<Bot> bots)
     {
         foreach (Bot bot in bots)

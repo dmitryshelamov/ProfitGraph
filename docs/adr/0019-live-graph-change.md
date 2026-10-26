@@ -35,3 +35,13 @@ bot uses it and how the owner learns about it.
   version while it stays rejected.
 - A restart opens the stored checkpoint on the version it ran and switches on the next root, so a version saved while
   the bot was down is applied the same way.
+
+## Amendment: following without waiting for a root
+
+- A running bot used to notice a newer version only before its next root (a candle or a venue update), so a bot with no
+  working orders on a venue with hourly candles waited up to an hour after the owner saved.
+- Every `Bots:Runtime:GraphCheckInterval` (2 s) the runner reads the strategy's latest version in its own scope
+  (`BotGraphFollower.Candidate`: a version the bot does not run and has not rejected) and, once per new version, puts a
+  graph-change root on its queue. Before any root the runner follows as before, so the switch, the rejection rules and the
+  `Resume(GraphChanged)` are unchanged; the root only makes the switch happen now.
+- The check costs two reads per bot every interval and writes nothing unless the bot switches.

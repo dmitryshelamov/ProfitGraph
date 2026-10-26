@@ -251,7 +251,8 @@ internal sealed class RuntimeScenario
             ["Bots:Runtime:PollingInterval"] = TimeSpan.FromMilliseconds(100).ToString(),
             ["Bots:Runtime:DispatchInterval"] = TimeSpan.FromMilliseconds(50).ToString(),
             ["Bots:Runtime:ReconcileRetryDelay"] = TimeSpan.FromMilliseconds(100).ToString(),
-            ["Bots:Runtime:ManualOrderPollInterval"] = TimeSpan.FromMilliseconds(100).ToString()
+            ["Bots:Runtime:ManualOrderPollInterval"] = TimeSpan.FromMilliseconds(100).ToString(),
+            ["Bots:Runtime:GraphCheckInterval"] = TimeSpan.FromMilliseconds(100).ToString()
         };
     }
 }
