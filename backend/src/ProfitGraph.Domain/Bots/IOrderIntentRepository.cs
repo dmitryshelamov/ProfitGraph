@@ -22,6 +22,11 @@ public interface IOrderIntentRepository
     /// </summary>
     Task<IReadOnlyList<OrderIntent>> ListByBot(BotId botId, CancellationToken cancellationToken);
 
+    /// <summary>
+    ///     The bot's submit for an engine order, read without a lock, or null.
+    /// </summary>
+    Task<OrderIntent?> GetSubmit(BotId botId, long engineOrderId, CancellationToken cancellationToken);
+
     Task Update(OrderIntent intent, CancellationToken cancellationToken);
 
     /// <summary>

@@ -34,6 +34,7 @@ internal sealed class RuntimeScenario
     internal static readonly TimeSpan LeaseDuration = TimeSpan.FromSeconds(5);
 
     public ScriptedOrderGateway Gateway { get; } = new ScriptedOrderGateway();
+    public ScriptedOrderReadiness Readiness { get; } = new ScriptedOrderReadiness();
     public FakeLiveCandleSource Candles { get; } = new FakeLiveCandleSource();
     public FakeLiveMarkPriceSource Prices { get; } = new FakeLiveMarkPriceSource();
     public FlatHistorySource History { get; } = new FlatHistorySource();
@@ -56,6 +57,7 @@ internal sealed class RuntimeScenario
                 if (withGateway)
                 {
                     services.AddSingleton<IOrderGateway>(Gateway);
+                    services.AddSingleton<IOrderReadiness>(Readiness);
                 }
             },
             settings: Settings());

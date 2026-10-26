@@ -23,4 +23,5 @@ public sealed record OrderIntentSnapshot(
     OrderIntentRejection? Rejection,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ConfirmedAbsentAt = null,
-    UserId? ConfirmedAbsentBy = null);
+    UserId? ConfirmedAbsentBy = null,
+    OrderDeferral? Deferral = null);

@@ -12,28 +12,15 @@ internal sealed class RecordOrderWaitingCommandHandler(IBotOrderWaitingRepositor
 {
     public async Task Handle(RecordOrderWaitingCommand command, CancellationToken cancellationToken)
     {
-        var botId = new BotId(command.BotId);
-        DateTimeOffset now = clock.GetUtcNow();
-        BotOrderWaiting? current = await waiting.GetForUpdate(botId, command.EngineOrderId, cancellationToken);
-
-        if (command.Code is not { } code)
-        {
-            if (current is not null)
-            {
-                current.End(now);
-                await waiting.Delete(current, cancellationToken);
-            }
-
-            return;
-        }
-
-        if (current is null)
-        {
-            await waiting.Save(BotOrderWaiting.Start(botId, command.EngineOrderId, code, now, command.Until, command.Low, command.High), cancellationToken);
-        }
-        else if (current.Change(code, now, command.Until, command.Low, command.High))
-        {
-            await waiting.Save(current, cancellationToken);
-        }
+        await OrderWaitingRecorder.Record(
+            waiting,
+            new BotId(command.BotId),
+            command.EngineOrderId,
+            command.Code,
+            clock.GetUtcNow(),
+            command.Until,
+            command.Low,
+            command.High,
+            cancellationToken);
     }
 }

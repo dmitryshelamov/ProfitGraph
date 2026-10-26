@@ -15,5 +15,6 @@ public enum RejectionReason
     KillSwitch,
     InstrumentUnavailable,
     MarginTradingUnavailable,
-    BrokerRejected
+    BrokerRejected,
+    CancelledBeforeSend
 }

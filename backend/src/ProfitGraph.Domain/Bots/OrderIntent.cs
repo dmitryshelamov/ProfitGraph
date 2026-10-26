@@ -50,6 +50,11 @@ public sealed class OrderIntent : AggregateRoot
 
     public UserId? ConfirmedAbsentBy { get; private set; }
 
+    /// <summary>
+    ///     Why a deferred submit waits; its next check is <see cref="NextAttemptAt" />.
+    /// </summary>
+    public OrderDeferral? Deferral { get; private set; }
+
     public bool MustLookUpBeforeSubmit => PlaceStartedAt is not null;
 
     private OrderIntent(
@@ -97,7 +102,9 @@ public sealed class OrderIntent : AggregateRoot
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
-        if (!Enum.IsDefined(snapshot.Status) || snapshot.Attempts is < 0 or > OrderIntentRetrySchedule.MaxAttempts)
+        if (!Enum.IsDefined(snapshot.Status) || snapshot.Attempts is < 0 or > OrderIntentRetrySchedule.MaxAttempts ||
+            (snapshot.Status == OrderIntentStatus.Deferred &&
+                !(snapshot.Deferral is { IsValid: true } && snapshot.Kind == OrderIntentKind.Submit && snapshot.PlaceStartedAt is null)))
         {
             throw new ArgumentException("Invalid stored order intent.", nameof(snapshot));
         }
@@ -120,7 +127,8 @@ public sealed class OrderIntent : AggregateRoot
             SentAt = snapshot.SentAt,
             Rejection = snapshot.Rejection,
             ConfirmedAbsentAt = snapshot.ConfirmedAbsentAt,
-            ConfirmedAbsentBy = snapshot.ConfirmedAbsentBy
+            ConfirmedAbsentBy = snapshot.ConfirmedAbsentBy,
+            Deferral = snapshot.Deferral
         };
     }
 
@@ -132,6 +140,7 @@ public sealed class OrderIntent : AggregateRoot
         return Status switch
         {
             OrderIntentStatus.Pending => NextAttemptAt is null || NextAttemptAt <= now,
+            OrderIntentStatus.Deferred => NextAttemptAt <= now,
             OrderIntentStatus.Sending => ClaimedAt <= now - OrderIntentRetrySchedule.StaleClaimAfter,
             _ => false
         };
@@ -149,6 +158,48 @@ public sealed class OrderIntent : AggregateRoot
     }
 
     /// <summary>
+    ///     A claimed submit that has not started placing cannot go yet (ADR 0024): it waits for <paramref name="deferral" />
+    ///     and is claimed again at <paramref name="nextCheckAt" />. A new reason starts a new wait; the same reason keeps its
+    ///     start. Returns whether the wait is new or its reason changed, which the core reports.
+    /// </summary>
+    public bool Defer(OrderDeferral deferral, DateTimeOffset nextCheckAt, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(deferral);
+        EnsureClaimedSubmit();
+
+        if (PlaceStartedAt is not null || !deferral.IsValid || nextCheckAt < now)
+        {
+            throw Invalid("A submit that may have left the process, or an invalid wait, cannot be deferred.");
+        }
+
+        bool started = Deferral?.Code != deferral.Code;
+        Deferral = started ? deferral : deferral with { Since = Deferral!.Since };
+        Status = OrderIntentStatus.Deferred;
+        ClaimedAt = null;
+        NextAttemptAt = nextCheckAt;
+
+        if (started)
+        {
+            AddDomainEvent(new OrderIntentDeferred(BotId, Id, EngineOrderId, deferral.Code, deferral.Until, now));
+        }
+
+        return started;
+    }
+
+    /// <summary>
+    ///     The strategy cancelled a submit that is still deferred: it is rejected locally, with nothing at the venue to cancel.
+    /// </summary>
+    public void CancelDeferred(DateTimeOffset now)
+    {
+        if (Status != OrderIntentStatus.Deferred)
+        {
+            throw Invalid("Only a deferred submit is cancelled locally.");
+        }
+
+        RejectNow(new OrderIntentRejection(RejectionReason.CancelledBeforeSend, "The order was cancelled before it was sent."), now);
+    }
+
+    /// <summary>
     ///     Records, before the place request leaves the process, that it may reach the venue. Only the first time raises
     ///     an event.
     /// </summary>
@@ -162,6 +213,7 @@ public sealed class OrderIntent : AggregateRoot
         }
 
         PlaceStartedAt = now;
+        Deferral = null;
         AddDomainEvent(new OrderIntentPlaceStarted(BotId, Id, EngineOrderId, now));
     }
 
@@ -173,6 +225,7 @@ public sealed class OrderIntent : AggregateRoot
         }
 
         Status = OrderIntentStatus.Sent;
+        Deferral = null;
         SentAt = now;
         ClaimedAt = null;
         NextAttemptAt = null;
@@ -254,7 +307,8 @@ public sealed class OrderIntent : AggregateRoot
     /// </summary>
     public bool RejectForKill(DateTimeOffset now)
     {
-        if (Kind != OrderIntentKind.Submit || PlaceStartedAt is not null || Status is not (OrderIntentStatus.Pending or OrderIntentStatus.Failed))
+        if (Kind != OrderIntentKind.Submit || PlaceStartedAt is not null ||
+            Status is not (OrderIntentStatus.Pending or OrderIntentStatus.Deferred or OrderIntentStatus.Failed))
         {
             return false;
         }
@@ -336,12 +390,14 @@ public sealed class OrderIntent : AggregateRoot
             Rejection,
             CreatedAt,
             ConfirmedAbsentAt,
-            ConfirmedAbsentBy);
+            ConfirmedAbsentBy,
+            Deferral);
     }
 
     private void RejectNow(OrderIntentRejection rejection, DateTimeOffset now)
     {
         Status = OrderIntentStatus.Rejected;
+        Deferral = null;
         Rejection = rejection;
         SentAt = now;
         ClaimedAt = null;

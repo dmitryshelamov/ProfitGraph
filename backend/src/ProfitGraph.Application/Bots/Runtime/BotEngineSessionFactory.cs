@@ -112,6 +112,11 @@ public sealed class BotEngineSessionFactory(
             {
                 await session.ProcessExternalUpdate(ExternalOrderUpdate.Reject(intent.EngineOrderId, rejection.Reason, rejection.Message), cancellationToken);
             }
+            else if (intent is { Status: OrderIntentStatus.Rejected, Rejection.Reason: RejectionReason.CancelledBeforeSend } &&
+                     session.Checkpoint!.Account.Orders.Any(order => order.Id == intent.EngineOrderId && order.Status == OrderStatus.PendingCancel))
+            {
+                await session.ProcessExternalUpdate(ExternalOrderUpdate.ConfirmCancel(intent.EngineOrderId), cancellationToken);
+            }
         }
     }
 

@@ -191,3 +191,20 @@ Each stage is its own pull request with Bybit's fingerprints and pinned replay h
    the Steam consumer lands in stage 2, or is a one-time conversion needed?
 6. **Order of stages.** The urgent bug is the lost exit. Do you want a smaller first pull request that only applies
    the reduce-only exemption and floor (no deferred status), so exits work on Steam now, and the full core after it?
+
+## Amendment: stage 1 as built
+
+- `OrderIntentStatus.Deferred`, `OrderDeferral`, `OrderIntent.Defer` and `OrderIntent.CancelDeferred`, event `OrderIntentDeferred`,
+  migration `202610260002` (status, `deferral_*` columns; the next check is the intent's `next_attempt_at`). A claimed `Deferred`
+  intent is the same path as a `Pending` one, so there is no separate `Resume`: the dispatcher claims it at its next check and
+  asks again.
+- `IOrderReadiness` (Application port) is asked by the dispatcher after the risk check and before the place start; a venue
+  without it is always ready, an exception means "not ready" (`RateLimited`, asked again in 30 s). The next check is the
+  venue's `RecheckAt`, else `Until`, else 15 min, never sooner than 5 s.
+- **The engine is not told `LocalAccepted`.** A core deferral leaves the order `PendingSubmit` in the engine. Reconciliation then
+  does not treat it as possibly at the venue (an accepted order would be looked up and, not found, degrade the bot with
+  `UnresolvedOrder`). The wait shows through `bot_order_waiting` as before.
+- A cancel of a deferred submit is local: the submit is rejected with the new `CancelledBeforeSend`, the cancel is sent, and the
+  engine gets `ConfirmCancel` (or applies it from storage when the runner restarts). A kill rejects a deferred submit like a
+  pending one. A deferred intent does not hold back other orders' intents.
+- `waiting-orders` and `open-orders` contracts and the UI are unchanged here (stages 2 and 3).

@@ -369,6 +369,98 @@ public sealed class OrderIntentTransitionsTests
         Should.Throw<BotRuleException>(() => sending.ConfirmAbsent(owner, Now));
     }
 
+    [Test]
+    public void DeferHoldsAClaimedSubmitUntilItsNextCheck()
+    {
+        OrderIntent intent = Claimed();
+        DateTimeOffset next = Now.AddMinutes(10);
+
+        bool started = intent.Defer(new OrderDeferral(OrderWaitingCode.SettlementHold, Now, next), next, Now);
+
+        intent.ShouldSatisfyAllConditions(
+            () => started.ShouldBeTrue(),
+            () => intent.Status.ShouldBe(OrderIntentStatus.Deferred),
+            () => intent.ClaimedAt.ShouldBeNull(),
+            () => intent.NextAttemptAt.ShouldBe(next),
+            () => intent.CanClaim(Now).ShouldBeFalse(),
+            () => intent.CanClaim(next).ShouldBeTrue(),
+            () => intent.DomainEvents.OfType<OrderIntentDeferred>().ShouldHaveSingleItem().Code.ShouldBe(OrderWaitingCode.SettlementHold));
+    }
+
+    [Test]
+    public void ADeferredSubmitIsClaimedAgainAndKeepsTheStartOfItsSameWait()
+    {
+        OrderIntent intent = Claimed();
+        intent.Defer(new OrderDeferral(OrderWaitingCode.SettlementHold, Now), Now.AddMinutes(1), Now);
+        intent.Claim(Now.AddMinutes(1));
+        intent.ClearDomainEvents();
+
+        bool started = intent.Defer(new OrderDeferral(OrderWaitingCode.SettlementHold, Now.AddMinutes(1), Now.AddHours(1)), Now.AddMinutes(2), Now.AddMinutes(1));
+
+        intent.ShouldSatisfyAllConditions(
+            () => started.ShouldBeFalse(),
+            () => intent.Deferral!.Since.ShouldBe(Now),
+            () => intent.Deferral!.Until.ShouldBe(Now.AddHours(1)),
+            () => intent.DomainEvents.ShouldBeEmpty());
+    }
+
+    [Test]
+    public void ANewReasonStartsANewWait()
+    {
+        OrderIntent intent = Claimed();
+        intent.Defer(new OrderDeferral(OrderWaitingCode.SettlementHold, Now), Now.AddMinutes(1), Now);
+        intent.Claim(Now.AddMinutes(1));
+
+        intent.Defer(new OrderDeferral(OrderWaitingCode.RateLimited, Now.AddMinutes(1)), Now.AddMinutes(2), Now.AddMinutes(1)).ShouldBeTrue();
+
+        intent.Deferral!.Since.ShouldBe(Now.AddMinutes(1));
+    }
+
+    [Test]
+    public void DeferIsRefusedAfterAPlaceStartAndForAnInvalidWait()
+    {
+        Should.Throw<BotRuleException>(() => Placed().Defer(new OrderDeferral(OrderWaitingCode.SettlementHold, Now), Now.AddMinutes(1), Now));
+        Should.Throw<BotRuleException>(() => Claimed().Defer(new OrderDeferral((OrderWaitingCode)99, Now), Now.AddMinutes(1), Now));
+        Should.Throw<BotRuleException>(() => Submit().Defer(new OrderDeferral(OrderWaitingCode.SettlementHold, Now), Now.AddMinutes(1), Now));
+    }
+
+    [Test]
+    public void KillRejectsADeferredSubmit()
+    {
+        OrderIntent intent = Claimed();
+        intent.Defer(new OrderDeferral(OrderWaitingCode.SettlementHold, Now), Now.AddMinutes(1), Now);
+
+        intent.RejectForKill(Now).ShouldBeTrue();
+
+        intent.ShouldSatisfyAllConditions(
+            () => intent.Status.ShouldBe(OrderIntentStatus.Rejected),
+            () => intent.Rejection!.Reason.ShouldBe(RejectionReason.KillSwitch),
+            () => intent.Deferral.ShouldBeNull());
+    }
+
+    [Test]
+    public void ACancelOfADeferredSubmitRejectsItLocally()
+    {
+        OrderIntent intent = Claimed();
+        intent.Defer(new OrderDeferral(OrderWaitingCode.SettlementHold, Now), Now.AddMinutes(1), Now);
+
+        intent.CancelDeferred(Now);
+
+        intent.Rejection!.Reason.ShouldBe(RejectionReason.CancelledBeforeSend);
+        Should.Throw<BotRuleException>(() => Submit().CancelDeferred(Now));
+    }
+
+    [Test]
+    public void ADeferredSubmitIsNotRestoredWithoutItsReason()
+    {
+        OrderIntent intent = Claimed();
+        intent.Defer(new OrderDeferral(OrderWaitingCode.SettlementHold, Now), Now.AddMinutes(1), Now);
+        OrderIntentSnapshot snapshot = intent.ToSnapshot();
+
+        OrderIntent.Restore(snapshot).Deferral.ShouldBe(snapshot.Deferral);
+        Should.Throw<ArgumentException>(() => OrderIntent.Restore(snapshot with { Deferral = null }));
+    }
+
     private static OrderIntent Placed()
     {
         OrderIntent intent = Claimed();
