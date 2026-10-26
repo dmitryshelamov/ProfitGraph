@@ -176,6 +176,7 @@ describe('run lists', () => {
   it('ranks completed runs in a quote currency and loads more', async () => {
     fakeApi({
       'GET /api/auth/me': () => json(owner),
+      'GET /api/strategies': () => json([]),
       'GET /api/backtests?quote=USDT&limit=50&sort=return&order=desc': () =>
         json({ items: [listed], next: runId }),
       [`GET /api/backtests?quote=USDT&limit=50&sort=return&order=desc&after=${runId}`]: () =>
@@ -193,9 +194,29 @@ describe('run lists', () => {
     expect(screen.queryByRole('button', { name: 'Показать ещё' })).not.toBeInTheDocument();
   });
 
+  it('starts on the quote currency of the latest run', async () => {
+    const older = { ...listed, id: 'older', createdAt: '2026-10-20T10:00:00Z', quoteAsset: 'USDT' };
+    const latest = { ...listed, id: 'latest', symbol: 'TQBR:GAZP', quoteAsset: 'RUB' };
+    fakeApi({
+      'GET /api/auth/me': () => json(owner),
+      'GET /api/strategies': () =>
+        json([
+          { ...summary, latestRun: older },
+          { ...summary, id: 'other', latestRun: latest },
+        ]),
+      'GET /api/backtests?quote=RUB&limit=50&sort=return&order=desc': () =>
+        json({ items: [latest], next: null }),
+    });
+    renderApp('/backtests');
+
+    expect(await screen.findByText('TQBR:GAZP')).toBeInTheDocument();
+    expect(screen.getByLabelText('Валюта котировки')).toHaveValue('RUB');
+  });
+
   it('sorts the ranking by a result column and picks runs to compare', async () => {
     fakeApi({
       'GET /api/auth/me': () => json(owner),
+      'GET /api/strategies': () => json([]),
       'GET /api/backtests?quote=USDT&limit=50&sort=return&order=desc': () =>
         json({ items: [listed], next: null }),
       'GET /api/backtests?quote=USDT&limit=50&sort=drawdown&order=desc': () =>
