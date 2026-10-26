@@ -1,6 +1,8 @@
 # ADR 0024: Deferred Orders
 
-Status: Proposed, 2026-10-26. No code until the owner accepts it; the owner's answers to the questions at the end amend it.
+Status: Accepted, 2026-10-26: the owner accepted the risk model (sells bounded by the position, a price floor instead) and the
+stages. The per-order exemption shipped as #123 and the floor as a fixed `0.5` constant; making it a bot setting stays open
+(question 2).
 
 ## Context
 
