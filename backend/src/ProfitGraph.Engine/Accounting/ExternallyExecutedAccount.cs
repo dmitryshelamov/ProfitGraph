@@ -115,6 +115,15 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
         };
     }
 
+    /// <summary>
+    ///     A live run that starts over after a forgotten one continues its order identifiers, so no client order identifier
+    ///     repeats at the venue. Only before the first order.
+    /// </summary>
+    public void ContinueOrderIdsAfter(long lastIssuedId)
+    {
+        _account.Orders.Restore(lastIssuedId, []);
+    }
+
     public ExternalAccountCheckpoint CaptureCheckpoint()
     {
         Portfolio portfolio = _account.Portfolio;

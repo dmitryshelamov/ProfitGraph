@@ -11,14 +11,16 @@ namespace ProfitGraph.Application.Bots.StartBot;
 
 /// <summary>
 ///     Sets the bot to run. A first run compiles the latest version with the bot's values now; a stored run resumes and
-///     changes graph at runtime. A stopped run that never created an order is forgotten first, so <c>OnStart</c> and the
-///     current settings apply.
+///     changes graph at runtime. A stopped run that holds and spent nothing, whose intents are all final and that left no
+///     fill, is forgotten first, so <c>OnStart</c> and the current settings apply; the next run continues its order
+///     identifiers.
 /// </summary>
 internal sealed class StartBotCommandHandler(
     IBotRepository bots,
     IBotLeaseRepository leases,
     IBotCheckpointRepository checkpoints,
     IOrderIntentRepository intents,
+    IBotFillRepository fills,
     ITradingHaltRepository halts,
     IStrategyRepository strategies,
     BacktestCompiler compiler,
@@ -70,6 +72,8 @@ internal sealed class StartBotCommandHandler(
             return false;
         }
 
-        return (lease is null || lease.IsExpired(now)) && (await intents.ListByBot(bot.Id, cancellationToken)).Count == 0;
+        return (lease is null || lease.IsExpired(now)) &&
+            (await intents.ListByBot(bot.Id, cancellationToken)).All(intent => intent.Status is OrderIntentStatus.Sent or OrderIntentStatus.Rejected) &&
+            (await fills.List(bot.Id, before: null, limit: 1, cancellationToken)).Count == 0;
     }
 }

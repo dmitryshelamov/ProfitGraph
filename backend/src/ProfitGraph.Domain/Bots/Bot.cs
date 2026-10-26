@@ -454,8 +454,9 @@ public sealed class Bot : AggregateRoot
     }
 
     /// <summary>
-    ///     Forgets a stopped run that never created an order (Profit Fox Designer ADR 0068), so the next start runs
-    ///     <c>OnStart</c> with the current parameters. The caller proves the run created no order and holds no lease.
+    ///     Forgets a stopped run that holds and spent nothing (Profit Fox Designer ADR 0068, widened), so the next start runs
+    ///     <c>OnStart</c> with the current parameters. The caller proves the run holds nothing, left no fill, has only final
+    ///     intents and holds no lease.
     /// </summary>
     public void ForgetUntradedRun(DateTimeOffset now)
     {
