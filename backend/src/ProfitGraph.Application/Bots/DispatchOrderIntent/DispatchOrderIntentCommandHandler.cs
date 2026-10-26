@@ -17,13 +17,15 @@ namespace ProfitGraph.Application.Bots.DispatchOrderIntent;
 ///     failure retries with backoff, and the tenth fails the intent and degrades the bot. A safety reason from the venue
 ///     degrades the bot at once and returns the intent for a later lookup. A first buy above the bot's per-order limit
 ///     (a sell is bounded by the position the engine reserved, not by the limit) is rejected with <c>RiskLimit</c> before
-///     it is sent; a rejection for an insufficient balance degrades the bot with <c>InsufficientBalance</c>. Stopped bots
+///     it is sent, as is a limit sell below half of the last close (<see cref="SellPriceFloor" />); a rejection for an insufficient balance degrades the bot with
+///     <c>InsufficientBalance</c>. Stopped bots
 ///     hold their submits.
 /// </summary>
 internal sealed class DispatchOrderIntentCommandHandler(
     IOrderIntentRepository intents,
     IBotRepository bots,
     IBotLeaseRepository leases,
+    IBotCheckpointRepository checkpoints,
     ITradingHaltRepository halts,
     VenuePorts<IOrderGateway> gateways,
     BotUpdateBus updates,
@@ -64,6 +66,16 @@ internal sealed class DispatchOrderIntentCommandHandler(
                     await Reject(
                         intent,
                         ExternalOrderUpdate.Reject(intent.EngineOrderId, RejectionReason.RiskLimit, "The order exceeds the bot's per-order limit."),
+                        cancellationToken);
+
+                    return true;
+                }
+
+                if (!submit.MustLookUpBeforeSubmit && await BelowSellPriceFloor(intent, cancellationToken))
+                {
+                    await Reject(
+                        intent,
+                        ExternalOrderUpdate.Reject(intent.EngineOrderId, RejectionReason.RiskLimit, "The sell's limit price is below half of the last close."),
                         cancellationToken);
 
                     return true;
@@ -217,6 +229,14 @@ internal sealed class DispatchOrderIntentCommandHandler(
     ///     What a submit commits in quote: a market buy its budget, a limit buy its price times quantity, a sell its
     ///     quantity at its limit or at the last closed candle (Profit Fox Designer ADR 0056).
     /// </summary>
+    private async Task<bool> BelowSellPriceFloor(OrderIntent intent, CancellationToken cancellationToken)
+    {
+        OrderSnapshot order = intent.Order!;
+
+        return order.Side == OrderSide.Sell && order.LimitPrice is not null &&
+            (await checkpoints.Get(intent.BotId, cancellationToken))?.Engine.LastClosedCandle.Close is { } close && SellPriceFloor.IsBelow(order, close);
+    }
+
     private Task Fail(OrderIntent claimed, CancellationToken cancellationToken)
     {
         return transactions.ExecuteAsync(
