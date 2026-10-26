@@ -75,7 +75,7 @@ describe('T-Invest bots', () => {
       ),
     ).toEqual(['1m', '1h', '1d']);
     await userEvent.selectOptions(screen.getByLabelText('Таймфрейм'), '1d');
-    await screen.findByLabelText('Снижение для усреднения');
+    await screen.findByLabelText('Снижение для усреднения, %');
     await userEvent.click(screen.getByRole('button', { name: 'Создать бота' }));
 
     await waitFor(() => expect(created).toHaveLength(1));

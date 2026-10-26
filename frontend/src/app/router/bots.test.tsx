@@ -73,7 +73,7 @@ describe('bots', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Новый бот' }));
     await userEvent.selectOptions(screen.getByLabelText('Стратегия'), strategy.id);
     await userEvent.selectOptions(await screen.findByLabelText('Ключ биржи'), credential.id);
-    await screen.findByLabelText('Снижение для усреднения');
+    await screen.findByLabelText('Снижение для усреднения, %');
     await userEvent.click(screen.getByRole('button', { name: 'Создать бота' }));
 
     await waitFor(() => expect(history.location.pathname).toBe(`/bots/${bot.id}`));

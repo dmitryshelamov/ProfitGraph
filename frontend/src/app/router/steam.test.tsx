@@ -207,7 +207,7 @@ describe('Steam', () => {
     const slippage = await screen.findByLabelText('Проскальзывание market buy');
     await userEvent.clear(slippage);
     await userEvent.type(slippage, '0.02');
-    await screen.findByLabelText('Снижение для усреднения');
+    await screen.findByLabelText('Снижение для усреднения, %');
     await userEvent.click(screen.getByRole('button', { name: 'Создать бота' }));
 
     await waitFor(() => expect(created).toHaveLength(1));

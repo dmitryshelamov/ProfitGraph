@@ -7,6 +7,7 @@ import { Field } from '@/shared/ui/Field';
 import { Input } from '@/shared/ui/Input';
 
 import { botKeys, changeForeignOrders, changeParameters, changeRiskLimits } from '../api/botsApi';
+import { parameterInputText, parameterStoredValue } from '../model/botDisplay';
 import { canEditParameters } from '../model/botStatus';
 import type { Bot } from '../model/types';
 
@@ -67,11 +68,35 @@ export function RiskLimitsForm({ bot }: { bot: Bot }) {
 }
 
 /** Parameters and the bot's capital change only while it is stopped; they apply from its next start. */
-export function ParametersForm({ bot }: { bot: Bot }) {
-  const [values, setValues] = useState<Record<string, string>>({ ...bot.parameters });
+export function ParametersForm({
+  bot,
+  percentParameters,
+}: {
+  bot: Bot;
+  percentParameters: ReadonlySet<string>;
+}) {
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      Object.entries(bot.parameters).map(([name, value]) => [
+        name,
+        parameterInputText(value, percentParameters.has(name)),
+      ]),
+    ),
+  );
   const [allocationCap, setAllocationCap] = useState(bot.allocationCap);
   const save = useMutation(
-    useBotChange(bot)(() => changeParameters(bot.id, values, allocationCap.trim())),
+    useBotChange(bot)(() =>
+      changeParameters(
+        bot.id,
+        Object.fromEntries(
+          Object.entries(values).map(([name, text]) => [
+            name,
+            parameterStoredValue(text, percentParameters.has(name)),
+          ]),
+        ),
+        allocationCap.trim(),
+      ),
+    ),
   );
   const editable = canEditParameters(bot);
 
@@ -84,7 +109,7 @@ export function ParametersForm({ bot }: { bot: Bot }) {
     <form onSubmit={submit} className="space-y-3" aria-label="Параметры бота">
       <div className="grid gap-3 md:grid-cols-2">
         {Object.keys(bot.parameters).map((name) => (
-          <Field key={name} label={name}>
+          <Field key={name} label={percentParameters.has(name) ? `${name}, %` : name}>
             <Input
               value={values[name] ?? ''}
               onChange={(event) =>

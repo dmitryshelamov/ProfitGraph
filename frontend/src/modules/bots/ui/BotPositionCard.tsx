@@ -5,6 +5,7 @@ import { multiplyDecimals, subtractDecimals } from '@/shared/lib/decimal';
 import { DateTime } from '@/shared/ui/DateTime';
 
 import { botPositionQuery } from '../api/botsApi';
+import { atPlaces, type BotDisplay, withAsset } from '../model/botDisplay';
 import type { LivePrice } from '../model/types';
 import { followLivePrice } from '../realtime/followLivePrice';
 
@@ -19,7 +20,7 @@ function ageLabel(observedAt: string, now: number): string {
  * value, otherwise what the server chose (a fresh ticker or the last candle's close). With a pushed ticker the
  * unrealized profit is recomputed here as the server does, base total × price − cost basis, in exact decimal strings.
  */
-export function BotPositionCard({ botId }: { botId: string }) {
+export function BotPositionCard({ botId, display }: { botId: string; display: BotDisplay }) {
   const position = useQuery(botPositionQuery(botId));
   const [live, setLive] = useState<LivePrice | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -55,27 +56,33 @@ export function BotPositionCard({ botId }: { botId: string }) {
   const unrealizedPnl = fromLive
     ? subtractDecimals(multiplyDecimals(data.baseTotal, live.price) ?? '', data.costBasis)
     : data.unrealizedPnl;
+  const { baseAsset, quoteAsset } = display;
+  const base = (value: string) => withAsset(atPlaces(value, display.basePlaces), baseAsset);
+  const quote = (value: string) => withAsset(atPlaces(value, display.quotePlaces), quoteAsset);
+  const priceText = (value: string) => withAsset(atPlaces(value, display.pricePlaces), quoteAsset);
 
   return (
     <div className="space-y-4">
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm md:grid-cols-3">
         <dt className="text-text-secondary">Базовый актив</dt>
-        <dd className="font-mono">{data.baseTotal}</dd>
+        <dd className="font-mono">{base(data.baseTotal)}</dd>
         <dt className="text-text-secondary">Котируемый актив</dt>
-        <dd className="font-mono">{data.quoteTotal}</dd>
+        <dd className="font-mono">{quote(data.quoteTotal)}</dd>
         <dt className="text-text-secondary">Себестоимость</dt>
-        <dd className="font-mono">{data.costBasis}</dd>
+        <dd className="font-mono">{quote(data.costBasis)}</dd>
         <dt className="text-text-secondary">Средняя цена</dt>
-        <dd className="font-mono">{data.averageCost ?? '—'}</dd>
+        <dd className="font-mono">
+          {data.averageCost === null ? '—' : priceText(data.averageCost)}
+        </dd>
         <dt className="text-text-secondary">Реализованная прибыль</dt>
-        <dd className="font-mono">{data.realizedPnl}</dd>
+        <dd className="font-mono">{quote(data.realizedPnl)}</dd>
         <dt className="text-text-secondary">Нереализованная прибыль</dt>
         <dd className="font-mono" aria-label="Нереализованная прибыль">
-          {unrealizedPnl ?? '—'}
+          {unrealizedPnl === null ? '—' : quote(unrealizedPnl)}
         </dd>
         <dt className="text-text-secondary">Цена</dt>
         <dd className="font-mono" aria-label="Цена для отображения">
-          {price ?? '—'}
+          {price === null ? '—' : priceText(price)}
         </dd>
         <dt className="text-text-secondary">Источник цены</dt>
         <dd>{price ? `${source}, ${observedAt ? ageLabel(observedAt, now) : ''}` : '—'}</dd>
@@ -100,7 +107,9 @@ export function BotPositionCard({ botId }: { botId: string }) {
                 <td className="py-2">
                   {cycle.closedAt ? <DateTime value={cycle.closedAt} /> : 'открыта'}
                 </td>
-                <td className="py-2 font-mono">{cycle.realizedPnl ?? '—'}</td>
+                <td className="py-2 font-mono">
+                  {cycle.realizedPnl === null ? '—' : quote(cycle.realizedPnl)}
+                </td>
               </tr>
             ))}
           </tbody>
