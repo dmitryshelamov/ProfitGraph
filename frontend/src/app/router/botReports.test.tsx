@@ -182,6 +182,49 @@ describe('bot reports', () => {
     expect(within(waiting).getByText('Перенос на следующую торговую сессию')).toBeInTheDocument();
   });
 
+  it('lets the owner confirm an unresolved submit absent, after a second click', async () => {
+    const confirmed: string[] = [];
+    let confirmedAt: string | null = null;
+    fakeApi(
+      routes({
+        [`GET ${botPath}/unresolved-orders`]: () =>
+          json([
+            {
+              intentId: 'i1',
+              engineOrderId: 1,
+              side: 'Buy',
+              type: 'Market',
+              quantity: null,
+              quoteBudget: '600',
+              limitPrice: null,
+              createdAt: '2026-10-26T02:35:06Z',
+              placeStartedAt: '2026-10-26T02:40:43Z',
+              canConfirmAbsent: confirmedAt === null,
+              confirmedAbsentAt: confirmedAt,
+            },
+          ]),
+        [`POST ${botPath}/order-intents/i1/confirm-absent`]: () => {
+          confirmed.push('i1');
+          confirmedAt = '2026-10-26T03:00:00Z';
+
+          return new Response(null, { status: 204 });
+        },
+      }),
+    );
+    renderApp(`/bots/${bot.id}`);
+
+    const unresolved = await screen.findByRole('list', { name: 'Неясные заявки' });
+    expect(within(unresolved).getByText('покупка на 600')).toBeInTheDocument();
+    await userEvent.click(within(unresolved).getByRole('button', { name: 'Заявки на бирже нет' }));
+    expect(confirmed).toEqual([]);
+    await userEvent.click(
+      within(unresolved).getByRole('button', { name: 'Подтвердить: заявки на бирже нет' }),
+    );
+
+    await waitFor(() => expect(confirmed).toEqual(['i1']));
+    expect(await within(unresolved).findByText(/Отсутствие подтверждено/)).toBeInTheDocument();
+  });
+
   it('shows the bot’s feed with readable events', async () => {
     fakeApi(
       routes({

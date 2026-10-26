@@ -1,3 +1,4 @@
+using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Engine.Accounting;
 
@@ -319,6 +320,61 @@ public sealed class OrderIntentTransitionsTests
         OrderIntent restored = OrderIntent.Restore(intent.ToSnapshot());
 
         restored.ToSnapshot().ShouldBe(intent.ToSnapshot());
+    }
+
+    [Test]
+    public void AnOwnerConfirmsAPlacedSubmitAbsentOnce()
+    {
+        OrderIntent intent = Placed();
+        intent.RecordFailure(Now);
+        intent.ClearDomainEvents();
+        var owner = UserId.New();
+
+        intent.ConfirmAbsent(owner, Now);
+
+        intent.ShouldSatisfyAllConditions(
+            () => intent.Status.ShouldBe(OrderIntentStatus.Failed),
+            () => intent.ConfirmedAbsentAt.ShouldBe(Now),
+            () => intent.ConfirmedAbsentBy.ShouldBe(owner),
+            () => intent.NextAttemptAt.ShouldBeNull(),
+            () => intent.CanClaim(Now + TimeSpan.FromDays(1)).ShouldBeFalse(),
+            () => intent.DomainEvents.ShouldBe([new OrderIntentAbsenceConfirmed(Bot, intent.Id, EngineOrderId: 7, owner, Now)]));
+        Should.Throw<BotRuleException>(() => intent.ConfirmAbsent(owner, Now));
+    }
+
+    [Test]
+    public void AConfirmedSubmitIsResolvedByReconciliation()
+    {
+        OrderIntent intent = Placed();
+        intent.RecordFailure(Now);
+        intent.ConfirmAbsent(UserId.New(), Now);
+
+        intent.Resolve(Now);
+
+        intent.Status.ShouldBe(OrderIntentStatus.Sent);
+    }
+
+    [Test]
+    public void OnlyAnUndeliveredSubmitThatMayHaveLeftIsConfirmedAbsent()
+    {
+        var owner = UserId.New();
+        OrderIntent sent = Claimed();
+        sent.MarkPlaceStarted(Now);
+        sent.MarkSent(Now);
+        OrderIntent sending = Placed();
+
+        Should.Throw<BotRuleException>(() => Submit().ConfirmAbsent(owner, Now));
+        Should.Throw<BotRuleException>(() => Cancel().ConfirmAbsent(owner, Now));
+        Should.Throw<BotRuleException>(() => sent.ConfirmAbsent(owner, Now));
+        Should.Throw<BotRuleException>(() => sending.ConfirmAbsent(owner, Now));
+    }
+
+    private static OrderIntent Placed()
+    {
+        OrderIntent intent = Claimed();
+        intent.MarkPlaceStarted(Now);
+
+        return intent;
     }
 
     private static OrderIntent Submit()

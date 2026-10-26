@@ -1,3 +1,4 @@
+using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Common;
 using ProfitGraph.Engine.Accounting;
 
@@ -6,7 +7,9 @@ namespace ProfitGraph.Domain.Bots;
 /// <summary>
 ///     One command to a venue, stored in the same transaction as the engine checkpoint that produced it (ADR 0016): the
 ///     order outbox. A dispatcher claims it, delivers it and records the outcome. A submit whose place request may have
-///     left the process is never placed again without looking it up first.
+///     left the process is never placed again without looking it up first. The owner may confirm such a submit absent at the
+///     venue; reconciliation still looks it up first and rejects it only when the venue shows nothing (Profit Fox Designer
+///     ADR 0055).
 /// </summary>
 public sealed class OrderIntent : AggregateRoot
 {
@@ -39,6 +42,13 @@ public sealed class OrderIntent : AggregateRoot
     public DateTimeOffset? SentAt { get; private set; }
     public OrderIntentRejection? Rejection { get; private set; }
     public DateTimeOffset CreatedAt { get; }
+
+    /// <summary>
+    ///     When the owner confirmed the submit absent at the venue, and who.
+    /// </summary>
+    public DateTimeOffset? ConfirmedAbsentAt { get; private set; }
+
+    public UserId? ConfirmedAbsentBy { get; private set; }
 
     public bool MustLookUpBeforeSubmit => PlaceStartedAt is not null;
 
@@ -108,7 +118,9 @@ public sealed class OrderIntent : AggregateRoot
             ClaimedAt = snapshot.ClaimedAt,
             PlaceStartedAt = snapshot.PlaceStartedAt,
             SentAt = snapshot.SentAt,
-            Rejection = snapshot.Rejection
+            Rejection = snapshot.Rejection,
+            ConfirmedAbsentAt = snapshot.ConfirmedAbsentAt,
+            ConfirmedAbsentBy = snapshot.ConfirmedAbsentBy
         };
     }
 
@@ -269,6 +281,26 @@ public sealed class OrderIntent : AggregateRoot
     }
 
     /// <summary>
+    ///     The owner confirms that a submit which may have left the process never reached the venue: a failed one, or one
+    ///     waiting to be looked up. It is not delivered again; the next reconciliation decides.
+    /// </summary>
+    public void ConfirmAbsent(UserId owner, DateTimeOffset now)
+    {
+        if (Kind != OrderIntentKind.Submit || PlaceStartedAt is null || ConfirmedAbsentAt is not null ||
+            Status is not (OrderIntentStatus.Failed or OrderIntentStatus.Pending))
+        {
+            throw Invalid("Only an undelivered submit that may have left the process is confirmed absent, once.");
+        }
+
+        Status = OrderIntentStatus.Failed;
+        NextAttemptAt = null;
+        ClaimedAt = null;
+        ConfirmedAbsentAt = now;
+        ConfirmedAbsentBy = owner;
+        AddDomainEvent(new OrderIntentAbsenceConfirmed(BotId, Id, EngineOrderId, owner, now));
+    }
+
+    /// <summary>
     ///     A failed submit that never left the process may be tried again from the start. Returns whether it was reset.
     /// </summary>
     public bool ResetUnsentFailure()
@@ -302,7 +334,9 @@ public sealed class OrderIntent : AggregateRoot
             PlaceStartedAt,
             SentAt,
             Rejection,
-            CreatedAt);
+            CreatedAt,
+            ConfirmedAbsentAt,
+            ConfirmedAbsentBy);
     }
 
     private void RejectNow(OrderIntentRejection rejection, DateTimeOffset now)

@@ -128,7 +128,8 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   cancelling, unknown) holds it. A request refused before it left the process (protection, queue deadline) goes back
   to waiting with the `RateLimited` code and is placed later. No Steam refusal code is confirmed as a rejection yet,
   so every refusal is `Unknown` until the owner lists a code (`DefiniteRejectionCodes`, empty by default, as in
-  Profit Fox Designer). A market buy reads the lowest listing from `priceoverview` in the item's currency and adds the
+  Profit Fox Designer). Every write logs what Steam answered: the request outcome, HTTP status, Steam's `success` and
+  `x-eresult` codes and the receipt, never a body, cookie, order ID or amount, so the owner can name a code later. A market buy reads the lowest listing from `priceoverview` in the item's currency and adds the
   bot's `marketBuySlippage` (C9; default 0, at most 10%), and its remainder is cancelled after the bot's
   `marketBuyDeadlineSeconds`. A cancel is confirmed only when the order's counters show it inactive
   with nothing bought; an order with purchases waits for its history receipts. A buy still awaiting its mobile
@@ -182,7 +183,11 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   compared, since `mylistings` does not name the item and the bot lists only its own reserved items. The updates come
   from the journal and its attributed receipts alone, so a reconnecting runner hears acceptance, proven fills and the
   end of each order again; an order the journal never saw was never sent, and an entry or asset whose write may have
-  reached Steam without a clear answer is `UnresolvedOrder`.
+  reached Steam without a clear answer is `UnresolvedOrder`. A buy the owner confirmed absent (ADR 0016) ends rejected
+  and frees its slot only when Steam, read fresh, shows nothing of it: no buy order of the account on the item other
+  than the journal's known ones, and no unattributed purchase of the item since its place request (60 seconds of
+  skew) in newly read history. A buy awaiting its mobile confirmation, one Steam gave an ID, and a sell stay
+  unresolved.
 - **Gateway and worker.** A Worker with the live role and `Live:Trading:Enabled` registers `SteamOrderGateway` and the
   order worker, which every `OrderWorkerInterval` (15 s) moves each account with open orders along: buy slots and
   deadlines, unlocks and listings, confirmations, and fills from history. `Venues:Steam:Enabled` still holds back every

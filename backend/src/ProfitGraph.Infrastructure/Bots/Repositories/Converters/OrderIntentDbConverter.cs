@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Infrastructure.Bots.Repositories.Contracts;
@@ -29,7 +30,9 @@ internal static class OrderIntentDbConverter
                 row.PlaceStartedAt,
                 row.SentAt,
                 row.RejectionReason is null ? null : new OrderIntentRejection(Enum.Parse<RejectionReason>(row.RejectionReason), row.RejectionMessage),
-                row.CreatedAt));
+                row.CreatedAt,
+                row.ConfirmedAbsentAt,
+                row.ConfirmedAbsentBy is { } by ? new UserId(by) : null));
     }
 
     public static OrderIntentDb ToDb(this OrderIntent intent)
@@ -53,7 +56,9 @@ internal static class OrderIntentDbConverter
             SentAt = snapshot.SentAt,
             RejectionReason = snapshot.Rejection?.Reason.ToString(),
             RejectionMessage = snapshot.Rejection?.Message,
-            CreatedAt = snapshot.CreatedAt
+            CreatedAt = snapshot.CreatedAt,
+            ConfirmedAbsentAt = snapshot.ConfirmedAbsentAt,
+            ConfirmedAbsentBy = snapshot.ConfirmedAbsentBy?.Value
         };
     }
 }

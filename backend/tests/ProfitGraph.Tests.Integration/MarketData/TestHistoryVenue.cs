@@ -21,6 +21,8 @@ public sealed class TestHistoryVenue(string id) : IVenueDescriptor
 
     public IReadOnlyList<Timeframe> Timeframes { get; } = [Timeframe.Parse("1h"), Timeframe.Parse("1d")];
 
+    public bool ConfirmsOrderAbsence => true;
+
     public bool TryParseSymbol(string? input, [NotNullWhen(true)] out InstrumentSymbol? symbol)
     {
         symbol = input is { Length: > 0 and <= 32 } && input.All(character => char.IsAsciiLetterUpper(character) || char.IsAsciiDigit(character))

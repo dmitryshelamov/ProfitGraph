@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using ProfitGraph.Venues.Steam.MarketData;
@@ -11,9 +12,9 @@ namespace ProfitGraph.Venues.Steam.Orders;
 /// <summary>
 ///     Steam's listing requests through an account's session (Profit Fox Designer <c>SteamMarketClient.Sell</c>, <c>Cancel</c>
 ///     and its listings read): list one asset at the amount the seller receives, remove a listing, and read every listing of
-///     the account. Writes queue as writes and are never sent twice.
+///     the account. Writes queue as writes and are never sent twice; each logs Steam's answer codes.
 /// </summary>
-internal sealed class SteamListingClient(IOptions<SteamOptions> options)
+internal sealed class SteamListingClient(IOptions<SteamOptions> options, ILogger<SteamListingClient>? logger = null)
 {
     /// <summary>
     ///     Lists one asset; <paramref name="sellerMinorUnits" /> is what the seller receives, in whole minor units.
@@ -30,7 +31,7 @@ internal sealed class SteamListingClient(IOptions<SteamOptions> options)
         };
         SteamRequestResult result = await session.Execute(SteamHttpRequest.Write(SteamEndpoint.Community, "/market/sellitem/", form), cancellationToken);
 
-        return SteamWriteReplyParser.Read(result, "listingid", options.Value.DefiniteRejectionCodes);
+        return SteamWriteReplyParser.Read(result, "listingid", options.Value.DefiniteRejectionCodes).Logged(logger, "sellitem", result);
     }
 
     public async Task<SteamWriteReceipt> Remove(SteamAccountSession session, string listingId, CancellationToken cancellationToken)
@@ -39,7 +40,7 @@ internal sealed class SteamListingClient(IOptions<SteamOptions> options)
             SteamHttpRequest.Write(SteamEndpoint.Community, "/market/removelisting/" + Uri.EscapeDataString(listingId), new Dictionary<string, string>()),
             cancellationToken);
 
-        return SteamWriteReplyParser.Read(result, "listingid", options.Value.DefiniteRejectionCodes);
+        return SteamWriteReplyParser.Read(result, "listingid", options.Value.DefiniteRejectionCodes).Logged(logger, "removelisting", result);
     }
 
     /// <summary>

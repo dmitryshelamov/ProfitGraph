@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using ProfitGraph.Venues.Steam.MarketData;
@@ -11,9 +12,9 @@ namespace ProfitGraph.Venues.Steam.Orders;
 /// <summary>
 ///     Steam's buy-order requests through an account's session (Profit Fox Designer <c>SteamMarketClient</c>): create, with
 ///     the fields of Steam's own form, cancel, status and the item's lowest listing. Writes queue as writes and are never
-///     sent twice; the caller decides what a receipt means for its journal entry.
+///     sent twice; the caller decides what a receipt means for its journal entry. Every write logs Steam's answer codes.
 /// </summary>
-internal sealed class SteamBuyOrderClient(IOptions<SteamOptions> options)
+internal sealed class SteamBuyOrderClient(IOptions<SteamOptions> options, ILogger<SteamBuyOrderClient>? logger = null)
 {
     /// <summary>
     ///     Places a buy order of <paramref name="quantity" /> items at <paramref name="priceMinorUnits" /> each. A buy that
@@ -49,7 +50,7 @@ internal sealed class SteamBuyOrderClient(IOptions<SteamOptions> options)
         };
         SteamRequestResult result = await session.Execute(SteamHttpRequest.Write(SteamEndpoint.Community, "/market/createbuyorder/", form), cancellationToken);
 
-        return SteamWriteReplyParser.Read(result, "buy_orderid", options.Value.DefiniteRejectionCodes);
+        return SteamWriteReplyParser.Read(result, "buy_orderid", options.Value.DefiniteRejectionCodes).Logged(logger, "createbuyorder", result);
     }
 
     public async Task<SteamWriteReceipt> Cancel(SteamAccountSession session, string buyOrderId, CancellationToken cancellationToken)
@@ -57,7 +58,7 @@ internal sealed class SteamBuyOrderClient(IOptions<SteamOptions> options)
         var form = new Dictionary<string, string>(StringComparer.Ordinal) { ["buy_orderid"] = buyOrderId };
         SteamRequestResult result = await session.Execute(SteamHttpRequest.Write(SteamEndpoint.Community, "/market/cancelbuyorder/", form), cancellationToken);
 
-        return SteamWriteReplyParser.Read(result, "buy_orderid", options.Value.DefiniteRejectionCodes);
+        return SteamWriteReplyParser.Read(result, "buy_orderid", options.Value.DefiniteRejectionCodes).Logged(logger, "cancelbuyorder", result);
     }
 
     public async Task<SteamBuyOrderStatus> Status(SteamAccountSession session, string buyOrderId, CancellationToken cancellationToken)

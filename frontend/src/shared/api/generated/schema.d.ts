@@ -1741,6 +1741,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bots/{id}/unresolved-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotUnresolvedOrderResponse"][];
+                        "application/json": components["schemas"]["BotUnresolvedOrderResponse"][];
+                        "text/json": components["schemas"]["BotUnresolvedOrderResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}/order-intents/{intentId}/confirm-absent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    intentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bots/{id}/feed": {
         parameters: {
             query?: never;
@@ -3298,7 +3373,7 @@ export interface components {
             occurredAt: string;
         };
         /** @enum {unknown} */
-        BotFeedKind: "Started" | "Stopped" | "Killed" | "Degraded" | "Recovered" | "RuntimeStopped" | "RunRestarted" | "GraphVersionApplied" | "GraphChangeRejected" | "FeedStalled" | "FeedRecovered" | "ExchangeUnavailable" | "SubmitHeld" | "OrderPlaced" | "OrderRejected" | "OrderFailed" | "Fill" | "PositionOpened" | "PositionClosed" | "SettingsChanged" | "FeeCorrected" | "OrderWaiting" | "OrderWaitingEnded";
+        BotFeedKind: "Started" | "Stopped" | "Killed" | "Degraded" | "Recovered" | "RuntimeStopped" | "RunRestarted" | "GraphVersionApplied" | "GraphChangeRejected" | "FeedStalled" | "FeedRecovered" | "ExchangeUnavailable" | "SubmitHeld" | "OrderPlaced" | "OrderRejected" | "OrderFailed" | "OrderAbsenceConfirmed" | "Fill" | "PositionOpened" | "PositionClosed" | "SettingsChanged" | "FeeCorrected" | "OrderWaiting" | "OrderWaitingEnded";
         BotFeedPageResponse: {
             items: components["schemas"]["BotFeedEntryResponse"][];
             /** Format: int64 */
@@ -3407,6 +3482,24 @@ export interface components {
         BotRuntimeStatus: "Created" | "Starting" | "Running" | "Degraded" | "Stopped";
         /** @enum {unknown} */
         BotStatusReason: "RuntimeFailure" | "NoGateway" | "UnknownVenue" | "IntentFailed" | "UnresolvedOrder" | "ForeignOrder" | "KeyPermissions" | "UnsupportedFeeAsset" | "InsufficientBalance" | "HistoryDataCorrection" | "VenueAccountProtection" | "Killed" | "DailyLossLimit" | null;
+        BotUnresolvedOrderResponse: {
+            /** Format: uuid */
+            intentId: string;
+            /** Format: int64 */
+            engineOrderId: number;
+            side: components["schemas"]["OrderSide"];
+            type: components["schemas"]["OrderType"];
+            quantity: null | string;
+            quoteBudget: null | string;
+            limitPrice: null | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            placeStartedAt: null | string;
+            canConfirmAbsent: boolean;
+            /** Format: date-time */
+            confirmedAbsentAt: null | string;
+        };
         CandleImportResponse: {
             venue: string;
             symbol: string;
@@ -3745,6 +3838,8 @@ export interface components {
         };
         /** @enum {unknown} */
         OrderSide: "Buy" | "Sell";
+        /** @enum {unknown} */
+        OrderType: "Market" | "Limit";
         /** @enum {unknown} */
         OrderWaitingCode: "PriceBand" | "SessionClosed" | "CarryOver" | "SettlementHold" | "SingleBuyOrderSlot" | "AwaitingConfirmation" | "RateLimited";
         SampleMetricsResponse: {

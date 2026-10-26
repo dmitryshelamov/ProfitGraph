@@ -9,6 +9,7 @@ import {
   BotPositionCard,
   botQuery,
   BotStatusBadge,
+  BotUnresolvedOrders,
   BotWaitingOrders,
   diagnosticLabel,
   ForeignOrdersToggle,
@@ -97,6 +98,7 @@ export function BotPage() {
           <ForeignOrdersToggle bot={current} />
         </div>
       </Card>
+      <BotUnresolvedOrders botId={current.id} />
       <BotWaitingOrders botId={current.id} />
       <Card title="Алерты">
         <AlertsList botId={current.id} />

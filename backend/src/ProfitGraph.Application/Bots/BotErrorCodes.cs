@@ -11,4 +11,6 @@ public static class BotErrorCodes
     public const string AllocationBelowCommitted = "allocation_below_committed";
     public const string MissingCheckpoint = "missing_checkpoint";
     public const string CredentialInUse = "exchange_credential_in_use";
+    public const string OrderIntentNotFound = "bot_order_intent_not_found";
+    public const string AbsenceNotConfirmable = "order_absence_not_confirmable";
 }

@@ -1,9 +1,17 @@
 using Dapper;
 
+using MediatR;
+
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 using Npgsql;
 
+using ProfitGraph.Application.Bots.ConfirmOrderAbsent;
+using ProfitGraph.Application.Bots.Contracts;
+using ProfitGraph.Application.Bots.GetBotUnresolvedOrders;
+using ProfitGraph.Application.Bots.StartBot;
+using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Integration.Common;
@@ -126,6 +134,53 @@ public sealed class ReconciliationTests
     }
 
     [Test]
+    public async Task ASubmitTheOwnerConfirmedAbsentIsRejectedWhenTheBotStartsAgain()
+    {
+        var scenario = new RuntimeScenario { Gateway = { LoseEveryPlace = true } };
+        Bot bot;
+
+        using (IHost first = scenario.Worker())
+        {
+            bot = await RuntimeScenario.RunningLadder(first);
+            await first.StartAsync();
+            await RuntimeScenario.Until(async () => await RuntimeScenario.Intents(first, bot.Id) is [{ PlaceStartedAt: not null, Attempts: 1 }], "the place is lost");
+
+            await using (var connection = new NpgsqlConnection(TestDatabase.ConnectionString))
+            {
+                await connection.ExecuteAsync("UPDATE bot_order_intents SET attempts = 9, next_attempt_at = now() WHERE bot_id = @id", new { id = bot.Id.Value });
+            }
+
+            await RuntimeScenario.Until(async () => (await RuntimeScenario.Read(first, bot.Id)).StatusReason == BotStatusReason.IntentFailed, "the bot degrades");
+            await first.StopAsync();
+        }
+
+        Guid owner = bot.OwnerId.Value;
+        BotUnresolvedOrderInternal unresolved = (await Ask(_api.Services, new GetBotUnresolvedOrdersQuery(owner, bot.Id.Value))).ShouldHaveSingleItem();
+        unresolved.CanConfirmAbsent.ShouldBeTrue();
+        await Should.ThrowAsync<ResourceNotFoundException>(() => Ask(_api.Services, new ConfirmOrderAbsentCommand(Guid.NewGuid(), bot.Id.Value, unresolved.IntentId)));
+
+        await Ask(_api.Services, new ConfirmOrderAbsentCommand(owner, bot.Id.Value, unresolved.IntentId));
+
+        (await Ask(_api.Services, new GetBotUnresolvedOrdersQuery(owner, bot.Id.Value))).ShouldHaveSingleItem().ConfirmedAbsentAt.ShouldNotBeNull();
+        await Should.ThrowAsync<StateConflictException>(() => Ask(_api.Services, new ConfirmOrderAbsentCommand(owner, bot.Id.Value, unresolved.IntentId)));
+
+        await Ask(_api.Services, new StartBotCommand(owner, bot.Id.Value));
+        scenario.Gateway.LoseEveryPlace = false;
+        using IHost second = scenario.Worker();
+        await second.StartAsync();
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Intents(second, bot.Id)).Single(intent => intent.Id.Value == unresolved.IntentId).Status == OrderIntentStatus.Sent,
+            "the confirmed submit is resolved");
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Checkpoint(second, bot.Id))!.Engine.Account.Orders.All(order => order.Id != unresolved.EngineOrderId),
+            "the engine drops the absent order");
+        await second.StopAsync();
+
+        scenario.Gateway.ConfirmedAbsent.ShouldContain(scenario.Gateway.ClientOrderIdFor(bot.Id, unresolved.EngineOrderId));
+        (await RuntimeScenario.Read(second, bot.Id)).RuntimeStatus.ShouldNotBe(BotRuntimeStatus.Degraded);
+    }
+
+    [Test]
     public async Task StoppedBotEndsWhileTheVenueIsUnavailable()
     {
         var scenario = new RuntimeScenario();
@@ -142,5 +197,21 @@ public sealed class ReconciliationTests
         await worker.StopAsync();
 
         scenario.Gateway.Places.ShouldBe(0);
+    }
+
+    /// <summary>
+    ///     Sends an owner's request through the API, which knows every venue.
+    /// </summary>
+    private static async Task<T> Ask<T>(IServiceProvider services, IRequest<T> request)
+    {
+        using IServiceScope scope = services.CreateScope();
+
+        return await scope.ServiceProvider.GetRequiredService<ISender>().Send(request);
+    }
+
+    private static async Task Ask(IServiceProvider services, IRequest request)
+    {
+        using IServiceScope scope = services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<ISender>().Send(request);
     }
 }

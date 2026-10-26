@@ -1,3 +1,4 @@
+using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Domain.Bots;
@@ -20,4 +21,6 @@ public sealed record OrderIntentSnapshot(
     DateTimeOffset? PlaceStartedAt,
     DateTimeOffset? SentAt,
     OrderIntentRejection? Rejection,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? ConfirmedAbsentAt = null,
+    UserId? ConfirmedAbsentBy = null);

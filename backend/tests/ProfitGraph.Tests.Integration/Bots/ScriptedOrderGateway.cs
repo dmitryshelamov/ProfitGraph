@@ -51,6 +51,16 @@ public sealed class ScriptedOrderGateway : IOrderGateway
     /// </summary>
     public bool FailEveryPlace { get; set; }
 
+    /// <summary>
+    ///     Loses every place request after it may have left, so the venue never has the order.
+    /// </summary>
+    public bool LoseEveryPlace { get; set; }
+
+    /// <summary>
+    ///     The client order identifiers reconciliation passed as confirmed absent by the owner.
+    /// </summary>
+    public ConcurrentQueue<ClientOrderId> ConfirmedAbsent { get; } = new ConcurrentQueue<ClientOrderId>();
+
     public VenueId Venue { get; } = new VenueId(TestHistoryVenue.WithHistory);
 
     public ClientOrderId ClientOrderIdFor(BotId botId, long engineOrderId)
@@ -84,6 +94,11 @@ public sealed class ScriptedOrderGateway : IOrderGateway
 
         await markPlaceStarted(cancellationToken);
         Interlocked.Increment(ref _places);
+
+        if (LoseEveryPlace)
+        {
+            throw new IOException("The scripted venue lost the request.");
+        }
 
         if (RejectWith is { } reason)
         {
@@ -123,11 +138,27 @@ public sealed class ScriptedOrderGateway : IOrderGateway
         }
 
         ReconcileOrderInternal[] found = [.. request.Orders.Where(order => _placed.ContainsKey(order.ClientOrderId.Value))];
+        ReconcileOrderInternal[] absent = [.. request.Orders.Where(order => order.OwnerConfirmedAbsent && !_placed.ContainsKey(order.ClientOrderId.Value))];
+
+        foreach (ReconcileOrderInternal order in absent)
+        {
+            ConfirmedAbsent.Enqueue(order.ClientOrderId);
+        }
 
         return Task.FromResult(
             new BotReconciliationInternal(
-                [.. found.Select(order => ExternalOrderUpdate.Accept(order.EngineOrderId))],
-                [.. found.Select(order => new ReconciledOrderInternal(order.ClientOrderId, IsFinal: false))],
+                [
+                    .. found.Select(order => ExternalOrderUpdate.Accept(order.EngineOrderId)),
+                    .. absent.Select(order => ExternalOrderUpdate.Reject(
+                        order.EngineOrderId,
+                        RejectionReason.OwnerConfirmedAbsent,
+                        "The scripted venue has no such order.",
+                        ownerConfirmedAbsent: true))
+                ],
+                [
+                    .. found.Select(order => new ReconciledOrderInternal(order.ClientOrderId, IsFinal: false)),
+                    .. absent.Select(order => new ReconciledOrderInternal(order.ClientOrderId, IsFinal: true))
+                ],
                 ReconcileDegradation));
     }
 

@@ -23,6 +23,8 @@ internal sealed class SteamVenue : IVenueDescriptor
     /// </summary>
     public IReadOnlyList<Timeframe> Timeframes { get; } = [Timeframe.Parse("1h"), Timeframe.Parse("1d")];
 
+    public bool ConfirmsOrderAbsence => true;
+
     public bool TryParseSymbol(string? input, [NotNullWhen(true)] out InstrumentSymbol? symbol)
     {
         symbol = SteamInstrument.TryParse(input, out SteamInstrument? instrument) ? instrument.Symbol : null;

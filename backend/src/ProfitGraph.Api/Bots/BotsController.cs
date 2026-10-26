@@ -6,12 +6,14 @@ using ProfitGraph.Api.Bots.Contracts;
 using ProfitGraph.Api.Bots.Converters;
 using ProfitGraph.Api.Common.Authentication;
 using ProfitGraph.Application.Bots.ChangeBotForeignOrders;
+using ProfitGraph.Application.Bots.ConfirmOrderAbsent;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.GetBot;
 using ProfitGraph.Application.Bots.GetBotFeed;
 using ProfitGraph.Application.Bots.GetBotFills;
 using ProfitGraph.Application.Bots.GetBotPosition;
 using ProfitGraph.Application.Bots.GetBots;
+using ProfitGraph.Application.Bots.GetBotUnresolvedOrders;
 using ProfitGraph.Application.Bots.GetBotWaitingOrders;
 using ProfitGraph.Application.Bots.GetManualOrder;
 using ProfitGraph.Application.Bots.KillBot;
@@ -108,6 +110,28 @@ public sealed class BotsController(ISender sender) : ControllerBase
     public async Task<ActionResult<IReadOnlyList<BotOrderWaitingResponse>>> WaitingOrders(Guid id, CancellationToken cancellationToken)
     {
         return (await sender.Send(new GetBotWaitingOrdersQuery(UserId(), id), cancellationToken)).Select(waiting => waiting.ToResponse()).ToArray();
+    }
+
+    /// <summary>
+    ///     The bot's submits whose delivery to the venue is unknown, and whether each may be confirmed absent now.
+    /// </summary>
+    [HttpGet("{id:guid}/unresolved-orders")]
+    public async Task<ActionResult<IReadOnlyList<BotUnresolvedOrderResponse>>> UnresolvedOrders(Guid id, CancellationToken cancellationToken)
+    {
+        return (await sender.Send(new GetBotUnresolvedOrdersQuery(UserId(), id), cancellationToken)).Select(order => order.ToResponse()).ToArray();
+    }
+
+    /// <summary>
+    ///     The owner confirms, after checking the account on the venue, that a submit whose delivery stopped the bot never
+    ///     reached it (Profit Fox Designer ADR 0055). Starting the bot again reconciles it: the venue is looked up first, and
+    ///     the order is rejected only when the venue shows nothing of it.
+    /// </summary>
+    [HttpPost("{id:guid}/order-intents/{intentId:guid}/confirm-absent")]
+    public async Task<IActionResult> ConfirmOrderAbsent(Guid id, Guid intentId, CancellationToken cancellationToken)
+    {
+        await sender.Send(new ConfirmOrderAbsentCommand(UserId(), id, intentId), cancellationToken);
+
+        return NoContent();
     }
 
     [HttpGet("{id:guid}/feed")]
