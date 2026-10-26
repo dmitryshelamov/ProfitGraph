@@ -14,12 +14,15 @@ import {
   BotWaitingOrders,
   diagnosticLabel,
   ForeignOrdersToggle,
+  fractionLabel,
   ManualOrderForm,
   ParametersForm,
   RiskLimitsForm,
   TradingHaltBanner,
+  useBotDisplay,
 } from '@/modules/bots';
-import { strategyQuery } from '@/modules/strategies';
+import { venuesQuery } from '@/modules/market-data';
+import { isPercentageParameter, strategyQuery } from '@/modules/strategies';
 import { ApiErrorMessage } from '@/shared/ui/ApiErrorMessage';
 import { Card } from '@/shared/ui/Card';
 import { DateTime } from '@/shared/ui/DateTime';
@@ -37,6 +40,18 @@ export function BotPage() {
     ...strategyQuery(strategyId ?? ''),
     enabled: strategyId !== undefined,
   });
+
+  const venues = useQuery(venuesQuery());
+  const display = useBotDisplay({
+    venue: bot.data?.venue ?? '',
+    symbol: bot.data?.symbol ?? '',
+    credentialId: bot.data?.credentialId ?? '',
+  });
+  const percentParameters = new Set(
+    (strategy.data?.definition.parameters ?? [])
+      .filter((parameter) => isPercentageParameter(parameter.displayUnit))
+      .map((parameter) => parameter.name),
+  );
 
   if (bot.isError) {
     return (
@@ -61,7 +76,7 @@ export function BotPage() {
             ← Боты
           </Link>
         }
-        meta={`Bybit Spot · комиссии лимит ${current.limitFeeRate}, рынок ${current.marketFeeRate}`}
+        meta={`${venues.data?.find((venue) => venue.id === current.venue)?.name ?? current.venue} · комиссии: лимитные ${fractionLabel(current.limitFeeRate)}, рыночные ${fractionLabel(current.marketFeeRate)}`}
       />
       <p className="text-sm text-text-secondary">
         Стратегия:{' '}
@@ -96,7 +111,7 @@ export function BotPage() {
         </div>
       </Card>
       <Card title="Позиция">
-        <BotPositionCard botId={current.id} />
+        <BotPositionCard botId={current.id} display={display} />
       </Card>
       <div className="grid gap-6 md:grid-cols-2">
         <Card title="Лимиты риска">
@@ -111,13 +126,17 @@ export function BotPage() {
       </div>
       <Card title="Параметры">
         <div className="space-y-4">
-          <ParametersForm key={current.updatedAt} bot={current} />
+          <ParametersForm
+            key={`${current.updatedAt}/${percentParameters.size}`}
+            bot={current}
+            percentParameters={percentParameters}
+          />
           <ForeignOrdersToggle bot={current} />
         </div>
       </Card>
       <BotUnresolvedOrders botId={current.id} />
       <Card title="Активные ордера">
-        <BotOpenOrders botId={current.id} />
+        <BotOpenOrders botId={current.id} display={display} />
       </Card>
       <BotWaitingOrders botId={current.id} />
       <Card title="Алерты">
@@ -127,7 +146,7 @@ export function BotPage() {
         <BotFeedList botId={current.id} />
       </Card>
       <Card title="Сделки">
-        <BotFillsTable botId={current.id} />
+        <BotFillsTable botId={current.id} display={display} />
       </Card>
     </div>
   );

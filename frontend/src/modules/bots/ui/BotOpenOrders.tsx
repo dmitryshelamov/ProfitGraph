@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { botOpenOrdersQuery, botWaitingOrdersQuery } from '../api/botsApi';
+import { atPlaces, type BotDisplay } from '../model/botDisplay';
 import { openOrderPrice, openOrderQuantity, openOrderState } from '../model/openOrders';
 
-export function BotOpenOrders({ botId }: { botId: string }) {
+export function BotOpenOrders({ botId, display }: { botId: string; display: BotDisplay }) {
   const orders = useQuery(botOpenOrdersQuery(botId));
   const waiting = useQuery(botWaitingOrdersQuery(botId)).data ?? [];
 
@@ -26,9 +27,9 @@ export function BotOpenOrders({ botId }: { botId: string }) {
           <th className="py-2">Ордер</th>
           <th className="py-2">Сторона</th>
           <th className="py-2">Тип</th>
-          <th className="py-2">Количество</th>
-          <th className="py-2">Цена</th>
-          <th className="py-2">Исполнено</th>
+          <th className="py-2">Количество{display.baseAsset ? `, ${display.baseAsset}` : ''}</th>
+          <th className="py-2">Цена{display.quoteAsset ? `, ${display.quoteAsset}` : ''}</th>
+          <th className="py-2">Исполнено{display.baseAsset ? `, ${display.baseAsset}` : ''}</th>
           <th className="py-2">Состояние</th>
         </tr>
       </thead>
@@ -44,9 +45,25 @@ export function BotOpenOrders({ botId }: { botId: string }) {
               </td>
               <td className="py-2">{order.side === 'Buy' ? 'Покупка' : 'Продажа'}</td>
               <td className="py-2">{order.type === 'Limit' ? 'Лимитный' : 'Рыночный'}</td>
-              <td className="py-2 font-mono">{openOrderQuantity(order)}</td>
-              <td className="py-2 font-mono">{openOrderPrice(order)}</td>
-              <td className="py-2 font-mono">{order.filledBase}</td>
+              <td className="py-2 font-mono">
+                {openOrderQuantity({
+                  quantity: order.quantity
+                    ? atPlaces(order.quantity, display.basePlaces)
+                    : order.quantity,
+                  quoteBudget: order.quoteBudget
+                    ? atPlaces(order.quoteBudget, display.quotePlaces)
+                    : order.quoteBudget,
+                })}
+              </td>
+              <td className="py-2 font-mono">
+                {openOrderPrice({
+                  type: order.type,
+                  limitPrice: order.limitPrice
+                    ? atPlaces(order.limitPrice, display.pricePlaces)
+                    : order.limitPrice,
+                })}
+              </td>
+              <td className="py-2 font-mono">{atPlaces(order.filledBase, display.basePlaces)}</td>
               <td className="py-2">
                 {state.label}
                 {state.reason ? <span className="block text-muted">{state.reason}</span> : null}

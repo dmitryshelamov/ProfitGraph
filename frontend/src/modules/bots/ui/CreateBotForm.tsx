@@ -3,13 +3,19 @@ import { type FormEvent, useState } from 'react';
 
 import { credentialsQuery } from '@/modules/credentials';
 import { instrumentsQuery, venuesQuery, venuesReadWithKey } from '@/modules/market-data';
-import { parameterReadableName, strategiesQuery, strategyQuery } from '@/modules/strategies';
+import {
+  isPercentageParameter,
+  parameterReadableName,
+  strategiesQuery,
+  strategyQuery,
+} from '@/modules/strategies';
 import { ApiErrorMessage } from '@/shared/ui/ApiErrorMessage';
 import { Button } from '@/shared/ui/Button';
 import { Field } from '@/shared/ui/Field';
 import { Input } from '@/shared/ui/Input';
 
 import { botKeys, createBot } from '../api/botsApi';
+import { parameterInputText, parameterStoredValue } from '../model/botDisplay';
 import {
   steamBotSettingsBody,
   type SteamBotSettingsDraft,
@@ -68,7 +74,14 @@ export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) 
         parameters: Object.fromEntries(
           parameters.map((parameter) => [
             parameter.name,
-            (values[parameter.name] ?? parameter.defaultValue).trim(),
+            parameterStoredValue(
+              values[parameter.name] ??
+                parameterInputText(
+                  parameter.defaultValue,
+                  isPercentageParameter(parameter.displayUnit),
+                ),
+              isPercentageParameter(parameter.displayUnit),
+            ),
           ]),
         ),
         allocationCap: allocationCap.trim(),
@@ -165,9 +178,18 @@ export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) 
         </select>
       </Field>
       {parameters.map((parameter) => (
-        <Field key={parameter.name} label={parameterReadableName(parameter.name)}>
+        <Field
+          key={parameter.name}
+          label={`${parameterReadableName(parameter.name)}${isPercentageParameter(parameter.displayUnit) ? ', %' : ''}`}
+        >
           <Input
-            value={values[parameter.name] ?? parameter.defaultValue}
+            value={
+              values[parameter.name] ??
+              parameterInputText(
+                parameter.defaultValue,
+                isPercentageParameter(parameter.displayUnit),
+              )
+            }
             onChange={(event) =>
               setValues((current) => ({ ...current, [parameter.name]: event.target.value }))
             }
