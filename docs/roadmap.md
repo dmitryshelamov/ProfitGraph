@@ -52,3 +52,13 @@ replay hashes unchanged. Trading stays disabled throughout; the owner turns it o
 | Core | Instrument symbols with spaces, the engine fee model and settlement hold with partial fills, venue execution defaults, named credential fields, venue-owned tables, venue bot settings, account protection | Each change has its tests; Bybit's pinned values are byte-identical | Done |
 | Backtests | Steam descriptor, mock Steam, account session and request scheduler, credential import and authenticator enrollment, median history, item search, backtest UI | A Ladder backtest on Steam medians runs from item selection to result charts with Steam fees and the trade hold | Done: `SteamBacktestTests` runs it against the mock Steam |
 | Live | Wallet and inventory reads, live candles and display price, order journal, buy orders, listings and confirmations, history receipts, reconciliation, bot UI | A ladder bot passes its scenarios against the mock Steam: holds and unlocks, a restart during a confirmation, an expired session, a background 429, a returned item with a new ID and a CAPTCHA | Done: `SteamLadderTests` runs them against the mock Steam; no browser end-to-end test against a mock Steam yet |
+
+## Bot chart
+
+A candle chart on the bot page ([ADR 0026](adr/0026-bot-chart.md)), for every venue.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Closed candles | `/api/bots/{id}/candles` from the bot's own series and market data access, pages read through the cache, incomplete venue history shown without being cached, the bot's fills of the same range; the chart pages back, marks fills and working limit orders | The chart scrolls through Bybit, T-Invest and Steam history with the bot's fills against the test venue, the mock Invest API and the mock Steam | Done |
+| 2. Forming candle | A separate in-memory live channel per instrument with a closed or forming flag, throttled, never stored; history, then subscription, then reconciliation; Bybit, then T-Invest; none for Steam | The forming candle updates in its own style and becomes a closed candle without a gap | Planned |
+| 3. Indicators and conditions | The strategy's indicators and node conditions in a tooltip or a panel under the chart | | Planned |

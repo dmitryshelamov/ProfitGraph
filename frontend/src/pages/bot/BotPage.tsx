@@ -5,6 +5,7 @@ import { useState } from 'react';
 import {
   AlertsList,
   BotAssetCard,
+  BotChart,
   BotControls,
   BotFeedList,
   BotFillsTable,
@@ -36,8 +37,8 @@ import { PageHeader } from '@/shared/ui/PageHeader';
 import { RenameForm } from '@/shared/ui/RenameForm';
 
 /**
- * One bot: its state and controls, position at a live price, limits, parameters, foreign orders, alerts, manual order,
- * event feed and fills.
+ * One bot: its asset, its chart of closed candles with its fills, its state and controls, position at a live price,
+ * limits, parameters, foreign orders, alerts, manual order, event feed and fills.
  */
 export function BotPage() {
   const { botId } = useParams({ from: '/_authenticated/_shell/bots/$botId' });
@@ -119,6 +120,14 @@ export function BotPage() {
         </Link>
       </p>
       <BotAssetCard bot={current} />
+      <Card
+        title="График"
+        actions={
+          <span className="text-sm text-muted">{current.timeframe} · закрытые свечи · UTC</span>
+        }
+      >
+        <BotChart bot={current} display={display} />
+      </Card>
       <TradingHaltBanner />
       <Card title="Состояние" actions={<BotStatusBadge bot={current} />}>
         <div className="space-y-4">

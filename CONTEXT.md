@@ -131,6 +131,13 @@ state (running or stopped); the runtime that holds the bot's lease reports its r
 restarts automatically after a runtime failure or waits for the owner because of a safety reason. See
 [ADR 0016](docs/adr/0016-live-bot-runtime.md).
 
+### Bot Chart
+
+The closed candles of a bot's own series on its timeframe, read a page at a time with the bot's market data access and
+brought into the candle cache when the venue covers the page completely, with the bot's fills of the same range. A venue
+history with intervals without a candle, such as an hour without sales, is shown but not cached. See
+[ADR 0026](docs/adr/0026-bot-chart.md).
+
 ### Bot Lease
 
 The right of one runtime process to execute a bot, renewed while it works. Taking over an expired lease raises its

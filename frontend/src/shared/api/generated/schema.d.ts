@@ -1705,6 +1705,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bots/{id}/candles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    from?: string;
+                    to?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotCandlesResponse"];
+                        "application/json": components["schemas"]["BotCandlesResponse"];
+                        "text/json": components["schemas"]["BotCandlesResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bots/{id}/fills": {
         parameters: {
             query?: never;
@@ -3533,6 +3575,34 @@ export interface components {
             acknowledgedAt: null | string;
         };
         /** @enum {unknown} */
+        BotCandleHistoryStatus: "Complete" | "Partial" | "Unavailable";
+        BotCandlesResponse: {
+            venue: string;
+            symbol: string;
+            timeframe: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** Format: date-time */
+            latestClosed: string;
+            status: components["schemas"]["BotCandleHistoryStatus"];
+            errorCode: null | string;
+            candles: components["schemas"]["CandleResponse"][];
+            fills: components["schemas"]["BotChartFillResponse"][];
+            fillsTruncated: boolean;
+        };
+        BotChartFillResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            filledAt: string;
+            side: components["schemas"]["OrderSide"];
+            price: string;
+            grossBase: string;
+            tag: null | string;
+        };
+        /** @enum {unknown} */
         BotDesiredState: "Stopped" | "Running";
         BotFeedEntryResponse: {
             /** Format: int64 */
@@ -3809,10 +3879,10 @@ export interface components {
         /** Format: binary */
         IFormFile: string;
         InstrumentAppearanceResponse: {
-            imageUrl: string | null;
-            kind: string | null;
-            nameColor: string | null;
-            backgroundColor: string | null;
+            imageUrl: null | string;
+            kind: null | string;
+            nameColor: null | string;
+            backgroundColor: null | string;
             description: string[];
         };
         InstrumentResponse: {
@@ -3820,7 +3890,7 @@ export interface components {
             symbol: string;
             baseAsset: string;
             quoteAsset: string;
-            appearance: components["schemas"]["InstrumentAppearanceResponse"] | null;
+            appearance: null | components["schemas"]["InstrumentAppearanceResponse"];
         };
         InstrumentRulesResponse: {
             quantityStep: string;

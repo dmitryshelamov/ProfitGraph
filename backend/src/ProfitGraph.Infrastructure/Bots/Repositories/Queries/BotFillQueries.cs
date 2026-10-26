@@ -17,4 +17,14 @@ internal static class BotFillQueries
                                  ORDER BY sequence DESC
                                  LIMIT @limit
                                  """;
+
+    internal const string ListFilled = """
+                                       SELECT id AS Id, sequence AS Sequence, bot_id AS BotId, engine_order_id AS EngineOrderId, side AS Side, tag AS Tag,
+                                           gross_base AS GrossBase, gross_quote AS GrossQuote, fee AS Fee, fee_asset AS FeeAsset, cumulative_gross_base AS CumulativeGrossBase,
+                                           filled_at AS FilledAt
+                                       FROM bot_fills
+                                       WHERE bot_id = @botId AND filled_at >= @from AND filled_at < @to
+                                       ORDER BY filled_at, sequence
+                                       LIMIT @limit
+                                       """;
 }

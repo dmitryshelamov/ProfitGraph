@@ -12,6 +12,9 @@ type Schemas = components['schemas'];
  * pushes a ticker of 104, so the position is valued at the live price. Nothing reaches an exchange; the key is invented.
  */
 test('a bot is created with a key, trades, is stopped and reported', async ({ page }) => {
+  // The page polls the bot's state, fills and feed every 5, 15 and 10 seconds; waiting for each took 29.6 of the
+  // default 30 seconds before the chart was added.
+  test.setTimeout(60_000);
   const templates = (await (
     await page.request.get('/api/strategy-templates')
   ).json()) as Schemas['StrategyTemplateResponse'][];
@@ -48,6 +51,9 @@ test('a bot is created with a key, trades, is stopped and reported', async ({ pa
 
   await expect(page.getByRole('heading', { name: 'BTCUSDT 1h' })).toBeVisible();
   await expect(page.getByText('Не запущен')).toBeVisible();
+  // The chart reads the bot's own hourly history from the stub's public klines into the cache.
+  const chart = page.getByRole('figure', { name: 'Свечи бота' });
+  await expect(chart).not.toHaveAttribute('data-candles', '0', { timeout: 20_000 });
   await page.getByRole('button', { name: 'Запустить', exact: true }).click();
   await expect(page.getByText('Работает', { exact: true })).toBeVisible({ timeout: 20_000 });
 
