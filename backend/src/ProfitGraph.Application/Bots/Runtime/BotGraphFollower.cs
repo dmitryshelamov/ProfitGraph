@@ -25,6 +25,16 @@ public sealed class BotGraphFollower(
     BotMarketDataAccess access,
     ISender sender)
 {
+    /// <summary>
+    ///     The strategy's latest version when the bot does not run it yet and has not rejected it, else null.
+    /// </summary>
+    public async Task<StrategyVersionId?> Candidate(Bot bot, StrategyVersionId current, CancellationToken cancellationToken)
+    {
+        StrategyVersion latest = await strategies.Latest(bot, cancellationToken);
+
+        return latest.Id == current || (await bots.Get(bot.Id, cancellationToken))?.RejectedVersionId == latest.Id ? null : latest.Id;
+    }
+
     public async Task Follow(Bot bot, LeaseHolderId holder, long epoch, BotEngineSession session, CancellationToken cancellationToken)
     {
         if (session.LastCandle is not { } last)

@@ -33,9 +33,16 @@ internal sealed class BotRuntimeOptions
     /// </summary>
     public TimeSpan ManualOrderPollInterval { get; init; } = TimeSpan.FromSeconds(1);
 
+    /// <summary>
+    ///     How often a runner looks for a newer saved version of its bot's strategy, so a version is followed without waiting
+    ///     for the next candle (ADR 0019).
+    /// </summary>
+    public TimeSpan GraphCheckInterval { get; init; } = TimeSpan.FromSeconds(2);
+
     public bool IsValid()
     {
-        return PollingInterval > TimeSpan.Zero && ReconcileRetryDelay > TimeSpan.Zero && ManualOrderPollInterval > TimeSpan.Zero && DispatchInterval > TimeSpan.Zero &&
+        return PollingInterval > TimeSpan.Zero && ReconcileRetryDelay > TimeSpan.Zero && ManualOrderPollInterval > TimeSpan.Zero && GraphCheckInterval > TimeSpan.Zero &&
+            DispatchInterval > TimeSpan.Zero &&
             RenewInterval > TimeSpan.Zero &&
             LeaseDuration > RenewInterval * 2;
     }

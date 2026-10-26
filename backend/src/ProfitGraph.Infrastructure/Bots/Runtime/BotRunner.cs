@@ -16,6 +16,7 @@ using ProfitGraph.Application.Bots.ResolveManualOrder;
 using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Strategies;
 
 namespace ProfitGraph.Infrastructure.Bots.Runtime;
 
@@ -159,6 +160,7 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
         tasks.Add(Produce(gateway.Updates(bot.Id, _producers.Token), update => new BotRoot(Candle: null, update)));
         tasks.Add(Produce(scope.ServiceProvider.GetRequiredService<BotUpdateBus>().Read(bot.Id, _producers.Token), update => new BotRoot(Candle: null, update)));
         tasks.Add(Produce(PendingManualOrders(_producers.Token), id => new BotRoot(Candle: null, Update: null, id)));
+        tasks.Add(Produce(NewStrategyVersions(session, _producers.Token), _ => new BotRoot(Candle: null, Update: null, GraphChange: true)));
 
         var follower = scope.ServiceProvider.GetRequiredService<BotGraphFollower>();
 
@@ -205,6 +207,29 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
         }
 
         await session.ProcessManualOrder(request, hostToken);
+    }
+
+    /// <summary>
+    ///     Each newer saved version of the bot's strategy once, as soon as it is found: its root only makes the runner follow it
+    ///     (ADR 0019), so a running bot with nothing else to do does not wait for the next candle.
+    /// </summary>
+    private async IAsyncEnumerable<StrategyVersionId> NewStrategyVersions(BotEngineSession session, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        StrategyVersionId? last = null;
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            await Task.Delay(options.GraphCheckInterval, clock, cancellationToken);
+            using IServiceScope scope = scopes.CreateScope();
+            StrategyVersionId? candidate = await scope.ServiceProvider.GetRequiredService<BotGraphFollower>().Candidate(bot, session.Version, cancellationToken);
+
+            if (candidate is { } version && version != last)
+            {
+                last = version;
+
+                yield return version;
+            }
+        }
     }
 
     /// <summary>
