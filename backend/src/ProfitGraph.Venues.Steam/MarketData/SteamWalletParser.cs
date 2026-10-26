@@ -22,7 +22,7 @@ internal static class SteamWalletParser
 
         if (start < 0)
         {
-            throw Invalid();
+            throw Invalid("it carries no g_rgWalletInfo");
         }
 
         try
@@ -43,7 +43,12 @@ internal static class SteamWalletParser
 
             if (balance < 0 || balance != decimal.Truncate(balance))
             {
-                throw Invalid();
+                throw Invalid("its balance is not whole minor units");
+            }
+
+            if (increment != 1)
+            {
+                throw Invalid($"its currency increment is {increment.ToString(CultureInfo.InvariantCulture)} minor units, not one");
             }
 
             return new SteamWallet(
@@ -56,7 +61,7 @@ internal static class SteamWalletParser
         }
         catch (Exception exception) when (exception is JsonException or TradingInvariantException or OverflowException)
         {
-            throw Invalid();
+            throw Invalid($"its wallet is unreadable ({exception.GetType().Name})");
         }
     }
 
@@ -64,14 +69,14 @@ internal static class SteamWalletParser
     {
         if (!root.TryGetProperty(field, out JsonElement value))
         {
-            throw Invalid();
+            throw Invalid($"its wallet has no {field}");
         }
 
         return value.ValueKind switch
         {
             JsonValueKind.Number when value.TryGetDecimal(out decimal number) => number,
             JsonValueKind.String when decimal.TryParse(value.GetString(), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal text) => text,
-            _ => throw Invalid()
+            _ => throw Invalid($"its wallet's {field} is not a number")
         };
     }
 
@@ -82,11 +87,14 @@ internal static class SteamWalletParser
     {
         decimal value = root.TryGetProperty(field, out _) ? Number(root, field) : 1;
 
-        return value >= 1 && value == decimal.Truncate(value) ? value : throw Invalid();
+        return value >= 1 && value == decimal.Truncate(value) ? value : throw Invalid($"its wallet's {field} is not a whole positive number");
     }
 
-    private static SteamMarketDataException Invalid()
+    /// <summary>
+    ///     The refusal names what is wrong, never a value of the account's own, such as its balance.
+    /// </summary>
+    private static SteamMarketDataException Invalid(string reason)
     {
-        return new SteamMarketDataException(unavailable: false, "The Steam market page has no readable wallet.");
+        return new SteamMarketDataException(unavailable: false, $"The Steam market page has no readable wallet: {reason}.");
     }
 }

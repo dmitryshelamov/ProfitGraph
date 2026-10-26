@@ -8,11 +8,12 @@ using ProfitGraph.Domain.Accounts;
 namespace ProfitGraph.Venues.Steam.Accounts;
 
 /// <summary>
-///     Checks accounts in <see cref="SteamGuardStatus.Checking" />, or a new authenticator's account in
-///     <see cref="SteamGuardStatus.CoolingDown" /> once its expected aging passed, whose check is due, every
-///     <see cref="SteamOptions.EligibilityInterval" />. The attempt is recorded before Steam is asked, so a failed or
+///     Checks accounts in <see cref="SteamGuardStatus.Checking" />, a new authenticator's account in
+///     <see cref="SteamGuardStatus.CoolingDown" /> once its expected aging passed, or a
+///     <see cref="SteamGuardStatus.Restricted" /> one after <see cref="SteamOptions.RestrictedRecheck" />, whose check is due,
+///     every <see cref="SteamOptions.EligibilityInterval" />. The attempt is recorded before Steam is asked, so a failed or
 ///     concurrent check waits <see cref="SteamOptions.EligibilityRecheck" />; an account still unconfirmed is checked again
-///     after that, and a ready or restricted one is left to its owner. Failures are logged by kind only, and one account's
+///     after that, and a ready one is left to its owner. Failures are logged by kind only, and one account's
 ///     failure does not keep the others from being checked.
 /// </summary>
 internal sealed class SteamEligibilityWorker(
@@ -85,7 +86,9 @@ internal sealed class SteamEligibilityWorker(
 
         if (status != SteamGuardStatus.Checking)
         {
-            await store.Record(account.CredentialId, SteamGuardStatus.Checking, status, nextCheckAt: null, clock.GetUtcNow(), cancellationToken);
+            DateTimeOffset checkedAt = clock.GetUtcNow();
+            DateTimeOffset? nextCheckAt = status == SteamGuardStatus.Restricted ? checkedAt + options.Value.RestrictedRecheck : null;
+            await store.Record(account.CredentialId, SteamGuardStatus.Checking, status, nextCheckAt, checkedAt, cancellationToken);
         }
     }
 }

@@ -76,7 +76,7 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
                     ? result
                     : null);
 
-            return new SteamRequestResult(Classify(response, body, request), payload, RetryAfter(response.Headers.RetryAfter));
+            return new SteamRequestResult(Classify(response, body, request, destination), payload, RetryAfter(response.Headers.RetryAfter));
         }
         catch (Exception exception) when (exception is HttpRequestException or TimeoutException ||
                                           (exception is OperationCanceledException && !cancellationToken.IsCancellationRequested))
@@ -90,13 +90,25 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
     }
 
     /// <summary>
-    ///     Market requests other than the wallet page, and mobile confirmations, carry the AJAX headers Steam's own pages send,
+    ///     Market requests other than page navigations, and mobile confirmations, carry the AJAX headers Steam's own pages send,
     ///     with the item's listing page as the referrer when the request names an item (Profit Fox Designer
-    ///     <c>SteamMarketRequestHeaders</c>, which traded with them).
+    ///     <c>SteamMarketRequestHeaders</c>, which traded with them). The eligibility check asks for a page, as a browser does.
     /// </summary>
     private static void Ajax(HttpRequestMessage message, Uri community, SteamHttpRequest request)
     {
         string path = message.RequestUri!.AbsolutePath;
+
+        if (request.ExpectsRedirect)
+        {
+            message.Headers.Accept.ParseAdd("text/html,application/xhtml+xml");
+
+            return;
+        }
+
+        if (request.FollowsRedirects)
+        {
+            return;
+        }
 
         if (path.StartsWith("/mobileconf/", StringComparison.Ordinal))
         {
@@ -135,7 +147,7 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
                 : new Uri(community, "/market/");
     }
 
-    private static SteamRequestOutcome Classify(HttpResponseMessage response, byte[] body, SteamHttpRequest request)
+    private static SteamRequestOutcome Classify(HttpResponseMessage response, byte[] body, SteamHttpRequest request, Uri destination)
     {
         bool isRead = request.IsRead;
         var status = (int)response.StatusCode;
@@ -160,6 +172,11 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
             return isRead ? SteamRequestOutcome.TransientFailure : SteamRequestOutcome.Unknown;
         }
 
+        if (status is >= 300 and < 400 && request.FollowsRedirects)
+        {
+            return WithinHost(response.Headers.Location, destination) ? SteamRequestOutcome.Success : SteamRequestOutcome.InvalidResponse;
+        }
+
         if (status is >= 300 and < 400)
         {
             return request.ExpectsRedirect ? SteamRequestOutcome.Success : isRead ? SteamRequestOutcome.InvalidResponse : SteamRequestOutcome.Unknown;
@@ -171,6 +188,16 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
         }
 
         return Flagged(body) ?? SteamRequestOutcome.Success;
+    }
+
+    /// <summary>
+    ///     A followed redirect stays on the host it was sent to, without user info, a fragment or a backslash.
+    /// </summary>
+    private static bool WithinHost(Uri? location, Uri destination)
+    {
+        return location is not null && !location.OriginalString.Contains('\\') && Uri.TryCreate(destination, location, out Uri? target) &&
+            target.Scheme == destination.Scheme && target.Authority == destination.Authority && target.UserInfo.Length == 0 &&
+            target.Fragment.Length == 0 && !target.AbsolutePath.StartsWith("//", StringComparison.Ordinal);
     }
 
     private static bool IsLogin(Uri? location)

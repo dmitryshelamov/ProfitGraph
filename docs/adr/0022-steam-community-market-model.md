@@ -187,8 +187,9 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   currency, and signed mobile confirmations listed. `Restricted` needs Steam's positive refusal: a non-market answer to
   the eligibility check, a restriction or CAPTCHA, an unsupported wallet, or refused confirmations. Anything that only
   failed to answer stays `Checking`. The attempt is recorded before Steam is asked, and an unconfirmed account is
-  checked again after `EligibilityRecheck` (15 minutes); a ready or restricted one is left to its owner. No Steam bot
-  trades before its account is `Ready`.
+  checked again after `EligibilityRecheck` (15 minutes), a restricted one after `RestrictedRecheck` (an hour, since Steam
+  lifts many restrictions on its own and a refusal is never reused for good), and a ready one is left to its owner. No
+  Steam bot trades before its account is `Ready`.
 
 ### Account, session and request budget
 
@@ -228,7 +229,12 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   alias, no plaintext Steam ID).
 - **Session.** One session per credential owns login finalization, cookies and the session ID; renewal is single-flight;
   a 401, a login redirect or `needauth` renews once for a read and never replays a write. Server time is measured at start
-  and hourly. Guard states `Checking`, `CoolingDown`, `Ready`, `Restricted` follow Profit Fox Designer ADR 0083 with its
+  and hourly. The market page (`/market/?l=english`, wallet and buy orders) is read as a browser navigation: live Steam
+  sends it through `/market/eligibilitycheck/` and back, so a page read follows at most three redirects within the
+  Community host, each a queued read of its own, and anything else is an invalid response. The cookies Steam sets on
+  page reads and on the eligibility check, such as `webTradeEligibility`, are kept for the session and never replace
+  `steamLoginSecure` or `sessionid`; without them every market page goes through the check, which Steam rate limits
+  (Profit Fox Designer `steam-protocol-assumptions`). Page reads and the eligibility check carry no AJAX headers. Guard states `Checking`, `CoolingDown`, `Ready`, `Restricted` follow Profit Fox Designer ADR 0083 with its
   amendments, including the automatic recheck of `Checking`.
 - **Scheduler.** One request in flight per account; priority confirmation and order writes, status, inventory and
   wallet, quotes, history; history only when nothing else waits. Cooldowns wait outside the gate, one retry layer for

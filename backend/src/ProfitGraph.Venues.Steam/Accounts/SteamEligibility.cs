@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using ProfitGraph.Venues.Steam.Confirmations;
@@ -12,14 +13,17 @@ namespace ProfitGraph.Venues.Steam.Accounts;
 ///     eligibility check redirecting back into the market; a readable wallet in a supported currency; and signed mobile
 ///     confirmations listed. <see cref="SteamGuardStatus.Restricted" /> needs Steam's positive refusal: a non-market answer to
 ///     the eligibility check, a restriction or CAPTCHA, an unsupported wallet, or refused confirmations. Anything that only
-///     failed to answer stays <see cref="SteamGuardStatus.Checking" /> and is checked again later.
+///     failed to answer stays <see cref="SteamGuardStatus.Checking" /> and is checked again later. A check that does not make
+///     the account ready logs its stage and Steam's answer: outcomes, status codes and static path segments only, never a
+///     cookie, token, body or Steam ID (Profit Fox Designer <c>SteamWalletClient.LogFailure</c>).
 /// </summary>
 internal sealed class SteamEligibility(
     SteamAccountSessions sessions,
     SteamMarketDataAccount marketData,
     SteamConfirmationClient confirmations,
     IOptions<SteamOptions> options,
-    TimeProvider clock)
+    TimeProvider clock,
+    ILogger<SteamEligibility> logger)
 {
     public const string EligibilityPath = "/market/eligibilitycheck/?goto=%2Fmarket%2F";
 
@@ -33,12 +37,12 @@ internal sealed class SteamEligibility(
 
             if ((serverTime - clock.GetUtcNow()).Duration() > options.Value.ClockTolerance)
             {
-                return SteamGuardStatus.Checking;
+                return Logged(SteamGuardStatus.Checking, "Clock", "FarFromSteam");
             }
         }
-        catch (SteamSessionException)
+        catch (SteamSessionException exception)
         {
-            return SteamGuardStatus.Checking;
+            return Logged(SteamGuardStatus.Checking, "ServerTime", exception.Outcome.ToString());
         }
 
         SteamRequestResult eligibility = await session.Execute(
@@ -47,7 +51,12 @@ internal sealed class SteamEligibility(
 
         if (Eligible(eligibility) is not true)
         {
-            return Eligible(eligibility) is false ? SteamGuardStatus.Restricted : SteamGuardStatus.Checking;
+            return Logged(
+                Eligible(eligibility) is false ? SteamGuardStatus.Restricted : SteamGuardStatus.Checking,
+                "Eligibility",
+                eligibility.Outcome.ToString(),
+                eligibility.Response?.StatusCode,
+                SafePath(eligibility.Response?.Location));
         }
 
         try
@@ -56,15 +65,52 @@ internal sealed class SteamEligibility(
         }
         catch (SteamMarketDataException exception)
         {
-            return exception.Unavailable ? SteamGuardStatus.Checking : SteamGuardStatus.Restricted;
+            return Logged(exception.Unavailable ? SteamGuardStatus.Checking : SteamGuardStatus.Restricted, "Wallet", exception.Message);
         }
 
         return await confirmations.Probe(session, credentialId, cancellationToken) switch
         {
             true => SteamGuardStatus.Ready,
-            false => SteamGuardStatus.Restricted,
-            null => SteamGuardStatus.Checking
+            false => Logged(SteamGuardStatus.Restricted, "Confirmations", "Refused"),
+            null => Logged(SteamGuardStatus.Checking, "Confirmations", "NoAnswer")
         };
+    }
+
+    private SteamGuardStatus Logged(SteamGuardStatus status, string stage, string outcome, int? httpStatus = null, string? redirectPath = null)
+    {
+        logger.LogWarning(
+            "A Steam account check ended {Status} at {Stage}: {Outcome}, HTTP {HttpStatus}, redirect {RedirectPath}.",
+            status,
+            stage,
+            outcome,
+            httpStatus,
+            redirectPath);
+
+        return status;
+    }
+
+    /// <summary>
+    ///     A redirect's path with every segment but Steam's known static ones redacted, since a path can carry an account ID
+    ///     or a token (Profit Fox Designer <c>SteamWalletClient.SafeRedirectPath</c>).
+    /// </summary>
+    private string? SafePath(Uri? location)
+    {
+        if (location is null || !Uri.TryCreate(options.Value.Address(SteamEndpoint.Community), location, out Uri? resolved))
+        {
+            return null;
+        }
+
+        string[] segments = resolved.AbsolutePath.Split('/');
+
+        for (var index = 0; index < segments.Length; index++)
+        {
+            if (segments[index] is not ("" or "market" or "login" or "home" or "eligibilitycheck"))
+            {
+                segments[index] = "[redacted]";
+            }
+        }
+
+        return (resolved.Authority == options.Value.Address(SteamEndpoint.Community).Authority ? string.Empty : "[other host]") + string.Join(separator: '/', segments);
     }
 
     /// <summary>

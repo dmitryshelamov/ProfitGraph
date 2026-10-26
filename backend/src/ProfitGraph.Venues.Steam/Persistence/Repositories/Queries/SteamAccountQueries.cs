@@ -12,7 +12,8 @@ internal static class SteamAccountQueries
                                 SELECT credential_id AS CredentialId, account_fingerprint AS AccountFingerprint, guard_status AS GuardStatus,
                                        next_check_at AS NextCheckAt, created_at AS CreatedAt, updated_at AS UpdatedAt
                                 FROM steam_accounts
-                                WHERE guard_status IN ('Checking', 'CoolingDown') AND next_check_at <= @now
+                                WHERE (guard_status IN ('Checking', 'CoolingDown') AND next_check_at <= @now)
+                                   OR (guard_status = 'Restricted' AND (next_check_at IS NULL OR next_check_at <= @now))
                                 ORDER BY next_check_at, credential_id
                                 """;
 
