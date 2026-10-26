@@ -16,6 +16,7 @@ export const botKeys = {
   position: (id: string) => ['bots', id, 'position'] as const,
   waiting: (id: string) => ['bots', id, 'waiting-orders'] as const,
   openOrders: (id: string) => ['bots', id, 'open-orders'] as const,
+  unresolved: (id: string) => ['bots', id, 'unresolved-orders'] as const,
 };
 
 /** A missing bot and a bot of another user are both 404; retrying cannot change that. */
@@ -202,6 +203,30 @@ export function botWaitingOrdersQuery(id: string) {
       unwrap(await api.GET('/api/bots/{id}/waiting-orders', { params: { path: { id } } })),
     refetchInterval: 15_000,
   });
+}
+
+/** The bot's submits whose delivery to the venue is unknown, and whether each may be confirmed absent now. */
+export function botUnresolvedOrdersQuery(id: string) {
+  return queryOptions({
+    queryKey: botKeys.unresolved(id),
+    queryFn: async () =>
+      unwrap(await api.GET('/api/bots/{id}/unresolved-orders', { params: { path: { id } } })),
+    refetchInterval: 15_000,
+  });
+}
+
+/**
+ * The owner confirms, after checking the account on the venue, that an unresolved submit never reached it. Restarting
+ * the bot then looks the order up again and rejects it only when the venue shows nothing.
+ */
+export async function confirmOrderAbsent(botId: string, intentId: string): Promise<void> {
+  const result = await api.POST('/api/bots/{id}/order-intents/{intentId}/confirm-absent', {
+    params: { path: { id: botId, intentId } },
+  });
+
+  if (!result.response.ok) {
+    unwrap(result);
+  }
 }
 
 export function botFillsQuery(id: string) {

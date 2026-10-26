@@ -40,7 +40,14 @@ gateway amend it in later stage 5 pull requests.
   then on every retry looks the order up first. Failures retry after 1, 2, 5, 15, 30 and then 60 seconds; the tenth
   failure fails the intent. A transient retry (an unreadable balance) waits five seconds without counting. A kill
   rejects every submit that never left the process with `KillSwitch`; cancels and possibly placed submits continue.
-  Reconciliation resolves an undelivered intent once the venue state is known.
+  Reconciliation resolves an undelivered intent once the venue state is known. The owner may confirm a submit absent
+  at the venue (Profit Fox Designer ADR 0055 with its 2026-10-18 follow-ups) when its delivery stopped the bot
+  (`IntentFailed` or `UnresolvedOrder`), it may have left the process, its engine order is still `PendingSubmit` with
+  nothing filled, and its venue's descriptor says `ConfirmsOrderAbsence`. The intent records who and when, is not
+  delivered again, and the next reconciliation passes the confirmation to the gateway, which looks the order up first
+  and rejects it with `OwnerConfirmedAbsent` only when the venue shows nothing; otherwise it stays unresolved.
+  `GET /api/bots/{id}/unresolved-orders` lists such submits and `POST .../order-intents/{intentId}/confirm-absent`
+  confirms one; a restart of the bot then reconciles.
 - **Daily loss.** The first live candle root of a UTC day stores the equity baseline; a later root whose loss from it
   reaches `DailyLossLimitQuote` kills the bot with `DailyLossLimit`.
 - **Global halt.** `TradingHalt` is a singleton: halting raises `TradingHalted`, after which the caller kills the bots

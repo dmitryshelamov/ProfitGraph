@@ -18,4 +18,6 @@ internal sealed class OrderIntentDb
     public string? RejectionReason { get; init; }
     public string? RejectionMessage { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset? ConfirmedAbsentAt { get; init; }
+    public Guid? ConfirmedAbsentBy { get; init; }
 }

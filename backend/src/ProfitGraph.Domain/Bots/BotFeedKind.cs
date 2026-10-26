@@ -21,6 +21,7 @@ public enum BotFeedKind
     OrderPlaced,
     OrderRejected,
     OrderFailed,
+    OrderAbsenceConfirmed,
     Fill,
     PositionOpened,
     PositionClosed,

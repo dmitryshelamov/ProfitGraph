@@ -146,6 +146,57 @@ public sealed class SteamOrderGatewayTests
     }
 
     [Test]
+    public async Task ABuyTheOwnerConfirmedAbsentEndsRejectedWhenSteamShowsNothingOfIt()
+    {
+        SteamOrderGateway gateway = Gateway();
+        ClientOrderId id = await UnclearBuy(gateway);
+
+        BotReconciliationInternal reconciliation = await gateway.Reconcile(Request(ConfirmedAbsent(id)) with { AllowForeignOrders = true }, CancellationToken.None);
+
+        reconciliation.Degradation.ShouldBeNull();
+        reconciliation.Found.ShouldBe([new ReconciledOrderInternal(id, IsFinal: true)]);
+        ExternalOrderUpdate update = reconciliation.Updates.ShouldHaveSingleItem();
+        update.Kind.ShouldBe(ExternalOrderUpdateKind.Rejected);
+        update.Reason.ShouldBe(RejectionReason.OwnerConfirmedAbsent);
+        update.OwnerConfirmedAbsent.ShouldBeTrue();
+        SteamOrderJournalEntry entry = (await _journal.Get(id.Value, CancellationToken.None))!;
+        entry.State.ShouldBe(SteamOrderJournalState.Done);
+        entry.Outcome.ShouldBe(SteamOrderOutcome.Rejected);
+        _harness.Steam.Count("/market/myhistory/render/").ShouldBeGreaterThan(0);
+    }
+
+    [Test]
+    public async Task ABuyOrderOnTheItemKeepsAConfirmedBuyUnresolved()
+    {
+        SteamOrderGateway gateway = Gateway();
+        ClientOrderId id = await UnclearBuy(gateway);
+        _harness.Steam.BuyOrdersHtml = """
+                                       <div id="myListings"><div class="market_listing_row" id="mybuyorder_7001">
+                                       <a class="market_listing_item_name_link" href="https://community.steam.invalid/market/listings/730/Dreams%20%26%20Nightmares%20Case">Case</a>
+                                       <span class="market_listing_price">1 @ 500,00₸</span></div></div>
+                                       """;
+
+        BotReconciliationInternal reconciliation = await gateway.Reconcile(Request(ConfirmedAbsent(id)) with { AllowForeignOrders = true }, CancellationToken.None);
+
+        reconciliation.Degradation.ShouldBe(BotStatusReason.UnresolvedOrder);
+        (await _journal.Get(id.Value, CancellationToken.None))!.State.ShouldNotBe(SteamOrderJournalState.Done);
+    }
+
+    [Test]
+    public async Task APurchaseOfTheItemSinceThePlaceRequestKeepsAConfirmedBuyUnresolved()
+    {
+        SteamOrderGateway gateway = Gateway();
+        ClientOrderId id = await UnclearBuy(gateway);
+        _harness.Steam.History.Add(
+            new MockSteamHistoryEvent(Type: 4, "5001", _harness.Clock.GetUtcNow().ToUnixTimeSeconds(), "205001", "95001", "6001", Paid: 50000, Fee: 0));
+
+        BotReconciliationInternal reconciliation = await gateway.Reconcile(Request(ConfirmedAbsent(id)) with { AllowForeignOrders = true }, CancellationToken.None);
+
+        reconciliation.Degradation.ShouldBe(BotStatusReason.UnresolvedOrder);
+        (await _journal.Get(id.Value, CancellationToken.None))!.State.ShouldNotBe(SteamOrderJournalState.Done);
+    }
+
+    [Test]
     public async Task AnOrderTheJournalNeverSawCancelsLocally()
     {
         SteamOrderGateway gateway = Gateway();
@@ -192,6 +243,25 @@ public sealed class SteamOrderGatewayTests
             "node",
             EligibleFromCandleIndex: 0,
             OrderStatus.Active);
+    }
+
+    private static ReconcileOrderInternal ConfirmedAbsent(ClientOrderId id)
+    {
+        return new ReconcileOrderInternal(EngineOrderId: 1, id, MayHaveReachedVenue: true, OwnerConfirmedAbsent: true);
+    }
+
+    /// <summary>
+    ///     A buy whose place request may have left without an answer: the process stops right after recording it.
+    /// </summary>
+    private static async Task<ClientOrderId> UnclearBuy(SteamOrderGateway gateway)
+    {
+        ClientOrderId id = gateway.ClientOrderIdFor(new BotId(Bot), engineOrderId: 1);
+        await Should.ThrowAsync<InvalidOperationException>(() => gateway.Submit(
+            new OrderSubmitInternal(new BotId(Bot), id, Buy(quantity: 1), MustLookUpBeforeSubmit: false),
+            _ => throw new InvalidOperationException("The process stops here."),
+            CancellationToken.None));
+
+        return id;
     }
 
     private static BotReconcileInternal Request(params ReconcileOrderInternal[] orders)
@@ -242,7 +312,10 @@ public sealed class SteamOrderGatewayTests
             _updates,
             _harness.MarketData(),
             _harness.Protection(),
-            scopes);
+            scopes,
+            new SteamMarketHistory(_receipts, Options.Create(_harness.Options)),
+            _harness.Sessions(),
+            _harness.Clock);
     }
 
     private SteamOrderWorker Worker()

@@ -41,7 +41,10 @@ credentials, call authenticated Steam endpoints or place, approve or cancel real
     request (`VenueAccountProtection`). Solve the cause on Steam, then resume the protection on the credential card;
     transient noise resumes by itself a few times.
 12. **Unresolved orders.** A write that may have reached Steam without a clear answer is never sent again; the bot degrades
-    with `UnresolvedOrder`. Check the account on Steam, then let reconciliation settle it.
+    with `UnresolvedOrder` or `IntentFailed`. Check the account on Steam: buy orders, market history and the app's
+    confirmations. If a buy is in none of them, confirm it absent under «Неясные заявки» on the bot's page and restart
+    the bot; it closes the buy only when Steam, read again, shows nothing of it. The Worker's log names Steam's answer
+    codes for every write.
 13. **Steam Guard code.** The credential card shows the current code to the owner only, for signing in elsewhere.
 
 ## Stopping

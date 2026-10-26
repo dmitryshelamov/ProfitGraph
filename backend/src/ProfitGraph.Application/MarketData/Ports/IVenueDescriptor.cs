@@ -23,6 +23,13 @@ public interface IVenueDescriptor
     IReadOnlyList<string> BacktestLimits => [];
 
     /// <summary>
+    ///     Whether the owner may confirm a submit absent at the venue when its delivery is unknown: the venue's gateway then
+    ///     looks the order up again during reconciliation and rejects it only when the venue shows nothing (Profit Fox
+    ///     Designer ADR 0055). False for a venue whose gateway does not check.
+    /// </summary>
+    bool ConfirmsOrderAbsence => false;
+
+    /// <summary>
     ///     Turns user input into the venue's canonical symbol, or reports that the input is not a symbol of this venue.
     /// </summary>
     bool TryParseSymbol(string? input, [NotNullWhen(true)] out InstrumentSymbol? symbol);

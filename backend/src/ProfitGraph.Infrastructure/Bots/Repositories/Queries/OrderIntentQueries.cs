@@ -7,7 +7,7 @@ internal static class OrderIntentQueries
                                    payload::text AS Payload, from_kill AS FromKill, status AS Status, attempts AS Attempts,
                                    next_attempt_at AS NextAttemptAt, claimed_at AS ClaimedAt, place_started_at AS PlaceStartedAt,
                                    sent_at AS SentAt, rejection_reason AS RejectionReason, rejection_message AS RejectionMessage,
-                                   created_at AS CreatedAt
+                                   created_at AS CreatedAt, confirmed_absent_at AS ConfirmedAbsentAt, confirmed_absent_by AS ConfirmedAbsentBy
                                    """;
 
     internal const string GetForUpdate = $"SELECT {Columns} FROM bot_order_intents WHERE id = @id FOR UPDATE";
@@ -30,7 +30,8 @@ internal static class OrderIntentQueries
                                    UPDATE bot_order_intents SET
                                        status = @Status, attempts = @Attempts, next_attempt_at = @NextAttemptAt, claimed_at = @ClaimedAt,
                                        place_started_at = @PlaceStartedAt, sent_at = @SentAt, rejection_reason = @RejectionReason,
-                                       rejection_message = @RejectionMessage
+                                       rejection_message = @RejectionMessage, confirmed_absent_at = @ConfirmedAbsentAt,
+                                       confirmed_absent_by = @ConfirmedAbsentBy
                                    WHERE id = @Id
                                    """;
 

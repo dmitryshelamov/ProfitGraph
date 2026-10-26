@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text.Json;
 
+using Microsoft.Extensions.Logging;
+
 using ProfitGraph.Venues.Steam.Session;
 
 namespace ProfitGraph.Venues.Steam.Orders;
@@ -59,6 +61,25 @@ internal static class SteamWriteReplyParser
         {
             return new SteamWriteReceipt(SteamWriteReceiptKind.Unknown);
         }
+    }
+
+    /// <summary>
+    ///     Logs what Steam answered a write, so a refusal can be told apart later: the request outcome, the HTTP status,
+    ///     Steam's <c>success</c> and <c>x-eresult</c> codes and the receipt. Never a body, cookie, order ID or amount.
+    /// </summary>
+    public static SteamWriteReceipt Logged(this SteamWriteReceipt receipt, ILogger? logger, string operation, SteamRequestResult result)
+    {
+        logger?.Log(
+            receipt.Kind == SteamWriteReceiptKind.Accepted ? LogLevel.Information : LogLevel.Warning,
+            "Steam {Operation} ended {Receipt}: outcome {Outcome}, HTTP {HttpStatus}, success {SteamCode}, eresult {EResult}.",
+            operation,
+            receipt.Kind,
+            result.Outcome,
+            result.Response?.StatusCode,
+            receipt.SteamCode,
+            result.Response?.EResult);
+
+        return receipt;
     }
 
     internal static string? Text(JsonElement element, string field)

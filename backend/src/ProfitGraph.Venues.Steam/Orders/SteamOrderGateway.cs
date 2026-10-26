@@ -11,6 +11,7 @@ using ProfitGraph.Venues.Steam.Accounts;
 using ProfitGraph.Venues.Steam.History;
 using ProfitGraph.Venues.Steam.MarketData;
 using ProfitGraph.Venues.Steam.Protection;
+using ProfitGraph.Venues.Steam.Session;
 
 namespace ProfitGraph.Venues.Steam.Orders;
 
@@ -20,7 +21,9 @@ namespace ProfitGraph.Venues.Steam.Orders;
 ///     attributed history, so a reconnecting runner hears the same state again. Reconciliation refuses an account whose
 ///     Steam Guard is not ready, whose wallet is in another currency than the item or whose protection is open, and a
 ///     foreign buy order on the bot's item unless the bot allows them. An order whose write may have reached Steam without a
-///     clear answer is unresolved.
+///     clear answer is unresolved, unless the owner confirmed a buy absent and Steam shows nothing of it: no buy order of the
+///     account on the item and no purchase of it since the place request in freshly read history (Profit Fox Designer ADR
+///     0055). Such a buy ends rejected and frees its slot.
 /// </summary>
 internal sealed class SteamOrderGateway(
     ISteamBotAccounts accounts,
@@ -32,8 +35,17 @@ internal sealed class SteamOrderGateway(
     SteamOrderUpdates updates,
     SteamMarketDataAccount marketData,
     SteamAccountProtection protection,
-    IServiceScopeFactory scopes) : IOrderGateway
+    IServiceScopeFactory scopes,
+    SteamMarketHistory history,
+    SteamAccountSessions sessions,
+    TimeProvider clock) : IOrderGateway
 {
+    /// <summary>
+    ///     How much earlier than its place request a purchase may be stamped by Steam and still be the buy's (Profit Fox
+    ///     Designer's fixed local tolerance, as in <see cref="SteamExecutions" />).
+    /// </summary>
+    private static readonly TimeSpan Skew = TimeSpan.FromSeconds(60);
+
     public VenueId Venue => SteamVenue.VenueId;
 
     public ClientOrderId ClientOrderIdFor(BotId botId, long engineOrderId)
@@ -109,6 +121,19 @@ internal sealed class SteamOrderGateway(
                 continue;
             }
 
+            if (order.OwnerConfirmedAbsent && await ProvenAbsent(bot, entry, cancellationToken))
+            {
+                known.Add(
+                    ExternalOrderUpdate.Reject(
+                        entry.EngineOrderId,
+                        RejectionReason.OwnerConfirmedAbsent,
+                        "The owner confirmed the buy absent and Steam shows nothing of it.",
+                        ownerConfirmedAbsent: true));
+                found.Add(new ReconciledOrderInternal(order.ClientOrderId, IsFinal: true));
+
+                continue;
+            }
+
             if (entry.State is SteamOrderJournalState.Placing or SteamOrderJournalState.Approving or SteamOrderJournalState.Unknown ||
                 (entry.Side == OrderSide.Sell && (await journal.Reservations(entry.ClientOrderId, cancellationToken)).Any(reservation =>
                     reservation.State is SteamReservationState.Listing or SteamReservationState.Approving or SteamReservationState.Delisting or
@@ -129,6 +154,75 @@ internal sealed class SteamOrderGateway(
         }
 
         return new BotReconciliationInternal(known, found, Degradation: null);
+    }
+
+    /// <summary>
+    ///     Whether a buy the owner confirmed absent left nothing on Steam, read fresh: no buy order of the account on the item
+    ///     other than the journal's known ones, and no unattributed purchase of the item since its place request. When so, its
+    ///     entry ends rejected. A buy awaiting its mobile confirmation, a sell, or anything Steam may hold stays unresolved; a
+    ///     page or history Steam cannot give now is retried later.
+    /// </summary>
+    private async Task<bool> ProvenAbsent(SteamBotAccount bot, SteamOrderJournalEntry entry, CancellationToken cancellationToken)
+    {
+        if (entry is not { Side: OrderSide.Buy, State: SteamOrderJournalState.Placing or SteamOrderJournalState.Unknown, SteamOrderId: null } ||
+            !SteamInstrument.TryParse(entry.Instrument, out SteamInstrument? instrument))
+        {
+            return false;
+        }
+
+        SteamWallet wallet;
+        IReadOnlyList<SteamAccountBuyOrder>? orders;
+
+        try
+        {
+            byte[] page = await marketData.MarketPageOf(bot.CredentialId, cancellationToken);
+            wallet = SteamWalletParser.Read(page);
+            orders = SteamAccountBuyOrdersParser.Read(page);
+        }
+        catch (SteamMarketDataException exception)
+        {
+            throw new SteamOrderUnresolvedException(exception.Message);
+        }
+
+        HashSet<string> known =
+        [
+            .. (await journal.Open(bot.CredentialId, cancellationToken))
+            .Where(open => open.ClientOrderId != entry.ClientOrderId)
+            .Select(open => open.SteamOrderId)
+            .OfType<string>()
+        ];
+
+        if (orders is null)
+        {
+            throw new SteamOrderUnresolvedException("The account's buy orders are unreadable.");
+        }
+
+        if (orders.Any(order => order.AppId == instrument.AppId && order.MarketHashName == instrument.MarketHashName && !known.Contains(order.Id)))
+        {
+            return false;
+        }
+
+        if (await history.Read(sessions.For(bot.OwnerId, bot.CredentialId), bot.CredentialId, wallet.Currency, wallet.SellerFees, cancellationToken) is null)
+        {
+            throw new SteamOrderUnresolvedException("The account's market history is unknown now.");
+        }
+
+        HashSet<string> attributed = [.. (await attributions.Of(bot.CredentialId, cancellationToken)).Select(attribution => attribution.ReceiptId)];
+        DateTimeOffset since = (entry.PlaceStartedAt ?? entry.CreatedAt) - Skew;
+
+        if ((await receipts.From(bot.CredentialId, position: 0, cancellationToken)).Any(stored => stored.Receipt is
+                {
+                    Kind: SteamMarketReceiptKind.Bought
+                } receipt && receipt.AppId == instrument.AppId && receipt.MarketHashName == instrument.MarketHashName && receipt.At >= since &&
+                !attributed.Contains(receipt.Id)))
+        {
+            return false;
+        }
+
+        return await journal.Transition(
+            entry with { State = SteamOrderJournalState.Done, Outcome = SteamOrderOutcome.Rejected, UpdatedAt = clock.GetUtcNow() },
+            entry.State,
+            cancellationToken);
     }
 
     /// <summary>
