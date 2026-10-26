@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import {
   AlertsList,
+  BotAssetCard,
   BotControls,
   BotFeedList,
   BotFillsTable,
@@ -117,6 +118,7 @@ export function BotPage() {
           {strategy.data?.name ?? 'открыть стратегию'}
         </Link>
       </p>
+      <BotAssetCard bot={current} />
       <TradingHaltBanner />
       <Card title="Состояние" actions={<BotStatusBadge bot={current} />}>
         <div className="space-y-4">

@@ -76,7 +76,12 @@ internal sealed class SteamInstrumentCatalog(SteamMarketDataAccount account, IOp
                 if (result.TryGetProperty("hash_name", out JsonElement name) && name.ValueKind == JsonValueKind.String &&
                     SteamInstrument.TryParse($"{currency.Code}:{appId}:{name.GetString()}", out SteamInstrument? instrument))
                 {
-                    found.Add(new InstrumentInternal(SteamVenue.VenueId.Value, instrument.Symbol.Value, instrument.MarketHashName, currency.Code));
+                    found.Add(new InstrumentInternal(
+                            SteamVenue.VenueId.Value,
+                            instrument.Symbol.Value,
+                            instrument.MarketHashName,
+                            currency.Code,
+                            SteamItemAppearanceParser.Parse(result)));
                 }
             }
 

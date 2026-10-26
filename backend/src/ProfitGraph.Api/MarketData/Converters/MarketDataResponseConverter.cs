@@ -48,6 +48,18 @@ public static class MarketDataResponseConverter
 
     public static InstrumentResponse ToResponse(this InstrumentInternal instrument)
     {
-        return new InstrumentResponse(instrument.Venue, instrument.Symbol, instrument.BaseAsset, instrument.QuoteAsset);
+        return new InstrumentResponse(
+            instrument.Venue,
+            instrument.Symbol,
+            instrument.BaseAsset,
+            instrument.QuoteAsset,
+            instrument.Appearance is { } appearance
+                ? new InstrumentAppearanceResponse(
+                    appearance.ImageUrl,
+                    appearance.Kind,
+                    appearance.NameColor,
+                    appearance.BackgroundColor,
+                    appearance.Description)
+                : null);
     }
 }

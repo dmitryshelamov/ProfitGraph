@@ -57,6 +57,50 @@ describe('bot reports', () => {
     vi.unstubAllGlobals();
   });
 
+  it('shows the Steam item with its picture, kind and description', async () => {
+    const symbol = 'KZT:730:Dreams & Nightmares Case';
+    fakeApi(
+      routes({
+        [`GET ${botPath}`]: () => json({ ...bot, venue: 'steam', symbol }),
+        'GET /api/market-data/instruments': () =>
+          json([
+            {
+              venue: 'steam',
+              symbol,
+              baseAsset: 'Dreams & Nightmares Case',
+              quoteAsset: 'KZT',
+              appearance: {
+                imageUrl: 'https://community.steamstatic.com/economy/image/abc/256fx256f',
+                kind: 'Base Grade Container',
+                nameColor: 'D2D2D2',
+                backgroundColor: null,
+                description: ['Contains one item'],
+              },
+            },
+          ]),
+      }),
+    );
+    renderApp(`/bots/${bot.id}`);
+
+    const card = await screen.findByRole('region', { name: 'Актив' });
+    expect(within(card).getByText('Dreams & Nightmares Case')).toBeInTheDocument();
+    expect(await within(card).findByText('Base Grade Container')).toBeInTheDocument();
+    expect(within(card).getByText('Contains one item')).toBeInTheDocument();
+    expect(card.querySelector('img')).toHaveAttribute(
+      'src',
+      'https://community.steamstatic.com/economy/image/abc/256fx256f',
+    );
+  });
+
+  it('shows only the name when the venue describes nothing', async () => {
+    fakeApi(routes());
+    renderApp(`/bots/${bot.id}`);
+
+    const card = await screen.findByRole('region', { name: 'Актив' });
+    expect(within(card).getByText('BTCUSDT')).toBeInTheDocument();
+    expect(card.querySelector('img')).toBeNull();
+  });
+
   it('shows the position at the stored price and switches to a newer live ticker', async () => {
     fakeApi(routes({ [`GET ${botPath}/position?cycles=20`]: () => json(openPosition) }));
     renderApp(`/bots/${bot.id}`);

@@ -103,6 +103,29 @@ public sealed class SteamMarketDataTests
     }
 
     [Test]
+    public async Task SearchDescribesAnItemWithItsImageKindAndCleanedLines()
+    {
+        var harness = new SteamSessionHarness();
+        harness.Steam.SearchResults =
+            """
+            {"success":true,"results":[
+              {"hash_name":"Dreams & Nightmares Case","asset_description":{"icon_url":"abc-DEF_1","icon_url_large":"large_1","type":"Base Grade <b>Container</b>","name_color":"D2D2D2","background_color":"zzz","descriptions":[{"value":"Contains &amp; one item"},{"value":"<br>"},{"value":"Second line"}]}},
+              {"hash_name":"Plain","asset_description":{"icon_url":"https://evil.example/x.png"}}]}
+            """;
+        var catalog = new SteamInstrumentCatalog(harness.MarketData(), Options.Create(harness.Options));
+
+        IReadOnlyList<InstrumentInternal> found = await catalog.Search("dreams", limit: 10, CancellationToken.None);
+
+        InstrumentAppearanceInternal appearance = found[0].Appearance.ShouldNotBeNull();
+        appearance.ImageUrl.ShouldBe("https://community.steamstatic.com/economy/image/large_1/256fx256f");
+        appearance.Kind.ShouldBe("Base Grade Container");
+        appearance.NameColor.ShouldBe("D2D2D2");
+        appearance.BackgroundColor.ShouldBeNull();
+        appearance.Description.ShouldBe(["Contains & one item", "Second line"]);
+        found[1].Appearance.ShouldBeNull();
+    }
+
+    [Test]
     public async Task EveryItemTradesWholeAtTheWalletsMinorUnit()
     {
         InstrumentRulesDefinitionInternal definition = await new SteamInstrumentRulesSource(new SteamSessionHarness().MarketData()).Get(Case, CancellationToken.None);
