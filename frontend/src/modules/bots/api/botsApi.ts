@@ -15,6 +15,7 @@ export const botKeys = {
   feed: (id: string) => ['bots', id, 'feed'] as const,
   position: (id: string) => ['bots', id, 'position'] as const,
   waiting: (id: string) => ['bots', id, 'waiting-orders'] as const,
+  openOrders: (id: string) => ['bots', id, 'open-orders'] as const,
 };
 
 /** A missing bot and a bot of another user are both 404; retrying cannot change that. */
@@ -177,6 +178,16 @@ export function liveImpactQuery(strategyId: string) {
       unwrap(
         await api.GET('/api/strategies/{id}/live-impact', { params: { path: { id: strategyId } } }),
       ),
+  });
+}
+
+/** The bot's open orders as its engine holds them: at the venue, being submitted or being cancelled. */
+export function botOpenOrdersQuery(id: string) {
+  return queryOptions({
+    queryKey: botKeys.openOrders(id),
+    queryFn: async () =>
+      unwrap(await api.GET('/api/bots/{id}/open-orders', { params: { path: { id } } })),
+    refetchInterval: 15_000,
   });
 }
 
