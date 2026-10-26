@@ -56,4 +56,38 @@ public sealed class ExternallyExecutedAccountTests
         order.Status.ShouldBe(OrderStatus.Cancelled);
         account.Capture().QuoteReserved.ShouldBe(0m);
     }
+
+    [Test]
+    public void ARunningAccountTakesMoreCapitalAsFreeQuote()
+    {
+        var account = new ExternallyExecutedAccount(Settings, Rules);
+        account.Submit(new OrderRequest(OrderSide.Buy, OrderType.Limit, Amount: 25m, LimitPrice: 5m, "entry", "buy", EligibleFromCandleIndex: 1));
+
+        account.AdjustCapital(newCapital: 300m);
+
+        AccountSnapshot snapshot = account.Capture();
+        snapshot.StartingCapital.ShouldBe(300m);
+        snapshot.QuoteTotal.ShouldBe(300m);
+        snapshot.QuoteReserved.ShouldBe(25m);
+        snapshot.QuoteAvailable.ShouldBe(275m);
+        snapshot.Orders.Single().Status.ShouldBe(OrderStatus.PendingSubmit);
+    }
+
+    [Test]
+    public void ACapitalCannotFallBelowWhatIsReserved()
+    {
+        var account = new ExternallyExecutedAccount(Settings, Rules);
+        account.Submit(new OrderRequest(OrderSide.Buy, OrderType.Limit, Amount: 25m, LimitPrice: 5m, "entry", "buy", EligibleFromCandleIndex: 1));
+
+        account.CanAdjustCapital(newCapital: 25m).ShouldBeTrue();
+        account.CanAdjustCapital(newCapital: 24m).ShouldBeFalse();
+        account.CanAdjustCapital(newCapital: 0m).ShouldBeFalse();
+        Should.Throw<TradingInvariantException>(() => account.AdjustCapital(newCapital: 24m));
+        account.Capture().StartingCapital.ShouldBe(100m);
+
+        account.AdjustCapital(newCapital: 25m);
+
+        account.Capture().QuoteTotal.ShouldBe(25m);
+        account.Capture().QuoteAvailable.ShouldBe(0m);
+    }
 }

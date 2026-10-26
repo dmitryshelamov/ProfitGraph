@@ -75,6 +75,7 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
             await Report(sender, BotRuntimeReport.Starting, hostToken);
             tasks.Add(KeepLease(hostToken));
             BotEngineSession session = await scope.ServiceProvider.GetRequiredService<BotEngineSessionFactory>().Open(bot, holder, epoch, gateway, hostToken);
+            await scope.ServiceProvider.GetRequiredService<BotGraphFollower>().ApplySettings(bot, holder, epoch, session, hostToken);
             BotReconcileResult? reconciled = await Reconcile(scope.ServiceProvider.GetRequiredService<BotReconciler>(), session, gateway, sender, hostToken);
 
             if (reconciled is { Degradation: not null })
