@@ -18,6 +18,7 @@ function botRoutes(current = bot) {
     [`GET ${botPath}/fills?limit=50`]: () => json({ items: [], next: null }),
     [`GET ${botPath}/feed?limit=50`]: () => json({ items: [], next: null }),
     [`GET ${botPath}/position?cycles=20`]: () => json(flatPosition),
+    [`GET ${botPath}/open-orders`]: () => json([]),
   };
 }
 
@@ -93,6 +94,53 @@ describe('bots', () => {
         ),
       }),
     ]);
+  });
+
+  it('shows the bot’s open orders with their fill', async () => {
+    fakeApi({
+      ...botRoutes(),
+      [`GET ${botPath}/open-orders`]: () =>
+        json([
+          {
+            engineOrderId: 2,
+            tag: 'ladder.exit',
+            side: 'Sell',
+            type: 'Limit',
+            status: 'Active',
+            quantity: '832.75',
+            limitPrice: '0.03872',
+            quoteBudget: null,
+            filledBase: '12.5',
+          },
+          {
+            engineOrderId: 3,
+            tag: 'ladder.average',
+            side: 'Buy',
+            type: 'Limit',
+            status: 'PendingCancel',
+            quantity: '893.38',
+            limitPrice: '0.03358',
+            quoteBudget: null,
+            filledBase: '0',
+          },
+        ]),
+    });
+    renderApp(`/bots/${bot.id}`);
+
+    const table = await screen.findByRole('table', { name: 'Активные ордера бота' });
+    const exit = within(within(table).getByText('ladder.exit').closest('tr')!);
+    expect(exit.getByText('Продажа')).toBeInTheDocument();
+    expect(exit.getByText('0.03872')).toBeInTheDocument();
+    expect(exit.getByText('12.5')).toBeInTheDocument();
+    expect(exit.getByText('Стоит на бирже')).toBeInTheDocument();
+    expect(within(table).getByText('Отменяется')).toBeInTheDocument();
+  });
+
+  it('says so when the bot has no open orders', async () => {
+    fakeApi(botRoutes());
+    renderApp(`/bots/${bot.id}`);
+
+    expect(await screen.findByText('Активных ордеров нет.')).toBeInTheDocument();
   });
 
   it('starts a bot and kills it only after confirming', async () => {

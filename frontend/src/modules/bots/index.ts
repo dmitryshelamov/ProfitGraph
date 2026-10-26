@@ -5,6 +5,7 @@ export {
   botFeedQuery,
   botFillsQuery,
   botKeys,
+  botOpenOrdersQuery,
   botPositionQuery,
   botQuery,
   botsQuery,
@@ -21,6 +22,7 @@ export { AlertsList } from './ui/AlertsList';
 export { BotControls } from './ui/BotControls';
 export { BotFeedList } from './ui/BotFeedList';
 export { BotFillsTable } from './ui/BotFillsTable';
+export { BotOpenOrders } from './ui/BotOpenOrders';
 export { BotPositionCard } from './ui/BotPositionCard';
 export { ForeignOrdersToggle, ParametersForm, RiskLimitsForm } from './ui/BotSettings';
 export { BotsTable } from './ui/BotsTable';

@@ -11,6 +11,7 @@ using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.GetBot;
 using ProfitGraph.Application.Bots.GetBotFeed;
 using ProfitGraph.Application.Bots.GetBotFills;
+using ProfitGraph.Application.Bots.GetBotOpenOrders;
 using ProfitGraph.Application.Bots.GetBotPosition;
 using ProfitGraph.Application.Bots.GetBots;
 using ProfitGraph.Application.Bots.GetBotUnresolvedOrders;
@@ -110,6 +111,16 @@ public sealed class BotsController(ISender sender) : ControllerBase
     public async Task<ActionResult<IReadOnlyList<BotOrderWaitingResponse>>> WaitingOrders(Guid id, CancellationToken cancellationToken)
     {
         return (await sender.Send(new GetBotWaitingOrdersQuery(UserId(), id), cancellationToken)).Select(waiting => waiting.ToResponse()).ToArray();
+    }
+
+    /// <summary>
+    ///     The bot's open orders as its engine holds them: limit exits and averaging orders waiting at the venue, orders about to be
+    ///     submitted and orders about to be cancelled.
+    /// </summary>
+    [HttpGet("{id:guid}/open-orders")]
+    public async Task<ActionResult<IReadOnlyList<BotOpenOrderResponse>>> OpenOrders(Guid id, CancellationToken cancellationToken)
+    {
+        return (await sender.Send(new GetBotOpenOrdersQuery(UserId(), id), cancellationToken)).Select(order => order.ToResponse()).ToArray();
     }
 
     /// <summary>
