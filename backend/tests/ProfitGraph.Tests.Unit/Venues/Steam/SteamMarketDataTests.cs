@@ -105,7 +105,7 @@ public sealed class SteamMarketDataTests
     [Test]
     public async Task EveryItemTradesWholeAtTheWalletsMinorUnit()
     {
-        InstrumentRulesDefinitionInternal definition = await new SteamInstrumentRulesSource().Get(Case, CancellationToken.None);
+        InstrumentRulesDefinitionInternal definition = await new SteamInstrumentRulesSource(new SteamSessionHarness().MarketData()).Get(Case, CancellationToken.None);
 
         definition.ShouldSatisfyAllConditions(
             () => definition.BaseAsset.ShouldBe("Dreams & Nightmares Case"),
@@ -116,5 +116,31 @@ public sealed class SteamMarketDataTests
             () => definition.Rules.MinNotional.ShouldBe(0.03m),
             () => definition.Rules.BasePrecision.ShouldBe(0),
             () => definition.Rules.QuotePrecision.ShouldBe(2));
+    }
+
+    [Test]
+    public async Task AWalletOfWholeTengePricesItemsInWholeTenge()
+    {
+        var harness = new SteamSessionHarness();
+        harness.Steam.WalletInfo = harness.Steam.WalletInfo.Replace("\"wallet_currency_increment\":1", "\"wallet_currency_increment\":100", StringComparison.Ordinal);
+
+        InstrumentRulesDefinitionInternal definition = await new SteamInstrumentRulesSource(harness.MarketData()).Get(Case, CancellationToken.None);
+
+        definition.ShouldSatisfyAllConditions(
+            () => definition.QuotePrecisionIncrement.ShouldBe(0.01m),
+            () => definition.Rules.PriceTick.ShouldBe(1m),
+            () => definition.Rules.MinNotional.ShouldBe(3m),
+            () => definition.Rules.QuotePrecision.ShouldBe(2));
+    }
+
+    [Test]
+    public async Task AnItemInAnotherCurrencyThanTheWalletHasNoRules()
+    {
+        var source = new SteamInstrumentRulesSource(new SteamSessionHarness().MarketData());
+
+        var refused =
+            await Should.ThrowAsync<InstrumentRulesException>(() => source.Get(new InstrumentSymbol("USD:730:Dreams & Nightmares Case"), CancellationToken.None));
+
+        refused.Code.ShouldBe(InstrumentRulesErrorCodes.InvalidRequest);
     }
 }

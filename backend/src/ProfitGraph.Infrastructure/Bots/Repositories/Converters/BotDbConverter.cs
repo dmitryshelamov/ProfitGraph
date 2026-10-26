@@ -6,6 +6,7 @@ using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Market;
 using ProfitGraph.Infrastructure.Backtesting;
 using ProfitGraph.Infrastructure.Backtesting.Repositories.Contracts;
+using ProfitGraph.Infrastructure.Backtesting.Repositories.Converters;
 using ProfitGraph.Infrastructure.Bots.Repositories.Contracts;
 
 namespace ProfitGraph.Infrastructure.Bots.Repositories.Converters;
@@ -90,13 +91,11 @@ internal static class BotDbConverter
             return null;
         }
 
-        var row = BacktestJsonSerializer.Deserialize<SellerFeeScheduleDb>(json);
-
-        return new SellerFeeSchedule(row.Rates, row.Minimum);
+        return BacktestJsonSerializer.Deserialize<SellerFeeScheduleDb>(json).ToDomain();
     }
 
     private static string? SellerFeesJson(SellerFeeSchedule? fees)
     {
-        return fees is null ? null : BacktestJsonSerializer.Serialize(new SellerFeeScheduleDb { Rates = [.. fees.Rates], Minimum = fees.Minimum });
+        return fees is null ? null : BacktestJsonSerializer.Serialize(fees.ToDb());
     }
 }

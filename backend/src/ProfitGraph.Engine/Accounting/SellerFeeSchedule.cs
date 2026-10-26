@@ -5,8 +5,10 @@ namespace ProfitGraph.Engine.Accounting;
 /// <summary>
 ///     Marketplace fees paid by the seller per unit (ADR 0022, C2). A price is what the buyer pays for one unit, with no
 ///     buyer fee. For a seller amount <c>S</c> in minor units of the quote asset, every component with a positive rate
-///     costs <c>max(minimum, floor(S × rate))</c> and the buyer pays <c>S</c> plus all components. Not every buyer price is
-///     reachable this way: a sell limit price is raised to the next representable price, never lowered.
+///     floors <c>S × rate</c>, takes the minimum when that is not above it, at least one increment, and otherwise rounds
+///     half up to a whole number of increments; the buyer pays <c>S</c> plus all components. With an increment of one minor
+///     unit a component costs <c>max(minimum, floor(S × rate))</c>. A seller receives only whole increments. Not every buyer
+///     price is reachable this way: a sell limit price is raised to the next representable price, never lowered.
 /// </summary>
 public sealed record SellerFeeSchedule
 {
@@ -19,7 +21,13 @@ public sealed record SellerFeeSchedule
     /// </summary>
     public decimal Minimum { get; }
 
-    public SellerFeeSchedule(IEnumerable<decimal> rates, decimal minimum)
+    /// <summary>
+    ///     The step of every seller amount and fee, in minor units of the quote asset: one for most wallets, a hundred for a
+    ///     wallet that counts only whole units of its currency.
+    /// </summary>
+    public long Increment { get; }
+
+    public SellerFeeSchedule(IEnumerable<decimal> rates, decimal minimum, long increment = 1)
     {
         Rates = [.. rates];
 
@@ -33,12 +41,18 @@ public sealed record SellerFeeSchedule
             throw new TradingInvariantException("The minimum seller fee cannot be negative.");
         }
 
+        if (increment < 1)
+        {
+            throw new TradingInvariantException("The seller fee increment must be at least one minor unit.");
+        }
+
         Minimum = minimum;
+        Increment = increment;
     }
 
     public bool Equals(SellerFeeSchedule? other)
     {
-        return other is not null && Minimum == other.Minimum && Rates.SequenceEqual(other.Rates);
+        return other is not null && Minimum == other.Minimum && Increment == other.Increment && Rates.SequenceEqual(other.Rates);
     }
 
     /// <summary>
@@ -52,21 +66,21 @@ public sealed record SellerFeeSchedule
     }
 
     /// <summary>
-    ///     What the seller receives for a unit the buyer pays <paramref name="buyerPrice" /> for: the largest seller amount
-    ///     whose buyer price does not exceed it. For a representable price the difference is exactly the fees.
+    ///     What the seller receives for a unit the buyer pays <paramref name="buyerPrice" /> for: the largest seller amount in
+    ///     whole increments whose buyer price does not exceed it. For a representable price the difference is exactly the fees.
     /// </summary>
     public decimal SellerAmount(decimal buyerPrice, int quotePrecision)
     {
         decimal unit = MinorUnit(quotePrecision);
         long target = ToUnits(buyerPrice, unit, exact: false);
         long low = 0;
-        long high = target;
+        long high = target / Increment;
 
         while (low < high)
         {
             long middle = low + (high - low + 1) / 2;
 
-            if (BuyerUnits(middle, quotePrecision) <= target)
+            if (BuyerUnits(middle * Increment, quotePrecision) <= target)
             {
                 low = middle;
             }
@@ -76,7 +90,7 @@ public sealed record SellerFeeSchedule
             }
         }
 
-        return low * unit;
+        return low * Increment * unit;
     }
 
     /// <summary>
@@ -87,7 +101,7 @@ public sealed record SellerFeeSchedule
         decimal below = SellerAmount(buyerPrice, quotePrecision);
         decimal candidate = BuyerPrice(below, quotePrecision);
 
-        return candidate >= buyerPrice ? candidate : BuyerPrice(below + MinorUnit(quotePrecision), quotePrecision);
+        return candidate >= buyerPrice ? candidate : BuyerPrice(below + Increment * MinorUnit(quotePrecision), quotePrecision);
     }
 
     /// <summary>
@@ -102,6 +116,7 @@ public sealed record SellerFeeSchedule
     {
         var hash = new HashCode();
         hash.Add(Minimum);
+        hash.Add(Increment);
 
         foreach (decimal rate in Rates)
         {
@@ -125,11 +140,30 @@ public sealed record SellerFeeSchedule
         {
             if (rate > 0m)
             {
-                total += Math.Max(minimumUnits, (long)decimal.Floor(sellerUnits * rate));
+                total = checked(total + ComponentUnits((long)decimal.Floor(sellerUnits * rate), minimumUnits));
             }
         }
 
         return total;
+    }
+
+    /// <summary>
+    ///     The rounding of one floored component (Profit Fox Designer ADR 0082): the minimum, then one increment, then the
+    ///     nearest whole number of increments, half up.
+    /// </summary>
+    private long ComponentUnits(long floored, long minimumUnits)
+    {
+        if (floored <= minimumUnits)
+        {
+            return minimumUnits;
+        }
+
+        if (floored <= Increment)
+        {
+            return Increment;
+        }
+
+        return checked((floored + Increment / 2) / Increment * Increment);
     }
 
     private static decimal MinorUnit(int quotePrecision)

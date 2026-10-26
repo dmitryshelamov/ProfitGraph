@@ -204,22 +204,24 @@ internal sealed class SteamBuyOrders(
         CancellationToken cancellationToken)
     {
         decimal minor = bot.Instrument.Currency.MinorUnit;
+        long increment = bot.Increment;
         long price;
 
         if (order.Type == OrderType.Limit)
         {
             decimal units = (order.LimitPrice ?? 0m) / minor;
 
-            if (units <= 0m || units != decimal.Truncate(units) || units > long.MaxValue)
+            if (units <= 0m || units != decimal.Truncate(units) || units > long.MaxValue || (long)units % increment != 0)
             {
-                return (null, ExternalOrderUpdate.Reject(order.Id, RejectionReason.InvalidPrice, "The price is not a whole Steam minor unit."));
+                return (null, ExternalOrderUpdate.Reject(order.Id, RejectionReason.InvalidPrice, "The price is not a whole step of the Steam wallet currency."));
             }
 
             price = (long)units;
         }
         else if (await client.LowestListing(sessions.For(bot.OwnerId, bot.CredentialId), bot.Instrument, cancellationToken) is { } lowest)
         {
-            price = (long)decimal.Ceiling(lowest * (1m + bot.EffectiveSettings.MarketBuySlippage));
+            // The slipped price goes up to the wallet's next whole step, so Steam accepts it and it still covers the listing.
+            price = (long)(decimal.Ceiling(lowest * (1m + bot.EffectiveSettings.MarketBuySlippage) / increment) * increment);
         }
         else
         {

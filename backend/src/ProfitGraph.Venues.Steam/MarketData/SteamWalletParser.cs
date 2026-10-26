@@ -8,8 +8,9 @@ namespace ProfitGraph.Venues.Steam.MarketData;
 
 /// <summary>
 ///     Reads <c>g_rgWalletInfo</c> from the market page (Profit Fox Designer ADR 0082): currency number, balance in minor
-///     units, Steam's and the publisher's fee rates and the market minimum. A currency without a known minor unit or an
-///     increment other than one minor unit is refused rather than guessed.
+///     units, Steam's and the publisher's fee rates, the market minimum and the currency increment, the step of every amount
+///     the wallet accepts (a hundred minor units for KZT, whose prices are whole tenge). A currency without a known minor
+///     unit is refused rather than guessed.
 /// </summary>
 internal static class SteamWalletParser
 {
@@ -40,7 +41,7 @@ internal static class SteamWalletParser
             decimal minimum = Limit(root, "wallet_market_minimum");
             decimal increment = Limit(root, "wallet_currency_increment");
 
-            if (balance < 0 || balance != decimal.Truncate(balance) || increment != 1)
+            if (balance < 0 || balance != decimal.Truncate(balance))
             {
                 throw Invalid();
             }
@@ -48,7 +49,10 @@ internal static class SteamWalletParser
             return new SteamWallet(
                 currency,
                 balance * currency.MinorUnit,
-                new SellerFeeSchedule([Number(root, "wallet_fee_percent"), Number(root, "wallet_publisher_fee_percent_default")], minimum * currency.MinorUnit));
+                new SellerFeeSchedule(
+                    [Number(root, "wallet_fee_percent"), Number(root, "wallet_publisher_fee_percent_default")],
+                    minimum * currency.MinorUnit,
+                    checked((long)increment)));
         }
         catch (Exception exception) when (exception is JsonException or TradingInvariantException or OverflowException)
         {
