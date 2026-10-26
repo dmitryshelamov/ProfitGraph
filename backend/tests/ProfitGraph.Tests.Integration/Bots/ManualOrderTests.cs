@@ -19,7 +19,7 @@ using ProfitGraph.Tests.Integration.Common;
 namespace ProfitGraph.Tests.Integration.Bots;
 
 /// <summary>
-///     Owner market orders in live bots (stage 5.11, Profit Fox Designer ADR 0091): the runner resolves a request with the
+///     Owner market and limit orders in live bots (stage 5.11, Profit Fox Designer ADR 0091): the runner resolves a request with the
 ///     root's checkpoint and one intent, a bot has one pending request, and one nobody takes expires.
 /// </summary>
 [NonParallelizable]
@@ -66,6 +66,34 @@ public sealed class ManualOrderTests
         long engineOrderId = resolved.EngineOrderId.ShouldNotBeNull();
         (await RuntimeScenario.Checkpoint(worker, bot.Id))!.Engine.Account.Orders.Single(order => order.Id == engineOrderId).Tag.ShouldBe(ManualOrder.Tag);
         (await RuntimeScenario.Intents(worker, bot.Id)).Count(intent => intent.EngineOrderId == engineOrderId).ShouldBe(1);
+    }
+
+    [Test]
+    public async Task LimitRequestBecomesALimitEngineOrderAtItsPrice()
+    {
+        var scenario = new RuntimeScenario();
+        using IHost worker = scenario.Worker();
+        Bot bot = await RuntimeScenario.RunningLadder(worker);
+        await worker.StartAsync();
+        await RuntimeScenario.Until(async () => (await RuntimeScenario.Read(worker, bot.Id)).RuntimeStatus == BotRuntimeStatus.Running, "the bot runs");
+
+        ManualOrderInternal submitted = await Send(
+            worker,
+            new SubmitManualOrderCommand(bot.OwnerId.Value, bot.Id.Value, OrderSide.Buy, Amount: 10m, LimitPrice: 0.5m));
+        await RuntimeScenario.Until(
+            async () => (await Send(worker, new GetManualOrderQuery(bot.OwnerId.Value, bot.Id.Value, submitted.Id))).Status == ManualOrderStatus.Submitted,
+            "the runner takes the request");
+        await worker.StopAsync();
+
+        ManualOrderInternal resolved = await Send(worker, new GetManualOrderQuery(bot.OwnerId.Value, bot.Id.Value, submitted.Id));
+        long engineOrderId = resolved.EngineOrderId.ShouldNotBeNull();
+        OrderSnapshot order = (await RuntimeScenario.Checkpoint(worker, bot.Id))!.Engine.Account.Orders.Single(item => item.Id == engineOrderId);
+
+        submitted.Type.ShouldBe(OrderType.Limit);
+        resolved.LimitPrice.ShouldBe(0.5m);
+        order.Type.ShouldBe(OrderType.Limit);
+        order.Tag.ShouldBe(ManualOrder.Tag);
+        order.LimitPrice.ShouldNotBeNull().ShouldBeLessThanOrEqualTo(0.5m);
     }
 
     [Test]

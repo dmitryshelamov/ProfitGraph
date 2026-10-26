@@ -3925,7 +3925,9 @@ export interface components {
             /** Format: uuid */
             botId: string;
             side: components["schemas"]["OrderSide"];
+            type: components["schemas"]["OrderType"];
             amount: string;
+            limitPrice: null | string;
             status: components["schemas"]["ManualOrderStatus"];
             /** Format: int64 */
             engineOrderId: null | number;
@@ -4389,6 +4391,8 @@ export interface components {
         SubmitManualOrderRequest: {
             side: components["schemas"]["OrderSide"];
             amount: null | string;
+            type?: null | components["schemas"]["OrderType"];
+            limitPrice?: null | string;
         };
         TelegramLinkCodeResponse: {
             code: string;

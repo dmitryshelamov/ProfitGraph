@@ -560,10 +560,12 @@ public sealed class CausalDispatcher
     }
 
     /// <summary>
-    ///     Submits an owner market order against the last closed candle (ADR 0091). It is owned by no node; only global
-    ///     listeners observe its lifecycle through the reserved tag. A local rejection publishes no event.
+    ///     Submits an owner order against the last closed candle (ADR 0091): a market order, or a limit order when
+    ///     <paramref name="limitPrice" /> is given, which the account rounds down to the tick. It is owned by no node; only
+    ///     global listeners observe its lifecycle through the reserved tag, which also allows one working manual order. A
+    ///     local rejection publishes no event.
     /// </summary>
-    public OrderSubmission SubmitManualOrder(OrderSide side, decimal amount, ReachedMarketContext context)
+    public OrderSubmission SubmitManualOrder(OrderSide side, decimal amount, decimal? limitPrice, ReachedMarketContext context)
     {
         EnsureIdle();
 
@@ -583,13 +585,13 @@ public sealed class CausalDispatcher
         {
             var request = new OrderRequest(
                 side,
-                OrderType.Market,
+                limitPrice.HasValue ? OrderType.Limit : OrderType.Market,
                 amount,
-                LimitPrice: null,
+                limitPrice,
                 ManualOrder.Tag,
                 ManualOrder.OriginNodeId,
                 context.EligibleFromCandleIndex,
-                ReferencePrice: side == OrderSide.Buy ? context.MarketPrice : null);
+                ReferencePrice: side == OrderSide.Buy && !limitPrice.HasValue ? context.MarketPrice : null);
             OrderSubmission result = Account.Submit(request);
 
             if (result.Order is { Status: OrderStatus.PendingSubmit } pending)

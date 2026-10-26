@@ -19,7 +19,7 @@ public sealed class ManualOrderDispatchTests
     {
         (CausalDispatcher dispatcher, ExternallyExecutedAccount account) = Started();
 
-        OrderSubmission submission = dispatcher.SubmitManualOrder(OrderSide.Buy, amount: 50m, External());
+        OrderSubmission submission = dispatcher.SubmitManualOrder(OrderSide.Buy, amount: 50m, limitPrice: null, External());
         dispatcher.Drain();
 
         Order order = submission.Order.ShouldNotBeNull();
@@ -46,29 +46,65 @@ public sealed class ManualOrderDispatchTests
     public void ManualSellUsesOnlyFreeBaseAndOneManualOrderIsActive()
     {
         (CausalDispatcher dispatcher, ExternallyExecutedAccount account) = Started();
-        Order buy = dispatcher.SubmitManualOrder(OrderSide.Buy, amount: 50m, External()).Order.ShouldNotBeNull();
+        Order buy = dispatcher.SubmitManualOrder(OrderSide.Buy, amount: 50m, limitPrice: null, External()).Order.ShouldNotBeNull();
         dispatcher.Drain();
         Apply(dispatcher, ExternalOrderUpdate.Accept(buy.Id));
         Apply(dispatcher, ExternalOrderUpdate.Final(buy.Id, grossBase: 10m, grossQuote: 50m, fee: 0.1m));
 
-        OrderSubmission tooLarge = dispatcher.SubmitManualOrder(OrderSide.Sell, amount: 10m, External());
+        OrderSubmission tooLarge = dispatcher.SubmitManualOrder(OrderSide.Sell, amount: 10m, limitPrice: null, External());
 
         tooLarge.Order.ShouldBeNull();
         tooLarge.Rejection.ShouldNotBeNull().Reason.ShouldBe(RejectionReason.InsufficientBase);
         dispatcher.Drain().Occurrences.ShouldBeEmpty();
 
-        dispatcher.SubmitManualOrder(OrderSide.Sell, amount: 5m, External()).Order.ShouldNotBeNull();
+        dispatcher.SubmitManualOrder(OrderSide.Sell, amount: 5m, limitPrice: null, External()).Order.ShouldNotBeNull();
         dispatcher.Drain();
         account.Capture().BaseReserved.ShouldBe(5m);
 
-        dispatcher.SubmitManualOrder(OrderSide.Sell, amount: 1m, External()).Rejection.ShouldNotBeNull().Reason.ShouldBe(RejectionReason.TagActive);
+        dispatcher.SubmitManualOrder(OrderSide.Sell, amount: 1m, limitPrice: null, External()).Rejection.ShouldNotBeNull().Reason.ShouldBe(RejectionReason.TagActive);
+    }
+
+    [Test]
+    public void ManualLimitBuyRoundsPriceDownSizesFromQuoteAndRestsUntilFilled()
+    {
+        (CausalDispatcher dispatcher, ExternallyExecutedAccount account) = Started();
+
+        OrderSubmission submission = dispatcher.SubmitManualOrder(OrderSide.Buy, amount: 50m, limitPrice: 4.007m, External());
+        dispatcher.Drain();
+
+        Order order = submission.Order.ShouldNotBeNull();
+        order.Type.ShouldBe(OrderType.Limit);
+        order.LimitPrice.ShouldBe(4.00m);
+        order.Quantity.ShouldBe(12.50m);
+        order.Tag.ShouldBe(ManualOrder.Tag);
+        order.OriginNodeId.ShouldBe(ManualOrder.OriginNodeId);
+        account.Capture().QuoteReserved.ShouldBe(50m + 25m);
+
+        Apply(dispatcher, ExternalOrderUpdate.Accept(order.Id));
+        account.Capture().Orders.Single(item => item.Id == order.Id).Status.ShouldBe(OrderStatus.Active);
+        dispatcher.SubmitManualOrder(OrderSide.Buy, amount: 10m, limitPrice: 3m, External()).Rejection.ShouldNotBeNull().Reason.ShouldBe(RejectionReason.TagActive);
+    }
+
+    [Test]
+    public void ManualLimitSellNeedsFreeBaseAndAPriceOnTheTick()
+    {
+        (CausalDispatcher dispatcher, ExternallyExecutedAccount account) = Started();
+
+        OrderSubmission noBase = dispatcher.SubmitManualOrder(OrderSide.Sell, amount: 1m, limitPrice: 6m, External());
+
+        noBase.Rejection.ShouldNotBeNull().Reason.ShouldBe(RejectionReason.InsufficientBase);
+
+        OrderSubmission belowTick = dispatcher.SubmitManualOrder(OrderSide.Buy, amount: 50m, limitPrice: 0.004m, External());
+
+        belowTick.Rejection.ShouldNotBeNull().Reason.ShouldBe(RejectionReason.InvalidPrice);
+        account.Capture().Orders.Count(order => order.Tag == ManualOrder.Tag).ShouldBe(0);
     }
 
     [Test]
     public void GraphChangeKeepsActiveManualOrder()
     {
         (CausalDispatcher dispatcher, ExternallyExecutedAccount account) = Started();
-        Order manual = dispatcher.SubmitManualOrder(OrderSide.Buy, amount: 50m, External()).Order.ShouldNotBeNull();
+        Order manual = dispatcher.SubmitManualOrder(OrderSide.Buy, amount: 50m, limitPrice: null, External()).Order.ShouldNotBeNull();
         dispatcher.Drain();
         var next = new StrategyGraph([Node("resume", "OnResume")], []);
 

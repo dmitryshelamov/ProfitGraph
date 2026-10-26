@@ -5,6 +5,7 @@ using ProfitGraph.Application.Bots.ChangeBotRiskLimits;
 using ProfitGraph.Application.Bots.CreateBot;
 using ProfitGraph.Application.Bots.SubmitManualOrder;
 using ProfitGraph.Application.Common.Exceptions;
+using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Api.Bots.Converters;
 
@@ -65,9 +66,21 @@ internal static class BotRequestConverter
     {
         var errors = new List<InputError>();
         decimal amount = Number(request.Amount, "Amount", errors);
+        OrderType type = request.Type ?? OrderType.Market;
+        decimal? limitPrice = null;
+
+        if (type == OrderType.Limit)
+        {
+            limitPrice = Number(request.LimitPrice, "LimitPrice", errors);
+        }
+        else if (request.LimitPrice is not null)
+        {
+            errors.Add(new InputError("invalid_value", "LimitPrice", "A market order takes no limit price."));
+        }
+
         ThrowIfAny(errors);
 
-        return new SubmitManualOrderCommand(ownerId, botId, request.Side, amount);
+        return new SubmitManualOrderCommand(ownerId, botId, request.Side, amount, limitPrice);
     }
 
     private static decimal Number(string? value, string field, List<InputError> errors)

@@ -129,16 +129,23 @@ export async function acknowledgeAlert(id: string) {
   return unwrap(await api.POST('/api/alerts/{id}/acknowledge', { params: { path: { id } } }));
 }
 
-/** An owner market order: a buy's amount is quote, a sell's base. The bot's runner takes it within a minute. */
+/** An owner order: a buy's amount is quote, a sell's base; a limit order also carries its price. The runner takes it within a minute. */
 export async function submitManualOrder(
   botId: string,
-  side: OrderSide,
-  amount: string,
+  order: { side: OrderSide; amount: string; limitPrice?: string },
 ): Promise<ManualOrder> {
   return unwrap(
     await api.POST('/api/bots/{id}/manual-orders', {
       params: { path: { id: botId } },
-      body: { side, amount },
+      body:
+        order.limitPrice === undefined
+          ? { side: order.side, amount: order.amount }
+          : {
+              side: order.side,
+              type: 'Limit',
+              amount: order.amount,
+              limitPrice: order.limitPrice,
+            },
     }),
   );
 }

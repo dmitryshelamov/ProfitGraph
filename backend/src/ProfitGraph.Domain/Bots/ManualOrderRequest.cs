@@ -4,9 +4,10 @@ using ProfitGraph.Engine.Accounting;
 namespace ProfitGraph.Domain.Bots;
 
 /// <summary>
-///     An owner's market order for a running bot (Profit Fox Designer ADR 0091): a buy sized in quote, a sell in base. The
-///     runtime that holds the bot's lease resolves it as a root, in the same transaction as the checkpoint. A request not
-///     taken within <see cref="Lifetime" /> expires, so a stopped bot never trades it later.
+///     An owner's order for a running bot (Profit Fox Designer ADR 0091, ADR 0027): a market or a limit order, a buy sized in
+///     quote, a sell in base; a limit order also carries its price. The
+///     runtime that holds the bot's lease resolves it as a root, in the same transaction as the checkpoint. A request not taken
+///     within <see cref="Lifetime" /> expires, so a stopped bot never trades it later.
 /// </summary>
 public sealed class ManualOrderRequest : AggregateRoot
 {
@@ -17,7 +18,13 @@ public sealed class ManualOrderRequest : AggregateRoot
     public ManualOrderRequestId Id { get; }
     public BotId BotId { get; }
     public OrderSide Side { get; }
+    public OrderType Type { get; }
     public decimal Amount { get; }
+
+    /// <summary>
+    ///     The price the owner asked for, as typed: the engine rounds it down to the instrument's tick. Set exactly for a limit order.
+    /// </summary>
+    public decimal? LimitPrice { get; }
     public ManualOrderStatus Status { get; private set; }
     public long? EngineOrderId { get; private set; }
 
@@ -29,31 +36,52 @@ public sealed class ManualOrderRequest : AggregateRoot
     public DateTimeOffset CreatedAt { get; }
     public DateTimeOffset? ResolvedAt { get; private set; }
 
-    private ManualOrderRequest(ManualOrderRequestId id, BotId botId, OrderSide side, decimal amount, DateTimeOffset createdAt)
+    private ManualOrderRequest(
+        ManualOrderRequestId id,
+        BotId botId,
+        OrderSide side,
+        OrderType type,
+        decimal amount,
+        decimal? limitPrice,
+        DateTimeOffset createdAt)
     {
-        if (!Enum.IsDefined(side) || amount <= 0m)
+        if (!Enum.IsDefined(side) || !Enum.IsDefined(type) || amount <= 0m)
         {
-            throw new BotRuleException(BotRuleException.InvalidSettings, "A manual order needs a side and a positive amount.");
+            throw new BotRuleException(BotRuleException.InvalidSettings, "A manual order needs a side, a type and a positive amount.");
+        }
+
+        if (type == OrderType.Limit != limitPrice.HasValue || limitPrice <= 0m)
+        {
+            throw new BotRuleException(BotRuleException.InvalidSettings, "A limit manual order needs a positive price, and a market order has none.");
         }
 
         Id = id;
         BotId = botId;
         Side = side;
+        Type = type;
         Amount = amount;
+        LimitPrice = limitPrice;
         Status = ManualOrderStatus.Pending;
         CreatedAt = createdAt;
     }
 
     public static ManualOrderRequest Create(ManualOrderRequestId id, BotId botId, OrderSide side, decimal amount, DateTimeOffset now)
     {
-        return new ManualOrderRequest(id, botId, side, amount, now);
+        return new ManualOrderRequest(id, botId, side, OrderType.Market, amount, limitPrice: null, now);
+    }
+
+    public static ManualOrderRequest CreateLimit(ManualOrderRequestId id, BotId botId, OrderSide side, decimal amount, decimal limitPrice, DateTimeOffset now)
+    {
+        return new ManualOrderRequest(id, botId, side, OrderType.Limit, amount, limitPrice, now);
     }
 
     public static ManualOrderRequest Restore(
         ManualOrderRequestId id,
         BotId botId,
         OrderSide side,
+        OrderType type,
         decimal amount,
+        decimal? limitPrice,
         ManualOrderStatus status,
         long? engineOrderId,
         string? rejectionReason,
@@ -66,7 +94,7 @@ public sealed class ManualOrderRequest : AggregateRoot
             throw new ArgumentException("Invalid stored manual order request.");
         }
 
-        return new ManualOrderRequest(id, botId, side, amount, createdAt)
+        return new ManualOrderRequest(id, botId, side, type, amount, limitPrice, createdAt)
         {
             Status = status,
             EngineOrderId = engineOrderId,

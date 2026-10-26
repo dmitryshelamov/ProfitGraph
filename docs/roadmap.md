@@ -53,6 +53,15 @@ replay hashes unchanged. Trading stays disabled throughout; the owner turns it o
 | Backtests | Steam descriptor, mock Steam, account session and request scheduler, credential import and authenticator enrollment, median history, item search, backtest UI | A Ladder backtest on Steam medians runs from item selection to result charts with Steam fees and the trade hold | Done: `SteamBacktestTests` runs it against the mock Steam |
 | Live | Wallet and inventory reads, live candles and display price, order journal, buy orders, listings and confirmations, history receipts, reconciliation, bot UI | A ladder bot passes its scenarios against the mock Steam: holds and unlocks, a restart during a confirmation, an expired session, a background 429, a returned item with a new ID and a CAPTCHA | Done: `SteamLadderTests` runs them against the mock Steam; no browser end-to-end test against a mock Steam yet |
 
+## Manual limit order
+
+A limit order in the manual order block of the bot page ([ADR 0027](adr/0027-manual-limit-order.md)), for every venue.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Limit order | `type` and `limitPrice` in the manual order request, engine limit submit, form with type, price, tick and lot hint and confirmation, rejection reasons | A limit order passes its tests on mocked gateways and the form tests | Done |
+| 2. Cancel | Owner cancel of a manual order as a root on the runner's queue | | Planned |
+
 ## Bot chart
 
 A candle chart on the bot page ([ADR 0026](adr/0026-bot-chart.md)), for every venue.

@@ -178,6 +178,38 @@ public sealed class BotControlEndpointTests
     }
 
     [Test]
+    public async Task LimitManualOrderCarriesItsPriceAndRefusesAMismatchedOne()
+    {
+        BotOwner owner = await BotApi.NewOwner(_factory);
+        Guid id = await BotApi.Create(owner);
+        await owner.Client.PostAsync($"{BotApi.Path}/{id}/start", content: null);
+        await MarkRunning(id);
+
+        HttpResponseMessage noPrice = await owner.Client.PostAsJsonAsync($"{BotApi.Path}/{id}/manual-orders", new { side = "Buy", type = "Limit", amount = "10" });
+        HttpResponseMessage marketWithPrice = await owner.Client.PostAsJsonAsync(
+            $"{BotApi.Path}/{id}/manual-orders",
+            new { side = "Buy", type = "Market", amount = "10", limitPrice = "4" });
+        HttpResponseMessage zeroPrice = await owner.Client.PostAsJsonAsync(
+            $"{BotApi.Path}/{id}/manual-orders",
+            new { side = "Sell", type = "Limit", amount = "10", limitPrice = "0" });
+        HttpResponseMessage accepted = await owner.Client.PostAsJsonAsync(
+            $"{BotApi.Path}/{id}/manual-orders",
+            new { side = "Sell", type = "Limit", amount = "0.5", limitPrice = "301.25" });
+        var submitted = (await accepted.Content.ReadFromJsonAsync<ManualOrderResponse>(WebJson))!;
+        var read = (await owner.Client.GetFromJsonAsync<ManualOrderResponse>($"{BotApi.Path}/{id}/manual-orders/{submitted.Id}", WebJson))!;
+
+        noPrice.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        marketWithPrice.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        zeroPrice.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        accepted.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        read.Type.ShouldBe(OrderType.Limit);
+        read.Side.ShouldBe(OrderSide.Sell);
+        read.Amount.ShouldBe("0.5");
+        read.LimitPrice.ShouldBe("301.25");
+        read.Status.ShouldBe(ManualOrderStatus.Pending);
+    }
+
+    [Test]
     public async Task FillsArePagedNewestFirstAndThePositionShowsItsCycles()
     {
         BotOwner owner = await BotApi.NewOwner(_factory);

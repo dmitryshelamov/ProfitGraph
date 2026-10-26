@@ -3,8 +3,9 @@ namespace ProfitGraph.Infrastructure.Bots.Repositories.Queries;
 internal static class ManualOrderRequestQueries
 {
     private const string Columns = """
-                                   id AS Id, bot_id AS BotId, side AS Side, amount AS Amount, status AS Status, engine_order_id AS EngineOrderId,
-                                       rejection_reason AS RejectionReason, created_at AS CreatedAt, resolved_at AS ResolvedAt
+                                   id AS Id, bot_id AS BotId, side AS Side, order_type AS OrderType, amount AS Amount, limit_price AS LimitPrice,
+                                       status AS Status, engine_order_id AS EngineOrderId, rejection_reason AS RejectionReason, created_at AS CreatedAt,
+                                       resolved_at AS ResolvedAt
                                    """;
 
     internal const string Get = $"SELECT {Columns} FROM bot_manual_orders WHERE id = @id";
@@ -14,8 +15,10 @@ internal static class ManualOrderRequestQueries
     internal const string GetPending = $"SELECT {Columns} FROM bot_manual_orders WHERE bot_id = @botId AND status = 'Pending'";
 
     internal const string Insert = """
-                                   INSERT INTO bot_manual_orders (id, bot_id, side, amount, status, engine_order_id, rejection_reason, created_at, resolved_at)
-                                   VALUES (@Id, @BotId, @Side, @Amount, @Status, @EngineOrderId, @RejectionReason, @CreatedAt, @ResolvedAt)
+                                   INSERT INTO bot_manual_orders (id, bot_id, side, order_type, amount, limit_price, status, engine_order_id,
+                                       rejection_reason, created_at, resolved_at)
+                                   VALUES (@Id, @BotId, @Side, @OrderType, @Amount, @LimitPrice, @Status, @EngineOrderId, @RejectionReason, @CreatedAt,
+                                       @ResolvedAt)
                                    ON CONFLICT (bot_id) WHERE status = 'Pending' DO NOTHING
                                    """;
 

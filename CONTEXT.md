@@ -326,7 +326,8 @@ A strategy-assigned semantic name identifying an order's purpose, such as `ladde
 
 ### Manual Order
 
-An owner-submitted market order in a running live bot, outside the strategy graph (Profit Fox Designer ADR 0091).
+An owner-submitted market or limit order in a running live bot, outside the strategy graph (Profit Fox Designer ADR 0091,
+[ADR 0027](docs/adr/0027-manual-limit-order.md)). A limit order carries a price the engine rounds down to the tick.
 It enters the bot's engine account with the reserved tag `manual` and no originating block, so balances, risk limits and
 the position ledger include it, while the graph observes it only through global listeners filtered by that tag.
 

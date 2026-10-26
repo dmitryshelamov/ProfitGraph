@@ -78,7 +78,7 @@ public sealed class BotsController(ISender sender) : ControllerBase
     }
 
     /// <summary>
-    ///     An owner market order in a running bot (Profit Fox Designer ADR 0091). It waits for the bot's runner, which takes
+    ///     An owner order, market or limit, in a running bot (Profit Fox Designer ADR 0091, ADR 0027). It waits for the bot's runner, which takes
     ///     it within a minute or lets it expire; poll it by its identifier.
     /// </summary>
     [HttpPost("{id:guid}/manual-orders")]

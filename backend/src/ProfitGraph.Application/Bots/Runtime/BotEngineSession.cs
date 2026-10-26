@@ -292,7 +292,7 @@ public sealed class BotEngineSession
     }
 
     /// <summary>
-    ///     Submits an owner market order against the last closed candle (Profit Fox Designer ADR 0091) and commits its
+    ///     Submits an owner order (market or limit) against the last closed candle (Profit Fox Designer ADR 0091) and commits its
     ///     resolution with the root: the engine order it became, which then follows the normal intent path, or the engine's
     ///     rejection. Returns false when the engine has no candle yet and the request was left alone.
     /// </summary>
@@ -304,7 +304,7 @@ public sealed class BotEngineSession
         }
 
         var context = new ReachedMarketContext(last, _lastCandleIndex, last.OpenTime + _timeframe.Duration, PricePhase.External, last.Close, _lastCandleIndex + 1);
-        OrderSubmission submission = _dispatcher.SubmitManualOrder(request.Side, request.Amount, context);
+        OrderSubmission submission = _dispatcher.SubmitManualOrder(request.Side, request.Amount, request.LimitPrice, context);
         _dispatcher.Drain(cancellationToken);
         await Save(liveCandle: false, cancellationToken, new BotRootManualOrder(request.Id, submission.Order?.Id, submission.Rejection?.Reason.ToString()));
 

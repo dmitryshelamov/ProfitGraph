@@ -229,7 +229,9 @@ describe('bots', () => {
       id: 'b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e',
       botId: bot.id,
       side: 'Buy' as const,
+      type: 'Market' as const,
       amount: '10',
+      limitPrice: null,
       status: 'Pending' as const,
       engineOrderId: null,
       rejectionReason: null,
@@ -254,6 +256,90 @@ describe('bots', () => {
 
     expect(await screen.findByText('Заявка передан в работу')).toBeInTheDocument();
     expect(sent).toEqual([{ side: 'Buy', amount: '10' }]);
+  });
+
+  it('sends a limit order only after the confirmation and shows its price and status', async () => {
+    const running = { ...bot, desiredState: 'Running' as const, runtimeStatus: 'Running' as const };
+    const order = {
+      id: 'c1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e',
+      botId: bot.id,
+      side: 'Buy' as const,
+      type: 'Limit' as const,
+      amount: '3000',
+      limitPrice: '150.25',
+      status: 'Pending' as const,
+      engineOrderId: null,
+      rejectionReason: null,
+      createdAt: '2026-10-24T08:00:00Z',
+      resolvedAt: null,
+    };
+    const sent: unknown[] = [];
+    fakeApi({
+      ...botRoutes(running),
+      'GET /api/market-data/instrument-rules': () =>
+        json({
+          quantityStep: '10',
+          priceTick: '0.01',
+          minQuantity: '10',
+          minNotional: '0',
+          basePrecision: 0,
+          quotePrecision: 2,
+        }),
+      [`POST ${botPath}/manual-orders`]: async (request) => {
+        sent.push(await request.json());
+
+        return json(order, 202);
+      },
+      [`GET ${botPath}/manual-orders/${order.id}`]: () =>
+        json({ ...order, status: 'Rejected', rejectionReason: 'TagActive' }),
+    });
+    renderApp(`/bots/${bot.id}`);
+
+    expect(screen.queryByLabelText('Цена')).not.toBeInTheDocument();
+    await userEvent.selectOptions(await screen.findByLabelText('Тип заявки'), 'Limit');
+    await userEvent.type(screen.getByLabelText('Сумма'), '3000');
+    await userEvent.type(screen.getByLabelText('Цена'), '150.255');
+
+    expect(await screen.findByText('Цена должна быть кратна шагу цены 0.01.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Отправить заявку' })).toBeDisabled();
+
+    await userEvent.clear(screen.getByLabelText('Цена'));
+    await userEvent.type(screen.getByLabelText('Цена'), '150.25');
+
+    expect(await screen.findByText('Будет выставлено количество: 10')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
+
+    expect(await screen.findByText(/Подтвердите лимитную заявку/)).toBeInTheDocument();
+    expect(sent).toEqual([]);
+    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить и отправить' }));
+
+    expect(
+      await screen.findByText(/Заявка отклонён: уже стоит другая ручная заявка/),
+    ).toBeInTheDocument();
+    expect(sent).toEqual([{ side: 'Buy', type: 'Limit', amount: '3000', limitPrice: '150.25' }]);
+  });
+
+  it('goes back from the confirmation without sending', async () => {
+    const running = { ...bot, desiredState: 'Running' as const, runtimeStatus: 'Running' as const };
+    const sent: unknown[] = [];
+    fakeApi({
+      ...botRoutes(running),
+      [`POST ${botPath}/manual-orders`]: async (request) => {
+        sent.push(await request.json());
+
+        return json({}, 202);
+      },
+    });
+    renderApp(`/bots/${bot.id}`);
+
+    await userEvent.selectOptions(await screen.findByLabelText('Тип заявки'), 'Limit');
+    await userEvent.type(screen.getByLabelText('Сумма'), '10');
+    await userEvent.type(screen.getByLabelText('Цена'), '4');
+    await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Назад' }));
+
+    expect(screen.queryByText(/Подтвердите лимитную заявку/)).not.toBeInTheDocument();
+    expect(sent).toEqual([]);
   });
 
   it('acknowledges an alert', async () => {
