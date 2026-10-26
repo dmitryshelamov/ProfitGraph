@@ -44,8 +44,11 @@ candle. What the code had before this decision:
    error code.
 4. **Fills by the same window.** The page carries the bot's fills of the same range (`IBotFillRepository.ListFilled`, at most
    1000, oldest first, `fillsTruncated` beyond that). Fills stay in `bot_fills`; nothing is copied into `candles`. The
-   chart places each fill on the candle it happened in, at its price, and draws the bot's working limit orders
-   (`/open-orders`) as dashed levels.
+   chart places each fill on the candle whose period contains it, with the arrow tip exactly at the fill's price (a buy
+   arrow points up from below it, a sell arrow down from above it); a fill no drawn candle covers (a gap, or after the
+   newest closed candle) is left out rather than pinned to a neighbour at the wrong height. Fills of one side on one candle
+   keep their prices and share one label with their count. The chart draws the bot's working limit orders (`/open-orders`,
+   refreshed with the page) as dashed levels titled with side, price and quantity.
 5. **Transport.** Prices, volumes and fill amounts are exact decimal strings; times are UTC; the status is an enum name.
 6. **Frontend.** The chart reuses lightweight-charts from `modules/market-chart` (`CandleHistoryChart`), which supports
    prepending data, series markers and price lines. `modules/bots` pages back 500 candles at a time when the view nears

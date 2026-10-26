@@ -18,15 +18,6 @@ export interface ChartTrade {
   readonly text: string;
 }
 
-/** A trade placed on the candle in which it happened, at its price. */
-export interface DrawnTrade {
-  readonly id: string;
-  readonly time: number;
-  readonly side: 'Buy' | 'Sell';
-  readonly price: number;
-  readonly text: string;
-}
-
 /** A horizontal level, such as a working limit order. */
 export interface ChartLevel {
   readonly id: string;
@@ -35,7 +26,7 @@ export interface ChartLevel {
   readonly title: string;
 }
 
-function seconds(time: string): number {
+export function seconds(time: string): number {
   return Math.floor(Date.parse(time) / 1000);
 }
 
@@ -60,46 +51,4 @@ export function drawableCandles(candles: readonly HistoryCandle[]): DrawnCandle[
   }
 
   return [...byTime.values()].sort((left, right) => left.time - right.time);
-}
-
-/**
- * Places each trade on the latest candle that opened at or before it, in time order as the chart library requires.
- * A trade before the first drawn candle is left out until older candles are loaded.
- */
-export function drawableTrades(
-  candles: readonly DrawnCandle[],
-  trades: readonly ChartTrade[],
-): DrawnTrade[] {
-  const placed: DrawnTrade[] = [];
-
-  for (const trade of trades) {
-    const at = seconds(trade.time);
-    let low = 0;
-    let high = candles.length - 1;
-    let found: DrawnCandle | undefined;
-
-    while (low <= high) {
-      const middle = (low + high) >> 1;
-      const candle = candles[middle];
-
-      if (candle && candle.time <= at) {
-        found = candle;
-        low = middle + 1;
-      } else {
-        high = middle - 1;
-      }
-    }
-
-    if (found) {
-      placed.push({
-        id: trade.id,
-        time: found.time,
-        side: trade.side,
-        price: Number(trade.price),
-        text: trade.text,
-      });
-    }
-  }
-
-  return placed.sort((left, right) => left.time - right.time);
 }
