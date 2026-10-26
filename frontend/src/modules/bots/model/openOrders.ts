@@ -1,4 +1,5 @@
-import type { BotOpenOrder, OrderStatus } from './types';
+import { waitingText } from './orderWaiting';
+import type { BotOpenOrder, BotOrderWaiting, OrderStatus } from './types';
 
 const statuses: Partial<Record<OrderStatus, string>> = {
   Active: 'Стоит на бирже',
@@ -21,4 +22,22 @@ export function openOrderQuantity(order: Pick<BotOpenOrder, 'quantity' | 'quoteB
 
 export function openOrderPrice(order: Pick<BotOpenOrder, 'type' | 'limitPrice'>): string {
   return order.limitPrice ?? (order.type === 'Market' ? 'по рынку' : '—');
+}
+
+/**
+ * The state of an open order. A working order that its venue or the core holds back (a trade hold, a price band, a closed
+ * session) is not on the exchange yet, so it reads «Отложен» with the reason and the time it waits until.
+ */
+export function openOrderState(
+  order: Pick<BotOpenOrder, 'engineOrderId' | 'status'>,
+  waiting: readonly Pick<BotOrderWaiting, 'engineOrderId' | 'code' | 'low' | 'high' | 'until'>[],
+): { label: string; reason: string | null } {
+  const wait =
+    order.status === 'Active'
+      ? waiting.find((item) => item.engineOrderId === order.engineOrderId)
+      : undefined;
+
+  return wait
+    ? { label: 'Отложен', reason: waitingText(wait) }
+    : { label: openOrderStatusLabel(order.status), reason: null };
 }

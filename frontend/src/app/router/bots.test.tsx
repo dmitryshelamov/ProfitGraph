@@ -136,6 +136,44 @@ describe('bots', () => {
     expect(within(table).getByText('Отменяется')).toBeInTheDocument();
   });
 
+  it('shows a held-back exit as deferred with why and until when', async () => {
+    fakeApi({
+      ...botRoutes(),
+      [`GET ${botPath}/open-orders`]: () =>
+        json([
+          {
+            engineOrderId: 2,
+            tag: 'ladder.exit',
+            side: 'Sell',
+            type: 'Limit',
+            status: 'Active',
+            quantity: '1',
+            limitPrice: '692.00',
+            quoteBudget: null,
+            filledBase: '0',
+          },
+        ]),
+      [`GET ${botPath}/waiting-orders`]: () =>
+        json([
+          {
+            engineOrderId: 2,
+            code: 'SettlementHold',
+            since: '2026-10-26T12:00:00Z',
+            until: '2026-11-02T00:00:00Z',
+            low: null,
+            high: null,
+          },
+        ]),
+    });
+    renderApp(`/bots/${bot.id}`);
+
+    const table = await screen.findByRole('table', { name: 'Активные ордера бота' });
+    const exit = within(within(table).getByText('ladder.exit').closest('tr')!);
+    expect(await exit.findByText('Отложен')).toBeInTheDocument();
+    expect(exit.getByText(/Ждёт снятия трейд-холда до/)).toBeInTheDocument();
+    expect(exit.queryByText('Стоит на бирже')).not.toBeInTheDocument();
+  });
+
   it('says so when the bot has no open orders', async () => {
     fakeApi(botRoutes());
     renderApp(`/bots/${bot.id}`);
