@@ -220,6 +220,12 @@ internal sealed class MockSteam : HttpMessageHandler
             LastBuyForm = fields;
             string name = fields["market_hash_name"];
 
+            // Live Steam refuses a buy without the wallet's currency with a bare HTTP 400.
+            if (fields.GetValueOrDefault("currency") != "37")
+            {
+                return new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent("null", Encoding.UTF8, "application/json") };
+            }
+
             if (BuyOrders.Values.Any(order => order.Active && order.MarketHashName == name))
             {
                 return Json("""{"success":29}""");

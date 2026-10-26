@@ -345,6 +345,12 @@ internal sealed class MockSteamMarket(TimeProvider clock, string steamId) : Http
         long total = long.Parse(fields["price_total"], CultureInfo.InvariantCulture);
         _createsAt[total] = _createsAt.GetValueOrDefault(total) + 1;
 
+        // Live Steam refuses a buy without the wallet's currency with a bare HTTP 400.
+        if (fields.GetValueOrDefault("currency") != "37")
+        {
+            return new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent("null", Encoding.UTF8, "application/json") };
+        }
+
         if (fields["market_hash_name"] != Item || _buyOrders.Values.Any(order => order.Active))
         {
             return Json("""{"success":29}""");

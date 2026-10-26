@@ -93,6 +93,7 @@ public sealed class SteamBuyOrdersTests
 
         _harness.Steam.Count(CreatePath).ShouldBe(2);
         _harness.Steam.LastBuyForm["price_total"].ShouldBe("49000");
+        _harness.Steam.LastBuyForm["currency"].ShouldBe("37");
         (await Published()).ShouldBe(
         [
             ExternalOrderUpdate.Accept(orderId: 1),

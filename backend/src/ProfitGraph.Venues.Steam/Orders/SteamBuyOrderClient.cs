@@ -29,9 +29,12 @@ internal sealed class SteamBuyOrderClient(IOptions<SteamOptions> options, ILogge
         CancellationToken cancellationToken)
     {
         // Steam's buy order form (community market.js CreateBuyOrderDialog) always sends the tax, address and confirmation
-        // fields; the address stays empty, as on an account without saved billing.
+        // fields; the address stays empty, as on an account without saved billing. The wallet's currency goes with every buy
+        // (Profit Fox Designer SteamMarketClient.Write): without it live Steam answers HTTP 400. Reconciliation already
+        // requires the wallet to be in the item's currency.
         var form = new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["currency"] = instrument.Currency.SteamId.ToString(CultureInfo.InvariantCulture),
             ["appid"] = instrument.AppId.ToString(CultureInfo.InvariantCulture),
             ["market_hash_name"] = instrument.MarketHashName,
             ["quantity"] = quantity.ToString(CultureInfo.InvariantCulture),
