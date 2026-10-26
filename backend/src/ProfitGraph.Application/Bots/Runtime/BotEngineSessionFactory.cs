@@ -69,7 +69,16 @@ public sealed class BotEngineSessionFactory(
 
         if (stored is null)
         {
-            var dispatcher = new CausalDispatcher(plan, new ExternallyExecutedAccount(settings, instrument), graphVersionId: versionId, closures: closures);
+            // A run that starts over after a forgotten one continues its order identifiers: its venue keeps the old ones.
+            var account = new ExternallyExecutedAccount(settings, instrument);
+            IReadOnlyList<OrderIntent> earlier = await intents.ListByBot(bot.Id, cancellationToken);
+
+            if (earlier.Count > 0)
+            {
+                account.ContinueOrderIdsAfter(earlier.Max(intent => intent.EngineOrderId));
+            }
+
+            var dispatcher = new CausalDispatcher(plan, account, graphVersionId: versionId, closures: closures);
             var session = new BotEngineSession(bot.Id, holder, epoch, timeframe, dispatcher, gateway, committer, clock, applied, version.Id, checkpoint: null, gaps);
             await session.StartFromHistory(closed, cancellationToken);
 

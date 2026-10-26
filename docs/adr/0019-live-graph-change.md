@@ -25,8 +25,9 @@ bot uses it and how the owner learns about it.
 - **Live impact.** `GET /api/strategies/{id}/live-impact` lists the strategy's bots that should run. While any exists, a
   save without `confirmLiveImpact: true` answers 409 `live_impact`; the editor shows the bots and saves again with the
   confirmation.
-- **Untraded run.** A stopped bot whose run never sent an order starts afresh on the latest version (already in place
-  since stage 5.4); the switch above is only for running bots.
+- **Untraded run.** A stopped bot whose run holds and spent nothing (ADR 0016: its orders, if any, all ended without a
+  fill) starts afresh on the latest version (in place since stage 5.4, widened since); the switch above is only for
+  running bots.
 
 ## Consequences
 

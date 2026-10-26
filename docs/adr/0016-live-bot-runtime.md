@@ -95,8 +95,12 @@ gateway amend it in later stage 5 pull requests.
   the credential through the venue port `IVenueFeeRateReader` (maker for limit, taker for market orders). A venue
   without that port answers `503 fee_rates_unavailable`. Creation runs outside a transaction because of that read.
 - **Start** compiles the latest version with the bot's values when no run exists, refuses a bot whose run exists but
-  whose checkpoint is missing (`missing_checkpoint`) and forgets a stopped run that never created an order. A halt
-  answers `409 trading_halted`.
+  whose checkpoint is missing (`missing_checkpoint`) and forgets a stopped run that holds and spent nothing (Profit
+  Fox Designer ADR 0068, widened): no order working or waiting to be submitted or cancelled, no base held or reserved,
+  no quote reserved or spent, no cost, profit, fee or last buy price, every intent final (`Sent` or `Rejected`) and no
+  fill of the bot. Its orders may have ended, rejected or cancelled, without a fill, as an entry the owner confirmed
+  absent does; the next run starts from `OnStart` and continues the order identifiers after the bot's last intent, so
+  no client order identifier repeats at the venue. A halt answers `409 trading_halted`.
 - **Settings.** Parameters and allocation change only on a stopped bot (`409 bot_must_be_stopped`); with a stored run
   the cap must cover cost basis plus reserved quote (`allocation_below_committed`) and the edited graph must compile
   (`409 parameters_incompatible`). Risk limits change at any time; the foreign-orders policy only while stopped.

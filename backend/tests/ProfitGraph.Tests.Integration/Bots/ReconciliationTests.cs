@@ -11,6 +11,7 @@ using ProfitGraph.Application.Bots.ConfirmOrderAbsent;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.GetBotUnresolvedOrders;
 using ProfitGraph.Application.Bots.StartBot;
+using ProfitGraph.Application.Bots.StopBot;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Engine.Accounting;
@@ -178,6 +179,57 @@ public sealed class ReconciliationTests
 
         scenario.Gateway.ConfirmedAbsent.ShouldContain(scenario.Gateway.ClientOrderIdFor(bot.Id, unresolved.EngineOrderId));
         (await RuntimeScenario.Read(second, bot.Id)).RuntimeStatus.ShouldNotBe(BotRuntimeStatus.Degraded);
+    }
+
+    [Test]
+    public async Task ARunWhoseOnlyEntryEndedWithoutAFillStartsOverAndContinuesItsOrderIds()
+    {
+        var scenario = new RuntimeScenario { Gateway = { LoseEveryPlace = true } };
+        Bot bot;
+
+        using (IHost first = scenario.Worker())
+        {
+            bot = await RuntimeScenario.RunningLadder(first);
+            await first.StartAsync();
+            await RuntimeScenario.Until(async () => await RuntimeScenario.Intents(first, bot.Id) is [{ PlaceStartedAt: not null, Attempts: 1 }], "the place is lost");
+
+            await using (var connection = new NpgsqlConnection(TestDatabase.ConnectionString))
+            {
+                await connection.ExecuteAsync("UPDATE bot_order_intents SET attempts = 9, next_attempt_at = now() WHERE bot_id = @id", new { id = bot.Id.Value });
+            }
+
+            await RuntimeScenario.Until(async () => (await RuntimeScenario.Read(first, bot.Id)).StatusReason == BotStatusReason.IntentFailed, "the bot degrades");
+            await first.StopAsync();
+        }
+
+        Guid owner = bot.OwnerId.Value;
+        BotUnresolvedOrderInternal unresolved = (await Ask(_api.Services, new GetBotUnresolvedOrdersQuery(owner, bot.Id.Value))).ShouldHaveSingleItem();
+        await Ask(_api.Services, new ConfirmOrderAbsentCommand(owner, bot.Id.Value, unresolved.IntentId));
+        await Ask(_api.Services, new StartBotCommand(owner, bot.Id.Value));
+        scenario.Gateway.LoseEveryPlace = false;
+
+        using IHost worker = scenario.Worker();
+        await worker.StartAsync();
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Checkpoint(worker, bot.Id))!.Engine.Account.Orders.All(order => order.Id != unresolved.EngineOrderId),
+            "the engine drops the absent entry");
+
+        await Ask(_api.Services, new StopBotCommand(owner, bot.Id.Value));
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Read(worker, bot.Id)).RuntimeStatus is not (BotRuntimeStatus.Starting or BotRuntimeStatus.Running) &&
+                ((await RuntimeScenario.Lease(bot.Id))?.ExpiresAt is not { } expires || expires <= DateTime.UtcNow),
+            "the runner ends");
+        await Ask(_api.Services, new StartBotCommand(owner, bot.Id.Value));
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Intents(worker, bot.Id)).Any(intent => intent is { Kind: OrderIntentKind.Submit, Status: OrderIntentStatus.Sent } &&
+                intent.EngineOrderId > unresolved.EngineOrderId),
+            "the new run places its entry");
+        await worker.StopAsync();
+
+        OrderIntent entry = (await RuntimeScenario.Intents(worker, bot.Id)).Single(intent => intent.EngineOrderId > unresolved.EngineOrderId);
+        entry.EngineOrderId.ShouldBe(unresolved.EngineOrderId + 1);
+        entry.ClientOrderId.ShouldNotBe(scenario.Gateway.ClientOrderIdFor(bot.Id, unresolved.EngineOrderId));
+        (await RuntimeScenario.Read(worker, bot.Id)).RuntimeStatus.ShouldNotBe(BotRuntimeStatus.Degraded);
     }
 
     [Test]

@@ -34,6 +34,18 @@ public sealed class ExternallyExecutedAccountTests
     }
 
     [Test]
+    public void ARunThatStartsOverContinuesTheOrderIdentifiersBeforeItsFirstOrder()
+    {
+        var account = new ExternallyExecutedAccount(Settings, Rules);
+        var request = new OrderRequest(OrderSide.Buy, OrderType.Limit, Amount: 25m, LimitPrice: 5m, "entry", "buy", EligibleFromCandleIndex: 1);
+
+        account.ContinueOrderIdsAfter(lastIssuedId: 7);
+
+        account.Submit(request).Order.ShouldNotBeNull().Id.ShouldBe(8);
+        Should.Throw<ArgumentException>(() => account.ContinueOrderIdsAfter(lastIssuedId: 20));
+    }
+
+    [Test]
     public void ReplayAccountStillSubmitsAndCancelsSynchronously()
     {
         var account = new TradingAccount(Settings, Rules);
