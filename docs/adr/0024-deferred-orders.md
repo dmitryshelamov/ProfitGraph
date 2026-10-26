@@ -222,3 +222,13 @@ Each stage is its own pull request with Bybit's fingerprints and pinned replay h
   module already journaled, one it cannot cover with free items (the gateway rejects it) and every buy are ready here.
 - Buys keep their single-slot and rate-limit waits in the module for now, and the module's own hold of a sell stays as a
   fallback for the partially unlocked case. Moving them is a later step.
+
+## Amendment: stage 3, the bot page
+
+- The active-orders block joins the open orders with `waiting-orders` in the browser: a working (`Active`) order that has a wait
+  reads «Отложен» with the reason and the end of the wait («Ждёт снятия трейд-холда до …»), not «Стоит на бирже». No API
+  contract changed, so `open-orders` stays as it is and any venue's wait (a price band, a closed session, a carry-over) shows the
+  same way.
+- Not built, left open: the time of the next check (`nextCheckAt`) in `waiting-orders`, and an owner action to cancel a
+  deferred order. The engine has no owner-initiated cancel of a strategy order, so it needs its own design (like manual
+  orders, as a root on the runner's queue).

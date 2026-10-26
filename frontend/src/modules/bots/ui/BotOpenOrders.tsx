@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { botOpenOrdersQuery } from '../api/botsApi';
-import { openOrderPrice, openOrderQuantity, openOrderStatusLabel } from '../model/openOrders';
+import { botOpenOrdersQuery, botWaitingOrdersQuery } from '../api/botsApi';
+import { openOrderPrice, openOrderQuantity, openOrderState } from '../model/openOrders';
 
 export function BotOpenOrders({ botId }: { botId: string }) {
   const orders = useQuery(botOpenOrdersQuery(botId));
+  const waiting = useQuery(botWaitingOrdersQuery(botId)).data ?? [];
 
   if (orders.isError) {
     return (
@@ -32,20 +33,27 @@ export function BotOpenOrders({ botId }: { botId: string }) {
         </tr>
       </thead>
       <tbody>
-        {orders.data.map((order) => (
-          <tr key={order.engineOrderId} className="border-t border-line">
-            <td className="py-2">
-              <span className="font-mono">{order.engineOrderId}</span>
-              {order.tag ? <span className="ml-2 text-muted">{order.tag}</span> : null}
-            </td>
-            <td className="py-2">{order.side === 'Buy' ? 'Покупка' : 'Продажа'}</td>
-            <td className="py-2">{order.type === 'Limit' ? 'Лимитный' : 'Рыночный'}</td>
-            <td className="py-2 font-mono">{openOrderQuantity(order)}</td>
-            <td className="py-2 font-mono">{openOrderPrice(order)}</td>
-            <td className="py-2 font-mono">{order.filledBase}</td>
-            <td className="py-2">{openOrderStatusLabel(order.status)}</td>
-          </tr>
-        ))}
+        {orders.data.map((order) => {
+          const state = openOrderState(order, waiting);
+
+          return (
+            <tr key={order.engineOrderId} className="border-t border-line">
+              <td className="py-2">
+                <span className="font-mono">{order.engineOrderId}</span>
+                {order.tag ? <span className="ml-2 text-muted">{order.tag}</span> : null}
+              </td>
+              <td className="py-2">{order.side === 'Buy' ? 'Покупка' : 'Продажа'}</td>
+              <td className="py-2">{order.type === 'Limit' ? 'Лимитный' : 'Рыночный'}</td>
+              <td className="py-2 font-mono">{openOrderQuantity(order)}</td>
+              <td className="py-2 font-mono">{openOrderPrice(order)}</td>
+              <td className="py-2 font-mono">{order.filledBase}</td>
+              <td className="py-2">
+                {state.label}
+                {state.reason ? <span className="block text-muted">{state.reason}</span> : null}
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
