@@ -47,7 +47,9 @@ public sealed class BybitInstrumentCatalogTests
 
         IReadOnlyList<InstrumentInternal> instruments = await catalog.Search(string.Empty, limit: 10, CancellationToken.None);
 
-        instruments.ShouldBe([new InstrumentInternal("bybit", "BTCUSDT", "BTC", "USDT"), new InstrumentInternal("bybit", "ETHUSDT", "ETH", "USDT")]);
+        instruments.Select(instrument => instrument.Symbol).ShouldBe(["BTCUSDT", "ETHUSDT"]);
+        instruments.Select(instrument => instrument.Appearance!.ImageUrl)
+            .ShouldBe(["https://assets.coincap.io/assets/icons/btc@2x.png", "https://assets.coincap.io/assets/icons/eth@2x.png"]);
         Uri request = handler.Requests.Single();
         request.AbsolutePath.ShouldBe("/v5/market/instruments-info");
         request.Query.ShouldContain("category=spot");

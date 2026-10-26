@@ -138,10 +138,29 @@ public sealed class TInvestMarketDataTests
     [Test]
     public async Task SearchFindsMainBoardShares()
     {
-        IReadOnlyList<InstrumentInternal> found = await WithAccess(() => new TInvestInstrumentCatalog(Transport()).Search("GA", limit: 10, CancellationToken.None));
+        IReadOnlyList<InstrumentInternal> found =
+            await WithAccess(() => new TInvestInstrumentCatalog(Transport(), Shares()).Search("GA", limit: 10, CancellationToken.None));
 
         found.ShouldBe([new InstrumentInternal("tinvest", "TQBR:GAZP", "GAZP", "RUB")]);
-        await Should.ThrowAsync<InstrumentRulesException>(() => new TInvestInstrumentCatalog(Transport()).Search("GA", limit: 10, CancellationToken.None));
+        await Should.ThrowAsync<InstrumentRulesException>(() => new TInvestInstrumentCatalog(Transport(), Shares()).Search("GA", limit: 10, CancellationToken.None));
+    }
+
+    [Test]
+    public async Task ASymbolSearch_ReturnsTheBrandLogoSectorAndCountry()
+    {
+        IReadOnlyList<InstrumentInternal> found =
+            await WithAccess(() => new TInvestInstrumentCatalog(Transport(), Shares()).Search("TQBR:GAZP", limit: 10, CancellationToken.None));
+
+        InstrumentInternal share = found.ShouldHaveSingleItem();
+        share.Symbol.ShouldBe("TQBR:GAZP");
+        share.Appearance.ShouldNotBeNull()
+            .ShouldSatisfyAllConditions(
+                appearance => appearance.ImageUrl.ShouldBe("https://invest-brands.cdn-tinkoff.ru/RU000A0JR4A1x160.png"),
+                appearance => appearance.Kind.ShouldBe("Invented GAZP"),
+                appearance => appearance.BackgroundColor.ShouldBe("0A2E8C"),
+                appearance => appearance.Description.ShouldBe(["Сектор: energy", "Страна риска: Российская Федерация"]));
+        (await WithAccess(() => new TInvestInstrumentCatalog(Transport(), Shares()).Search("GA", limit: 10, CancellationToken.None)))
+            .ShouldAllBe(instrument => instrument.Appearance == null);
     }
 
     /// <summary>

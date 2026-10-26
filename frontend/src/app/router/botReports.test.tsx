@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { bot, credential, flatPosition } from '@/test/botFixtures';
@@ -90,6 +90,77 @@ describe('bot reports', () => {
       'src',
       'https://community.steamstatic.com/economy/image/abc/256fx256f',
     );
+  });
+
+  it('shows a T-Invest share with its logo on the brand color, name and facts', async () => {
+    fakeApi(
+      routes({
+        [`GET ${botPath}`]: () => json({ ...bot, venue: 'tinvest', symbol: 'TQBR:GAZP' }),
+        'GET /api/market-data/instruments': () =>
+          json([
+            {
+              venue: 'tinvest',
+              symbol: 'TQBR:GAZP',
+              baseAsset: 'GAZP',
+              quoteAsset: 'RUB',
+              appearance: {
+                imageUrl: 'https://invest-brands.cdn-tinkoff.ru/RU0007661625x160.png',
+                kind: 'Газпром',
+                nameColor: null,
+                backgroundColor: '0A2E8C',
+                description: ['Сектор: energy'],
+              },
+            },
+          ]),
+      }),
+    );
+    renderApp(`/bots/${bot.id}`);
+
+    const card = await screen.findByRole('region', { name: 'Актив' });
+    expect(within(card).getByRole('heading', { name: 'GAZP' })).toBeInTheDocument();
+    expect(await within(card).findByText('Газпром')).toBeInTheDocument();
+    expect(within(card).getByText('Сектор: energy')).toBeInTheDocument();
+    expect(card.querySelector('img')).toHaveAttribute(
+      'src',
+      'https://invest-brands.cdn-tinkoff.ru/RU0007661625x160.png',
+    );
+  });
+
+  it('shows a Bybit coin icon and falls back to the letters when it does not load', async () => {
+    fakeApi(
+      routes({
+        'GET /api/market-data/instruments': () =>
+          json([
+            {
+              venue: 'bybit',
+              symbol: 'BTCUSDT',
+              baseAsset: 'BTC',
+              quoteAsset: 'USDT',
+              appearance: {
+                imageUrl: 'https://assets.coincap.io/assets/icons/btc@2x.png',
+                kind: null,
+                nameColor: null,
+                backgroundColor: null,
+                description: [],
+              },
+            },
+          ]),
+      }),
+    );
+    renderApp(`/bots/${bot.id}`);
+
+    const card = await screen.findByRole('region', { name: 'Актив' });
+    const image = await waitFor(() => {
+      const found = card.querySelector('img');
+      expect(found).toHaveAttribute('src', 'https://assets.coincap.io/assets/icons/btc@2x.png');
+
+      return found as HTMLImageElement;
+    });
+
+    fireEvent.error(image);
+
+    await waitFor(() => expect(card.querySelector('img')).toBeNull());
+    expect(within(card).getByText('BTCU')).toBeInTheDocument();
   });
 
   it('shows only the name when the venue describes nothing', async () => {

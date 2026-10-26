@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { instrumentsQuery } from '@/modules/market-data';
 import { Card } from '@/shared/ui/Card';
 
-import { assetTitle, cryptoIconUrl, hexColor, safeImageUrl } from '../model/assetImage';
+import { assetTitle, hexColor, safeImageUrl } from '../model/assetImage';
 import type { Bot } from '../model/types';
 
 function AssetImage({
@@ -46,17 +46,15 @@ function AssetImage({
 
 /**
  * The traded asset on the bot page: its picture, name, kind and a short description. The venue's instrument search
- * supplies them (a Steam item's own picture and text); a crypto pair shows the base coin's icon. Without them the card
- * shows the name only, and the bot works the same.
+ * supplies them (a Steam item's picture and text, a share's logo, a crypto pair's base coin icon). Without a picture or
+ * when it fails to load, the card shows the name's letters, and the bot works the same.
  */
 export function BotAssetCard({ bot }: { bot: Pick<Bot, 'venue' | 'symbol' | 'credentialId'> }) {
   const instruments = useQuery(instrumentsQuery(bot.venue, bot.symbol, bot.credentialId));
   const instrument = instruments.data?.find((item) => item.symbol === bot.symbol);
   const appearance = instrument?.appearance ?? null;
   const title = assetTitle(bot.venue, bot.symbol);
-  const imageUrl =
-    safeImageUrl(appearance?.imageUrl) ??
-    (bot.venue === 'steam' ? null : cryptoIconUrl(instrument?.baseAsset));
+  const imageUrl = safeImageUrl(appearance?.imageUrl);
 
   return (
     <Card>
