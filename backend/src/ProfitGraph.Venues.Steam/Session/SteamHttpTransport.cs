@@ -2,7 +2,9 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace ProfitGraph.Venues.Steam.Session;
@@ -10,9 +12,10 @@ namespace ProfitGraph.Venues.Steam.Session;
 /// <summary>
 ///     Sends one request to a configured Steam host and classifies the answer (Profit Fox Designer ADRs 0081 and 0083). It
 ///     follows no redirect, keeps no cookies of its own, reads at most the configured body size and retries nothing; the
-///     caller attaches cookies and decides what to do next. It logs nothing, so no cookie or body reaches a log.
+///     caller attaches cookies and decides what to do next. It logs only that a read got an unexpected answer, with its status
+///     code, content type and the path of a redirect, so no cookie, account number or body reaches a log.
 /// </summary>
-internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOptions> options)
+internal sealed partial class SteamHttpTransport(HttpClient client, IOptions<SteamOptions> options, ILogger<SteamHttpTransport> logger)
 {
     private const string UserAgent = "ProfitGraph/SteamIntegration";
 
@@ -76,7 +79,19 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
                     ? result
                     : null);
 
-            return new SteamRequestResult(Classify(response, body, request, destination), payload, RetryAfter(response.Headers.RetryAfter));
+            SteamRequestOutcome outcome = Classify(response, body, request, destination);
+
+            if (outcome == SteamRequestOutcome.InvalidResponse)
+            {
+                logger.LogWarning(
+                    "A Steam read of {Path} got an unexpected answer: status {Status}, {ContentType}, redirect to {Redirect}.",
+                    Masked(request.Path),
+                    (int)response.StatusCode,
+                    response.Content.Headers.ContentType?.MediaType,
+                    response.Headers.Location is { } location ? Masked(location.IsAbsoluteUri ? location.AbsolutePath : location.OriginalString.Split('?')[0]) : null);
+            }
+
+            return new SteamRequestResult(outcome, payload, RetryAfter(response.Headers.RetryAfter));
         }
         catch (Exception exception) when (exception is HttpRequestException or TimeoutException ||
                                           (exception is OperationCanceledException && !cancellationToken.IsCancellationRequested))
@@ -85,6 +100,8 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
         }
         catch (InvalidDataException)
         {
+            logger.LogWarning("A Steam read of {Path} had a body that could not be decoded.", Masked(request.Path));
+
             return new SteamRequestResult(request.IsRead ? SteamRequestOutcome.InvalidResponse : SteamRequestOutcome.Unknown);
         }
     }
@@ -146,6 +163,17 @@ internal sealed class SteamHttpTransport(HttpClient client, IOptions<SteamOption
                 ? new Uri(community, "/market/listings/" + appId.ToString(CultureInfo.InvariantCulture) + "/" + Uri.EscapeDataString(name))
                 : new Uri(community, "/market/");
     }
+
+    /// <summary>
+    ///     A request path without its query and with account and asset numbers hidden.
+    /// </summary>
+    private static string Masked(string path)
+    {
+        return Digits().Replace(path.Split('?')[0], "#");
+    }
+
+    [GeneratedRegex(@"\d{6,}")]
+    private static partial Regex Digits();
 
     private static SteamRequestOutcome Classify(HttpResponseMessage response, byte[] body, SteamHttpRequest request, Uri destination)
     {

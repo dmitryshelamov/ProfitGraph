@@ -91,6 +91,50 @@ public sealed class SteamInventoryTests
         assets.Select(asset => asset.AssetId).ShouldBe(["1001", "1002", "1003", "1004"]);
     }
 
+    [Test]
+    public async Task ThePageSteamSendsThroughTheEligibilityCheckAndBackIsStillRead()
+    {
+        var harness = new SteamSessionHarness();
+        var passedCheck = false;
+        var inventory = $"/profiles/{MockSteam.SteamId}/inventory/";
+        harness.Steam.Override = request =>
+        {
+            string path = request.RequestUri!.AbsolutePath;
+
+            if (path == inventory && !passedCheck)
+            {
+                return Redirect($"/market/eligibilitycheck/?goto={Uri.EscapeDataString(inventory)}");
+            }
+
+            if (path == "/market/eligibilitycheck/")
+            {
+                passedCheck = true;
+
+                return Redirect(inventory);
+            }
+
+            if (path == inventory)
+            {
+                return Answer(body: """<script>var g_rgAppContextData = {"730":{"rgContexts":{"2":{}}}};</script>""", "text/html");
+            }
+
+            return path == $"/inventory/{MockSteam.SteamId}/730/2" ? Answer(Page("2", more: false)) : null;
+        };
+
+        IReadOnlyList<SteamInventoryAsset> assets = await new SteamInventoryReader(Options.Create(harness.Options), harness.Clock)
+            .Read(harness.Session(), appId: 730, CancellationToken.None);
+
+        assets.Select(asset => asset.AssetId).ShouldBe(["1001", "1002"]);
+    }
+
+    private static HttpResponseMessage Redirect(string location)
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.Found);
+        response.Headers.Location = new Uri(location, UriKind.Relative);
+
+        return response;
+    }
+
     private static HttpResponseMessage Answer(string body, string mediaType = "application/json")
     {
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, mediaType) };

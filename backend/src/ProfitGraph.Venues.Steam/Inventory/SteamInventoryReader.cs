@@ -7,7 +7,8 @@ using ProfitGraph.Venues.Steam.Session;
 namespace ProfitGraph.Venues.Steam.Inventory;
 
 /// <summary>
-///     Reads one app's whole inventory of an account through its session at account priority: every context the app
+///     Reads one app's whole inventory of an account through its session at account priority (its first page as a browser
+///     navigation, which Steam may send through the market eligibility check and back): every context the app
 ///     advertises, every page up to <see cref="SteamOptions.InventoryMaximumPages" />. Bought items under a trade hold may
 ///     lie in another context than the usual one, so no context is assumed.
 /// </summary>
@@ -16,10 +17,7 @@ internal sealed class SteamInventoryReader(IOptions<SteamOptions> options, TimeP
     public async Task<IReadOnlyList<SteamInventoryAsset>> Read(SteamAccountSession session, int appId, CancellationToken cancellationToken)
     {
         string steamId = Uri.EscapeDataString(await session.SteamId(cancellationToken));
-        byte[] page = Body(
-            await session.Execute(
-                SteamHttpRequest.Get(SteamEndpoint.Community, $"/profiles/{steamId}/inventory/?l=english", SteamRequestClass.Account),
-                cancellationToken));
+        byte[] page = Body(await session.ReadPage($"/profiles/{steamId}/inventory/?l=english", SteamRequestClass.Account, cancellationToken));
         var assets = new List<SteamInventoryAsset>();
 
         foreach (string context in SteamInventoryParser.Contexts(page, appId))

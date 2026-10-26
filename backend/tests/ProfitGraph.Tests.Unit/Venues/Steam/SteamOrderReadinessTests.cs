@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Bots.Contracts;
@@ -52,7 +53,7 @@ public sealed class SteamOrderReadinessTests
             updates,
             waiting,
             _harness.Clock);
-        _readiness = new SteamOrderReadiness(new FakeSteamBotAccounts(Account), _journal, sells, _harness.Clock);
+        _readiness = new SteamOrderReadiness(new FakeSteamBotAccounts(Account), _journal, sells, _harness.Clock, NullLogger<SteamOrderReadiness>.Instance);
     }
 
     [Test]
