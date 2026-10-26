@@ -70,9 +70,19 @@ internal sealed class SteamBuyOrderClient(IOptions<SteamOptions> options, ILogge
             SteamHttpRequest.Get(SteamEndpoint.Community, "/market/getbuyorderstatus/?buy_orderid=" + Uri.EscapeDataString(buyOrderId)),
             cancellationToken);
 
-        return result.IsSuccess && SteamBuyOrderStatusParser.Read(result.Response!.Body) is { } status
-            ? status
-            : throw new SteamOrderUnresolvedException($"Steam's buy order status is unavailable ({result.Outcome}).");
+        if (result.IsSuccess && SteamBuyOrderStatusParser.Read(result.Response!.Body) is { } status)
+        {
+            return status;
+        }
+
+        // The caller leaves the order as it is and retries; this is the only trace of why, so it names the outcome, never a body.
+        logger?.LogWarning(
+            "Steam getbuyorderstatus is unusable: outcome {Outcome}, HTTP {HttpStatus}, request succeeded {RequestSucceeded}.",
+            result.Outcome,
+            result.Response?.StatusCode,
+            result.IsSuccess);
+
+        throw new SteamOrderUnresolvedException($"Steam's buy order status is unavailable ({result.Outcome}).");
     }
 
     /// <summary>
