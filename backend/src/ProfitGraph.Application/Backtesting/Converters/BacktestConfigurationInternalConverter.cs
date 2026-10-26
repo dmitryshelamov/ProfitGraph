@@ -21,7 +21,7 @@ public static class BacktestConfigurationInternalConverter
             configuration.Settings.MarketFeeRate,
             configuration.Split.Fraction,
             configuration.WarmupCandles,
-            configuration.Settings.SellerFees is { } fees ? new SellerFeeScheduleInternal([.. fees.Rates], fees.Minimum) : null,
+            configuration.Settings.SellerFees is { } fees ? new SellerFeeScheduleInternal([.. fees.Rates], fees.Minimum, fees.Increment) : null,
             configuration.Settings.SettlementHold is { } hold ? (long)hold.TotalSeconds : null);
     }
 }

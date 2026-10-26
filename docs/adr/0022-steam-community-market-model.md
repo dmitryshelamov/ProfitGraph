@@ -27,8 +27,9 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
   The descriptor splits at the first two colons, writes the App ID canonically and keeps the hash name exactly: no
   trimming inside, no case folding, no Unicode normalization. The currency is one of a closed set with known minor
   units (USD, EUR, RUB, KZT at 0.01; only KZT is observed); any other is refused.
-- **Rules.** Quantity step 1, minimum quantity 1, price tick = the currency's minor unit, minimum notional = the
-  smallest representable buyer price. Base precision 0.
+- **Rules.** Quantity step 1, minimum quantity 1, price tick = the currency's minor unit times the wallet's currency
+  increment, minimum notional = the smallest representable buyer price under the wallet's fees. Base precision 0. The
+  rules come from the market-data account's wallet, which must be in the symbol's currency.
 - **Core change C1.** `InstrumentSymbol` accepts single inner spaces and up to 256 characters (no leading or trailing
   whitespace, no control characters); the `symbol` columns and the `base_asset` columns (an item's name is its base
   asset) widen to `varchar(256)`. Bybit's rule is unchanged.
@@ -53,19 +54,32 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
 
 - **Listed price.** Every price in the engine is the buyer's price per item. A buyer pays exactly that, with no fee.
   The seller receives the listed price less two components, Steam's and the publisher's, each floored per item in
-  minor units with a minimum of one minor unit (Profit Fox Designer ADR 0082 table and calculator).
+  minor units, then raised to the wallet's minimum (one minor unit when absent) and rounded to the currency increment
+  (Profit Fox Designer ADR 0082 table and calculator).
+- **Currency increment.** `wallet_currency_increment` is the step, in minor units, of every amount the wallet takes:
+  one for most currencies, a hundred for KZT, whose market prices are whole tenge (observed on the owner's wallet,
+  2026-10-26). A positive-rate component that floors to at most the minimum costs the minimum, one that floors to at
+  most one increment costs one increment, and any larger one is rounded half up to whole increments. A seller receives
+  only whole increments, so the inverse searches seller amounts in increments and a raised sell price is the next one
+  reachable that way. With an increment of one these rules are exactly `max(minimum, floor(S × rate))`. The price tick
+  of a Steam item is one increment, and the gateway refuses a limit buy off the increment and rounds a market buy's
+  slipped price up to the next increment, so every price Steam receives is a whole number of increments. Until
+  2026-10-26 ProfitGraph refused any increment other than one.
 - **Representable prices.** Not every buyer price is reachable from a whole seller amount. A sell limit price that is
   not representable is raised to the next representable price at or above it, never lowered, in replay and live alike;
   the order carries the raised price.
 - **Core change C2, engine fee model.** Fees are either the limit and market rates (today's behavior, the default) or a
-  venue-neutral `SellerFeeSchedule` on `ExecutionSettings` (component rates and a minimum; per unit, seller-paid,
-  floored in minor units of the quote asset, with representable-price normalization), in which case both rates are
-  zero. A stored configuration without a schedule keeps its shape, so Bybit fingerprints and pinned replay hashes stay
-  byte-identical. Replay, sizing and the live account use the same calculator; the schedule assumes a price tick equal
-  to the quote asset's minor unit.
+  venue-neutral `SellerFeeSchedule` on `ExecutionSettings` (component rates, a minimum and an increment in minor units,
+  one by default; per unit, seller-paid, floored in minor units of the quote asset, with representable-price
+  normalization), in which case both rates are zero. A stored configuration without a schedule keeps its shape, so
+  Bybit fingerprints and pinned replay hashes stay byte-identical; a stored schedule writes its increment only when it
+  is not one, so schedules stored before increments existed read back unchanged. Replay, sizing and the live account
+  use the same calculator; the schedule assumes a price tick of one increment. The backtest request and the venue
+  defaults do not carry an increment yet, so a backtest's schedule steps in minor units.
 - **Core change C3, fee model of a bot.** `BotFeeRates` (maker, taker) may carry a seller fee schedule instead;
-  `IVenueFeeRateReader` returns either. Bybit returns `Proportional`. Steam reads `wallet_fee_percent`, `wallet_publisher_fee_percent_default`
-  and the minimum from the wallet page with the bot's credential; missing evidence refuses the bot.
+  `IVenueFeeRateReader` returns either. Bybit returns `Proportional`. Steam reads `wallet_fee_percent`, `wallet_publisher_fee_percent_default`,
+  the minimum and the currency increment from the wallet page with the bot's credential; missing evidence refuses the
+  bot.
 - **Core change C4, venue execution defaults.** A new optional port `IVenueExecutionDefaults` gives the default fee
   model, settlement hold and whole-item sizing of a venue for a new backtest; `GET /api/market-data/venues` returns
   them and the backtest form starts from them. The backtest request carries the fee model and hold explicitly, so a
@@ -92,7 +106,7 @@ it safe. ProfitGraph never conceals automation: one honest client identity, no p
 | Engine order | Steam action |
 |---|---|
 | Limit buy | Buy order (`createbuyorder`) at the price for the quantity. At most one buy order per item per account: a further buy waits with `LocalAccepted` and a waiting code, the one nearest the market first, and is placed when the slot frees. Replay does not model the slot. |
-| Market buy | Buy order at the lowest listing plus the bot's market-buy slippage, rounded up to the tick; the remainder is cancelled after the bot's deadline (2 minutes by default) and reported as cancelled. Partial fills are real. |
+| Market buy | Buy order at the lowest listing plus the bot's market-buy slippage, rounded up to the wallet's currency increment; the remainder is cancelled after the bot's deadline (2 minutes by default) and reported as cancelled. Partial fills are real. |
 | Limit sell | One listing per owned, unlocked asset at the seller amount of the (raised) price, then a mobile confirmation. |
 | Market sell | A listing at the highest buy-order price, so it sells at once, then a mobile confirmation. |
 | Cancel | `cancelbuyorder` or `removelisting`; a cancel of an order still waiting locally is local. |

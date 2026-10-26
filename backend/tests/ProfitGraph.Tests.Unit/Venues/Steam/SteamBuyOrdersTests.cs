@@ -27,12 +27,14 @@ public sealed class SteamBuyOrdersTests
     private SteamOrderUpdates _updates = null!;
     private RecordingSteamOrderWaiting _waiting = null!;
     private SteamBotSettings _settings = null!;
+    private SellerFeeSchedule? _fees;
 
     [SetUp]
     public void SetUp()
     {
         _harness = new SteamSessionHarness { Options = Options() };
         _settings = SteamBotSettings.Defaults;
+        _fees = null;
         _journal = new InMemorySteamOrderJournal();
         _updates = new SteamOrderUpdates();
         _waiting = new RecordingSteamOrderWaiting();
@@ -317,6 +319,25 @@ public sealed class SteamBuyOrdersTests
         _harness.Steam.Count(CreatePath).ShouldBe(0);
     }
 
+    [Test]
+    public async Task AWalletOfWholeTengeBuysOnlyAtWholeTenge()
+    {
+        _fees = new SellerFeeSchedule([0.05m, 0.10m], minimum: 0.01m, increment: 100);
+        _settings = SteamBotSettings.Defaults with { MarketBuySlippage = 0.051m };
+        SteamBuyOrders orders = Orders();
+
+        ExternalOrderUpdate? tiyn = await Submit(orders, "pg-1", Limit(id: 1, quantity: 1m, price: 512.34m));
+        ExternalOrderUpdate? market = await Submit(orders, "pg-2", Market(id: 2, budget: 1100m));
+
+        tiyn!.Reason.ShouldBe(RejectionReason.InvalidPrice);
+        market.ShouldBeNull();
+        _harness.Steam.Count(CreatePath).ShouldBe(1);
+
+        // 520 ₸ with 5.1% slippage is 546.52 ₸, raised to 547 ₸; 1100 ₸ buys two.
+        _harness.Steam.LastBuyForm["quantity"].ShouldBe("2");
+        _harness.Steam.LastBuyForm["price_total"].ShouldBe("109400");
+    }
+
     private static SteamOptions Options()
     {
         return new SteamOptions
@@ -333,7 +354,7 @@ public sealed class SteamBuyOrdersTests
     {
         SteamInstrument.TryParse($"KZT:730:{Item}", out SteamInstrument? instrument).ShouldBeTrue();
 
-        return new SteamBotAccount(Bot, SteamSessionHarness.Owner, SteamSessionHarness.Credential, instrument, Settings: _settings);
+        return new SteamBotAccount(Bot, SteamSessionHarness.Owner, SteamSessionHarness.Credential, instrument, _fees, _settings);
     }
 
     private static OrderSnapshot Limit(long id, decimal quantity, decimal price)

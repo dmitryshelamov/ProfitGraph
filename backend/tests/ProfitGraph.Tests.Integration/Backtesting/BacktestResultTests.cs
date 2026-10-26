@@ -240,6 +240,7 @@ public sealed class BacktestResultTests
         configuration["sellerFees"]!["rates"]!.AsArray().Select(rate => rate!.GetValue<string>()).ShouldBe(["0.05", "0.1"]);
         configuration["sellerFees"]!["minimum"]!.GetValue<string>().ShouldBe("0.01");
         configuration["settlementHoldSeconds"]!.GetValue<long>().ShouldBe(7200);
+        (await Scalar<bool>("SELECT configuration->'sellerFees' ? 'increment' FROM backtest_runs WHERE id = @id", new { id = withFees })).ShouldBeFalse();
         (await Get($"/api/backtests/{withRates}"))["configuration"]!["sellerFees"].ShouldBeNull();
         (await Get($"/api/backtests/{withRates}"))["configuration"]!["settlementHoldSeconds"].ShouldBeNull();
         (await Scalar<bool>("SELECT configuration ? 'settlementHoldSeconds' FROM backtest_runs WHERE id = @id", new { id = withRates })).ShouldBeFalse();

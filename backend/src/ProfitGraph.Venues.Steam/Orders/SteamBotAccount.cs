@@ -16,4 +16,9 @@ internal sealed record SteamBotAccount(
     SteamBotSettings? Settings = null)
 {
     public SteamBotSettings EffectiveSettings => Settings ?? SteamBotSettings.Defaults;
+
+    /// <summary>
+    ///     The wallet's currency increment in minor units: every price the bot sends Steam is a whole number of them.
+    /// </summary>
+    public long Increment => SellerFees?.Increment ?? 1;
 }

@@ -78,10 +78,31 @@ public sealed class SteamPriceHistoryParserTests
         wallet.Balance.ShouldBe(1234.56m);
         wallet.SellerFees.Rates.ShouldBe([0.05m, 0.10m]);
         wallet.SellerFees.Minimum.ShouldBe(0.01m);
+        wallet.SellerFees.Increment.ShouldBe(1);
+    }
+
+    [Test]
+    public void KeepsAWalletCurrencyIncrementOfWholeTenge()
+    {
+        string info = new MockSteam().WalletInfo.Replace("\"wallet_currency_increment\":1", "\"wallet_currency_increment\":100", StringComparison.Ordinal);
+
+        SteamWallet wallet = SteamWalletParser.Read(Encoding.UTF8.GetBytes($"<script>var g_rgWalletInfo = {info};</script>"));
+
+        wallet.SellerFees.Increment.ShouldBe(100);
+        wallet.SellerFees.BuyerPrice(sellerAmount: 1m, Kzt.Precision).ShouldBe(3m);
+    }
+
+    [Test]
+    public void AWalletWithoutAnIncrementStepsInMinorUnits()
+    {
+        string info = new MockSteam().WalletInfo.Replace(",\"wallet_currency_increment\":1", "", StringComparison.Ordinal);
+
+        SteamWalletParser.Read(Encoding.UTF8.GetBytes($"<script>var g_rgWalletInfo = {info};</script>")).SellerFees.Increment.ShouldBe(1);
     }
 
     [TestCase("\"wallet_currency\":37", "\"wallet_currency\":99")]
-    [TestCase("\"wallet_currency_increment\":1", "\"wallet_currency_increment\":5")]
+    [TestCase("\"wallet_currency_increment\":1", "\"wallet_currency_increment\":0")]
+    [TestCase("\"wallet_currency_increment\":1", "\"wallet_currency_increment\":1.5")]
     [TestCase("\"wallet_fee_percent\":\"0.05\",", "")]
     public void AnUnsupportedOrIncompleteWalletIsRefused(string field, string replacement)
     {

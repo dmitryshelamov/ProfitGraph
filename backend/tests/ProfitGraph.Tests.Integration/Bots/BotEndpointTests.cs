@@ -2,7 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
+using Dapper;
+
 using Microsoft.Extensions.DependencyInjection;
+
+using Npgsql;
 
 using ProfitGraph.Application.Bots;
 using ProfitGraph.Application.Bots.Contracts;
@@ -69,6 +73,33 @@ public sealed class BotEndpointTests
             bot.GetProperty("limitFeeRate").GetString().ShouldBe("0");
             bot.GetProperty("sellerFees").GetProperty("rates").EnumerateArray().Select(rate => rate.GetString()).ShouldBe(["0.05", "0.1"]);
             bot.GetProperty("sellerFees").GetProperty("minimum").GetString().ShouldBe("0.01");
+        }
+        finally
+        {
+            reader.Rates = FakeFeeRateReader.DefaultRates;
+        }
+    }
+
+    [Test]
+    public async Task ABotKeepsItsWalletsIncrementAndStoresNoneOfOneMinorUnit()
+    {
+        var reader = _factory.Services.GetRequiredService<FakeFeeRateReader>();
+        BotOwner owner = await BotApi.NewOwner(_factory);
+
+        try
+        {
+            reader.Rates = new VenueFeeRatesInternal(MakerRate: 0m, TakerRate: 0m, new SellerFeeSchedule([0.05m, 0.10m], minimum: 0.01m, increment: 100));
+            Guid wholeTenge = await BotApi.Create(owner);
+            reader.Rates = new VenueFeeRatesInternal(MakerRate: 0m, TakerRate: 0m, new SellerFeeSchedule([0.05m, 0.10m], minimum: 0.01m));
+            Guid minorUnits = await BotApi.Create(owner);
+
+            using IServiceScope scope = _factory.Services.CreateScope();
+            var bots = scope.ServiceProvider.GetRequiredService<IBotRepository>();
+            (await bots.Get(new BotId(wholeTenge), CancellationToken.None))!.FeeRates.SellerFees!.Increment.ShouldBe(100);
+            (await bots.Get(new BotId(minorUnits), CancellationToken.None))!.FeeRates.SellerFees!.Increment.ShouldBe(1);
+            await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+            (await connection.ExecuteScalarAsync<long>("SELECT (seller_fees->>'increment')::bigint FROM bots WHERE id = @id", new { id = wholeTenge })).ShouldBe(100);
+            (await connection.ExecuteScalarAsync<bool>("SELECT seller_fees ? 'increment' FROM bots WHERE id = @id", new { id = minorUnits })).ShouldBeFalse();
         }
         finally
         {
