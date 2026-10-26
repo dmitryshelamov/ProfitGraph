@@ -46,11 +46,6 @@ internal static class SteamWalletParser
                 throw Invalid("its balance is not whole minor units");
             }
 
-            if (increment != 1)
-            {
-                throw Invalid($"its currency increment is {increment.ToString(CultureInfo.InvariantCulture)} minor units, not one");
-            }
-
             return new SteamWallet(
                 currency,
                 balance * currency.MinorUnit,
