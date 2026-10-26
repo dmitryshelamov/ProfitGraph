@@ -27,6 +27,8 @@ internal sealed class TInvestOrderStreams(
     IOptions<TInvestOptions> options,
     ILogger<TInvestOrderStreams> logger)
 {
+    private const int MaxReads = 5;
+
     private readonly ConcurrentDictionary<BotId, TInvestOrderStream> _streams = new ConcurrentDictionary<BotId, TInvestOrderStream>();
 
     /// <summary>
@@ -107,7 +109,11 @@ internal sealed class TInvestOrderStreams(
         }
         catch (Exception exception)
         {
-            logger.LogWarning("The order state stream of bot {BotId} ended with {ExceptionType}.", context.BotId.Value, exception.GetType().Name);
+            logger.LogWarning(
+                "The order state stream of bot {BotId} ended with {ExceptionType}, reason {Reason}.",
+                context.BotId.Value,
+                exception.GetType().Name,
+                (exception as TInvestOrderUnresolvedException)?.Reason);
             subscribed.TrySetException(exception);
             updates.Fail(context.BotId, exception);
         }
@@ -129,7 +135,20 @@ internal sealed class TInvestOrderStreams(
             return;
         }
 
-        OrderState state = await reads.ByRequestId(context, attempt.RequestId, cancellationToken) ?? throw new TInvestOrderUnresolvedException();
-        updates.Publish(context.BotId, await progress.Apply(context, attempt, state, cancellationToken));
+        for (var read = 1;; read++)
+        {
+            OrderState state = await reads.ByRequestId(context, attempt.RequestId, cancellationToken) ?? throw new TInvestOrderUnresolvedException("OrderNotFound");
+
+            try
+            {
+                updates.Publish(context.BotId, await progress.Apply(context, attempt, state, cancellationToken));
+
+                return;
+            }
+            catch (TInvestOrderUnresolvedException unresolved) when (unresolved.IsTransient && read < MaxReads)
+            {
+                await Task.Delay(options.Value.OrderReadRetryDelay, cancellationToken);
+            }
+        }
     }
 }

@@ -29,7 +29,7 @@ internal static class TInvestOrderTranslation
         {
             return earlier.Lots == 0
                 ? [ExternalOrderUpdate.Reject(engineOrderId, RejectionReason.BrokerRejected, "T-Invest rejected the order.")]
-                : throw new TInvestOrderUnresolvedException();
+                : throw new TInvestOrderUnresolvedException("RejectedAfterFills");
         }
 
         TInvestExecution own = Executed(state, lot);
@@ -69,7 +69,7 @@ internal static class TInvestOrderTranslation
 
                 break;
             default:
-                throw new TInvestOrderUnresolvedException();
+                throw new TInvestOrderUnresolvedException("ExecutionStatusUnexpected");
         }
 
         return updates;
@@ -82,10 +82,25 @@ internal static class TInvestOrderTranslation
     {
         long stageLots = state.Stages.Sum(stage => stage.Quantity);
 
-        if (stageLots != state.LotsExecuted || state.Stages.Any(stage => stage.Price is null || !Roubles(stage.Price)) ||
-            (state.ExecutedCommission is { } reported && !Roubles(reported)))
+        if (stageLots != state.LotsExecuted)
         {
-            throw new TInvestOrderUnresolvedException();
+            // The executed lots and the trade stages are two parts of one answer that can be read apart while the order is filling.
+            throw new TInvestOrderUnresolvedException("StagesDisagreeWithExecutedLots", isTransient: true);
+        }
+
+        if (state.Stages.Any(stage => stage.Price is null))
+        {
+            throw new TInvestOrderUnresolvedException("StagePriceMissing");
+        }
+
+        if (state.Stages.Any(stage => !Roubles(stage.Price)))
+        {
+            throw new TInvestOrderUnresolvedException("StagePriceNotInRoubles");
+        }
+
+        if (state.ExecutedCommission is { } reported && !Roubles(reported) && !IsZero(reported))
+        {
+            throw new TInvestOrderUnresolvedException("CommissionNotInRoubles");
         }
 
         return new TInvestExecution(
@@ -101,6 +116,14 @@ internal static class TInvestOrderTranslation
     {
         return state.ExecutionReportStatus is OrderExecutionReportStatus.ExecutionReportStatusFill or OrderExecutionReportStatus.ExecutionReportStatusRejected
             or OrderExecutionReportStatus.ExecutionReportStatusCancelled;
+    }
+
+    /// <summary>
+    ///     A zero amount carries no currency meaning: T-Invest may leave the currency empty on a commission that is not charged yet.
+    /// </summary>
+    private static bool IsZero(MoneyValue money)
+    {
+        return money.Units == 0 && money.Nano == 0;
     }
 
     private static bool Roubles(MoneyValue money)
