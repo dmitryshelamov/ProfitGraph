@@ -48,6 +48,23 @@ public sealed class SteamAccountSessionTests
         harness.Steam.Count("/market/eligibilitycheck/").ShouldBe(1);
         harness.Steam.Count("/market/").ShouldBe(3);
         harness.Steam.Cookies.Single().ShouldContain("webTradeEligibility=allowed-invented");
+        session.Eligibility.RecentlyEligible.ShouldBeTrue();
+    }
+
+    [Test]
+    public async Task AThrottledEligibilityStepBacksTheCheckOff()
+    {
+        var harness = new SteamSessionHarness();
+        harness.Steam.MarketGoesThroughEligibility = true;
+        harness.Steam.Override = request =>
+            request.RequestUri!.AbsolutePath == "/market/eligibilitycheck/" ? new HttpResponseMessage(HttpStatusCode.TooManyRequests) : null;
+        SteamAccountSession session = harness.Session();
+
+        SteamRequestResult result = await session.ReadPage("/market/?l=english", SteamRequestClass.Account, CancellationToken.None);
+
+        result.Outcome.ShouldBe(SteamRequestOutcome.RateLimited);
+        session.Eligibility.BackingOff.ShouldBeTrue();
+        session.Eligibility.RecentlyEligible.ShouldBeFalse();
     }
 
     [Test]

@@ -41,12 +41,71 @@ public sealed class SteamEligibilityTests
     }
 
     [Test]
-    public async Task AnAccountWhoseMarketGoesThroughTheCheckIsReady()
+    public async Task AMarketPageThatWentThroughTheCheckSparesTheCheck()
     {
         _harness.Steam.MarketGoesThroughEligibility = true;
+        var asked = 0;
+        _harness.Steam.Override = request =>
+        {
+            if (request.RequestUri!.AbsolutePath == "/market/eligibilitycheck/" && request.Headers.Accept.Count > 0)
+            {
+                asked++;
+            }
+
+            return null;
+        };
 
         (await Check()).ShouldBe(SteamGuardStatus.Ready);
         _harness.Steam.Count("/market/eligibilitycheck/").ShouldBe(1);
+        asked.ShouldBe(0);
+    }
+
+    [Test]
+    public async Task APositiveCheckIsReusedForSixHours()
+    {
+        (await Check()).ShouldBe(SteamGuardStatus.Ready);
+        (await Check()).ShouldBe(SteamGuardStatus.Ready);
+
+        _harness.Steam.Count("/market/eligibilitycheck/").ShouldBe(1);
+
+        _harness.Clock.Advance(TimeSpan.FromHours(6));
+        _harness.Steam.ServerTime = _harness.Clock.GetUtcNow();
+        (await Check()).ShouldBe(SteamGuardStatus.Ready);
+
+        _harness.Steam.Count("/market/eligibilitycheck/").ShouldBe(2);
+    }
+
+    [Test]
+    public async Task AThrottledCheckWaitsTenMinutesBeforeTheNext()
+    {
+        _harness.Steam.Override = request =>
+            request.RequestUri!.AbsolutePath == "/market/eligibilitycheck/" ? new HttpResponseMessage(HttpStatusCode.TooManyRequests) : null;
+
+        (await Check()).ShouldBe(SteamGuardStatus.Checking);
+
+        _harness.Clock.Advance(TimeSpan.FromMinutes(6));
+        (await Check()).ShouldBe(SteamGuardStatus.Checking);
+
+        _harness.Steam.Count("/market/eligibilitycheck/").ShouldBe(1);
+
+        _harness.Steam.Override = null;
+        _harness.Clock.Advance(TimeSpan.FromMinutes(4));
+        _harness.Steam.ServerTime = _harness.Clock.GetUtcNow();
+        (await Check()).ShouldBe(SteamGuardStatus.Ready);
+
+        _harness.Steam.Count("/market/eligibilitycheck/").ShouldBe(2);
+    }
+
+    [Test]
+    public async Task ARefusalIsNeverReused()
+    {
+        _harness.Steam.EligibilityRedirect = null;
+        (await Check()).ShouldBe(SteamGuardStatus.Restricted);
+
+        _harness.Steam.EligibilityRedirect = "/market/";
+        (await Check()).ShouldBe(SteamGuardStatus.Ready);
+
+        _harness.Steam.Count("/market/eligibilitycheck/").ShouldBe(2);
     }
 
     [Test]

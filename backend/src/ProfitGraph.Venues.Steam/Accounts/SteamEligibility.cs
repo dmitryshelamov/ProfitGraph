@@ -13,7 +13,10 @@ namespace ProfitGraph.Venues.Steam.Accounts;
 ///     eligibility check redirecting back into the market; a readable wallet in a supported currency; and signed mobile
 ///     confirmations listed. <see cref="SteamGuardStatus.Restricted" /> needs Steam's positive refusal: a non-market answer to
 ///     the eligibility check, a restriction or CAPTCHA, an unsupported wallet, or refused confirmations. Anything that only
-///     failed to answer stays <see cref="SteamGuardStatus.Checking" /> and is checked again later. A check that does not make
+///     failed to answer stays <see cref="SteamGuardStatus.Checking" /> and is checked again later. The wallet is read first: a
+///     market page that went through the eligibility check, or a positive check still within
+///     <see cref="SteamOptions.EligibilityReuse" />, spares the check itself, which Steam rate limits; while a throttled check
+///     backs off, the account stays unconfirmed without asking (Profit Fox Designer <c>SteamWalletClient</c>). A check that does not make
 ///     the account ready logs its stage and Steam's answer: outcomes, status codes and static path segments only, never a
 ///     cookie, token, body or Steam ID (Profit Fox Designer <c>SteamWalletClient.LogFailure</c>).
 /// </summary>
@@ -45,20 +48,6 @@ internal sealed class SteamEligibility(
             return Logged(SteamGuardStatus.Checking, "ServerTime", exception.Outcome.ToString());
         }
 
-        SteamRequestResult eligibility = await session.Execute(
-            new SteamHttpRequest(SteamEndpoint.Community, EligibilityPath, Class: SteamRequestClass.Account, ExpectsRedirect: true),
-            cancellationToken);
-
-        if (Eligible(eligibility) is not true)
-        {
-            return Logged(
-                Eligible(eligibility) is false ? SteamGuardStatus.Restricted : SteamGuardStatus.Checking,
-                "Eligibility",
-                eligibility.Outcome.ToString(),
-                eligibility.Response?.StatusCode,
-                SafePath(eligibility.Response?.Location));
-        }
-
         try
         {
             await marketData.WalletOf(credentialId, cancellationToken);
@@ -66,6 +55,38 @@ internal sealed class SteamEligibility(
         catch (SteamMarketDataException exception)
         {
             return Logged(exception.Unavailable ? SteamGuardStatus.Checking : SteamGuardStatus.Restricted, "Wallet", exception.Message);
+        }
+
+        if (!session.Eligibility.RecentlyEligible)
+        {
+            if (session.Eligibility.BackingOff)
+            {
+                return Logged(SteamGuardStatus.Checking, "Eligibility", "BackingOff");
+            }
+
+            SteamRequestResult eligibility = await session.Execute(
+                new SteamHttpRequest(SteamEndpoint.Community, EligibilityPath, Class: SteamRequestClass.Account, ExpectsRedirect: true),
+                cancellationToken);
+            bool? eligible = Eligible(eligibility);
+
+            if (eligible is { } answered)
+            {
+                session.Eligibility.Record(answered);
+            }
+            else if (eligibility.Outcome is SteamRequestOutcome.RateLimited or SteamRequestOutcome.TransientFailure)
+            {
+                session.Eligibility.RecordThrottled();
+            }
+
+            if (eligible is not true)
+            {
+                return Logged(
+                    eligible is false ? SteamGuardStatus.Restricted : SteamGuardStatus.Checking,
+                    "Eligibility",
+                    eligibility.Outcome.ToString(),
+                    eligibility.Response?.StatusCode,
+                    SafePath(eligibility.Response?.Location));
+            }
         }
 
         return await confirmations.Probe(session, credentialId, cancellationToken) switch
