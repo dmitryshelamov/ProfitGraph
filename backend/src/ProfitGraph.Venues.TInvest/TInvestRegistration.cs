@@ -2,11 +2,13 @@ using FluentMigrator.Runner;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Accounts.Ports;
 using ProfitGraph.Application.Bots.Ports;
+using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Venues.TInvest.Accounts;
 using ProfitGraph.Venues.TInvest.LiveData;
@@ -71,7 +73,8 @@ public static class TInvestRegistration
         services.AddSingleton<ITInvestBotContexts, TInvestBotContexts>();
         services.AddSingleton<TInvestOrderReads>();
         services.AddSingleton<TInvestOrderUpdates>();
-        services.AddSingleton<TInvestOrderStreams>();
+        services.TryAddSingleton(new PrivateStreamReconnectPolicy());
+        services.AddSingleton(provider => ActivatorUtilities.CreateInstance<TInvestOrderStreams>(provider, TimeProvider.System));
         services.AddSingleton<TInvestTradingStatuses>();
         services.AddSingleton(provider => new TInvestPriceBands(provider.GetRequiredService<TInvestTransport>(), TimeProvider.System));
         services.AddSingleton<ITInvestOrderWaits, TInvestOrderWaits>();

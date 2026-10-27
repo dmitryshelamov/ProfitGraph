@@ -120,3 +120,11 @@ Corrections to [ADR 0018](adr/0018-live-risk-controls.md) found in review.
 | Step | Scope | Done when | Status |
 |---|---|---|---|
 | 1. Daily loss across midnight | [ADR 0041](adr/0041-daily-loss-across-midnight.md): the first root of a UTC day takes the previous day's last recorded equity as its baseline and is checked against it; `bots.day_last_equity` | Domain tests kill a `1d` bot and a `1h` bot on a loss across midnight; the root committer kills a bot from the stored last equity | Done |
+
+## Private order streams
+
+Corrections to [ADR 0017](adr/0017-bybit-spot-order-gateway.md) and [ADR 0023](adr/0023-tinvest-moex-shares.md) found in review.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Reconnect inside the bot | [ADR 0044](adr/0044-private-stream-reconnect.md): a lost Bybit or T-Invest private stream reconnects with backoff (1, 2, 5, 10, then 30 s) for up to 5 minutes; once the venue confirmed it, the bot's open orders are read again as at reconciliation and published; an unreadable message, a failed lookup or a foreign order still ends the bot | Fake transports and the mock Invest API: a fill missed while the stream was down is published once after the restore, a stream lost for the whole budget ends the updates, a foreign order placed meanwhile degrades | Done on mocks; no real venue stream checked |
