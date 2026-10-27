@@ -50,7 +50,7 @@ internal sealed class TInvestGatewayHarness
 
     public TInvestClosedSessionSweep Sweep { get; }
 
-    public TInvestGatewayHarness()
+    public TInvestGatewayHarness(string exchange = Exchange)
     {
         Orders = new MockTInvestOrders(Api, AccountId) { PositionInstrumentUid = ShareUid };
         IOptions<TInvestOptions> options = Options.Create(new TInvestOptions());
@@ -68,7 +68,7 @@ internal sealed class TInvestGatewayHarness
             PriceIncrement: 0.01m,
             FirstMinuteCandle: null,
             FirstDayCandle: null,
-            Exchange);
+            exchange);
         var contexts = new FixedTInvestBotContexts(new TInvestBotContext(Bot, new TInvestToken("t.invented-token"), AccountId, share));
         var schedules = new TInvestSchedules(transport, Clock, NullLogger<TInvestSchedules>.Instance);
         var operations = new TInvestOperationReads(transport);

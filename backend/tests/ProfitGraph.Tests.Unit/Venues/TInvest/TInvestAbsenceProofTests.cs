@@ -33,6 +33,18 @@ public sealed class TInvestAbsenceProofTests
         "PositionMatchesEngine"
     ];
 
+    private static readonly string[] CalendarChecks =
+    [
+        "NotFoundByRequestId",
+        "NotAmongActiveOrders",
+        "NoExecutionRecorded",
+        "NotFoundByExchangeId",
+        "TradingDayEnded",
+        "TradingDayEndedByCalendar",
+        "NoExecutionInOperations",
+        "PositionMatchesEngine"
+    ];
+
     private TInvestGatewayHarness _harness = null!;
     private ClientOrderId _client = null!;
     private OrderState _placed = null!;
@@ -42,14 +54,7 @@ public sealed class TInvestAbsenceProofTests
     {
         _harness = new TInvestGatewayHarness();
         _harness.Orders.Schedule.Add(Weekday(Tuesday));
-        _client = _harness.Gateway.ClientOrderIdFor(_harness.Bot, engineOrderId: 1);
-        await _harness.Gateway.Reconcile(new BotReconcileInternal(_harness.Bot, AllowForeignOrders: false, []), CancellationToken.None);
-        await _harness.Gateway.Submit(
-            new OrderSubmitInternal(_harness.Bot, _client, TInvestGatewayHarness.Limit(id: 1, OrderSide.Buy, quantity: 10m, price: 99m), MustLookUpBeforeSubmit: false),
-            TInvestGatewayHarness.NoOp,
-            CancellationToken.None);
-        _placed = _harness.Orders.Order(_harness.Orders.Posted.Single().OrderId).Clone();
-        _harness.Orders.Vanish(_placed.OrderRequestId);
+        await PlaceAndVanish();
     }
 
     [Test]
@@ -310,6 +315,139 @@ public sealed class TInvestAbsenceProofTests
         NextMorning();
         (await _harness.Gateway.CanProveAbsence(new BotReconcileInternal(_harness.Bot, AllowForeignOrders: false, [], ExpectedBase: 0m), CancellationToken.None))
             .ShouldBeFalse();
+    }
+
+    [Test]
+    public async Task WhenThePastScheduleIsRefusedAMoexOrderOfYesterdayInMoscowIsProvenEndedByTheCalendar()
+    {
+        _harness.Orders.ScheduleFailure = MockTInvestApi.Refusal(StatusCode.InvalidArgument, "30003");
+        NextMorning();
+
+        BotReconciliationInternal reconciliation = await Reconcile(expectedBase: 0m);
+
+        reconciliation.ShouldSatisfyAllConditions(
+            () => reconciliation.Degradation.ShouldBeNull(),
+            () => reconciliation.Updates.ShouldBe([ExternalOrderUpdate.ConfirmCancel(orderId: 1)]),
+            () => reconciliation.Found.Single().AbsenceProof!.Checks.ShouldBe(CalendarChecks));
+    }
+
+    [Test]
+    public async Task ATimedOutScheduleFallsBackToTheCalendarToo()
+    {
+        _harness.Orders.ScheduleFailure = MockTInvestApi.Refusal(StatusCode.DeadlineExceeded, "timeout");
+        NextMorning();
+
+        (await Reconcile(expectedBase: 0m)).Found.Single().AbsenceProof!.Checks.ShouldBe(CalendarChecks);
+    }
+
+    [Test]
+    public async Task TheCalendarDayEndsAtMoscowMidnightPlusTheSettleDelay()
+    {
+        _harness.Orders.ScheduleFailure = MockTInvestApi.Refusal(StatusCode.InvalidArgument, "30003");
+
+        At(Tuesday, hour: 21, minute: 59);
+
+        await StaysUnresolved("TradingDayNotEnded");
+
+        At(Tuesday, hour: 22, minute: 0);
+
+        (await Reconcile(expectedBase: 0m)).Degradation.ShouldBeNull();
+    }
+
+    [Test]
+    public async Task ADayThatIsStillRunningIsNotEndedByTheCalendar()
+    {
+        _harness.Orders.ScheduleFailure = MockTInvestApi.Refusal(StatusCode.InvalidArgument, "30003");
+        At(Tuesday, hour: 12, minute: 0);
+
+        await StaysUnresolved("TradingDayNotEnded");
+    }
+
+    [Test]
+    public async Task AnOrderPlacedInTheEveningJustBeforeMoscowMidnightEndsWithThatMoscowDay()
+    {
+        _harness = new TInvestGatewayHarness();
+        _harness.Orders.ScheduleFailure = MockTInvestApi.Refusal(StatusCode.InvalidArgument, "30003");
+        At(Tuesday, hour: 20, minute: 58);
+        await PlaceAndVanish();
+
+        At(Tuesday, hour: 21, minute: 59);
+
+        await StaysUnresolved("TradingDayNotEnded");
+
+        At(Tuesday, hour: 22, minute: 0);
+
+        (await Reconcile(expectedBase: 0m)).Degradation.ShouldBeNull();
+    }
+
+    [Test]
+    public async Task AnOrderLastRecordedAfterMoscowMidnightBelongsToTheNextMoscowDay()
+    {
+        _harness = new TInvestGatewayHarness();
+        _harness.Orders.ScheduleFailure = MockTInvestApi.Refusal(StatusCode.InvalidArgument, "30003");
+        At(Tuesday, hour: 21, minute: 2);
+        await PlaceAndVanish();
+
+        At(Tuesday.AddDays(1), hour: 21, minute: 59);
+
+        await StaysUnresolved("TradingDayNotEnded");
+
+        At(Tuesday.AddDays(1), hour: 22, minute: 0);
+
+        (await Reconcile(expectedBase: 0m)).Degradation.ShouldBeNull();
+    }
+
+    [Test]
+    public async Task AnExchangeOutsideTheMoexWhitelistIsNeverEndedByTheCalendar()
+    {
+        _harness = new TInvestGatewayHarness(exchange: "spb_main");
+        _harness.Orders.ScheduleFailure = MockTInvestApi.Refusal(StatusCode.InvalidArgument, "30003");
+        await PlaceAndVanish();
+        NextMorning();
+
+        await StaysUnresolved("TradingDayUnknown");
+    }
+
+    [Test]
+    public async Task AClockBehindTheOrdersLastRecordedInstantProvesNothing()
+    {
+        _harness.Orders.ScheduleFailure = MockTInvestApi.Refusal(StatusCode.InvalidArgument, "30003");
+        TInvestOrderAttempt recorded = _harness.Attempts.All.Single();
+        (await _harness.Attempts.Transition(recorded with { UpdatedAt = recorded.UpdatedAt.AddHours(2) }, recorded.State, CancellationToken.None)).ShouldBeTrue();
+
+        await StaysUnresolved("TradingDayUnknown");
+    }
+
+    [Test]
+    public async Task TheCalendarDoesNotReplaceTheOtherChecks()
+    {
+        _harness.Orders.ScheduleFailure = MockTInvestApi.Refusal(StatusCode.InvalidArgument, "30003");
+        NextMorning();
+        _harness.Orders.Operations.Add(Operation(OperationState.Executed, quantityDone: 1));
+
+        await StaysUnresolved("ExecutionInOperations");
+    }
+
+    [Test]
+    public async Task AReadableScheduleDecidesAndTheCalendarIsNotUsed()
+    {
+        At(Tuesday, hour: 21, minute: 50);
+
+        BotReconciliationInternal reconciliation = await Reconcile(expectedBase: 0m);
+
+        reconciliation.Found.Single().AbsenceProof!.Checks.ShouldBe(AllChecks);
+    }
+
+    private async Task PlaceAndVanish()
+    {
+        _client = _harness.Gateway.ClientOrderIdFor(_harness.Bot, engineOrderId: 1);
+        await _harness.Gateway.Reconcile(new BotReconcileInternal(_harness.Bot, AllowForeignOrders: false, []), CancellationToken.None);
+        await _harness.Gateway.Submit(
+            new OrderSubmitInternal(_harness.Bot, _client, TInvestGatewayHarness.Limit(id: 1, OrderSide.Buy, quantity: 10m, price: 99m), MustLookUpBeforeSubmit: false),
+            TInvestGatewayHarness.NoOp,
+            CancellationToken.None);
+        _placed = _harness.Orders.Order(_harness.Orders.Posted.Single().OrderId).Clone();
+        _harness.Orders.Vanish(_placed.OrderRequestId);
     }
 
     private async Task StaysUnresolved(string failedCheck)

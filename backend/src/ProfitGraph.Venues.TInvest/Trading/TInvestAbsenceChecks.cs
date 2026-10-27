@@ -13,6 +13,7 @@ internal static class TInvestAbsenceChecks
     public const string NoExecutionRecorded = "NoExecutionRecorded";
     public const string NotFoundByExchangeId = "NotFoundByExchangeId";
     public const string TradingDayEnded = "TradingDayEnded";
+    public const string TradingDayEndedByCalendar = "TradingDayEndedByCalendar";
     public const string NoExecutionInOperations = "NoExecutionInOperations";
     public const string PositionMatchesEngine = "PositionMatchesEngine";
     public const string CancelledByExchange = "CancelledByExchange";

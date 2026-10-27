@@ -23,7 +23,10 @@ namespace ProfitGraph.Venues.TInvest.Trading;
 ///             <description>T-Invest does not know the order by its exchange order ID either;</description>
 ///         </item>
 ///         <item>
-///             <description>the trading day of the order has ended, and the settle delay has passed;</description>
+///             <description>
+///                 the trading day of the order has ended, and the settle delay has passed (by the schedule, or for a MOEX share
+///                 by the Moscow calendar when the schedule cannot be read, ADR 0032);
+///             </description>
 ///         </item>
 ///         <item>
 ///             <description>the account's operations on the share since the order was planned show no execution, even a partial one;</description>
@@ -112,12 +115,19 @@ internal sealed class TInvestAbsenceProofs(
             return Fail(passed, TInvestAbsenceChecks.OrderTooOld);
         }
 
-        if (await DayEnded(context, attempt, now, cancellationToken) is { } dayFailure)
+        (string? dayFailure, bool byCalendar) = await DayEnded(context, attempt, now, cancellationToken);
+
+        if (dayFailure is not null)
         {
             return Fail(passed, dayFailure);
         }
 
         passed.Add(TInvestAbsenceChecks.TradingDayEnded);
+
+        if (byCalendar)
+        {
+            passed.Add(TInvestAbsenceChecks.TradingDayEndedByCalendar);
+        }
 
         TInvestShareOperations seen = await operations.OfShare(context, attempt.CreatedAt - Skew, now, cancellationToken);
 
@@ -159,25 +169,48 @@ internal sealed class TInvestAbsenceProofs(
     }
 
     /// <summary>
-    ///     Null when the trading day that holds the attempt's last recorded instant, which is not earlier than its place
-    ///     request, ended at least the settle delay ago; otherwise why not. A day outside the schedule's vocabulary, a gap
-    ///     between days and an unreadable schedule are unknown, never ended.
+    ///     Null failure when the trading day that holds the attempt's last recorded instant, which is not earlier than its place
+    ///     request, ended at least the settle delay ago; otherwise why not. A day outside the schedule's vocabulary and a gap
+    ///     between days are unknown, never ended. T-Invest answers the schedule for today and the next week only (ADR 0030), so
+    ///     when it cannot be read the calendar of Moscow time ends the day of a MOEX share (ADR 0032); any other exchange stays
+    ///     unknown. <c>ByCalendar</c> tells the proof which of the two ended the day.
     /// </summary>
-    private async Task<string?> DayEnded(TInvestBotContext context, TInvestOrderAttempt attempt, DateTimeOffset now, CancellationToken cancellationToken)
+    private async Task<(string? Failure, bool ByCalendar)> DayEnded(
+        TInvestBotContext context,
+        TInvestOrderAttempt attempt,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
     {
-        DateTimeOffset placed = attempt.UpdatedAt;
+        DateTimeOffset placed = attempt.UpdatedAt > attempt.CreatedAt ? attempt.UpdatedAt : attempt.CreatedAt;
 
         if (await schedules.DaysBetween(context, placed.AddDays(-1), now.AddDays(1), cancellationToken) is not { } days)
         {
-            return TInvestAbsenceChecks.TradingDayUnknown;
+            return (CalendarDayEnded(context, placed, now), ByCalendar: true);
         }
 
         if (TInvestSchedules.Holding(days, placed) is not { Known: true, End: { } end })
         {
+            return (TInvestAbsenceChecks.TradingDayUnknown, ByCalendar: false);
+        }
+
+        return (now >= end + options.Value.AbsenceSettleDelay ? null : TInvestAbsenceChecks.TradingDayNotEnded, ByCalendar: false);
+    }
+
+    private string? CalendarDayEnded(TInvestBotContext context, DateTimeOffset placed, DateTimeOffset now)
+    {
+        if (!TInvestMoscowCalendar.Covers(context.Share.Exchange) || placed > now + Skew)
+        {
             return TInvestAbsenceChecks.TradingDayUnknown;
         }
 
-        return now >= end + options.Value.AbsenceSettleDelay ? null : TInvestAbsenceChecks.TradingDayNotEnded;
+        if (now < TInvestMoscowCalendar.DayEnd(placed) + options.Value.AbsenceSettleDelay)
+        {
+            return TInvestAbsenceChecks.TradingDayNotEnded;
+        }
+
+        logger.LogInformation("The trading schedule is unavailable; the trading day of a missing MOEX order is ended by the Moscow calendar.");
+
+        return null;
     }
 
     private static TInvestAbsenceProof Fail(List<string> passed, string failed)

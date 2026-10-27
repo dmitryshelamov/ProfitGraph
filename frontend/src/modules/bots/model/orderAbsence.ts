@@ -4,6 +4,8 @@ const passed: Record<string, string> = {
   NoExecutionRecorded: 'бот не учёл по заявке ни одного исполнения',
   NotFoundByExchangeId: 'биржа не знает её и по биржевому номеру',
   TradingDayEnded: 'торговый день заявки закончился',
+  TradingDayEndedByCalendar:
+    'расписание биржи недоступно, конец дня определён по календарю Москвы (сутки по МСК закончились)',
   NoExecutionInOperations: 'в операциях по счёту и бумаге за время жизни заявки исполнений нет',
   PositionMatchesEngine: 'позиция по бумаге равна ожидаемой ботом, ничего не заблокировано',
   NotFoundInOpenAndHistoricalOrders: 'биржа не находит заявку ни среди открытых, ни в истории',
