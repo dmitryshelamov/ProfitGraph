@@ -16,5 +16,10 @@ public enum RejectionReason
     InstrumentUnavailable,
     MarginTradingUnavailable,
     BrokerRejected,
-    CancelledBeforeSend
+    CancelledBeforeSend,
+
+    /// <summary>
+    ///     The venue's gateway proved on its own evidence that the venue never took the order (ADR 0030).
+    /// </summary>
+    AbsenceProven
 }

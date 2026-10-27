@@ -197,6 +197,84 @@ public sealed class SteamOrderGatewayTests
     }
 
     [Test]
+    public async Task AnUnclearBuyADayOldWithNothingOnSteamIsRejectedWithoutTheOwnerAndTheChecksAreReported()
+    {
+        SteamOrderGateway gateway = Gateway();
+        ClientOrderId id = await UnclearBuy(gateway);
+        _harness.Clock.Advance(TimeSpan.FromHours(25));
+
+        BotReconciliationInternal reconciliation = await gateway.Reconcile(Request(Unclear(id)) with { AllowForeignOrders = true }, CancellationToken.None);
+
+        reconciliation.Degradation.ShouldBeNull();
+        ReconciledOrderInternal found = reconciliation.Found.ShouldHaveSingleItem();
+        found.IsFinal.ShouldBeTrue();
+        found.AbsenceProof!.Checks.ShouldBe(["NoBuyOrderOnTheItem", "NoPurchaseInHistory", "SettleDelayPassed"]);
+        ExternalOrderUpdate update = reconciliation.Updates.ShouldHaveSingleItem();
+        update.Reason.ShouldBe(RejectionReason.AbsenceProven);
+        update.OwnerConfirmedAbsent.ShouldBeTrue();
+        (await _journal.Get(id.Value, CancellationToken.None))!.State.ShouldBe(SteamOrderJournalState.Done);
+    }
+
+    [Test]
+    public async Task AnUnclearBuyLessThanADayOldStaysUnresolvedWithTheReason()
+    {
+        SteamOrderGateway gateway = Gateway();
+        ClientOrderId id = await UnclearBuy(gateway);
+        _harness.Clock.Advance(TimeSpan.FromHours(23));
+
+        BotReconciliationInternal reconciliation = await gateway.Reconcile(Request(Unclear(id)) with { AllowForeignOrders = true }, CancellationToken.None);
+
+        reconciliation.Degradation.ShouldBe(BotStatusReason.UnresolvedOrder);
+        reconciliation.DegradationDetail.ShouldBe("AutoCheck:SettleDelayNotPassed");
+        (await _journal.Get(id.Value, CancellationToken.None))!.State.ShouldNotBe(SteamOrderJournalState.Done);
+    }
+
+    [Test]
+    public async Task APurchaseOrABuyOrderOnSteamKeepsADayOldBuyUnresolved()
+    {
+        SteamOrderGateway gateway = Gateway();
+        ClientOrderId id = await UnclearBuy(gateway);
+        _harness.Clock.Advance(TimeSpan.FromHours(25));
+        _harness.Steam.History.Add(
+            new MockSteamHistoryEvent(Type: 4, "5001", _harness.Clock.GetUtcNow().ToUnixTimeSeconds(), "205001", "95001", "6001", Paid: 50000, Fee: 0));
+
+        BotReconciliationInternal reconciliation = await gateway.Reconcile(Request(Unclear(id)) with { AllowForeignOrders = true }, CancellationToken.None);
+
+        reconciliation.Degradation.ShouldBe(BotStatusReason.UnresolvedOrder);
+        reconciliation.DegradationDetail.ShouldBe("AutoCheck:EvidenceFound");
+        (await gateway.CanProveAbsence(Request(Unclear(id)) with { AllowForeignOrders = true }, CancellationToken.None)).ShouldBeFalse();
+    }
+
+    [Test]
+    public async Task ABuyAwaitingItsConfirmationIsNeverClosedByTheBot()
+    {
+        SteamOrderGateway gateway = Gateway();
+        ClientOrderId id = await UnclearBuy(gateway);
+        SteamOrderJournalEntry entry = (await _journal.Get(id.Value, CancellationToken.None))!;
+        await _journal.Transition(entry with { State = SteamOrderJournalState.Approving }, entry.State, CancellationToken.None);
+        _harness.Clock.Advance(TimeSpan.FromHours(48));
+
+        BotReconciliationInternal reconciliation = await gateway.Reconcile(Request(Unclear(id)) with { AllowForeignOrders = true }, CancellationToken.None);
+
+        reconciliation.Degradation.ShouldBe(BotStatusReason.UnresolvedOrder);
+        reconciliation.DegradationDetail.ShouldBe("AutoCheck:NotProvable");
+    }
+
+    [Test]
+    public async Task TheDryCheckAnswersTrueOnlyForADayOldBuyWithNothingOnSteamAndMovesNothing()
+    {
+        SteamOrderGateway gateway = Gateway();
+        ClientOrderId id = await UnclearBuy(gateway);
+
+        (await gateway.CanProveAbsence(Request(Unclear(id)) with { AllowForeignOrders = true }, CancellationToken.None)).ShouldBeFalse();
+
+        _harness.Clock.Advance(TimeSpan.FromHours(25));
+
+        (await gateway.CanProveAbsence(Request(Unclear(id)) with { AllowForeignOrders = true }, CancellationToken.None)).ShouldBeTrue();
+        (await _journal.Get(id.Value, CancellationToken.None))!.State.ShouldNotBe(SteamOrderJournalState.Done);
+    }
+
+    [Test]
     public async Task AnOrderTheJournalNeverSawCancelsLocally()
     {
         SteamOrderGateway gateway = Gateway();
@@ -243,6 +321,11 @@ public sealed class SteamOrderGatewayTests
             "node",
             EligibleFromCandleIndex: 0,
             OrderStatus.Active);
+    }
+
+    private static ReconcileOrderInternal Unclear(ClientOrderId id)
+    {
+        return new ReconcileOrderInternal(EngineOrderId: 1, id, MayHaveReachedVenue: true);
     }
 
     private static ReconcileOrderInternal ConfirmedAbsent(ClientOrderId id)

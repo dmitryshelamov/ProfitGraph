@@ -64,6 +64,7 @@ public static class BybitRegistration
         services.AddSingleton<BybitOrderUpdates>();
         services.AddSingleton<BybitBotContexts>();
         services.AddSingleton<BybitOrderReads>();
+        services.AddSingleton(provider => new BybitAbsenceProofs(provider.GetRequiredService<BybitOrderReads>(), TimeProvider.System));
         services.AddSingleton<IBybitPrivateStreamTransport, BybitPrivateWebSocketTransport>();
         services.AddSingleton<BybitPrivateStreams>();
         services.AddTransient<IOrderGateway, BybitOrderGateway>();

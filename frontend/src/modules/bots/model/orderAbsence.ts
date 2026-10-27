@@ -6,6 +6,12 @@ const passed: Record<string, string> = {
   TradingDayEnded: 'торговый день заявки закончился',
   NoExecutionInOperations: 'в операциях по счёту и бумаге за время жизни заявки исполнений нет',
   PositionMatchesEngine: 'позиция по бумаге равна ожидаемой ботом, ничего не заблокировано',
+  NotFoundInOpenAndHistoricalOrders: 'биржа не находит заявку ни среди открытых, ни в истории',
+  SettleDelayPassed: 'после отправки заявки прошло больше суток',
+  NoExecutionOfOrder: 'в сделках по символу исполнений заявки нет',
+  BaseBalanceMatchesEngine: 'баланс монеты равен позиции, которую ожидает бот',
+  NoBuyOrderOnTheItem: 'среди заявок на покупку этого предмета в аккаунте её нет',
+  NoPurchaseInHistory: 'в истории торговой площадки после отправки заявки покупок предмета нет',
 };
 
 const failed: Record<string, string> = {
@@ -23,6 +29,13 @@ const failed: Record<string, string> = {
   PositionDiffers: 'позиция по бумаге не равна ожидаемой ботом',
   ReadFailed: 'биржа не ответила на проверочный запрос',
   AttemptChanged: 'запись о заявке изменилась во время проверки',
+  EngineAcceptedOrder: 'бот уже видел, что биржа приняла заявку',
+  PlaceStartUnknown: 'неизвестно, когда заявка была отправлена',
+  SettleDelayNotPassed: 'с отправки заявки прошло меньше суток',
+  ExecutionFound: 'в сделках по символу есть исполнение заявки',
+  BalanceDiffers: 'баланс монеты не равен позиции, которую ожидает бот',
+  EvidenceFound: 'на площадке есть заявка на покупку или покупка предмета',
+  NotProvable: 'такой вид заявки автоматически доказать нельзя',
 };
 
 /** The checks that closed an order without the owner, as the feed lists them (comma-separated codes). */

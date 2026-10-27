@@ -23,7 +23,8 @@ namespace ProfitGraph.Venues.Steam.Orders;
 ///     foreign buy order on the bot's item unless the bot allows them. An order whose write may have reached Steam without a
 ///     clear answer is unresolved, unless the owner confirmed a buy absent and Steam shows nothing of it: no buy order of the
 ///     account on the item and no purchase of it since the place request in freshly read history (Profit Fox Designer ADR
-///     0055). Such a buy ends rejected and frees its slot.
+///     0055). Such a buy ends rejected and frees its slot. The same evidence closes it without the owner once its place request
+///     is a day old (ADR 0030).
 /// </summary>
 internal sealed class SteamOrderGateway(
     ISteamBotAccounts accounts,
@@ -45,6 +46,17 @@ internal sealed class SteamOrderGateway(
     ///     Designer's fixed local tolerance, as in <see cref="SteamExecutions" />).
     /// </summary>
     private static readonly TimeSpan Skew = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    ///     How old a buy's place request must be before Steam's silence about it counts as proof (ADR 0030): the market history
+    ///     lags, and a day is far beyond any lag Profit Fox Designer saw.
+    /// </summary>
+    internal static readonly TimeSpan AbsenceSettleDelay = TimeSpan.FromHours(24);
+
+    /// <summary>
+    ///     The codes of the checks that close a buy by itself, in order (ADR 0030).
+    /// </summary>
+    private static readonly string[] AutomaticChecks = ["NoBuyOrderOnTheItem", "NoPurchaseInHistory", "SettleDelayPassed"];
 
     public VenueId Venue => SteamVenue.VenueId;
 
@@ -134,12 +146,31 @@ internal sealed class SteamOrderGateway(
                 continue;
             }
 
-            if (entry.State is SteamOrderJournalState.Placing or SteamOrderJournalState.Approving or SteamOrderJournalState.Unknown ||
-                (entry.Side == OrderSide.Sell && (await journal.Reservations(entry.ClientOrderId, cancellationToken)).Any(reservation =>
+            string? notClosed = null;
+
+            if (!order.OwnerConfirmedAbsent && Unresolved(entry))
+            {
+                notClosed = await AutomaticFailure(bot, entry, order, close: true, cancellationToken);
+
+                if (notClosed is null)
+                {
+                    known.Add(
+                        ExternalOrderUpdate.Reject(
+                            entry.EngineOrderId,
+                            RejectionReason.AbsenceProven,
+                            "Steam shows nothing of the buy after the settle delay.",
+                            ownerConfirmedAbsent: true));
+                    found.Add(new ReconciledOrderInternal(order.ClientOrderId, IsFinal: true, new OrderAbsenceProofInternal(AutomaticChecks)));
+
+                    continue;
+                }
+            }
+
+            if (Unresolved(entry) || (entry.Side == OrderSide.Sell && (await journal.Reservations(entry.ClientOrderId, cancellationToken)).Any(reservation =>
                     reservation.State is SteamReservationState.Listing or SteamReservationState.Approving or SteamReservationState.Delisting or
                         SteamReservationState.Unknown)))
             {
-                return new BotReconciliationInternal(known, found, BotStatusReason.UnresolvedOrder);
+                return new BotReconciliationInternal(known, found, BotStatusReason.UnresolvedOrder, notClosed is null ? null : $"AutoCheck:{notClosed}");
             }
 
             SteamMarketReceipt[] fills =
@@ -156,13 +187,61 @@ internal sealed class SteamOrderGateway(
         return new BotReconciliationInternal(known, found, Degradation: null);
     }
 
+    private static bool Unresolved(SteamOrderJournalEntry entry)
+    {
+        return entry.State is SteamOrderJournalState.Placing or SteamOrderJournalState.Approving or SteamOrderJournalState.Unknown;
+    }
+
     /// <summary>
-    ///     Whether a buy the owner confirmed absent left nothing on Steam, read fresh: no buy order of the account on the item
-    ///     other than the journal's known ones, and no unattributed purchase of the item since its place request. When so, its
-    ///     entry ends rejected. A buy awaiting its mobile confirmation, a sell, or anything Steam may hold stays unresolved; a
-    ///     page or history Steam cannot give now is retried later.
+    ///     Why Steam's records do not close the buy without the owner, or null when they do and the entry ended rejected
+    ///     (<paramref name="close" />) or would. Only a buy in placing or unknown state without a Steam order ID qualifies, and only
+    ///     a day after its place request; a buy awaiting its mobile confirmation, one Steam gave an ID, and a sell never do.
+    ///     A page or history Steam cannot give now is a failed check.
     /// </summary>
-    private async Task<bool> ProvenAbsent(SteamBotAccount bot, SteamOrderJournalEntry entry, CancellationToken cancellationToken)
+    private async Task<string?> AutomaticFailure(
+        SteamBotAccount bot,
+        SteamOrderJournalEntry entry,
+        ReconcileOrderInternal order,
+        bool close,
+        CancellationToken cancellationToken)
+    {
+        if (entry is not { Side: OrderSide.Buy, State: SteamOrderJournalState.Placing or SteamOrderJournalState.Unknown, SteamOrderId: null })
+        {
+            return "NotProvable";
+        }
+
+        if ((entry.PlaceStartedAt ?? order.PlaceStartedAt) is not { } placed)
+        {
+            return "PlaceStartUnknown";
+        }
+
+        if (clock.GetUtcNow() - placed < AbsenceSettleDelay)
+        {
+            return "SettleDelayNotPassed";
+        }
+
+        try
+        {
+            return await ProvenAbsent(bot, entry, close, cancellationToken) ? null : "EvidenceFound";
+        }
+        catch (SteamOrderUnresolvedException)
+        {
+            return "ReadFailed";
+        }
+    }
+
+    private Task<bool> ProvenAbsent(SteamBotAccount bot, SteamOrderJournalEntry entry, CancellationToken cancellationToken)
+    {
+        return ProvenAbsent(bot, entry, close: true, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Whether a buy left nothing on Steam, read fresh: no buy order of the account on the item other than the journal's known
+    ///     ones, and no unattributed purchase of the item since its place request. When so and <paramref name="close" /> is set,
+    ///     its entry ends rejected. A buy awaiting its mobile confirmation, a sell, or anything Steam may hold stays unresolved;
+    ///     a page or history Steam cannot give now is retried later.
+    /// </summary>
+    private async Task<bool> ProvenAbsent(SteamBotAccount bot, SteamOrderJournalEntry entry, bool close, CancellationToken cancellationToken)
     {
         if (entry is not { Side: OrderSide.Buy, State: SteamOrderJournalState.Placing or SteamOrderJournalState.Unknown, SteamOrderId: null } ||
             !SteamInstrument.TryParse(entry.Instrument, out SteamInstrument? instrument))
@@ -219,10 +298,48 @@ internal sealed class SteamOrderGateway(
             return false;
         }
 
-        return await journal.Transition(
+        return !close || await journal.Transition(
             entry with { State = SteamOrderJournalState.Done, Outcome = SteamOrderOutcome.Rejected, UpdatedAt = clock.GetUtcNow() },
             entry.State,
             cancellationToken);
+    }
+
+    /// <summary>
+    ///     Whether reconciliation would now close, on Steam's own records, every unresolved buy of the request and has no other
+    ///     reason to stop the bot (ADR 0030). It only reads: no entry moves.
+    /// </summary>
+    public async Task<bool> CanProveAbsence(BotReconcileInternal request, CancellationToken cancellationToken)
+    {
+        SteamBotAccount bot = await accounts.Get(request.BotId.Value, cancellationToken);
+
+        if (await Refusal(bot, request.AllowForeignOrders, cancellationToken) is not null)
+        {
+            return false;
+        }
+
+        var proven = false;
+
+        foreach (ReconcileOrderInternal order in request.Orders)
+        {
+            if (await journal.Get(order.ClientOrderId.Value, cancellationToken) is not { } entry || entry.BotId != bot.BotId)
+            {
+                continue;
+            }
+
+            if (Unresolved(entry) || (entry.Side == OrderSide.Sell && (await journal.Reservations(entry.ClientOrderId, cancellationToken)).Any(reservation =>
+                    reservation.State is SteamReservationState.Listing or SteamReservationState.Approving or SteamReservationState.Delisting or
+                        SteamReservationState.Unknown)))
+            {
+                if (!Unresolved(entry) || await AutomaticFailure(bot, entry, order, close: false, cancellationToken) is not null)
+                {
+                    return false;
+                }
+
+                proven = true;
+            }
+        }
+
+        return proven;
     }
 
     /// <summary>

@@ -58,7 +58,8 @@ internal static class ReconcileRequests
                 stored.Any(intent => intent is { Kind: OrderIntentKind.Submit, ConfirmedAbsentAt: not null } && intent.EngineOrderId == pair.Key &&
                     intent.Status is OrderIntentStatus.Pending or OrderIntentStatus.Failed or OrderIntentStatus.Sent),
                 checkpoint?.Account.Progress.FirstOrDefault(progress => progress.OrderId == pair.Key)?.GrossBase ?? 0m,
-                stored.FirstOrDefault(intent => intent.Kind == OrderIntentKind.Submit && intent.EngineOrderId == pair.Key)?.PlaceStartedAt))
+                stored.FirstOrDefault(intent => intent.Kind == OrderIntentKind.Submit && intent.EngineOrderId == pair.Key)?.PlaceStartedAt,
+                AcceptedByEngine: pair.Value))
         ];
     }
 }

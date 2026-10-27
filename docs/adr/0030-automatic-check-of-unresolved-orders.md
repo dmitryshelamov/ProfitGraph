@@ -1,7 +1,7 @@
 # ADR 0030: Automatic Check of Unresolved Orders
 
-Status: Proposed, 2026-10-27. Built in two pull requests: T-Invest, offline carry-over, transparency and the recheck here; Bybit
-and Steam in the next. Proven on mocks only; the owner reviews it in the pull request.
+Status: Proposed, 2026-10-27. Built in two pull requests: T-Invest, offline carry-over, transparency and the recheck first;
+Bybit and Steam second (sections 5 and 6). Proven on mocks only; the owner reviews it in the pull requests.
 
 ## Context
 
@@ -95,21 +95,43 @@ Each automatic closure is recorded where the owner looks:
 
 | Venue | Unresolved state | Can it be proven? | Decision |
 |---|---|---|---|
-| Bybit | A submit whose place request may have left (engine `PendingSubmit`; intent `Pending`, `Sending` or `Failed` with a place start) that neither `order/realtime` nor `order/history` knows by `orderLinkId` | Only weakly. ADR 0017 lists "whether any response proves that an ambiguous submit was not accepted" and how long history lags as owner checks still open. Waiting long enough, an execution list with nothing of the order and a base balance equal to the engine's together make a lost order very unlikely | Automatic only after a long settle delay, with an empty execution list for the order since its place start and a wallet equal to the engine's; the engine rejects the order as confirmed absent |
+| Bybit | A submit whose place request may have left (engine `PendingSubmit`; intent `Pending`, `Sending` or `Failed` with a place start) that neither `order/realtime` nor `order/history` knows by `orderLinkId` | Only weakly. ADR 0017 lists "whether any response proves that an ambiguous submit was not accepted" and how long history lags as owner checks still open. A long wait, an execution list with nothing of the order and a base balance equal to the engine's together make a lost order very unlikely | Automatic, see section 6 |
 | Bybit | An order the engine saw accepted (`Active`, `PendingCancel`) that Bybit no longer knows | No: Bybit keeps accepted orders in history, so this is a contradiction in its data, not an expiry | Owner |
-| Steam | A buy with no Steam order ID that was being placed or whose outcome is unknown (`Placing`, `Unknown`) | Yes, with the owner's own check automated: no buy order of the account on the item beyond the journal's, no unattributed purchase since the place request in freshly read history | Automatic after a settle delay, and only when the item count Steam reports equals the engine's position |
+| Steam | A buy with no Steam order ID that was being placed or whose outcome is unknown (`Placing`, `Unknown`) | Yes: the owner's own check, automated: no buy order of the account on the item beyond the journal's, no unattributed purchase since the place request in freshly read history | Automatic after a settle delay, see section 6 |
 | Steam | A buy awaiting its mobile confirmation (`Approving`), or a buy Steam gave an ID | No: the owner may still approve it in the app, or it may execute | Owner |
 | Steam | A sell in `Listing`, `Approving`, `Delisting` or `Unknown` | No: a listing and an item that left or did not return cannot be told apart from Steam's pages with the module's readers | Owner |
 
-The Bybit and Steam rows are built in the next pull request, which also records what it leaves out.
+### 6. Bybit and Steam
+
+Both reuse the shared parts: `ReconciledOrderInternal.AbsenceProof`, the mark on the intent, the feed entry, `CanProveAbsence` and
+the five-minute recheck. The engine order ends as a rejection with the new reason `AbsenceProven` (update flagged
+`OwnerConfirmedAbsent`, as the owner's confirmation does for a submit); its intent is resolved and marked in the same pass.
+`ReconcileOrderInternal` also carries `AcceptedByEngine` and `PlaceStartedAt`.
+
+- **Bybit** (`BybitAbsenceProofs`). Only a submit the engine never saw accepted, with a known place start. All must hold, and the
+  first that fails stops the proof (the stop carries `AutoCheck:<code>`; a failed read is a failed check): the place request
+  is at least 24 hours old and at most 6 days (the execution list covers 7); the symbol's executions since the request
+  (`/v5/execution/list`, paged) show none with the order's `orderLinkId`; and the base coin's wallet balance on the UNIFIED
+  account (`/v5/account/wallet-balance`) equals the engine's expected position. Coins the owner holds outside the bot make the
+  balance differ, and the order stays with the owner. Both reads were already on the read client's allowlist.
+- **Steam** (`SteamOrderGateway`). Only a buy in `Placing` or `Unknown` without a Steam order ID, a day after its place request.
+  The evidence is the owner path's: no buy order of the account on the item beyond the journal's known ones and no unattributed
+  purchase of the item since the place request (60 seconds of skew), read fresh, with the history read required to be known. The
+  day replaces the owner's eyes on a history that lags. The inventory is not compared: items on listings leave it, so it cannot
+  say how many the bot should hold.
+
+The delays are constants (24 hours), not settings: they are unverified policy, and a change should be a decision.
+
+Left to the owner in both: anything the engine saw accepted at Bybit, a Steam buy awaiting its confirmation or already given an ID,
+and every Steam sell.
 
 ## What is not verified
 
-Everything above is proven against mocks. Not checked on the real broker: that `GetOperationsByCursor` lists a DAY order the
+Everything above is proven against mocks. Not checked on the real broker (T-Invest): that `GetOperationsByCursor` lists a DAY order the
 exchange removed (state and `quantity_done`), the operations' delay after a session, that `TradingSchedules` answers for dates in
 the past (if it refuses them the proof never passes and the owner decides), that `GetPositions` counts shares and not lots
 (the engine's position is in shares), and how a share owned outside the bot shows: a position held outside the bot makes
-`PositionDiffers`, so such an account stays with the owner. The owner's checks of ADR 0023 apply.
+`PositionDiffers`, so such an account stays with the owner. The owner's checks of ADR 0023 apply. Not checked on the real venues for Bybit and Steam: that 24 hours exceeds Bybit's history lag and Steam's market history delay (the open owner checks of ADR 0017 and 0022), and that Steam's history lists every purchase the journal does not attribute.
 
 ## Consequences
 
