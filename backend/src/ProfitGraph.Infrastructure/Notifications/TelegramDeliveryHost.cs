@@ -95,7 +95,7 @@ internal sealed class TelegramDeliveryHost(IServiceScopeFactory scopes, IOptions
     {
         try
         {
-            return await telegram.SendMessage(message.ChatId, message.Text, stoppingToken);
+            return await telegram.SendMessage(message.ChatId, message.Text, message.Buttons, stoppingToken);
         }
         catch (Exception exception) when (!stoppingToken.IsCancellationRequested)
         {

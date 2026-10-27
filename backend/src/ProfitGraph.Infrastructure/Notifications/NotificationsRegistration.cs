@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Notifications.Ports;
+using ProfitGraph.Application.Notifications.Updates;
 
 namespace ProfitGraph.Infrastructure.Notifications;
 
@@ -27,6 +28,10 @@ public static class NotificationsRegistration
                 client.Timeout = Timeout.InfiniteTimeSpan;
             })
             .RemoveAllLoggers();
+        services.AddScoped<TelegramUpdateProcessor>();
+        services.AddScoped<ITelegramMessageHandler, StartCommandHandler>();
+        services.AddScoped<ITelegramMessageHandler, HelpCommandHandler>();
+        services.AddScoped<ITelegramCallbackHandler, AcknowledgeAlertCallbackHandler>();
         services.AddSingleton<IHostedService, TelegramPollingHost>();
         services.AddSingleton<IHostedService, TelegramDeliveryHost>();
 

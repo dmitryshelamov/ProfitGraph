@@ -33,7 +33,12 @@ internal sealed class ClaimTelegramNotificationsCommandHandler(
                 if (await links.Get(notification.OwnerId, cancellationToken) is { BlockedAt: null } link)
                 {
                     Bot? bot = await bots.Get(notification.BotId, cancellationToken);
-                    outgoing.Add(new TelegramOutgoingInternal(notification.Id.Value, link.ChatId, TelegramMessages.Notification(notification, bot)));
+                    outgoing.Add(
+                        new TelegramOutgoingInternal(
+                            notification.Id.Value,
+                            link.ChatId,
+                            TelegramMessages.Notification(notification, bot),
+                            TelegramMessages.Buttons(notification)));
                 }
                 else
                 {

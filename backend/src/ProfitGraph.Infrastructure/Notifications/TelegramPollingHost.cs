@@ -1,21 +1,19 @@
-using MediatR;
-
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-using ProfitGraph.Application.Notifications;
 using ProfitGraph.Application.Notifications.Contracts;
-using ProfitGraph.Application.Notifications.LinkTelegramChat;
 using ProfitGraph.Application.Notifications.Ports;
+using ProfitGraph.Application.Notifications.Updates;
 using ProfitGraph.Domain.Notifications;
 
 namespace ProfitGraph.Infrastructure.Notifications;
 
 /// <summary>
 ///     Reads the Telegram bot's updates in the Worker's <c>live</c> role (ADR 0020, ADR 0042). The process that holds the
-///     poller lease reads updates from the stored offset, links chats that send <c>/start CODE</c> and advances the offset.
+///     poller lease reads updates from the stored offset, hands each to <see cref="TelegramUpdateProcessor" /> and advances
+///     the offset.
 ///     Notifications are sent by <see cref="TelegramDeliveryHost" />, so they never wait for a long poll.
 /// </summary>
 internal sealed class TelegramPollingHost(IServiceScopeFactory scopes, IOptions<TelegramOptions> options, TimeProvider clock, ILogger<TelegramPollingHost> logger)
@@ -59,14 +57,14 @@ internal sealed class TelegramPollingHost(IServiceScopeFactory scopes, IOptions<
     }
 
     /// <summary>
-    ///     One poll; false when another process leads.
+    ///     One poll; false when another process leads. Each update is processed in its own scope; one that fails is logged
+    ///     and passed, so it cannot stop the bot.
     /// </summary>
     private async Task<bool> Pass(CancellationToken stoppingToken)
     {
         using IServiceScope scope = scopes.CreateScope();
         var leases = scope.ServiceProvider.GetRequiredService<ITelegramPollerLeaseRepository>();
         var telegram = scope.ServiceProvider.GetRequiredService<ITelegramClient>();
-        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
 
         if (await leases.Acquire(_holder, clock.GetUtcNow(), LeaseDuration, stoppingToken) is not { } offset)
         {
@@ -75,29 +73,23 @@ internal sealed class TelegramPollingHost(IServiceScopeFactory scopes, IOptions<
 
         foreach (TelegramUpdateInternal update in await telegram.GetUpdates(offset, options.Value.PollTimeout, stoppingToken))
         {
-            if (update is { ChatId: { } chatId, Text: { } text })
-            {
-                await Answer(telegram, sender, chatId, text, stoppingToken);
-            }
-
+            await Process(update, stoppingToken);
             await leases.Advance(_holder, update.UpdateId + 1, clock.GetUtcNow(), stoppingToken);
         }
 
         return true;
     }
 
-    private static async Task Answer(ITelegramClient telegram, ISender sender, long chatId, string text, CancellationToken stoppingToken)
+    private async Task Process(TelegramUpdateInternal update, CancellationToken stoppingToken)
     {
-        string[] words = text.Split(separator: ' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        if (words is not ["/start", var code, ..])
+        try
         {
-            await telegram.SendMessage(chatId, TelegramMessages.Help, stoppingToken);
-
-            return;
+            using IServiceScope scope = scopes.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<TelegramUpdateProcessor>().Process(update, stoppingToken);
         }
-
-        bool linked = await sender.Send(new LinkTelegramChatCommand(code, chatId), stoppingToken);
-        await telegram.SendMessage(chatId, linked ? TelegramMessages.Linked : TelegramMessages.UnknownCode, stoppingToken);
+        catch (Exception exception) when (!stoppingToken.IsCancellationRequested)
+        {
+            logger.LogWarning("A Telegram update failed with {ExceptionType}; it is passed.", exception.GetType().Name);
+        }
     }
 }

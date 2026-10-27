@@ -131,5 +131,5 @@ filled orders.
 |---|---|---|---|
 | 1. Decision | ADR 0042 | The owner accepted it | Proposed |
 | 2. Queue and delivery | `telegram_notifications`, alert handler, `TelegramDeliveryHost` with claims, retries, age and rate limits, bot names, migration of unsent alerts | Integration tests against a fake Bot API: a 429 and a 500 are retried, a 400 fails one row without holding the next, a 403 blocks the chat, old rows are skipped | Done on the fake Bot API |
-| 3. Updates | `TelegramUpdateProcessor`, message and callback handlers, `/help`, the «Принято» button | A pressed button acknowledges the owner's alert and only theirs | Planned |
+| 3. Updates | `TelegramUpdateProcessor`, message and callback handlers, `/help`, the «Принято» button | A pressed button acknowledges the owner's alert and only theirs | Done on the fake Bot API |
 | 4. Trading messages | Lifecycle, closed positions, `BotOrderFilled` and the filled-order message | A partly filled order sends one message when it is filled; Engine hashes unchanged | Planned |
