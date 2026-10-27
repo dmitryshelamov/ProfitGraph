@@ -78,10 +78,18 @@ internal sealed class RuntimeScenario
     }
 
     /// <summary>
+    ///     A Ladder bot whose strategy restores its missing orders when a session resumes (the template of ADR 0023's bots).
+    /// </summary>
+    public static async Task<Bot> RunningResumingLadder(IHost host)
+    {
+        return (await RunningLadders(host, count: 1, existingOwner: null, resuming: true))[0];
+    }
+
+    /// <summary>
     ///     Ladder bots of one owner on one strategy, each with its own invented credential, that should run. Without an
     ///     <paramref name="existingOwner" /> the owner is a new user who cannot sign in.
     /// </summary>
-    public static async Task<IReadOnlyList<Bot>> RunningLadders(IHost host, int count, UserId? existingOwner = null)
+    public static async Task<IReadOnlyList<Bot>> RunningLadders(IHost host, int count, UserId? existingOwner = null, bool resuming = false)
     {
         UserId owner = existingOwner ?? UserId.New();
         ExchangeCredentialId[] credentials = [.. Enumerable.Range(start: 0, count).Select(_ => ExchangeCredentialId.New())];
@@ -106,7 +114,9 @@ internal sealed class RuntimeScenario
             }
         }
 
-        StrategyDefinition definition = LadderStrategyBlockFactory.Create(buyAmount: 10m, allocationCap: 100m, drop: 0.05m, rise: 0.05m);
+        StrategyDefinition definition = resuming
+            ? LadderResumeStrategyBlockFactory.Create(buyAmount: 10m, allocationCap: 100m, drop: 0.05m, rise: 0.05m)
+            : LadderStrategyBlockFactory.Create(buyAmount: 10m, allocationCap: 100m, drop: 0.05m, rise: 0.05m);
         using IServiceScope scope = host.Services.CreateScope();
         StrategyInternal strategy = await scope.ServiceProvider.GetRequiredService<ISender>()
             .Send(

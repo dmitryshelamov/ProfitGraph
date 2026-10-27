@@ -233,6 +233,40 @@ public sealed class ReconciliationTests
     }
 
     [Test]
+    public async Task OrdersTheVenueRemovedWhileTheBotWasStoppedArePlacedAgainAfterTheReconciliation()
+    {
+        var scenario = new RuntimeScenario();
+        Bot bot;
+        long exit;
+
+        using (IHost first = scenario.Worker())
+        {
+            bot = await RuntimeScenario.RunningResumingLadder(first);
+            await first.StartAsync();
+            await RuntimeScenario.Until(
+                async () => (await RuntimeScenario.Checkpoint(first, bot.Id))?.Engine.Account.Orders is [{ Status: OrderStatus.Active }],
+                "the entry is accepted");
+            scenario.Gateway.Push(bot.Id, ExternalOrderUpdate.Final(orderId: 1, grossBase: 0.1m, grossQuote: 10m, fee: 0.0001m));
+            await RuntimeScenario.Until(
+                async () => (await RuntimeScenario.Intents(first, bot.Id))
+                    .Count(intent => intent is { Kind: OrderIntentKind.Submit, Status: OrderIntentStatus.Sent }) == 3,
+                "the exit and the averaging order are placed");
+            exit = (await RuntimeScenario.Intents(first, bot.Id)).Max(intent => intent.EngineOrderId);
+            await first.StopAsync();
+        }
+
+        scenario.Gateway.CancelEveryFoundOrder = true;
+        using IHost second = scenario.Worker();
+        await second.StartAsync();
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Intents(second, bot.Id)).Any(intent => intent is { Kind: OrderIntentKind.Submit } && intent.EngineOrderId > exit),
+            "the strategy places its orders again after the venue removed them");
+        await second.StopAsync();
+
+        (await RuntimeScenario.Read(second, bot.Id)).RuntimeStatus.ShouldNotBe(BotRuntimeStatus.Degraded);
+    }
+
+    [Test]
     public async Task StoppedBotEndsWhileTheVenueIsUnavailable()
     {
         var scenario = new RuntimeScenario();
