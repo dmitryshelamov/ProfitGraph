@@ -3,7 +3,7 @@ using ProfitGraph.Engine.Blocks;
 namespace ProfitGraph.Engine.Templates;
 
 /// <summary>
-///     Additive upgrades of saved strategies to a later revision of their template (ADR 0038). An upgrade only adds blocks and wires
+///     Additive upgrades of saved strategies to a later revision of their template (ADR 0038, ADR 0040). An upgrade only adds blocks and wires
 ///     to the graph the strategy has, after checking that the graph has the shape the addition attaches to; it never removes or
 ///     changes anything, and it is idempotent. A graph of another shape is left as it is.
 /// </summary>
@@ -16,6 +16,11 @@ public static class StrategyTemplateUpgrades
     /// </summary>
     private static readonly string[] RequiredBlocks = ["resume", "cancelExit", "exitConditions", "exit", "averageConditions", "restartEvent"];
 
+    /// <summary>
+    ///     The blocks the Ladder's restoring at resume attaches to (ADR 0040): the chain of the Ladder, without the resume blocks.
+    /// </summary>
+    private static readonly string[] ChainBlocks = ["entryConditions", "cancelExit", "exitConditions", "exit", "averageConditions", "restartEvent"];
+
     private static readonly (string From, string Exit, string To)[] RequiredWires =
     [
         ("cancelExit", "completed", "exitConditions"),
@@ -23,6 +28,50 @@ public static class StrategyTemplateUpgrades
         ("exit", "submitted", "averageConditions"),
         ("restartEvent", "yes", "entryConditions")
     ];
+
+    /// <summary>
+    ///     The definition brought to what the Ladder template of today has: the restoring at resume when the graph has none, then the
+    ///     reaction to a filled manual order. Null when there is nothing to add or the graph is not the Ladder.
+    /// </summary>
+    public static StrategyDefinition? Upgrade(StrategyDefinition definition)
+    {
+        StrategyDefinition? resumed = WithResumeRestore(definition);
+        StrategyDefinition? rebuilt = WithManualFillRebuild(resumed ?? definition);
+
+        return rebuilt ?? resumed;
+    }
+
+    /// <summary>
+    ///     The definition with the Ladder's restoring at resume added (ADR 0040), or null when the graph has a resume event already or is
+    ///     not the Ladder chain. It makes a bot of a Ladder saved before the resume blocks existed place its exit again after a start or
+    ///     after an order the venue cancelled.
+    /// </summary>
+    public static StrategyDefinition? WithResumeRestore(StrategyDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+
+        HashSet<string> ids = [.. definition.Blocks.Select(block => block.Id)];
+        IReadOnlyList<StrategyBlock> blocks = LadderResumeRestore.Blocks();
+
+        if (blocks.Any(block => ids.Contains(block.Id)) || definition.Blocks.Any(block => block is { Kind: "event", Source: "OnResume" }) ||
+            ChainBlocks.Any(id => !ids.Contains(id)) || !HasWires(definition))
+        {
+            return null;
+        }
+
+        return new StrategyDefinition(
+            definition.Parameters,
+            definition.Values,
+            [.. definition.Blocks, .. blocks],
+            [.. definition.Wires, .. LadderResumeRestore.Wires()],
+            definition.TemplateKind);
+    }
+
+    private static bool HasWires(StrategyDefinition definition)
+    {
+        return RequiredWires.All(
+            wire => definition.Wires.Any(candidate => candidate.From.Block == wire.From && candidate.From.Exit == wire.Exit && candidate.To == wire.To));
+    }
 
     /// <summary>
     ///     The definition with the Ladder's reaction to a filled manual order added, or null when the graph already reacts to the
@@ -36,9 +85,7 @@ public static class StrategyTemplateUpgrades
         IReadOnlyList<StrategyBlock> blocks = LadderManualFillRebuild.Blocks();
 
         if (blocks.Any(block => ids.Contains(block.Id)) || definition.Blocks.Any(ReactsToManualOrders) ||
-            RequiredBlocks.Any(id => !ids.Contains(id)) ||
-            RequiredWires.Any(
-                wire => !definition.Wires.Any(candidate => candidate.From.Block == wire.From && candidate.From.Exit == wire.Exit && candidate.To == wire.To)))
+            RequiredBlocks.Any(id => !ids.Contains(id)) || !HasWires(definition))
         {
             return null;
         }

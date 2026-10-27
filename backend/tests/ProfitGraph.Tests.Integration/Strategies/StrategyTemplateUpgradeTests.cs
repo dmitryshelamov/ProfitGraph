@@ -47,14 +47,15 @@ public sealed class StrategyTemplateUpgradeTests
     {
         Guid owner = await NewOwner();
         StrategyInternal saved = await Create(owner, "Saved before ADR 0037", Without(LadderSmaStrategyBlockFactory.Create()));
-        StrategyInternal plain = await Create(owner, "Plain ladder", LadderStrategyBlockFactory.Create());
+        StrategyInternal plain = await Create(owner, "Ladder saved without the resume blocks (ADR 0040)", LadderStrategyBlockFactory.Create());
         StrategyInternal current = await Create(owner, "Made from today's template", LadderSmaStrategyBlockFactory.Create());
 
         IReadOnlyList<UpgradedStrategyInternal> first = await Ask(new UpgradeStrategyTemplatesCommand());
         IReadOnlyList<UpgradedStrategyInternal> second = await Ask(new UpgradeStrategyTemplatesCommand());
 
         first.ShouldContain(upgraded => upgraded.StrategyId == saved.Id && upgraded.Version == 2);
-        first.ShouldNotContain(upgraded => upgraded.StrategyId == plain.Id || upgraded.StrategyId == current.Id);
+        first.ShouldContain(upgraded => upgraded.StrategyId == plain.Id && upgraded.Version == 2);
+        first.ShouldNotContain(upgraded => upgraded.StrategyId == current.Id);
         second.ShouldNotContain(upgraded => upgraded.StrategyId == saved.Id);
         IReadOnlyList<StrategyVersion> versions = await Versions(saved.Id);
         versions.Select(version => version.Number.Value).Order().ShouldBe([1, 2]);
@@ -62,7 +63,8 @@ public sealed class StrategyTemplateUpgradeTests
         upgradedVersion.Definition.Blocks.Select(block => block.Id)
             .ShouldBe(LadderSmaStrategyBlockFactory.Create().Blocks.Select(block => block.Id), ignoreOrder: true);
         upgradedVersion.Definition.Parameters.ShouldBe(versions.Single(version => version.Number.Value == 1).Definition.Parameters);
-        (await Versions(plain.Id)).Count.ShouldBe(1);
+        (await Versions(plain.Id)).Single(version => version.Number.Value == 2).Definition.Blocks.Select(block => block.Id)
+            .ShouldBe(LadderResumeStrategyBlockFactory.Create().Blocks.Select(block => block.Id), ignoreOrder: true);
         (await Versions(current.Id)).Count.ShouldBe(1);
     }
 
