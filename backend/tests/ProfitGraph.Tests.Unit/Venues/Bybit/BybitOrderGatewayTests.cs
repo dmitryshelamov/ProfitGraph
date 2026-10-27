@@ -323,7 +323,9 @@ public sealed class BybitOrderGatewayTests
         bool tooYoung = await _harness.Gateway.CanProveAbsence(
             new BotReconcileInternal(_harness.Bot.Id, AllowForeignOrders: false, [Unaccepted(engineOrderId: 26, placedHoursAgo: 1)], ExpectedBase: 0.5m),
             CancellationToken.None);
-        bool nothing = await _harness.Gateway.CanProveAbsence(new BotReconcileInternal(_harness.Bot.Id, AllowForeignOrders: false, [], ExpectedBase: 0.5m), CancellationToken.None);
+        bool nothing = await _harness.Gateway.CanProveAbsence(
+            new BotReconcileInternal(_harness.Bot.Id, AllowForeignOrders: false, [], ExpectedBase: 0.5m),
+            CancellationToken.None);
 
         closable.ShouldBeTrue();
         tooYoung.ShouldBeFalse();

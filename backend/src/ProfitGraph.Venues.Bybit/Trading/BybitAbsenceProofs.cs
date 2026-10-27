@@ -11,13 +11,19 @@ namespace ProfitGraph.Venues.Bybit.Trading;
 ///             <description>the engine never saw the venue accept the order, and the time of its place request is known;</description>
 ///         </item>
 ///         <item>
-///             <description>that request is at least <see cref="SettleDelay" /> old, long enough for the history to catch up, and not older than <see cref="MaxAge" />;</description>
+///             <description>
+///                 that request is at least <see cref="SettleDelay" /> old, long enough for the history to catch up, and not older than
+///                 <see cref="MaxAge" />;
+///             </description>
 ///         </item>
 ///         <item>
 ///             <description>the symbol's executions since the request show none of the order;</description>
 ///         </item>
 ///         <item>
-///             <description>the base coin's wallet balance equals the position the engine expects, so nothing was bought or sold that the engine does not know.</description>
+///             <description>
+///                 the base coin's wallet balance equals the position the engine expects, so nothing was bought or sold that the engine
+///                 does not know.
+///             </description>
 ///         </item>
 ///     </list>
 ///     A wallet that holds more or less of the coin than the bot, such as coins of the owner's own, makes the last check fail and

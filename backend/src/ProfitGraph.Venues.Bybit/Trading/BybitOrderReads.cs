@@ -79,7 +79,12 @@ internal sealed class BybitOrderReads(BybitReadClient read)
     ///     Whether the symbol's execution list between two instants holds an execution of the order (ADR 0030). Every page is
     ///     read; an unreadable or repeated page throws.
     /// </summary>
-    public async Task<bool> ExecutedBetween(BybitBotContext context, string clientOrderId, DateTimeOffset since, DateTimeOffset until, CancellationToken cancellationToken)
+    public async Task<bool> ExecutedBetween(
+        BybitBotContext context,
+        string clientOrderId,
+        DateTimeOffset since,
+        DateTimeOffset until,
+        CancellationToken cancellationToken)
     {
         string query = string.Create(
             CultureInfo.InvariantCulture,
@@ -110,7 +115,9 @@ internal sealed class BybitOrderReads(BybitReadClient read)
             JsonElement account = balance.Body.GetProperty("result").GetProperty("list")[0];
             JsonElement[] coins =
             [
-                .. account.GetProperty("coin").EnumerateArray().Where(coin => coin.TryGetProperty("coin", out JsonElement name) && name.GetString() == context.Instrument.BaseAsset)
+                .. account.GetProperty("coin")
+                    .EnumerateArray()
+                    .Where(coin => coin.TryGetProperty("coin", out JsonElement name) && name.GetString() == context.Instrument.BaseAsset)
             ];
 
             return coins.Length switch
