@@ -3,7 +3,6 @@ using Dapper;
 using Npgsql;
 
 using ProfitGraph.Domain.Accounts;
-using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Notifications;
 using ProfitGraph.Infrastructure.Common.Postgres;
 using ProfitGraph.Infrastructure.Notifications.Repositories.Contracts;
@@ -60,19 +59,6 @@ internal sealed class TelegramLinkRepository(NpgsqlConnection connection, Postgr
         var row = await connection.QuerySingleOrDefaultAsync<TelegramLinkCodeDb>(Command(TelegramQueries.TakeCode, new { codeHash }, cancellationToken));
 
         return row?.ToDomain();
-    }
-
-    public async Task<IReadOnlyList<TelegramAlertDelivery>> ListUndelivered(int limit, CancellationToken cancellationToken)
-    {
-        IEnumerable<TelegramAlertDeliveryDb> rows =
-            await connection.QueryAsync<TelegramAlertDeliveryDb>(Command(TelegramQueries.ListUndelivered, new { limit }, cancellationToken));
-
-        return [.. rows.Select(row => row.ToDomain())];
-    }
-
-    public Task MarkDelivered(BotAlertId alertId, DateTimeOffset now, CancellationToken cancellationToken)
-    {
-        return connection.ExecuteAsync(Command(TelegramQueries.MarkDelivered, new { alertId = alertId.Value, now }, cancellationToken));
     }
 
     private CommandDefinition Command(string sql, object? parameters, CancellationToken cancellationToken)

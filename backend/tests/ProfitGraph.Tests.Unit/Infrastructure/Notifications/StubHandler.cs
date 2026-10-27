@@ -8,11 +8,13 @@ namespace ProfitGraph.Tests.Unit.Infrastructure.Notifications;
 internal sealed class StubHandler(HttpStatusCode status, string body) : HttpMessageHandler
 {
     public string? Path { get; private set; }
+    public string? Body { get; private set; }
 
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         Path = request.RequestUri!.AbsolutePath;
+        Body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
 
-        return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) });
+        return new HttpResponseMessage(status) { Content = new StringContent(body) };
     }
 }

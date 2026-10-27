@@ -1,5 +1,4 @@
 using ProfitGraph.Domain.Accounts;
-using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Notifications;
 using ProfitGraph.Infrastructure.Notifications.Repositories.Contracts;
 
@@ -25,16 +24,5 @@ internal static class TelegramDbConverter
     public static TelegramLinkCodeDb ToDb(this TelegramLinkCode code)
     {
         return new TelegramLinkCodeDb { CodeHash = code.CodeHash, UserId = code.UserId.Value, ExpiresAt = code.ExpiresAt };
-    }
-
-    public static TelegramAlertDelivery ToDomain(this TelegramAlertDeliveryDb row)
-    {
-        return new TelegramAlertDelivery(
-            new BotAlertId(row.AlertId),
-            row.ChatId,
-            Enum.Parse<BotAlertKind>(row.Kind),
-            row.Reason,
-            row.Symbol,
-            row.Timeframe);
     }
 }

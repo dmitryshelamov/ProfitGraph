@@ -106,6 +106,9 @@ Venues.Bybit/
 - **Outbox.** A transaction stores the Domain events of the aggregates it wrote in `outbox_messages`; the Worker
   delivers each to MediatR notification handlers once, in the transaction that marks it delivered. Handlers write only
   to the database. See [ADR 0016](adr/0016-live-bot-runtime.md).
+- **Telegram.** Outbox handlers queue messages in `telegram_notifications`; `TelegramDeliveryHost` sends them outside any
+  transaction under a claim (`SKIP LOCKED`) with retries, and the leader `TelegramPollingHost` reads updates. The token
+  never reaches a log or an exception. See [ADR 0042](adr/0042-telegram-notifications.md).
 - **Value objects.** Entities hold identifiers and constrained values as value objects, not primitives: typed IDs
   (`StrategyId`, `UserId`) and numbers (`StrategyVersionNumber`) are `readonly record struct`s, and constrained text
   (`StrategyName`, `UserLogin`) is a sealed record. A value object validates in its constructor, so an invalid value
