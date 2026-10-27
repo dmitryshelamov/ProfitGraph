@@ -15,17 +15,26 @@ bots. It is a module-by-module rebuild of Profit Fox Designer (ADR 0001); the ar
 
 ## Safety
 
-- Agents never request, inspect, copy, store or log real exchange keys, never read or decrypt the stored credentials
-  or the master key, and never manually place, amend or cancel real orders. The owner controls bot settings and
-  authorizes changes to each bot's desired state.
-- Read-only broker checks are allowed under these conditions, all of them: the owner provides a read-only token in the
-  environment of the process (an environment variable the agent never prints or reads; the agent does not ask for the
-  value, take it from the database or write it anywhere); the script calls only methods that read (T-Invest
-  `GetOrders`, `GetOrderState`, `GetOperationsByCursor`, `GetPositions`, `GetAccounts`, `GetBrokerReport` and the
-  equivalent reads of other venues) and none that place, replace or cancel an order; it prints no token, no full
-  account number (the last four digits at most) and no balances beyond what the question needs; its output is kept
-  in the conversation, not in the repository. A script of this kind lives outside the repository (the session's
-  scratchpad). Without a token in the environment the agent prepares the script and the owner runs it.
+- Without the owner's explicit approval in chat, agents must not retrieve, inspect or decrypt real exchange
+  credentials or their master keys, or make authenticated requests to an exchange or broker.
+- Owner-approved credential access and broker requests: with the owner's explicit approval in chat, agents may
+  retrieve credentials from the owner's environments or databases, read the required master key, decrypt stored
+  credentials when necessary, and use them to make authenticated exchange or broker API requests. Use the
+  application's credential path or a throwaway script outside the repository. Approval covers the agreed task
+  and its required sequence of calls; do not request approval again for each call within that scope. Ask again
+  only when the scope changes or the owner revokes approval.
+- Read-only broker checks: approved checks may read both reference data and account data needed for the task,
+  including balances, positions, orders, operations and broker reports. The owner may provide a token in the
+  process environment or approve retrieval and decryption of stored credentials; agents may run these checks
+  themselves within the approved scope. Approval to access credentials or perform read-only checks does not
+  authorize state-changing requests; those require explicit approval of the intended change. Agents must not
+  manually place, amend or cancel real orders. The owner controls bot settings and authorizes changes to each
+  bot's desired state.
+- Secret handling: keep decrypted credentials and master keys in memory only. Never commit secrets or write them
+  to repository files, logs or test fixtures. Do not print secret values or include them in chat unless the owner
+  explicitly requests and approves disclosure of those specific values. Never print or log signatures or
+  authentication headers. Report only the response fields needed for the approved task; full account IDs may
+  be shown when the owner requests them.
 - Live trading stays disabled in every committed configuration. Tests use mocked venue clients only.
   Never put secrets, keys or tokens in the repository, logs or test fixtures.
 - Engine and backtest replay must not depend on live code or venue modules.
