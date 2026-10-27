@@ -87,6 +87,12 @@ public sealed class TInvestOptions
     /// </summary>
     public TimeSpan AbsenceMaxWindow { get; init; } = TimeSpan.FromDays(10);
 
+    /// <summary>
+    ///     How often, after a trading day ended and until the next session opens, the state of DAY orders no runner reads is
+    ///     read again and recorded (ADR 0031). Positive and at most an hour.
+    /// </summary>
+    public TimeSpan ClosedSessionSweepInterval { get; init; } = TimeSpan.FromMinutes(5);
+
     internal bool IsValid()
     {
         if (RequestTimeout <= TimeSpan.Zero || CandleCloseGrace < TimeSpan.Zero || CommissionProbeNotional <= 0m || MarketBuySlippage is < 0m or >= 0.2m ||
@@ -95,6 +101,7 @@ public sealed class TInvestOptions
             CommissionPendingWindow <= TimeSpan.Zero ||
             AbsenceSettleDelay < TimeSpan.Zero || AbsenceSettleDelay > TimeSpan.FromDays(1) ||
             AbsenceMaxWindow <= TimeSpan.Zero || AbsenceMaxWindow > TimeSpan.FromDays(30) ||
+            ClosedSessionSweepInterval <= TimeSpan.Zero || ClosedSessionSweepInterval > TimeSpan.FromHours(1) ||
             !Limits.IsValid() || !History.IsValid() ||
             string.IsNullOrWhiteSpace(AppName) ||
             string.IsNullOrWhiteSpace(TrustedRootsPath))

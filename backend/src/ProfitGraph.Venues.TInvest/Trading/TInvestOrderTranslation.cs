@@ -16,7 +16,8 @@ namespace ProfitGraph.Venues.TInvest.Trading;
 ///     still zero is reported as pending. T-Invest's commission is per order and cumulative, so a fee that grows after a
 ///     known one belongs to the new executions: fills are partitioned, and the engine itself keeps a fee pending while an
 ///     earlier one is. A cancellation ends the engine order only when the owner or the strategy asked for
-///     it; one for a carry-over keeps it working; one nobody asked for is <see cref="BotStatusReason.UnresolvedOrder" />.
+///     it, or when the exchange ended a DAY order with its trading day (<see cref="TInvestCancelReason.Expired" />, ADR 0031);
+///     one for a carry-over keeps it working; one nobody asked for is <see cref="BotStatusReason.UnresolvedOrder" />.
 ///     Anything that cannot be accounted exactly is unresolved.
 /// </summary>
 internal static class TInvestOrderTranslation
@@ -55,7 +56,7 @@ internal static class TInvestOrderTranslation
                     updates.Add(ExternalOrderUpdate.Partial(engineOrderId, grossBase, total.Quote, total.Fee, pending, commissionPartitioned: true));
                 }
 
-                if (attempt.CancelledBy == TInvestCancelReason.Owner)
+                if (attempt.CancelledBy is TInvestCancelReason.Owner or TInvestCancelReason.Expired)
                 {
                     updates.Add(ExternalOrderUpdate.ConfirmCancel(engineOrderId));
                 }

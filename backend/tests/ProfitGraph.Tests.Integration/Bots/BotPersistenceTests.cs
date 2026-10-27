@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Dispatch;
@@ -214,6 +215,21 @@ public sealed class BotPersistenceTests
         listed.ShouldContain(unresolved.Id);
         listed.ShouldNotContain(foreign.Id);
         listed.ShouldNotContain(ownerStopped.Id);
+    }
+
+    [Test]
+    public async Task EveryBotOfAVenueIsListedWhateverItsState_AndNoBotOfAnotherVenue()
+    {
+        Bot unresolved = await DegradedBot(BotStatusReason.UnresolvedOrder);
+        Bot ownerStopped = await DegradedBot(BotStatusReason.UnresolvedOrder, stop: true);
+
+        IReadOnlyList<Bot> listed = await Read(services => services.GetRequiredService<IBotRepository>().ListOnVenue(new VenueId("bybit"), CancellationToken.None));
+        IReadOnlyList<Bot> elsewhere = await Read(services => services.GetRequiredService<IBotRepository>().ListOnVenue(new VenueId("tinvest"), CancellationToken.None));
+
+        listed.Select(bot => bot.Id).ShouldContain(unresolved.Id);
+        listed.Select(bot => bot.Id).ShouldContain(ownerStopped.Id);
+        listed.ShouldAllBe(bot => bot.Series.Venue == new VenueId("bybit"));
+        elsewhere.ShouldBeEmpty();
     }
 
     [Test]

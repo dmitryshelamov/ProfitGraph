@@ -171,7 +171,24 @@ and the feed say why it waits.
 An order of a bot whose state at the venue the bot cannot establish (`Degraded/UnresolvedOrder`): a submit whose delivery is
 unknown, or an accepted order the venue no longer knows. The bot stops. The owner may confirm the order absent after checking
 the venue; where a venue's own records can prove it, the bot closes the order itself and the feed lists the checks that held
-(ADR 0030).
+(ADR 0030). A T-Invest DAY order that the exchange ended with its trading day is not unresolved: its outcome is recorded and
+ends the order while the account's position covers its bots (ADR 0031).
+
+### Expired Day Order
+
+A T-Invest DAY limit order that the exchange cancelled at the end of its trading day without anyone asking, as read once the
+day had ended by the schedule (`cancelled_by = Expired`). Its executions are kept and the remainder is cancelled in the engine
+(ADR 0031).
+
+### Post-Session Sweep
+
+The T-Invest module's reads, after a trading day ends and until the next session opens, of the working DAY orders of bots no
+runner reads, which record each final state while T-Invest still answers for it. It only reads (ADR 0031).
+
+### Position Coverage
+
+The guard before an automatic close of an expired order: the account's position in the share must be at least what all bots on
+that account and share hold. Not an equality, because the owner may hold shares of their own (ADR 0031).
 
 ### Kill Switch
 

@@ -75,20 +75,25 @@ public static class TInvestRegistration
         services.AddSingleton<TInvestTradingStatuses>();
         services.AddSingleton(provider => new TInvestPriceBands(provider.GetRequiredService<TInvestTransport>(), TimeProvider.System));
         services.AddSingleton<ITInvestOrderWaits, TInvestOrderWaits>();
-        services.AddSingleton(provider => new TInvestOrderProgress(
-            provider.GetRequiredService<ITInvestOrderAttempts>(),
-            provider.GetRequiredService<ITInvestOrderWaits>(),
-            TimeProvider.System));
         services.AddSingleton(provider => new TInvestSchedules(
             provider.GetRequiredService<TInvestTransport>(),
             TimeProvider.System,
             provider.GetRequiredService<ILogger<TInvestSchedules>>()));
         services.AddSingleton<TInvestOperationReads>();
+        services.AddSingleton<ITInvestBotPositions, TInvestBotPositions>();
+        services.AddSingleton<TInvestPositionCoverage>();
+        services.AddSingleton(provider => new TInvestOrderProgress(
+            provider.GetRequiredService<ITInvestOrderAttempts>(),
+            provider.GetRequiredService<ITInvestOrderWaits>(),
+            provider.GetRequiredService<TInvestSchedules>(),
+            provider.GetRequiredService<TInvestPositionCoverage>(),
+            TimeProvider.System));
         services.AddSingleton<TInvestAbsenceProofs>();
         services.AddSingleton<TInvestLateCommissions>();
         services.AddSingleton<TInvestOrderGateway>();
         services.AddSingleton<IOrderGateway>(provider => provider.GetRequiredService<TInvestOrderGateway>());
         services.AddHostedService<TInvestWaitingOrdersWorker>();
+        services.AddHostedService<TInvestClosedSessionSweep>();
 
         return services;
     }

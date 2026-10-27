@@ -37,11 +37,18 @@ internal sealed class TInvestGatewayHarness
 
     public FakeTimeProvider Clock { get; } = new FakeTimeProvider(Now);
 
+    /// <summary>
+    ///     What the bots on the account and share hold by their checkpoints; the harness bot holds nothing to begin with.
+    /// </summary>
+    public FixedTInvestBotPositions Positions { get; }
+
     public TInvestOrderGateway Gateway { get; }
 
     public TInvestOrderStreams Streams { get; }
 
     public TInvestWaitingOrdersWorker Worker { get; }
+
+    public TInvestClosedSessionSweep Sweep { get; }
 
     public TInvestGatewayHarness()
     {
@@ -63,12 +70,15 @@ internal sealed class TInvestGatewayHarness
             FirstDayCandle: null,
             Exchange);
         var contexts = new FixedTInvestBotContexts(new TInvestBotContext(Bot, new TInvestToken("t.invented-token"), AccountId, share));
-        var progress = new TInvestOrderProgress(Attempts, Waits, Clock);
-        Streams = new TInvestOrderStreams(transport, reads, Attempts, Updates, progress, options, NullLogger<TInvestOrderStreams>.Instance);
         var schedules = new TInvestSchedules(transport, Clock, NullLogger<TInvestSchedules>.Instance);
+        var operations = new TInvestOperationReads(transport);
+        Positions = new FixedTInvestBotPositions(Bot);
+        var coverage = new TInvestPositionCoverage(operations, Positions, NullLogger<TInvestPositionCoverage>.Instance);
+        var progress = new TInvestOrderProgress(Attempts, Waits, schedules, coverage, Clock);
+        Streams = new TInvestOrderStreams(transport, reads, Attempts, Updates, progress, options, NullLogger<TInvestOrderStreams>.Instance);
         var proofs = new TInvestAbsenceProofs(
             reads,
-            new TInvestOperationReads(transport),
+            operations,
             Attempts,
             schedules,
             options,
@@ -102,6 +112,16 @@ internal sealed class TInvestGatewayHarness
             options,
             Clock,
             NullLogger<TInvestWaitingOrdersWorker>.Instance);
+        Sweep = new TInvestClosedSessionSweep(
+            Attempts,
+            contexts,
+            Streams,
+            reads,
+            progress,
+            schedules,
+            options,
+            Clock,
+            NullLogger<TInvestClosedSessionSweep>.Instance);
     }
 
     public async Task<IReadOnlyList<ExternalOrderUpdate>> Next(int count)

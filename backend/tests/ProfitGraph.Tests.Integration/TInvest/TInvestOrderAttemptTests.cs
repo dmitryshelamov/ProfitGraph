@@ -133,6 +133,30 @@ public sealed class TInvestOrderAttemptTests
     }
 
     [Test]
+    public async Task AnAttemptTheExchangeEndedWithItsDayKeepsThatReasonAndItsExecution()
+    {
+        Bot bot = await AddBot();
+        var attempts = new TInvestOrderAttemptRepository(_dataSource);
+        TInvestOrderAttempt first = Attempt(bot, engineOrderId: 9, attempt: 1, OrderType.Limit, price: 100m);
+        await attempts.Add(first, CancellationToken.None);
+        TInvestOrderAttempt active = first with { State = TInvestOrderAttemptState.Active, ExchangeOrderId = "7000002" };
+        await attempts.Transition(active, TInvestOrderAttemptState.Planned, CancellationToken.None);
+        TInvestOrderAttempt expired = active with
+        {
+            State = TInvestOrderAttemptState.Final,
+            CancelledBy = TInvestCancelReason.Expired,
+            ExecutedLots = 1,
+            ExecutedQuote = 995m,
+            ExecutedFee = 0.5m
+        };
+
+        (await attempts.Transition(expired, TInvestOrderAttemptState.Active, CancellationToken.None)).ShouldBeTrue();
+
+        (await attempts.ByRequestId(first.RequestId, CancellationToken.None)).ShouldBe(expired);
+        (await attempts.Working(CancellationToken.None)).ShouldNotContain(attempt => attempt.RequestId == first.RequestId);
+    }
+
+    [Test]
     public async Task AFinalAttemptWithoutItsCommissionIsPendingWithinTheWindow()
     {
         Bot bot = await AddBot();
