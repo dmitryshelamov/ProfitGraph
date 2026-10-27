@@ -23,6 +23,7 @@ import {
   ManualOrderForm,
   ParametersForm,
   renameBot,
+  restartsExhausted,
   RiskLimitsForm,
   TradingHaltBanner,
   useBotDisplay,
@@ -137,6 +138,11 @@ export function BotPage() {
                 <li key={diagnostic}>{diagnosticLabel(diagnostic)}</li>
               ))}
             </ul>
+          )}
+          {restartsExhausted(current) && (
+            <p className="text-sm text-danger-text">
+              Автоматические перезапуски исчерпаны: бот ждёт, пока владелец запустит его снова.
+            </p>
           )}
           {current.nextRestartAt && (
             <p className="text-sm text-muted">

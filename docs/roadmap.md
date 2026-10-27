@@ -54,6 +54,17 @@ replay hashes unchanged. Trading stays disabled throughout; the owner turns it o
 | Backtests | Steam descriptor, mock Steam, account session and request scheduler, credential import and authenticator enrollment, median history, item search, backtest UI | A Ladder backtest on Steam medians runs from item selection to result charts with Steam fees and the trade hold | Done: `SteamBacktestTests` runs it against the mock Steam |
 | Live | Wallet and inventory reads, live candles and display price, order journal, buy orders, listings and confirmations, history receipts, reconciliation, bot UI | A ladder bot passes its scenarios against the mock Steam: holds and unlocks, a restart during a confirmation, an expired session, a background 429, a returned item with a new ID and a CAPTCHA | Done: `SteamLadderTests` runs them against the mock Steam; no browser end-to-end test against a mock Steam yet |
 
+## Live restart hardening
+
+[ADR 0029](adr/0029-closed-history-after-restart-and-failure-diagnostics.md), after a Steam bot spent its five restarts on a
+checkpoint check and the log showed only an exception type.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Restated history | `RestatesClosedCandles` port capability; Steam continues on a restated last candle and records `HistoryRestated`; other venues stop with `HistoryDataCorrection` without spending restarts | `BotRuntimeTests` restart a bot on a changed last candle on both kinds of venue | Done on mocks; whether the real Steam restated the incident's hour is not proven |
+| 2. Diagnostics | Allow-listed failure description in the log and the `Degraded` feed entry | The feed shows the type chain and our own message, never a foreign message | Done |
+| 3. Status text | "бот ждёт владельца" once the restarts are spent | The bot page shows it from `nextRestartAt` | Done |
+
 ## Manual limit order
 
 A limit order in the manual order block of the bot page ([ADR 0027](adr/0027-manual-limit-order.md)), for every venue.

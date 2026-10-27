@@ -20,7 +20,7 @@ const reasonLabels: Record<BotStatusReason, string> = {
   KeyPermissions: 'у ключа нет нужных прав',
   UnsupportedFeeAsset: 'комиссия в неподдерживаемой валюте',
   InsufficientBalance: 'недостаточно средств',
-  HistoryDataCorrection: 'история свечей исправлена',
+  HistoryDataCorrection: 'площадка исправила историю свечей, бот ждёт владельца',
   VenueAccountProtection: 'аккаунт площадки под защитой, сначала проверьте его',
   Killed: 'аварийная остановка',
   DailyLossLimit: 'достигнут дневной лимит убытка',
@@ -41,9 +41,23 @@ const alertLabels: Record<BotAlertKind, string> = {
   GraphChangeRejected: 'Версия стратегии не принята',
 };
 
+/**
+ * A runtime failure with no restart scheduled: the automatic restarts are spent and the bot waits for the owner to start it
+ * again (ADR 0016, 0028).
+ */
+export function restartsExhausted(
+  bot: Pick<Bot, 'runtimeStatus' | 'statusReason' | 'nextRestartAt'>,
+): boolean {
+  return (
+    bot.runtimeStatus === 'Degraded' &&
+    bot.statusReason === 'RuntimeFailure' &&
+    bot.nextRestartAt === null
+  );
+}
+
 /** The bot's state for people: what it does now and, when it stopped by itself, why. */
 export function botStatusLabel(
-  bot: Pick<Bot, 'desiredState' | 'runtimeStatus' | 'statusReason'>,
+  bot: Pick<Bot, 'desiredState' | 'runtimeStatus' | 'statusReason' | 'nextRestartAt'>,
 ): string {
   const status =
     bot.desiredState === 'Running'
@@ -51,6 +65,10 @@ export function botStatusLabel(
       : bot.runtimeStatus === 'Created'
         ? 'Не запущен'
         : 'Остановлен';
+
+  if (restartsExhausted(bot)) {
+    return `${status}: сбой выполнения, бот ждёт владельца`;
+  }
 
   return bot.statusReason ? `${status}: ${reasonLabels[bot.statusReason]}` : status;
 }
@@ -109,6 +127,7 @@ const feedLabels: Record<BotFeedKind, string> = {
   FeeCorrected: 'Комиссия уточнена',
   OrderWaiting: 'Заявка ждёт',
   OrderWaitingEnded: 'Заявка больше не ждёт',
+  HistoryRestated: 'История свечей пересчитана площадкой',
 };
 
 export function feedLabel(kind: BotFeedKind): string {

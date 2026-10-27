@@ -340,8 +340,9 @@ public sealed class Bot : AggregateRoot
 
     /// <summary>
     ///     A runtime failure degrades the bot and schedules an automatic restart, unless a safety reason already holds it.
+    ///     <paramref name="detail" /> is a short text that is safe to show to the owner (ADR 0029).
     /// </summary>
-    public bool RecordRuntimeFailure(DateTimeOffset now)
+    public bool RecordRuntimeFailure(DateTimeOffset now, string? detail = null)
     {
         if (IsDegraded && StatusReason is { } held && BotStatusReasons.IsSafety(held))
         {
@@ -356,7 +357,7 @@ public sealed class Bot : AggregateRoot
 
         if (!wasDegraded)
         {
-            AddDomainEvent(new BotDegraded(Id, BotStatusReason.RuntimeFailure, now));
+            AddDomainEvent(new BotDegraded(Id, BotStatusReason.RuntimeFailure, now, FailureDetail.Limit(detail)));
         }
 
         return true;
@@ -365,7 +366,7 @@ public sealed class Bot : AggregateRoot
     /// <summary>
     ///     A confirmed unsafe condition degrades the bot until the owner starts it again.
     /// </summary>
-    public bool Degrade(BotStatusReason reason, DateTimeOffset now)
+    public bool Degrade(BotStatusReason reason, DateTimeOffset now, string? detail = null)
     {
         if (!BotStatusReasons.IsSafety(reason))
         {
@@ -381,7 +382,7 @@ public sealed class Bot : AggregateRoot
         StatusReason = reason;
         NextRestartAt = null;
         UpdatedAt = now;
-        AddDomainEvent(new BotDegraded(Id, reason, now));
+        AddDomainEvent(new BotDegraded(Id, reason, now, FailureDetail.Limit(detail)));
 
         return true;
     }
@@ -404,6 +405,15 @@ public sealed class Bot : AggregateRoot
         AddDomainEvent(new BotRecovered(Id, now));
 
         return true;
+    }
+
+    /// <summary>
+    ///     Records that the bot continued on a restated last closed candle (ADR 0029).
+    /// </summary>
+    public void RecordHistoryRestated(DateTimeOffset openTime, decimal previousClose, decimal restatedClose, DateTimeOffset now)
+    {
+        UpdatedAt = now;
+        AddDomainEvent(new BotHistoryRestated(Id, openTime, previousClose, restatedClose, now));
     }
 
     /// <summary>

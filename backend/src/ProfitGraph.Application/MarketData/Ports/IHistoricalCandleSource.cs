@@ -16,6 +16,13 @@ public interface IHistoricalCandleSource : IVenuePort
     string Source { get; }
 
     /// <summary>
+    ///     Whether the venue recomputes a closed candle after the fact, as a venue whose candles are medians of sales does (ADR 0029). A live bot
+    ///     that restarts continues on the restated candle; on a venue whose closed candles are final, a different candle is a
+    ///     data correction that stops the bot.
+    /// </summary>
+    bool RestatesClosedCandles => false;
+
+    /// <summary>
     ///     Finds the open time of the venue's first candle before <paramref name="to" />, or null when there is none.
     /// </summary>
     Task<DateTimeOffset?> FindFirst(InstrumentSymbol symbol, Timeframe timeframe, DateTimeOffset to, CancellationToken cancellationToken);

@@ -89,7 +89,7 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
 
             if (_producerFailure is OrderGatewaySafetyException safety)
             {
-                await Report(sender, BotRuntimeReport.Degraded, hostToken, safety.Reason);
+                await Report(sender, BotRuntimeReport.Degraded, hostToken, safety.Reason, BotFailureDiagnostics.Describe(safety));
             }
             else if (_producerFailure is { } failure)
             {
@@ -109,10 +109,17 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
         {
             // Shutdown and a lost lease discard queued roots after the current one.
         }
+        catch (OrderGatewaySafetyException safety)
+        {
+            string failure = BotFailureDiagnostics.Describe(safety);
+            logger.LogWarning("Bot {BotId} degraded with {Reason}: {Failure}", bot.Id.Value, safety.Reason, failure);
+            await TryReport(sender, BotRuntimeReport.Degraded, safety.Reason, failure);
+        }
         catch (Exception exception)
         {
-            logger.LogError("Bot {BotId} failed with {ExceptionType}.", bot.Id.Value, exception.GetType().Name);
-            await TryReport(sender, BotRuntimeReport.Failed);
+            string failure = BotFailureDiagnostics.Describe(exception);
+            logger.LogError("Bot {BotId} failed: {Failure}", bot.Id.Value, failure);
+            await TryReport(sender, BotRuntimeReport.Failed, reason: null, failure);
         }
         finally
         {
@@ -365,9 +372,9 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
         }
     }
 
-    private async Task Report(ISender sender, BotRuntimeReport report, CancellationToken cancellationToken, BotStatusReason? reason = null)
+    private async Task Report(ISender sender, BotRuntimeReport report, CancellationToken cancellationToken, BotStatusReason? reason = null, string? detail = null)
     {
-        if (!await sender.Send(new ReportBotRuntimeCommand(bot.Id.Value, holder.Value, epoch, report, reason), cancellationToken))
+        if (!await sender.Send(new ReportBotRuntimeCommand(bot.Id.Value, holder.Value, epoch, report, reason, detail), cancellationToken))
         {
             throw new BotLeaseLostException();
         }
@@ -388,11 +395,11 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
         }
     }
 
-    private async Task TryReport(ISender sender, BotRuntimeReport report)
+    private async Task TryReport(ISender sender, BotRuntimeReport report, BotStatusReason? reason, string detail)
     {
         try
         {
-            await sender.Send(new ReportBotRuntimeCommand(bot.Id.Value, holder.Value, epoch, report), CancellationToken.None);
+            await sender.Send(new ReportBotRuntimeCommand(bot.Id.Value, holder.Value, epoch, report, reason, detail), CancellationToken.None);
         }
         catch (Exception exception)
         {

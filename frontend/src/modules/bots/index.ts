@@ -18,7 +18,7 @@ export {
   tradingHaltQuery,
 } from './api/botsApi';
 export { botTitle, fractionLabel } from './model/botDisplay';
-export { botStatusLabel, diagnosticLabel, feedLabel } from './model/botStatus';
+export { botStatusLabel, diagnosticLabel, feedLabel, restartsExhausted } from './model/botStatus';
 export type { Bot, BotAlert, LiveImpactBot } from './model/types';
 export { useBotDisplay } from './model/useBotDisplay';
 export { AlertsList } from './ui/AlertsList';

@@ -16,6 +16,8 @@ internal sealed class SteamHistoricalCandleSource(SteamMarketDataAccount account
 
     public string Source => "steam-median-v1";
 
+    public bool RestatesClosedCandles => true;
+
     public async Task<DateTimeOffset?> FindFirst(InstrumentSymbol symbol, Timeframe timeframe, DateTimeOffset to, CancellationToken cancellationToken)
     {
         IReadOnlyList<Candle> candles = (await History(symbol, cancellationToken)).For(timeframe);

@@ -49,6 +49,29 @@ public sealed class SteamMarketDataTests
     }
 
     [Test]
+    public async Task ALaterReadRestatesAClosedHourAndTheSourceSaysSo()
+    {
+        var harness = new SteamSessionHarness();
+        var hour = Timeframe.Parse("1h");
+        var tenOClock = new DateTimeOffset(year: 2026, month: 10, day: 25, hour: 10, minute: 0, second: 0, TimeSpan.Zero);
+        harness.Steam.PriceHistory =
+            """{"success":true,"price_prefix":"","price_suffix":"₸","prices":[["Oct 25 2026 09: +0",500,"10"],["Oct 25 2026 10: +0",510,"12"]]}""";
+        var source = new SteamHistoricalCandleSource(harness.MarketData());
+
+        Candle first = (await source.Get(Case, hour, tenOClock, tenOClock.AddHours(1), CancellationToken.None)).Candles.ShouldHaveSingleItem();
+        harness.Clock.Advance(TimeSpan.FromMinutes(11));
+        harness.Steam.PriceHistory =
+            """{"success":true,"price_prefix":"","price_suffix":"₸","prices":[["Oct 25 2026 09: +0",500,"10"],["Oct 25 2026 10: +0",512,"14"]]}""";
+        Candle second = (await source.Get(Case, hour, tenOClock, tenOClock.AddHours(1), CancellationToken.None)).Candles.ShouldHaveSingleItem();
+
+        second.OpenTime.ShouldBe(first.OpenTime);
+        second.ShouldNotBe(first);
+        second.Close.ShouldBe(512m);
+        second.Volume.ShouldBe(14m);
+        source.RestatesClosedCandles.ShouldBeTrue();
+    }
+
+    [Test]
     public async Task AnItemInAnotherCurrencyThanTheWalletHasNoHistory()
     {
         var harness = new SteamSessionHarness();
