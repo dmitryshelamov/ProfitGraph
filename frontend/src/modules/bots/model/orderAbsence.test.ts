@@ -9,6 +9,12 @@ describe('absenceProofText', () => {
     );
   });
 
+  it('words the checks that ended an order the exchange removed with its day', () => {
+    expect(absenceProofText('CancelledByExchange,TradingDayEnded,PositionCoversBots')).toBe(
+      'биржа сама сняла заявку, исполненная часть учтена; торговый день заявки закончился; позиция по бумаге на счёте не меньше суммы позиций ботов',
+    );
+  });
+
   it('keeps a code it does not know and ignores empty parts', () => {
     expect(absenceProofText('Unknown,,TradingDayEnded')).toBe(
       'Unknown; торговый день заявки закончился',
@@ -20,6 +26,9 @@ describe('autoCheckFailure', () => {
   it('words the check that stopped the automatic close', () => {
     expect(autoCheckFailure('AutoCheck:PositionDiffers')).toBe(
       'позиция по бумаге не равна ожидаемой ботом',
+    );
+    expect(autoCheckFailure('AutoCheck:PositionShort')).toBe(
+      'позиция по бумаге на счёте меньше суммы позиций ботов',
     );
     expect(autoCheckFailure('AutoCheck:Something')).toBe('Something');
   });

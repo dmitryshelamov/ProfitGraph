@@ -36,7 +36,7 @@ public sealed class BotReconciler(IOrderIntentRepository intents, ISender sender
         }
         catch (OrderGatewaySafetyException exception)
         {
-            reconciliation = new BotReconciliationInternal([], [], exception.Reason);
+            reconciliation = new BotReconciliationInternal([], [], exception.Reason, exception.Detail);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

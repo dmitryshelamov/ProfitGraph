@@ -45,6 +45,13 @@ internal sealed class BotRepository(NpgsqlConnection connection, PostgresTransac
         return [.. rows.Select(row => row.ToDomain())];
     }
 
+    public async Task<IReadOnlyList<Bot>> ListOnVenue(VenueId venue, CancellationToken cancellationToken)
+    {
+        IEnumerable<BotDb> rows = await connection.QueryAsync<BotDb>(Command(BotQueries.ListOnVenue, new { venue = venue.Value }, cancellationToken));
+
+        return [.. rows.Select(row => row.ToDomain())];
+    }
+
     public async Task<IReadOnlyList<LiveInstrument>> ListDesiredRunningInstruments(CancellationToken cancellationToken)
     {
         IEnumerable<(string Venue, string Symbol)> rows = await connection.QueryAsync<(string, string)>(

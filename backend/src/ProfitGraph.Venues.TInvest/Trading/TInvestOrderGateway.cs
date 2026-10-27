@@ -27,7 +27,9 @@ namespace ProfitGraph.Venues.TInvest.Trading;
 ///     retries and eventually degrades the bot. Reconciliation checks the account's access, subscribes to the account's
 ///     order states and refuses another active order on the bot's share unless the bot allows them. An accepted order that
 ///     T-Invest no longer finds is closed when the owner confirmed it removed, or when the broker's own records prove it was
-///     removed with nothing executed (ADR 0028, ADR 0030); otherwise it is unresolved.
+///     removed with nothing executed (ADR 0028, ADR 0030); otherwise it is unresolved. A DAY order the exchange ended with its
+///     trading day ends with what it executed, read from T-Invest or from what the module recorded, while the account's
+///     position covers its bots (ADR 0031).
 /// </summary>
 internal sealed class TInvestOrderGateway(
     ITInvestBotContexts contexts,
@@ -46,6 +48,12 @@ internal sealed class TInvestOrderGateway(
     IOptions<TInvestOptions> options,
     TimeProvider clock) : IOrderGateway
 {
+    /// <summary>
+    ///     The checks behind closing a DAY order the exchange ended with its trading day (ADR 0031), as the bot's feed lists them.
+    /// </summary>
+    private static readonly OrderAbsenceProofInternal ExpiryProof = new OrderAbsenceProofInternal(
+        [TInvestAbsenceChecks.CancelledByExchange, TInvestAbsenceChecks.TradingDayEnded, TInvestAbsenceChecks.PositionCoversBots]);
+
     public VenueId Venue => TInvestVenue.VenueId;
 
     public ClientOrderId ClientOrderIdFor(BotId botId, long engineOrderId)
@@ -268,9 +276,24 @@ internal sealed class TInvestOrderGateway(
 
             if (known is not null)
             {
-                if (known.ExecutionReportStatus == OrderExecutionReportStatus.ExecutionReportStatusCancelled && attempt.CancelledBy is null)
+                if (known.ExecutionReportStatus == OrderExecutionReportStatus.ExecutionReportStatusCancelled &&
+                    attempt.CancelledBy is not (TInvestCancelReason.Owner or TInvestCancelReason.CarryOver))
                 {
-                    return false;
+                    if (attempt.CancelledBy != TInvestCancelReason.Expired &&
+                        (attempt.State == TInvestOrderAttemptState.Final || !await progress.Expired(context, attempt, cancellationToken)))
+                    {
+                        return false;
+                    }
+
+                    TInvestExecution total = (await progress.Executed(attempt.BotId, attempt.EngineOrderId, attempt.Attempt, cancellationToken))
+                        .Add(TInvestOrderTranslation.Executed(known, context.Share.Lot));
+
+                    if (await progress.Covers(context, attempt, total, order.ExecutedBase, cancellationToken) is not null)
+                    {
+                        return false;
+                    }
+
+                    proven = true;
                 }
 
                 continue;
@@ -278,6 +301,21 @@ internal sealed class TInvestOrderGateway(
 
             if (attempt is { State: TInvestOrderAttemptState.Final, ExchangeOrderId: not null, Lots: > 0 } && attempt.ExecutedLots == attempt.Lots)
             {
+                continue;
+            }
+
+            if (attempt is { State: TInvestOrderAttemptState.Final, ExchangeOrderId: not null, CancelledBy: TInvestCancelReason.Owner or TInvestCancelReason.Expired })
+            {
+                TInvestExecution total = await progress.Executed(attempt.BotId, attempt.EngineOrderId, attempt.Attempt + 1, cancellationToken);
+
+                if (attempt.CancelledBy == TInvestCancelReason.Expired &&
+                    await progress.Covers(context, attempt, total, order.ExecutedBase, cancellationToken) is not null)
+                {
+                    return false;
+                }
+
+                proven = true;
+
                 continue;
             }
 
@@ -545,6 +583,34 @@ internal sealed class TInvestOrderGateway(
                 continue;
             }
 
+            if (known is null && attempt is
+                    { State: TInvestOrderAttemptState.Final, ExchangeOrderId: not null, CancelledBy: TInvestCancelReason.Owner or TInvestCancelReason.Expired })
+            {
+                // The module recorded how the order ended while no runner read it, such as by the post-session sweep (ADR 0031), and
+                // T-Invest no longer answers for a past day's order.
+                try
+                {
+                    found.AddRange(await progress.Recorded(context, attempt, order.ExecutedBase, cancellationToken));
+                }
+                catch (OrderGatewaySafetyException safety)
+                {
+                    return new BotReconciliationInternal(found, orders, safety.Reason, safety.Detail);
+                }
+
+                orders.Add(new ReconciledOrderInternal(order.ClientOrderId, IsFinal: true, attempt.CancelledBy == TInvestCancelReason.Expired ? ExpiryProof : null));
+
+                continue;
+            }
+
+            if (known is null && order.OwnerConfirmedAbsent && attempt is { State: TInvestOrderAttemptState.Final, ExchangeOrderId: not null, CancelledBy: null } &&
+                await ConfirmRecordedCancel(attempt, cancellationToken))
+            {
+                found.Add(ExternalOrderUpdate.ConfirmCancel(order.EngineOrderId));
+                orders.Add(new ReconciledOrderInternal(order.ClientOrderId, IsFinal: true));
+
+                continue;
+            }
+
             string? failedCheck = null;
 
             if (known is null && attempt is { State: TInvestOrderAttemptState.Active, ExchangeOrderId: { } exchangeOrderId })
@@ -582,14 +648,16 @@ internal sealed class TInvestOrderGateway(
 
             try
             {
-                found.AddRange(await progress.Apply(context, attempt, state, cancellationToken));
+                found.AddRange(await progress.Apply(context, attempt, state, cancellationToken, order.ExecutedBase));
             }
             catch (OrderGatewaySafetyException safety)
             {
-                return new BotReconciliationInternal(found, orders, safety.Reason);
+                return new BotReconciliationInternal(found, orders, safety.Reason, safety.Detail);
             }
 
-            orders.Add(new ReconciledOrderInternal(order.ClientOrderId, TInvestOrderTranslation.IsFinal(state)));
+            bool expired = state.ExecutionReportStatus == OrderExecutionReportStatus.ExecutionReportStatusCancelled &&
+                (await attempts.ByRequestId(attempt.RequestId, cancellationToken))?.CancelledBy == TInvestCancelReason.Expired;
+            orders.Add(new ReconciledOrderInternal(order.ClientOrderId, TInvestOrderTranslation.IsFinal(state), expired ? ExpiryProof : null));
         }
 
         bool foreign = !request.AllowForeignOrders &&
@@ -619,6 +687,24 @@ internal sealed class TInvestOrderGateway(
         }
 
         return await CloseRemoved(attempt, cancellationToken);
+    }
+
+    /// <summary>
+    ///     An attempt recorded as cancelled although nobody asked for it, which T-Invest no longer answers for, ends as the owner
+    ///     confirmed (ADR 0028) when no attempt of its engine order executed anything; the recorded final state stands in for the
+    ///     lookups the owner's confirmation otherwise needs. The attempt is marked as the owner's cancel.
+    /// </summary>
+    private async Task<bool> ConfirmRecordedCancel(TInvestOrderAttempt attempt, CancellationToken cancellationToken)
+    {
+        if ((await attempts.ForOrder(attempt.BotId, attempt.EngineOrderId, cancellationToken)).Any(other => other.ExecutedLots > 0))
+        {
+            return false;
+        }
+
+        return await attempts.Transition(
+            attempt with { CancelledBy = TInvestCancelReason.Owner, UpdatedAt = clock.GetUtcNow() },
+            TInvestOrderAttemptState.Final,
+            cancellationToken);
     }
 
     /// <summary>
@@ -656,7 +742,7 @@ internal sealed class TInvestOrderGateway(
                     earlier.Lots * context.Share.Lot,
                     earlier.Quote,
                     earlier.Fee,
-                    commissionPending: earlier.Fee == 0m,
+                    earlier.Fee == 0m,
                     commissionPartitioned: true)
             ];
     }
@@ -676,7 +762,7 @@ internal sealed class TInvestOrderGateway(
                 total.Lots * context.Share.Lot,
                 total.Quote,
                 total.Fee,
-                commissionPending: attempt.ExecutedFee == 0m,
+                attempt.ExecutedFee == 0m,
                 commissionPartitioned: true)
         ];
     }

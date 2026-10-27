@@ -44,6 +44,16 @@ internal sealed class MockTInvestOrders
 
     public RpcException? NextCancelFailure { get; set; }
 
+    /// <summary>
+    ///     How many of the next <c>GetOrderState</c> calls fail as unavailable.
+    /// </summary>
+    public int StateFailures { get; set; }
+
+    /// <summary>
+    ///     How many <c>GetOrderState</c> calls arrived, failed ones included.
+    /// </summary>
+    public int StateReads { get; private set; }
+
     public bool TradingOpen { get; set; } = true;
 
     /// <summary>
@@ -400,6 +410,15 @@ internal sealed class MockTInvestOrders
     {
         lock (_orders)
         {
+            StateReads++;
+
+            if (StateFailures > 0)
+            {
+                StateFailures--;
+
+                throw MockTInvestApi.Refusal(StatusCode.Unavailable, "70001");
+            }
+
             OrderState? order = null;
 
             return (request.OrderIdType == OrderIdType.Request && _orders.TryGetValue(request.OrderId, out order)) ||

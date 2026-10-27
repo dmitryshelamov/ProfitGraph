@@ -31,6 +31,12 @@ public interface IBotRepository
     Task<IReadOnlyList<BotId>> ListDegradedOnUnresolvedOrder(CancellationToken cancellationToken);
 
     /// <summary>
+    ///     Every bot of a venue, whatever its state, oldest first: a venue module adds up what the bots on one account hold
+    ///     (ADR 0031).
+    /// </summary>
+    Task<IReadOnlyList<Bot>> ListOnVenue(VenueId venue, CancellationToken cancellationToken);
+
+    /// <summary>
     ///     The distinct instruments of the bots that should run.
     /// </summary>
     Task<IReadOnlyList<LiveInstrument>> ListDesiredRunningInstruments(CancellationToken cancellationToken);

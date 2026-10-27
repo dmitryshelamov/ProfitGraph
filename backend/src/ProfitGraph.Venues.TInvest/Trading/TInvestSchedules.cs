@@ -67,6 +67,23 @@ internal sealed class TInvestSchedules(TInvestTransport transport, TimeProvider 
         return days.FirstOrDefault(day => day.End > now);
     }
 
+    /// <summary>
+    ///     The trading day whose sessions hold the instant, from its first interval's start to its end, gaps between its
+    ///     intervals included; null when no day does.
+    /// </summary>
+    public static TInvestTradingDay? Holding(IReadOnlyList<TInvestTradingDay> days, DateTimeOffset instant)
+    {
+        return days.FirstOrDefault(day => day.Sessions.Count > 0 && day.Sessions.Min(session => session.From) <= instant && instant <= day.End);
+    }
+
+    /// <summary>
+    ///     The start of the first exchange interval after the instant, or null when the days given show none.
+    /// </summary>
+    public static DateTimeOffset? NextOpen(IReadOnlyList<TInvestTradingDay> days, DateTimeOffset instant)
+    {
+        return days.SelectMany(day => day.Sessions).Where(session => session.From > instant).Select(session => (DateTimeOffset?)session.From).Min();
+    }
+
     private async Task<IReadOnlyList<TInvestTradingDay>?> Fetch(TInvestBotContext context, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
     {
         string exchange = context.Share.Exchange;

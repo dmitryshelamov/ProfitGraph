@@ -172,10 +172,7 @@ internal sealed class TInvestAbsenceProofs(
             return TInvestAbsenceChecks.TradingDayUnknown;
         }
 
-        TInvestTradingDay? day = days.FirstOrDefault(candidate => candidate.Sessions.Count > 0 && candidate.Sessions.Min(session => session.From) <= placed &&
-            placed <= candidate.End);
-
-        if (day is not { Known: true, End: { } end })
+        if (TInvestSchedules.Holding(days, placed) is not { Known: true, End: { } end })
         {
             return TInvestAbsenceChecks.TradingDayUnknown;
         }

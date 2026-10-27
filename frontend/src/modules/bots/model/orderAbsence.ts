@@ -12,6 +12,8 @@ const passed: Record<string, string> = {
   BaseBalanceMatchesEngine: 'баланс монеты равен позиции, которую ожидает бот',
   NoBuyOrderOnTheItem: 'среди заявок на покупку этого предмета в аккаунте её нет',
   NoPurchaseInHistory: 'в истории торговой площадки после отправки заявки покупок предмета нет',
+  CancelledByExchange: 'биржа сама сняла заявку, исполненная часть учтена',
+  PositionCoversBots: 'позиция по бумаге на счёте не меньше суммы позиций ботов',
 };
 
 const failed: Record<string, string> = {
@@ -27,6 +29,8 @@ const failed: Record<string, string> = {
   PositionUnreadable: 'позицию по бумаге биржа сейчас не отдаёт',
   PositionBlocked: 'часть позиции заблокирована заявками',
   PositionDiffers: 'позиция по бумаге не равна ожидаемой ботом',
+  PositionShort: 'позиция по бумаге на счёте меньше суммы позиций ботов',
+  BotPositionsUnknown: 'не удалось сложить позиции ботов этого счёта',
   ReadFailed: 'биржа не ответила на проверочный запрос',
   AttemptChanged: 'запись о заявке изменилась во время проверки',
   EngineAcceptedOrder: 'бот уже видел, что биржа приняла заявку',
