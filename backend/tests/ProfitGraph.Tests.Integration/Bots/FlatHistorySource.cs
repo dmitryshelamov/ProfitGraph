@@ -21,6 +21,13 @@ public sealed class FlatHistorySource(VenueId venue, decimal price) : IHistorica
 
     public string Source => "flat";
 
+    /// <summary>
+    ///     The volume of every candle; a test changes it to restate the history a bot saw before it restarted.
+    /// </summary>
+    public decimal Volume { get; set; } = 1m;
+
+    public bool RestatesClosedCandles { get; set; }
+
     public FlatHistorySource() : this(new VenueId(TestHistoryVenue.WithHistory), Price)
     {
     }
@@ -45,7 +52,7 @@ public sealed class FlatHistorySource(VenueId venue, decimal price) : IHistorica
             }
             else
             {
-                candles.Add(new Candle(time, price, price, price, price, Volume: 1m));
+                candles.Add(new Candle(time, price, price, price, price, Volume));
             }
         }
 

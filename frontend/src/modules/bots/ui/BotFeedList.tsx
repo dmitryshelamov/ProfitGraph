@@ -28,7 +28,13 @@ function details(entry: BotFeedEntry): string {
   }
 
   if (reason) {
-    return reasonLabel(reason);
+    return entry.details.detail
+      ? `${reasonLabel(reason)} (${entry.details.detail})`
+      : reasonLabel(reason);
+  }
+
+  if (entry.details.restatedClose) {
+    return `свеча ${entry.details.openTime}: закрытие было ${entry.details.previousClose}, стало ${entry.details.restatedClose}`;
   }
 
   if (entry.details.correctedFee) {

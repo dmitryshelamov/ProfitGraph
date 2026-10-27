@@ -253,6 +253,46 @@ public sealed class BotTransitionsTests
     }
 
     [Test]
+    public void RuntimeFailureCarriesItsDetailOnTheEventAsOneLimitedLine()
+    {
+        Bot bot = BotFixture.Running();
+
+        bot.RecordRuntimeFailure(Now, detail: "  The strategy\n version   does not exist.  ");
+
+        bot.DomainEvents.ShouldBe([new BotDegraded(bot.Id, BotStatusReason.RuntimeFailure, Now, "The strategy version does not exist.")]);
+    }
+
+    [Test]
+    public void ADetailLongerThanTheLimitIsCut()
+    {
+        Bot bot = BotFixture.Running();
+
+        bot.RecordRuntimeFailure(Now, new string('x', count: 1000));
+
+        ((BotDegraded)bot.DomainEvents.Single()).Detail!.Length.ShouldBe(expected: 300);
+    }
+
+    [Test]
+    public void ASafetyDegradationCarriesItsDetail()
+    {
+        Bot bot = BotFixture.Running();
+
+        bot.Degrade(BotStatusReason.HistoryDataCorrection, Now, "The venue changed a closed candle.");
+
+        bot.DomainEvents.ShouldBe([new BotDegraded(bot.Id, BotStatusReason.HistoryDataCorrection, Now, "The venue changed a closed candle.")]);
+    }
+
+    [Test]
+    public void ARestatedCandleIsRecordedAsAnEvent()
+    {
+        Bot bot = BotFixture.Running();
+
+        bot.RecordHistoryRestated(Now.AddHours(-1), previousClose: 100m, restatedClose: 101m, Now);
+
+        bot.DomainEvents.ShouldBe([new BotHistoryRestated(bot.Id, Now.AddHours(-1), PreviousClose: 100m, RestatedClose: 101m, Now)]);
+    }
+
+    [Test]
     public void RuntimeFailureDoesNotReplaceASafetyReason()
     {
         Bot bot = BotFixture.DegradedBy(BotStatusReason.ForeignOrder);

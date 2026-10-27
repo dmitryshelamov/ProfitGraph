@@ -162,18 +162,141 @@ public sealed class BotRuntimeTests
     public async Task FailedInputDegradesTheBotForAnAutomaticRestart()
     {
         var scenario = new RuntimeScenario();
-        using IHost worker = scenario.Worker();
+        using IHost worker = scenario.Worker(withOutbox: true);
         Bot bot = await RuntimeScenario.RunningLadder(worker);
         await worker.StartAsync();
         await RuntimeScenario.Until(() => Task.FromResult(scenario.Candles.Subscribers > 0), "the bot subscribes to live candles");
 
         scenario.Candles.Fail(new InvalidDataException("The test feed broke."));
         await RuntimeScenario.Until(async () => (await RuntimeScenario.Read(worker, bot.Id)).IsDegraded, "the bot degrades");
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Feed(worker, bot.Id)).Any(entry => entry.Kind == BotFeedKind.Degraded),
+            "the feed reports it");
         await worker.StopAsync();
 
         Bot stored = await RuntimeScenario.Read(worker, bot.Id);
         stored.StatusReason.ShouldBe(BotStatusReason.RuntimeFailure);
         stored.NextRestartAt.ShouldNotBeNull();
+
+        // The owner sees the type chain and our own message, never the inner exception's text.
+        (await RuntimeScenario.Feed(worker, bot.Id)).Single(entry => entry.Kind == BotFeedKind.Degraded).Details["detail"]
+            .ShouldBe("InvalidOperationException: A live input of the bot failed. <- InvalidDataException");
+    }
+
+    [Test]
+    public async Task ARestatedLastCandleOfAVenueWithFinalCandlesStopsTheBotWithoutSpendingRestarts()
+    {
+        var scenario = new RuntimeScenario();
+        Bot bot;
+        Candle stored;
+
+        using (IHost first = scenario.Worker())
+        {
+            bot = await RuntimeScenario.RunningLadder(first);
+            await first.StartAsync();
+            await RuntimeScenario.Until(async () => (await RuntimeScenario.Read(first, bot.Id)).RuntimeStatus == BotRuntimeStatus.Running, "the bot runs");
+            await first.StopAsync();
+            stored = (await RuntimeScenario.Checkpoint(first, bot.Id))!.Engine.LastClosedCandle;
+        }
+
+        scenario.History.Volume = 2m;
+        using IHost second = scenario.Worker(withOutbox: true);
+        await second.StartAsync();
+        await RuntimeScenario.Until(async () => (await RuntimeScenario.Read(second, bot.Id)).IsDegraded, "the bot degrades");
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Feed(second, bot.Id)).Any(entry => entry.Kind == BotFeedKind.Degraded),
+            "the feed reports it");
+        await Task.Delay(TimeSpan.FromMilliseconds(500));
+        await second.StopAsync();
+
+        Bot degraded = await RuntimeScenario.Read(second, bot.Id);
+        degraded.ShouldSatisfyAllConditions(
+            () => degraded.StatusReason.ShouldBe(BotStatusReason.HistoryDataCorrection),
+            () => degraded.RestartAttempts.ShouldBe(0),
+            () => degraded.NextRestartAt.ShouldBeNull(),
+            () => degraded.CanAcquireLease(DateTimeOffset.UtcNow.AddDays(1)).ShouldBeFalse());
+        (await RuntimeScenario.Checkpoint(second, bot.Id))!.Engine.LastClosedCandle.ShouldBe(stored);
+        (await RuntimeScenario.Lease(bot.Id))!.Value.Epoch.ShouldBe(2);
+        BotFeedEntry entry = (await RuntimeScenario.Feed(second, bot.Id)).Single(candidate => candidate.Kind == BotFeedKind.Degraded);
+        entry.Details["reason"].ShouldBe("HistoryDataCorrection");
+        entry.Details["detail"].ShouldBe("OrderGatewaySafetyException: The venue changed a closed candle the bot had already processed.");
+    }
+
+    [Test]
+    public async Task ARestatedLastCandleOfAVenueThatRestatesIsAcceptedAndRecordedInTheFeed()
+    {
+        var scenario = new RuntimeScenario();
+        scenario.History.RestatesClosedCandles = true;
+        Bot bot;
+        Candle stored;
+
+        using (IHost first = scenario.Worker())
+        {
+            bot = await RuntimeScenario.RunningLadder(first);
+            await first.StartAsync();
+            await RuntimeScenario.Until(async () => (await RuntimeScenario.Read(first, bot.Id)).RuntimeStatus == BotRuntimeStatus.Running, "the bot runs");
+            await first.StopAsync();
+            stored = (await RuntimeScenario.Checkpoint(first, bot.Id))!.Engine.LastClosedCandle;
+        }
+
+        scenario.History.Volume = 2m;
+        using IHost second = scenario.Worker(withOutbox: true);
+        await second.StartAsync();
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Checkpoint(second, bot.Id))!.Engine.LastClosedCandle == stored with { Volume = 2m },
+            "the restated candle is committed");
+        await RuntimeScenario.Until(async () => (await RuntimeScenario.Read(second, bot.Id)).RuntimeStatus == BotRuntimeStatus.Running, "the bot runs again");
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Feed(second, bot.Id)).Any(entry => entry.Kind == BotFeedKind.HistoryRestated),
+            "the feed reports it");
+        await second.StopAsync();
+
+        BotFeedEntry entry = (await RuntimeScenario.Feed(second, bot.Id)).Single(entry => entry.Kind == BotFeedKind.HistoryRestated);
+        entry.Details["openTime"].ShouldBe(stored.OpenTime.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+        (await RuntimeScenario.Read(second, bot.Id)).ShouldSatisfyAllConditions(
+            bot2 => bot2.IsDegraded.ShouldBeFalse(),
+            bot2 => bot2.RestartAttempts.ShouldBe(0));
+        (await RuntimeScenario.Intents(second, bot.Id)).Count.ShouldBe(1);
+    }
+
+    [Test]
+    public async Task ALiveCandleAfterRestartsStartsTheRestartStreakOver()
+    {
+        var scenario = new RuntimeScenario();
+        using IHost worker = scenario.Worker();
+        Bot bot = await RuntimeScenario.RunningLadder(worker);
+        DateTimeOffset at = DateTimeOffset.UtcNow.AddHours(-1);
+
+        // Three failed restarts in the past, the third restart's failure waiting for its time.
+        await BotStore.Change(
+            worker,
+            bot.Id,
+            stored =>
+            {
+                for (var attempt = 0; attempt < 3; attempt++)
+                {
+                    stored.RecordRuntimeFailure(at);
+                    at = stored.NextRestartAt!.Value;
+                    stored.RecordLeaseAcquired(at);
+                    stored.MarkStarting(at);
+                }
+
+                stored.RecordRuntimeFailure(at);
+            });
+        await worker.StartAsync();
+        await RuntimeScenario.Until(async () => (await RuntimeScenario.Read(worker, bot.Id)).RuntimeStatus == BotRuntimeStatus.Running, "the bot runs again");
+        await RuntimeScenario.Until(() => Task.FromResult(scenario.Candles.Subscribers > 0), "the bot subscribes to live candles");
+        (await RuntimeScenario.Read(worker, bot.Id)).RestartAttempts.ShouldBe(4);
+        Candle last = (await RuntimeScenario.Checkpoint(worker, bot.Id))!.Engine.LastClosedCandle;
+        Candle next = FlatHistorySource.Candle(last.OpenTime.AddHours(1));
+
+        scenario.Candles.Push(next);
+        await RuntimeScenario.Until(async () => (await RuntimeScenario.Checkpoint(worker, bot.Id))!.Engine.LastClosedCandle == next, "the live candle is committed");
+        await worker.StopAsync();
+
+        (await RuntimeScenario.Read(worker, bot.Id)).ShouldSatisfyAllConditions(
+            stored => stored.RestartAttempts.ShouldBe(0),
+            stored => stored.NextRestartAt.ShouldBeNull());
     }
 
     [Test]

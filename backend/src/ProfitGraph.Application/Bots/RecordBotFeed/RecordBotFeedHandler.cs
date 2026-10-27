@@ -38,11 +38,32 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
         INotificationHandler<BotFeeRatesChanged>,
         INotificationHandler<BotFeeCorrected>,
         INotificationHandler<BotOrderWaitingStarted>,
-        INotificationHandler<BotOrderWaitingEnded>
+        INotificationHandler<BotOrderWaitingEnded>,
+        INotificationHandler<BotHistoryRestated>
 {
     public Task Handle(BotDegraded notification, CancellationToken cancellationToken)
     {
-        return Record(notification.BotId, BotFeedKind.Degraded, notification.At, cancellationToken, ("reason", notification.Reason.ToString()));
+        return notification.Detail is { } detail
+            ? Record(
+                notification.BotId,
+                BotFeedKind.Degraded,
+                notification.At,
+                cancellationToken,
+                ("reason", notification.Reason.ToString()),
+                ("detail", detail))
+            : Record(notification.BotId, BotFeedKind.Degraded, notification.At, cancellationToken, ("reason", notification.Reason.ToString()));
+    }
+
+    public Task Handle(BotHistoryRestated notification, CancellationToken cancellationToken)
+    {
+        return Record(
+            notification.BotId,
+            BotFeedKind.HistoryRestated,
+            notification.At,
+            cancellationToken,
+            ("openTime", notification.OpenTime.ToString("O", CultureInfo.InvariantCulture)),
+            ("previousClose", Number(notification.PreviousClose)),
+            ("restatedClose", Number(notification.RestatedClose)));
     }
 
     public Task Handle(BotExchangeUnavailable notification, CancellationToken cancellationToken)

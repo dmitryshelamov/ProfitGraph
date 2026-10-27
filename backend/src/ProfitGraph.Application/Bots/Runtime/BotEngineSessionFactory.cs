@@ -90,13 +90,35 @@ public sealed class BotEngineSessionFactory(
 
         Candle[] restore = [.. closed.Where(candle => candle.OpenTime <= stored.Engine.LastClosedCandle.OpenTime)];
 
-        if (restore.Length == 0 || restore[^1] != stored.Engine.LastClosedCandle)
+        if (restore.Length == 0 || restore[^1].OpenTime != stored.Engine.LastClosedCandle.OpenTime)
         {
-            throw new InvalidOperationException("Closed history cannot restore the bot's checkpoint.");
+            throw new OrderGatewaySafetyException(BotStatusReason.HistoryDataCorrection, "The venue's closed history no longer has the candle the bot stopped at.");
         }
 
-        CausalDispatcher restored = CausalDispatcher.RestoreWithoutResume(stored.Engine, plan, settings, instrument, restore, closures: closures);
-        var resumed = new BotEngineSession(bot.Id, holder, epoch, timeframe, restored, gateway, committer, clock, applied, version.Id, stored.Engine, gaps);
+        // A venue that recomputes closed candles (ADR 0029) hands the bot its restated last candle, and the
+        // bot continues on it; any other venue's closed candles are final, so a different one is a correction that needs the owner.
+        GraphEngineCheckpoint checkpoint = stored.Engine;
+        Candle? restated = null;
+
+        if (restore[^1] != checkpoint.LastClosedCandle)
+        {
+            if (!source.RestatesClosedCandles)
+            {
+                throw new OrderGatewaySafetyException(BotStatusReason.HistoryDataCorrection, "The venue changed a closed candle the bot had already processed.");
+            }
+
+            restated = checkpoint.LastClosedCandle;
+            checkpoint = checkpoint with { LastClosedCandle = restore[^1] };
+        }
+
+        CausalDispatcher restored = CausalDispatcher.RestoreWithoutResume(checkpoint, plan, settings, instrument, restore, closures: closures);
+        var resumed = new BotEngineSession(bot.Id, holder, epoch, timeframe, restored, gateway, committer, clock, applied, version.Id, checkpoint, gaps);
+
+        if (restated is not null)
+        {
+            resumed.NoteRestatedCandle(restated, restore[^1]);
+        }
+
         await resumed.ResumeAndWarm([.. closed.Where(candle => candle.OpenTime > stored.Engine.LastClosedCandle.OpenTime)], cancellationToken);
         await ApplyStoredRejections(bot.Id, resumed, cancellationToken);
 

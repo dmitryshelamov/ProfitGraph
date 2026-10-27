@@ -27,6 +27,7 @@ public sealed class BotEngineSession
     private readonly Func<DateTimeOffset, DateTimeOffset, CancellationToken, Task<HistoricalCandlesInternal>>? _gaps;
     private StrategyVersionId _version;
     private int _lastCandleIndex;
+    private (Candle Previous, Candle Restated)? _restatement;
 
     public GraphEngineCheckpoint? Checkpoint { get; private set; }
 
@@ -73,6 +74,14 @@ public sealed class BotEngineSession
         Checkpoint = checkpoint;
         LastCandle = checkpoint?.LastClosedCandle;
         _lastCandleIndex = checkpoint?.LastClosedCandleIndex ?? -1;
+    }
+
+    /// <summary>
+    ///     The venue restated the checkpoint's last candle (ADR 0029): the first commit of the session records it in the bot's feed.
+    /// </summary>
+    internal void NoteRestatedCandle(Candle previous, Candle restated)
+    {
+        _restatement = (previous, restated);
     }
 
     /// <summary>
@@ -340,6 +349,11 @@ public sealed class BotEngineSession
             {
                 bot.ApplyStrategyVersion(_version, now);
 
+                if (_restatement is { } restatement)
+                {
+                    bot.RecordHistoryRestated(restatement.Previous.OpenTime, restatement.Previous.Close, restatement.Restated.Close, now);
+                }
+
                 if (liveCandle)
                 {
                     bot.ResetRestartStreak(now);
@@ -349,6 +363,7 @@ public sealed class BotEngineSession
             },
             cancellationToken);
         Checkpoint = current;
+        _restatement = null;
     }
 
     /// <summary>

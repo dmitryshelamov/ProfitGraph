@@ -21,6 +21,7 @@ using ProfitGraph.Engine.Blocks;
 using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Templates;
 using ProfitGraph.Infrastructure.Bots.Runtime;
+using ProfitGraph.Infrastructure.Common.Outbox;
 using ProfitGraph.Tests.Integration.MarketData;
 
 namespace ProfitGraph.Tests.Integration.Bots;
@@ -41,9 +42,9 @@ internal sealed class RuntimeScenario
     public FakeInstrumentSource Instruments { get; } = new FakeInstrumentSource();
 
     /// <summary>
-    ///     A Worker host with the live role; without a gateway it models a process where trading is disabled.
+    ///     A Worker host with the live role; without a gateway it models a process where trading is disabled, and with the outbox its events reach the bot's feed.
     /// </summary>
-    public IHost Worker(bool withGateway = true)
+    public IHost Worker(bool withGateway = true, bool withOutbox = false)
     {
         return BotTestHost.Create(
             services =>
@@ -53,6 +54,11 @@ internal sealed class RuntimeScenario
                 services.AddSingleton<IHistoricalCandleSource>(History);
                 services.AddSingleton<ILiveCandleSource>(Candles);
                 services.AddSingleton<ILiveMarkPriceSource>(Prices);
+
+                if (withOutbox)
+                {
+                    services.AddOutboxDispatcher();
+                }
 
                 if (withGateway)
                 {
@@ -170,6 +176,16 @@ internal sealed class RuntimeScenario
         using IServiceScope scope = host.Services.CreateScope();
 
         return await scope.ServiceProvider.GetRequiredService<IBotCheckpointRepository>().Get(id, CancellationToken.None);
+    }
+
+    public static async Task<IReadOnlyList<BotFeedEntry>> Feed(IHost host, BotId id)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+
+        IReadOnlyList<SequencedBotFeedEntry> entries =
+            await scope.ServiceProvider.GetRequiredService<IBotFeedRepository>().List(id, before: null, limit: 100, CancellationToken.None);
+
+        return [.. entries.Select(entry => entry.Entry)];
     }
 
     public static async Task<IReadOnlyList<OrderIntent>> Intents(IHost host, BotId id)
