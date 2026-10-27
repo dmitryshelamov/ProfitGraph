@@ -21,6 +21,12 @@ describe('absenceProofText', () => {
     );
   });
 
+  it("words the operations excluded as the bot's own executions, with the engine orders", () => {
+    expect(absenceProofText('NoExecutionInOperations,OwnExecutionsExcluded:2:1+3')).toBe(
+      'в операциях по счёту и бумаге за время жизни заявки исполнений нет; из операций по бумаге исключено собственных исполнений бота: 2 (заявки 1, 3), остальных исполнений нет',
+    );
+  });
+
   it('keeps a code it does not know and ignores empty parts', () => {
     expect(absenceProofText('Unknown,,TradingDayEnded')).toBe(
       'Unknown; торговый день заявки закончился',

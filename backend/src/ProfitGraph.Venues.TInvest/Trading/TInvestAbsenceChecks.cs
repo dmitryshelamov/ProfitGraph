@@ -15,6 +15,7 @@ internal static class TInvestAbsenceChecks
     public const string TradingDayEnded = "TradingDayEnded";
     public const string TradingDayEndedByCalendar = "TradingDayEndedByCalendar";
     public const string NoExecutionInOperations = "NoExecutionInOperations";
+    public const string OwnExecutionsExcluded = "OwnExecutionsExcluded";
     public const string PositionMatchesEngine = "PositionMatchesEngine";
     public const string CancelledByExchange = "CancelledByExchange";
     public const string PositionCoversBots = "PositionCoversBots";

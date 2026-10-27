@@ -44,12 +44,24 @@ const failed: Record<string, string> = {
   NotProvable: 'такой вид заявки автоматически доказать нельзя',
 };
 
+const ownExecutions = /^OwnExecutionsExcluded:(\d+):(\d+(?:\+\d+)*)$/;
+
+function passedText(code: string): string {
+  const own = ownExecutions.exec(code);
+
+  if (own?.[1] && own[2]) {
+    return `из операций по бумаге исключено собственных исполнений бота: ${own[1]} (заявки ${own[2].split('+').join(', ')}), остальных исполнений нет`;
+  }
+
+  return passed[code] ?? code;
+}
+
 /** The checks that closed an order without the owner, as the feed lists them (comma-separated codes). */
 export function absenceProofText(checks: string): string {
   return checks
     .split(',')
     .filter((code) => code.length > 0)
-    .map((code) => passed[code] ?? code)
+    .map(passedText)
     .join('; ');
 }
 

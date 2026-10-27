@@ -174,6 +174,24 @@ public sealed class TInvestOrderAttemptTests
         (await attempts.PendingFees(BotSeed.Now.AddDays(-1), CancellationToken.None)).ShouldNotContain(attempt => attempt.RequestId == planned.RequestId);
     }
 
+    [Test]
+    public async Task OnlyTheBotsAttemptsOnTheShareThatExecutedAndChangedInTheWindowAreListed()
+    {
+        Bot bot = await AddBot();
+        var attempts = new TInvestOrderAttemptRepository(_dataSource);
+        TInvestOrderAttempt filled = Attempt(bot, engineOrderId: 9, attempt: 1, OrderType.Market, price: null);
+        TInvestOrderAttempt unfilled = Attempt(bot, engineOrderId: 10, attempt: 1, OrderType.Market, price: null);
+        await attempts.Add(filled, CancellationToken.None);
+        await attempts.Add(unfilled, CancellationToken.None);
+        TInvestOrderAttempt executed = filled with { State = TInvestOrderAttemptState.Final, ExecutedLots = 2, ExecutedQuote = 200m, UpdatedAt = BotSeed.Now };
+        await attempts.Transition(executed, TInvestOrderAttemptState.Planned, CancellationToken.None);
+
+        (await attempts.ExecutedOnShare(bot.Id.Value, filled.InstrumentUid, BotSeed.Now.AddMinutes(-5), CancellationToken.None)).ShouldBe([executed]);
+        (await attempts.ExecutedOnShare(bot.Id.Value, filled.InstrumentUid, BotSeed.Now.AddSeconds(1), CancellationToken.None)).ShouldBeEmpty();
+        (await attempts.ExecutedOnShare(bot.Id.Value, "another-share", BotSeed.Now.AddMinutes(-5), CancellationToken.None)).ShouldBeEmpty();
+        (await attempts.ExecutedOnShare(Guid.NewGuid(), filled.InstrumentUid, BotSeed.Now.AddMinutes(-5), CancellationToken.None)).ShouldBeEmpty();
+    }
+
     private static TInvestOrderAttempt Attempt(Bot bot, long engineOrderId, int attempt, OrderType type, decimal? price)
     {
         return new TInvestOrderAttempt(
