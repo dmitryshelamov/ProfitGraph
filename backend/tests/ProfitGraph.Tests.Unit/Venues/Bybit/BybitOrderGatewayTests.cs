@@ -253,6 +253,85 @@ public sealed class BybitOrderGatewayTests
         result.Degradation.ShouldBe(BotStatusReason.UnresolvedOrder);
     }
 
+    [Test]
+    public async Task ASubmitBybitNeverKnewIsRejectedAsAbsentOnlyAfterTheSettleDelayWithNoExecutionAndAnEqualBalance()
+    {
+        _harness.Exchange.WalletBalance = Wallet(baseBalance: "0.5");
+        ReconcileOrderInternal order = Unaccepted(engineOrderId: 20, placedHoursAgo: 30);
+
+        BotReconciliationInternal result = await Reconcile(allowForeign: false, expectedBase: 0.5m, order);
+
+        result.ShouldSatisfyAllConditions(
+            () => result.Degradation.ShouldBeNull(),
+            () => result.Updates.ShouldHaveSingleItem()
+                .ShouldSatisfyAllConditions(
+                    update => update.Kind.ShouldBe(ExternalOrderUpdateKind.Rejected),
+                    update => update.Reason.ShouldBe(RejectionReason.AbsenceProven),
+                    update => update.OwnerConfirmedAbsent.ShouldBeTrue()),
+            () => result.Found.ShouldHaveSingleItem().IsFinal.ShouldBeTrue(),
+            () => result.Found.Single()
+                .AbsenceProof!.Checks.ShouldBe(
+                [
+                    "NotFoundInOpenAndHistoricalOrders",
+                    "SettleDelayPassed",
+                    "NoExecutionOfOrder",
+                    "BaseBalanceMatchesEngine"
+                ]));
+        _harness.Exchange.Requests.ShouldContain(request => request.Path == "/v5/execution/list");
+    }
+
+    [TestCase(23, "SettleDelayNotPassed")]
+    [TestCase(24 * 7, "OrderTooOld")]
+    public async Task ASubmitTooYoungOrTooOldIsLeftToTheOwner(int placedHoursAgo, string failed)
+    {
+        await StaysUnresolved(Unaccepted(engineOrderId: 21, placedHoursAgo), failed);
+    }
+
+    [Test]
+    public async Task AnOrderTheEngineSawAcceptedOrOneWithoutAKnownPlaceStartIsNeverClosed()
+    {
+        await StaysUnresolved(Unaccepted(engineOrderId: 22, placedHoursAgo: 30) with { AcceptedByEngine = true }, "EngineAcceptedOrder");
+        await StaysUnresolved(Unaccepted(engineOrderId: 23, placedHoursAgo: 30) with { PlaceStartedAt = null }, "PlaceStartUnknown");
+    }
+
+    [Test]
+    public async Task AnExecutionOfTheOrderOrAnUnequalBalanceOrAnUnreadableAnswerLeavesItUnresolved()
+    {
+        ReconcileOrderInternal order = Unaccepted(engineOrderId: 24, placedHoursAgo: 30);
+        _harness.Exchange.Executions.Add(order.ClientOrderId.Value);
+        await StaysUnresolved(order, "ExecutionFound");
+
+        _harness.Exchange.Executions.Clear();
+        _harness.Exchange.WalletBalance = Wallet(baseBalance: "0.7");
+        await StaysUnresolved(order, "BalanceDiffers");
+
+        _harness.Exchange.WalletBalance = null;
+        await StaysUnresolved(order, "ReadFailed");
+
+        _harness.Exchange.WalletBalance = Wallet(baseBalance: "0.5");
+        (await Reconcile(allowForeign: false, expectedBase: null, order)).DegradationDetail.ShouldBe("AutoCheck:ExpectedPositionUnknown");
+    }
+
+    [Test]
+    public async Task TheDryCheckIsTrueOnlyForAnOrderItWouldClose()
+    {
+        _harness.Exchange.WalletBalance = Wallet(baseBalance: "0.5");
+
+        bool closable = await _harness.Gateway.CanProveAbsence(
+            new BotReconcileInternal(_harness.Bot.Id, AllowForeignOrders: false, [Unaccepted(engineOrderId: 25, placedHoursAgo: 30)], ExpectedBase: 0.5m),
+            CancellationToken.None);
+        bool tooYoung = await _harness.Gateway.CanProveAbsence(
+            new BotReconcileInternal(_harness.Bot.Id, AllowForeignOrders: false, [Unaccepted(engineOrderId: 26, placedHoursAgo: 1)], ExpectedBase: 0.5m),
+            CancellationToken.None);
+        bool nothing = await _harness.Gateway.CanProveAbsence(
+            new BotReconcileInternal(_harness.Bot.Id, AllowForeignOrders: false, [], ExpectedBase: 0.5m),
+            CancellationToken.None);
+
+        closable.ShouldBeTrue();
+        tooYoung.ShouldBeFalse();
+        nothing.ShouldBeFalse();
+    }
+
     [TestCase(arg1: true, arg2: false)]
     [TestCase(arg1: false, arg2: true)]
     public async Task ReconcileRefusesAKeyThatCannotTradeOrCanWithdraw(bool readOnly, bool canWithdraw)
@@ -287,6 +366,39 @@ public sealed class BybitOrderGatewayTests
     private Task<BotReconciliationInternal> Reconcile(bool allowForeign, params ReconcileOrderInternal[] orders)
     {
         return _harness.Gateway.Reconcile(new BotReconcileInternal(_harness.Bot.Id, allowForeign, orders), CancellationToken.None);
+    }
+
+    private Task<BotReconciliationInternal> Reconcile(bool allowForeign, decimal? expectedBase, params ReconcileOrderInternal[] orders)
+    {
+        return _harness.Gateway.Reconcile(new BotReconcileInternal(_harness.Bot.Id, allowForeign, orders, expectedBase), CancellationToken.None);
+    }
+
+    private async Task StaysUnresolved(ReconcileOrderInternal order, string failed)
+    {
+        BotReconciliationInternal result = await Reconcile(allowForeign: false, expectedBase: 0.5m, order);
+
+        result.ShouldSatisfyAllConditions(
+            () => result.Degradation.ShouldBe(BotStatusReason.UnresolvedOrder),
+            () => result.DegradationDetail.ShouldBe($"AutoCheck:{failed}"),
+            () => result.Updates.ShouldBeEmpty(),
+            () => result.Found.ShouldBeEmpty());
+    }
+
+    private ReconcileOrderInternal Unaccepted(long engineOrderId, int placedHoursAgo)
+    {
+        return new ReconcileOrderInternal(
+            engineOrderId,
+            BybitClientOrderIds.For(_harness.Bot.Id, engineOrderId),
+            MayHaveReachedVenue: true,
+            OwnerConfirmedAbsent: false,
+            ExecutedBase: 0m,
+            _harness.Time.GetUtcNow().AddHours(-placedHoursAgo),
+            AcceptedByEngine: false);
+    }
+
+    private static string Wallet(string baseBalance)
+    {
+        return $$"""{"list":[{"accountType":"UNIFIED","coin":[{"coin":"USDT","walletBalance":"1000"},{"coin":"BTC","walletBalance":"{{baseBalance}}"}]}]}""";
     }
 
     private ReconcileOrderInternal Order(long engineOrderId, bool mayHaveReached)

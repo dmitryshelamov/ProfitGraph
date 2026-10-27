@@ -8,7 +8,8 @@ namespace ProfitGraph.Application.Bots.Contracts;
 ///     owner confirmed that it never reached the venue: a gateway that supports it looks the order up first and rejects it
 ///     only when the venue shows nothing. <see cref="ExecutedBase" /> is what the engine has already booked as executed for
 ///     the order and <see cref="PlaceStartedAt" /> when its place request first may have left the process; a gateway that
-///     proves an absence by itself (ADR 0030) uses both.
+///     proves an absence by itself (ADR 0030) uses both, and <see cref="AcceptedByEngine" />, whether the engine saw the venue
+///     accept the order, which a never-confirmed submit has not.
 /// </summary>
 public sealed record ReconcileOrderInternal(
     long EngineOrderId,
@@ -16,4 +17,5 @@ public sealed record ReconcileOrderInternal(
     bool MayHaveReachedVenue,
     bool OwnerConfirmedAbsent = false,
     decimal ExecutedBase = 0m,
-    DateTimeOffset? PlaceStartedAt = null);
+    DateTimeOffset? PlaceStartedAt = null,
+    bool AcceptedByEngine = false);

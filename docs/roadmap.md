@@ -74,7 +74,7 @@ while its runner was down. Two pull requests: T-Invest with the shared parts fir
 |---|---|---|---|
 | 1. Prevention | T-Invest carry-over for a bot nobody runs when the core authorizes it; the engine hears the recorded fills at the next start | The mock Invest API shows a failed bot's day order cancelled before the day ends and its fills replayed at the next start | Done on the mock |
 | 2. T-Invest proof | Operations and positions readers, the proof of a removed order, `Bot.ClearUnresolvedOrder` and the five-minute recheck, marks on the intent, `OrderAbsenceProven` in the feed, bot page texts | The mock shows a closed order with its checks, and each failed check leaves the order to the owner with its reason | Done on the mock; not checked on the real broker (ADR 0030) |
-| 3. Bybit and Steam | The safe part of ADR 0030, section 5 | | Planned |
+| 3. Bybit and Steam | The safe part of ADR 0030, sections 5 and 6: a Bybit submit and a Steam buy that the venue never took, after a day and with independent evidence | The mocks show an order closed with its checks, and each failed check leaves it to the owner | Done on the mocks; the delays are not verified on the real venues |
 
 ## Manual limit order
 

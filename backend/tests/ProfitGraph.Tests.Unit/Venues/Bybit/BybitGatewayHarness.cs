@@ -41,6 +41,8 @@ internal sealed class BybitGatewayHarness
     public FakeBybitPrivateTransport PrivateStream { get; } = new FakeBybitPrivateTransport();
     public BybitReadClient ReadClient { get; }
 
+    public FakeTimeProvider Time { get; } = new FakeTimeProvider(new DateTimeOffset(year: 2026, month: 10, day: 27, hour: 12, minute: 0, second: 0, TimeSpan.Zero));
+
     public BybitGatewayHarness()
     {
         Bot = Bot.Create(
@@ -88,7 +90,8 @@ internal sealed class BybitGatewayHarness
             reads,
             new BybitPrivateStreams(PrivateStream, read, reads, Updates, NullLogger<BybitPrivateStreams>.Instance),
             new BybitBotContexts(services.GetRequiredService<IServiceScopeFactory>()),
-            Updates);
+            Updates,
+            new BybitAbsenceProofs(reads, Time));
         FeeRates = new BybitFeeRateReader(read);
     }
 

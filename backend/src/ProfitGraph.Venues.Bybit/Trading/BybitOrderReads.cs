@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 using ProfitGraph.Domain.Bots;
@@ -72,6 +73,64 @@ internal sealed class BybitOrderReads(BybitReadClient read)
         ids.AddRange(await List(context, "/v5/execution/list", $"category=spot&symbol={symbol}&limit=100", cancellationToken));
 
         return ids;
+    }
+
+    /// <summary>
+    ///     Whether the symbol's execution list between two instants holds an execution of the order (ADR 0030). Every page is
+    ///     read; an unreadable or repeated page throws.
+    /// </summary>
+    public async Task<bool> ExecutedBetween(
+        BybitBotContext context,
+        string clientOrderId,
+        DateTimeOffset since,
+        DateTimeOffset until,
+        CancellationToken cancellationToken)
+    {
+        string query = string.Create(
+            CultureInfo.InvariantCulture,
+            $"category=spot&symbol={Uri.EscapeDataString(context.Symbol)}&startTime={since.ToUnixTimeMilliseconds()}&endTime={until.ToUnixTimeMilliseconds()}&limit=100");
+
+        return (await List(context, "/v5/execution/list", query, cancellationToken)).Contains(clientOrderId, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    ///     The wallet balance of the symbol's base coin on the UNIFIED account (ADR 0030); zero when the account lists no such
+    ///     coin. A coin listed twice or an unreadable answer throws.
+    /// </summary>
+    public async Task<decimal> BaseWalletBalance(BybitBotContext context, CancellationToken cancellationToken)
+    {
+        BybitRestResult balance = await read.Get(
+            context.Credential,
+            "/v5/account/wallet-balance",
+            $"accountType=UNIFIED&coin={Uri.EscapeDataString(context.Instrument.BaseAsset)}",
+            cancellationToken);
+
+        if (balance.Outcome != BybitRestOutcome.Accepted)
+        {
+            throw new BybitOrderUnresolvedException();
+        }
+
+        try
+        {
+            JsonElement account = balance.Body.GetProperty("result").GetProperty("list")[0];
+            JsonElement[] coins =
+            [
+                .. account.GetProperty("coin")
+                    .EnumerateArray()
+                    .Where(coin => coin.TryGetProperty("coin", out JsonElement name) && name.GetString() == context.Instrument.BaseAsset)
+            ];
+
+            return coins.Length switch
+            {
+                0 => 0m,
+                1 => decimal.Parse(coins[0].GetProperty("walletBalance").GetString()!, NumberStyles.Float, CultureInfo.InvariantCulture),
+                _ => throw new BybitOrderUnresolvedException()
+            };
+        }
+        catch (Exception exception) when (exception is KeyNotFoundException or InvalidOperationException or FormatException or IndexOutOfRangeException)
+        {
+            throw new BybitOrderUnresolvedException();
+        }
     }
 
     private async Task<BybitSpotOrder?> Find(BybitBotContext context, string path, string clientOrderId, CancellationToken cancellationToken)

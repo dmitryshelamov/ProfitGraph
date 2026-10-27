@@ -15,7 +15,8 @@ namespace ProfitGraph.Venues.Bybit.Trading;
 ///     and trading enabled. A first attempt places; a later attempt, or a duplicate response, looks the order up by its
 ///     client ID and never places again on an empty answer. Only an explicit Bybit rejection rejects; every unknown
 ///     outcome is an exception, so the intent retries and eventually degrades the bot. Reconciliation checks the key and
-///     the symbol before a bot trades (ADR 0016, stage 5.8).
+///     the symbol before a bot trades (ADR 0016, stage 5.8). A submit Bybit does not know is closed only when a long wait and
+///     independent evidence prove it never took effect (ADR 0030); otherwise it is unresolved.
 /// </summary>
 internal sealed class BybitOrderGateway(
     BybitTradeClient trade,
@@ -23,7 +24,8 @@ internal sealed class BybitOrderGateway(
     BybitOrderReads reads,
     BybitPrivateStreams streams,
     BybitBotContexts contexts,
-    BybitOrderUpdates updates) : IOrderGateway
+    BybitOrderUpdates updates,
+    BybitAbsenceProofs proofs) : IOrderGateway
 {
     public VenueId Venue => BybitVenue.VenueId;
 
@@ -141,6 +143,39 @@ internal sealed class BybitOrderGateway(
         }
     }
 
+    /// <summary>
+    ///     Whether reconciliation would now close, on Bybit's own records, every order of the request that Bybit does not know and
+    ///     has no other reason to stop the bot (ADR 0030). It only reads: no stream is opened.
+    /// </summary>
+    public async Task<bool> CanProveAbsence(BotReconcileInternal request, CancellationToken cancellationToken)
+    {
+        BybitBotContext context = await contexts.Get(request.BotId, cancellationToken);
+
+        if (!await reads.KeyMayTrade(context, cancellationToken))
+        {
+            return false;
+        }
+
+        var proven = false;
+
+        foreach (ReconcileOrderInternal order in request.Orders)
+        {
+            if (await reads.LookUp(context, order.ClientOrderId.Value, cancellationToken) is not null || !order.MayHaveReachedVenue)
+            {
+                continue;
+            }
+
+            if (!(await proofs.Evaluate(context, order, request.ExpectedBase, cancellationToken)).IsProven)
+            {
+                return false;
+            }
+
+            proven = true;
+        }
+
+        return proven;
+    }
+
     private async Task<BotReconciliationInternal> LookUp(BybitBotContext context, BotReconcileInternal request, CancellationToken cancellationToken)
     {
         IReadOnlyList<string> onSymbol = await reads.SymbolClientOrderIds(context, cancellationToken);
@@ -153,10 +188,25 @@ internal sealed class BybitOrderGateway(
 
             if (existing is null)
             {
-                if (order.MayHaveReachedVenue)
+                if (!order.MayHaveReachedVenue)
                 {
-                    return new BotReconciliationInternal(found, orders, BotStatusReason.UnresolvedOrder);
+                    continue;
                 }
+
+                BybitAbsenceProof evidence = await proofs.Evaluate(context, order, request.ExpectedBase, cancellationToken);
+
+                if (!evidence.IsProven)
+                {
+                    return new BotReconciliationInternal(found, orders, BotStatusReason.UnresolvedOrder, $"AutoCheck:{evidence.Failed}");
+                }
+
+                found.Add(
+                    ExternalOrderUpdate.Reject(
+                        order.EngineOrderId,
+                        RejectionReason.AbsenceProven,
+                        "Bybit shows nothing of the order after the settle delay.",
+                        ownerConfirmedAbsent: true));
+                orders.Add(new ReconciledOrderInternal(order.ClientOrderId, IsFinal: true, evidence.ToInternal()));
 
                 continue;
             }
