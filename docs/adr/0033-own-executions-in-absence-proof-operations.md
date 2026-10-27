@@ -57,7 +57,7 @@ The known trade numbers come from the bot's own records and T-Invest, never from
 - No new column or migration: the trade numbers are read when they are needed, so orders executed before this change are covered
   too (the real GAZP order 1 has no stored trade IDs).
 
-Not changed: the window (`attempt.CreatedAt - Skew`, `Skew` is 5 minutes) and `Skew` stay. The skew guards against clock
+Not changed in this ADR (replaced by [ADR 0034](0034-operations-window-starts-at-the-orders-planning.md), which shortens the margin to 15 seconds): the window (`attempt.CreatedAt - Skew`, `Skew` is 5 minutes) and `Skew` stay. The skew guards against clock
 differences between this process and T-Invest and the exact moment `CreatedAt` is taken; excluding the bot's own trades makes the
 reach of the window harmless instead of making it shorter, and a shorter window would admit a late-recorded fill of the order
 itself. The position check (check 6: the account's position equals the engine's expected one, nothing blocked) stays as the second

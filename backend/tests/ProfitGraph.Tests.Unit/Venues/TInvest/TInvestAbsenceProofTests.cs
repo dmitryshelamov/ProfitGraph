@@ -91,7 +91,7 @@ public sealed class TInvestAbsenceProofTests
         request.ShouldSatisfyAllConditions(
             () => request.AccountId.ShouldBe(TInvestGatewayHarness.AccountId),
             () => request.InstrumentId.ShouldBe(TInvestGatewayHarness.ShareUid),
-            () => request.From.ToDateTimeOffset().ShouldBe(TInvestGatewayHarness.Now - TimeSpan.FromMinutes(5)),
+            () => request.From.ToDateTimeOffset().ShouldBe(TInvestGatewayHarness.Now - TimeSpan.FromSeconds(15)),
             () => request.To.ToDateTimeOffset().ShouldBe(_harness.Clock.GetUtcNow()),
             () => request.Limit.ShouldBe(1000),
             () => request.WithoutCommissions.ShouldBeTrue(),
@@ -126,6 +126,42 @@ public sealed class TInvestAbsenceProofTests
         _harness.Orders.Schedule.Clear();
 
         await StaysUnresolved("TradingDayUnknown");
+    }
+
+    [Test]
+    public async Task APurchaseOfTheBotDatedBeforeTheOrderWasPlannedIsNotItsExecution()
+    {
+        NextMorning();
+        _harness.Orders.FilterOperationsByRange = true;
+        _harness.Orders.Operations.Add(OperationAt(TInvestGatewayHarness.Now - TimeSpan.FromSeconds(32), OperationState.Executed, quantityDone: 2));
+        _harness.Orders.Operations.Add(OperationAt(TInvestGatewayHarness.Now.AddMinutes(1), OperationState.Canceled, quantityDone: 0));
+
+        BotReconciliationInternal reconciliation = await Reconcile(expectedBase: 0m);
+
+        reconciliation.ShouldSatisfyAllConditions(
+            () => reconciliation.Degradation.ShouldBeNull(),
+            () => reconciliation.Updates.ShouldBe([ExternalOrderUpdate.ConfirmCancel(orderId: 1)]),
+            () => reconciliation.Found.Single().AbsenceProof!.Checks.ShouldBe(AllChecks));
+    }
+
+    [Test]
+    public async Task AnExecutionDatedWithinTheClockMarginBeforeThePlanningStillBlocks()
+    {
+        NextMorning();
+        _harness.Orders.FilterOperationsByRange = true;
+        _harness.Orders.Operations.Add(OperationAt(TInvestGatewayHarness.Now - TimeSpan.FromSeconds(10), OperationState.Executed, quantityDone: 1));
+
+        await StaysUnresolved("ExecutionInOperations");
+    }
+
+    [Test]
+    public async Task AnExecutionDatedAfterThePlanningStillBlocks()
+    {
+        NextMorning();
+        _harness.Orders.FilterOperationsByRange = true;
+        _harness.Orders.Operations.Add(OperationAt(TInvestGatewayHarness.Now.AddSeconds(2), OperationState.Executed, quantityDone: 1));
+
+        await StaysUnresolved("ExecutionInOperations");
     }
 
     [Test]
@@ -674,6 +710,11 @@ public sealed class TInvestAbsenceProofTests
 
     private static OperationItem Operation(OperationState state, long quantityDone, params OperationItemTrade[] trades)
     {
+        return OperationAt(TInvestGatewayHarness.Now.AddMinutes(1), state, quantityDone, trades);
+    }
+
+    private static OperationItem OperationAt(DateTimeOffset at, OperationState state, long quantityDone, params OperationItemTrade[] trades)
+    {
         var item = new OperationItem
         {
             Id = Guid.NewGuid().ToString("N"),
@@ -681,7 +722,7 @@ public sealed class TInvestAbsenceProofTests
             State = state,
             Type = OperationType.Buy,
             QuantityDone = quantityDone,
-            Date = Timestamp.FromDateTimeOffset(TInvestGatewayHarness.Now.AddMinutes(1))
+            Date = Timestamp.FromDateTimeOffset(at)
         };
 
         if (trades.Length > 0)

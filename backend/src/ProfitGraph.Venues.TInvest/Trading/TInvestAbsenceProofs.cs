@@ -52,9 +52,9 @@ internal sealed class TInvestAbsenceProofs(
     ILogger<TInvestAbsenceProofs> logger)
 {
     /// <summary>
-    ///     A margin for the difference between the clocks of this process and T-Invest around the order's first instant.
+    ///     How far ahead of this process's clock the last recorded instant of an attempt may lie before the calendar proof refuses it.
     /// </summary>
-    private static readonly TimeSpan Skew = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan FutureSkew = TimeSpan.FromMinutes(5);
 
     /// <summary>
     ///     The caller has already read the order by its request ID and got no answer, which is the proof's first check.
@@ -134,7 +134,7 @@ internal sealed class TInvestAbsenceProofs(
             passed.Add(TInvestAbsenceChecks.TradingDayEndedByCalendar);
         }
 
-        DateTimeOffset windowStart = attempt.CreatedAt - Skew;
+        DateTimeOffset windowStart = attempt.CreatedAt - options.Value.AbsenceClockSkew;
         IReadOnlyDictionary<string, long> ownTrades = await OwnTrades(context, attempt, windowStart, cancellationToken);
         TInvestShareOperations seen = await operations.OfShare(context, windowStart, now, ownTrades, cancellationToken);
 
@@ -264,7 +264,7 @@ internal sealed class TInvestAbsenceProofs(
 
     private string? CalendarDayEnded(TInvestBotContext context, DateTimeOffset placed, DateTimeOffset now)
     {
-        if (!TInvestMoscowCalendar.Covers(context.Share.Exchange) || placed > now + Skew)
+        if (!TInvestMoscowCalendar.Covers(context.Share.Exchange) || placed > now + FutureSkew)
         {
             return TInvestAbsenceChecks.TradingDayUnknown;
         }

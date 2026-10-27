@@ -96,6 +96,11 @@ internal sealed class MockTInvestOrders
     public RpcException? OperationsFailure { get; set; }
 
     /// <summary>
+    ///     When set, <c>GetOperationsByCursor</c> lists only the operations dated within the request's range, as the broker does.
+    /// </summary>
+    public bool FilterOperationsByRange { get; set; }
+
+    /// <summary>
     ///     How every <c>TradingSchedules</c> call fails, as the broker does for a past range (<c>Rejected</c> or a timeout).
     /// </summary>
     public RpcException? ScheduleFailure { get; set; }
@@ -327,10 +332,13 @@ internal sealed class MockTInvestOrders
 
             int start = request.HasCursor ? int.Parse(request.Cursor, CultureInfo.InvariantCulture) : 0;
             int size = Math.Min(OperationsPageSize, request.Limit);
-            OperationItem[] page = [.. Operations.Skip(start).Take(size)];
+            IEnumerable<OperationItem> listed = FilterOperationsByRange
+                ? Operations.Where(item => item.Date.ToDateTimeOffset() >= request.From.ToDateTimeOffset() && item.Date.ToDateTimeOffset() <= request.To.ToDateTimeOffset())
+                : Operations;
+            OperationItem[] page = [.. listed.Skip(start).Take(size)];
             var response = new GetOperationsByCursorResponse
             {
-                HasNext = OperationsNeverEnd || start + size < Operations.Count,
+                HasNext = OperationsNeverEnd || start + size < listed.Count(),
                 NextCursor = OperationsNeverEnd ? request.Cursor : (start + size).ToString(CultureInfo.InvariantCulture)
             };
             response.Items.AddRange(page);

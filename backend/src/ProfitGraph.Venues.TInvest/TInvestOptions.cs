@@ -88,6 +88,13 @@ public sealed class TInvestOptions
     public TimeSpan AbsenceMaxWindow { get; init; } = TimeSpan.FromDays(10);
 
     /// <summary>
+    ///     How much earlier than the order was planned an operation of the account may still be dated and be that order's execution
+    ///     (ADR 0034): the margin for the difference between this process's clock and T-Invest's. An operation dated earlier cannot
+    ///     be an execution of the order, because an order cannot execute before it exists.
+    /// </summary>
+    public TimeSpan AbsenceClockSkew { get; init; } = TimeSpan.FromSeconds(15);
+
+    /// <summary>
     ///     How often, after a trading day ended and until the next session opens, the state of DAY orders no runner reads is
     ///     read again and recorded (ADR 0031). Positive and at most an hour.
     /// </summary>
@@ -101,6 +108,7 @@ public sealed class TInvestOptions
             CommissionPendingWindow <= TimeSpan.Zero ||
             AbsenceSettleDelay < TimeSpan.Zero || AbsenceSettleDelay > TimeSpan.FromDays(1) ||
             AbsenceMaxWindow <= TimeSpan.Zero || AbsenceMaxWindow > TimeSpan.FromDays(30) ||
+            AbsenceClockSkew < TimeSpan.Zero || AbsenceClockSkew > TimeSpan.FromMinutes(5) ||
             ClosedSessionSweepInterval <= TimeSpan.Zero || ClosedSessionSweepInterval > TimeSpan.FromHours(1) ||
             !Limits.IsValid() || !History.IsValid() ||
             string.IsNullOrWhiteSpace(AppName) ||
