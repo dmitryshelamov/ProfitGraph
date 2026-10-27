@@ -23,8 +23,7 @@ public static class LadderResumeStrategyBlockFactory
             [
                 .. original.Blocks,
                 new StrategyBlock("resume", "event", "Возобновление", "OnResume"),
-                new StrategyBlock("manualFilled", "event", "Ручная заявка исполнена", "OnOrderFilled", tag: Tag("manual")),
-                new StrategyBlock("manualCancelAverage", "cancel", "Отмена усреднения", tag: Tag("ladder.average")),
+                .. LadderManualFillRebuild.Blocks(),
                 new StrategyBlock(
                     "resumeExitGuard",
                     "condition",
@@ -37,9 +36,7 @@ public static class LadderResumeStrategyBlockFactory
                 Wire("resume", "out", "entryConditions"),
                 Wire("resume", "out", "resumeExitGuard"),
                 Wire("resumeExitGuard", "yes", "exitConditions"),
-                Wire("manualFilled", "out", "manualCancelAverage"),
-                Wire("manualCancelAverage", "completed", "cancelExit"),
-                Wire("manualCancelAverage", "completed", "restartEvent")
+                .. LadderManualFillRebuild.Wires()
             ],
             StrategyTemplateKind.LadderV2);
     }

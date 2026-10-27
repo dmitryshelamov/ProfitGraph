@@ -33,6 +33,19 @@ internal static class StrategyQueries
             cancellationToken: cancellationToken);
     }
 
+    public static CommandDefinition ListAll(NpgsqlTransaction? transaction, CancellationToken cancellationToken)
+    {
+        return new CommandDefinition(
+            commandText: """
+                         SELECT id AS Id, owner_id AS OwnerId, name AS Name, current_version AS CurrentVersion, created_at AS CreatedAt,
+                                updated_at AS UpdatedAt
+                         FROM strategies
+                         ORDER BY created_at ASC, id ASC
+                         """,
+            transaction: transaction,
+            cancellationToken: cancellationToken);
+    }
+
     public static CommandDefinition List(Guid ownerId, int limit, NpgsqlTransaction? transaction, CancellationToken cancellationToken)
     {
         return new CommandDefinition(
