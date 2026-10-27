@@ -1,7 +1,7 @@
 import { type ChartTrade, seconds } from './candleHistory';
 import type { DrawnCandle } from './pricePoint';
 
-/** A trade drawn at its own price on the candle that was open when it happened. */
+/** A trade drawn on the candle that was open when it happened; the label carries its exact price. */
 export interface TradeMarker {
   readonly id: string;
   readonly time: number;
@@ -10,9 +10,9 @@ export interface TradeMarker {
   readonly text: string;
 }
 
-/** Where the marker sits against its price: a buy arrow points up from below the price, a sell arrow down from above it. */
-export function markerPosition(side: 'Buy' | 'Sell'): 'atPriceBottom' | 'atPriceTop' {
-  return side === 'Buy' ? 'atPriceBottom' : 'atPriceTop';
+/** Where the marker sits against its candle, outside it: a buy arrow points up from below the candle, a sell arrow down from above it. */
+export function markerPosition(side: 'Buy' | 'Sell'): 'belowBar' | 'aboveBar' {
+  return side === 'Buy' ? 'belowBar' : 'aboveBar';
 }
 
 function candleAt(candles: readonly DrawnCandle[], at: number): DrawnCandle | undefined {
@@ -36,7 +36,7 @@ function candleAt(candles: readonly DrawnCandle[], at: number): DrawnCandle | un
 }
 
 /**
- * Places each trade on the candle whose period contains it, at the trade's own price, in time order as the chart library
+ * Places each trade on the candle whose period contains it, in time order as the chart library
  * requires. A trade outside every drawn candle is left out rather than pinned to a neighbour that does not cover its
  * price: one before the first candle (until older ones load), in a gap (a closed session or a Steam hour without sales)
  * or after the newest closed candle.

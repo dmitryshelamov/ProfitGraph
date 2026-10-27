@@ -40,7 +40,7 @@ function token(name: string, fallback: string): string {
 }
 
 /**
- * Closed candles in UTC with trade markers whose arrow tips touch their prices and dashed levels. Scrolling to the oldest loaded
+ * Closed candles in UTC with trade markers outside their candles, labelled with the exact price, and dashed levels. Scrolling to the oldest loaded
  * candle calls `onReachStart`; candles added before it keep the view where it was. Live candles (the one being formed) are
  * drawn after the closed ones, the unclosed one see-through; a live candle the history already has is not drawn again.
  */
@@ -210,7 +210,6 @@ export function CandleHistoryChart({
         id: trade.id,
         time: trade.time as UTCTimestamp,
         position: markerPosition(trade.side),
-        price: trade.price,
         shape: trade.side === 'Buy' ? ('arrowUp' as const) : ('arrowDown' as const),
         color: trade.side === 'Buy' ? up : down,
         text: trade.text,
