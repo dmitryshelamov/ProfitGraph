@@ -18,6 +18,7 @@ import {
   type ChartTrade,
   drawableCandles,
   type HistoryCandle,
+  pricePrecision,
 } from '../model/candleHistory';
 import { drawableLive, type LiveCandle, withAlpha } from '../model/liveCandles';
 import { markerPosition, tradeMarkers } from '../model/tradeMarkers';
@@ -49,6 +50,7 @@ export function CandleHistoryChart({
   levels = [],
   live = [],
   candleSeconds,
+  pricePlaces = null,
   label,
   onReachStart,
 }: {
@@ -58,6 +60,8 @@ export function CandleHistoryChart({
   live?: readonly LiveCandle[];
   /** The length of one candle; a trade is drawn only inside a candle's period. */
   candleSeconds: number;
+  /** The instrument's decimal places for prices; when unknown they follow the candles' prices. */
+  pricePlaces?: number | null;
   label: string;
   onReachStart?: () => void;
 }) {
@@ -71,6 +75,7 @@ export function CandleHistoryChart({
   const firstTime = useRef<number | null>(null);
   const liveBase = useRef<unknown>(null);
   const reachStart = useRef(onReachStart);
+  const places = useMemo(() => pricePrecision(pricePlaces, candles), [pricePlaces, candles]);
   const drawn = useMemo(() => drawableCandles(candles), [candles]);
   const drawnLive = useMemo(() => drawableLive(drawn, live), [drawn, live]);
   const placed = useMemo(
@@ -126,6 +131,12 @@ export function CandleHistoryChart({
       liveBase.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    chart.current?.candles.applyOptions({
+      priceFormat: { type: 'price', precision: places, minMove: 10 ** -places },
+    });
+  }, [places]);
 
   useEffect(() => {
     const current = chart.current;

@@ -97,6 +97,7 @@ export function BotChart({ bot, display }: { bot: Bot; display: BotDisplay }) {
         levels={levels}
         live={forming.live}
         candleSeconds={timeframeSeconds[bot.timeframe] ?? 3600}
+        pricePlaces={display.pricePlaces}
         label="Свечи бота"
         onReachStart={loadEarlier}
       />

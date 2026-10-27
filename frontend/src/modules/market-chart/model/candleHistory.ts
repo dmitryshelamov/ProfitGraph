@@ -52,3 +52,30 @@ export function drawableCandles(candles: readonly HistoryCandle[]): DrawnCandle[
 
   return [...byTime.values()].sort((left, right) => left.time - right.time);
 }
+
+/** The most decimal places a price may be drawn with. */
+const maxPricePlaces = 10;
+
+/**
+ * How many decimal places the price scale shows: the instrument's own when known, otherwise as many as the newest candles'
+ * exact prices carry, so a price of 0.0359 is not rounded to 0.04 and the scale's steps stay apart.
+ */
+export function pricePrecision(known: number | null, candles: readonly HistoryCandle[]): number {
+  if (known !== null) {
+    return Math.min(Math.max(known, 0), maxPricePlaces);
+  }
+
+  let places = 2;
+
+  for (const candle of candles.slice(-200)) {
+    for (const price of [candle.open, candle.high, candle.low, candle.close]) {
+      const dot = price.indexOf('.');
+
+      if (dot >= 0) {
+        places = Math.max(places, price.replace(/0+$/, '').length - dot - 1);
+      }
+    }
+  }
+
+  return Math.min(places, maxPricePlaces);
+}
