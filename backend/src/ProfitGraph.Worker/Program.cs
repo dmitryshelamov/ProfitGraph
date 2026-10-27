@@ -1,3 +1,4 @@
+using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Infrastructure;
 using ProfitGraph.Infrastructure.Backtesting;
 using ProfitGraph.Infrastructure.Bots.Runtime;
@@ -8,6 +9,7 @@ using ProfitGraph.Infrastructure.Notifications;
 using ProfitGraph.Venues.Bybit;
 using ProfitGraph.Venues.Steam;
 using ProfitGraph.Venues.TInvest;
+using ProfitGraph.Worker.Bots;
 
 using Serilog;
 using Serilog.Formatting.Json;
@@ -34,6 +36,7 @@ public static class Program
                 .WriteTo.Console(new JsonFormatter()),
             preserveStaticLogger: true);
         builder.Services.AddSingleton(TimeProvider.System);
+        builder.Services.AddSingleton<IFormingCandleFeeds, NoFormingCandleFeeds>();
         builder.Services.AddProfitGraphInfrastructure(builder.Configuration);
         IReadOnlySet<string> roles = WorkerRoles.Read(builder.Configuration);
 
