@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 
 using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Infrastructure.Accounts;
+using ProfitGraph.Infrastructure.Strategies;
 
 namespace ProfitGraph.Infrastructure.Bots.Runtime;
 
@@ -24,6 +25,7 @@ public static class BotRuntimeRegistration
         services.AddSingleton<IHostedService, UnresolvedOrderRecheckHost>();
         services.AddSingleton<IHostedService, LiveMarkPricePublisher>();
         services.AddSingleton<IHostedService, AccountSnapshotHost>();
+        services.AddSingleton<IHostedService, StrategyTemplateUpgradeHost>();
 
         return services;
     }

@@ -26,8 +26,7 @@ averaging order by the template's own conditions and price, which depend on the 
 and the cash). From `restartEvent` ("position closed?") the template's own wires start a new cycle when the owner's order closed the
 whole position, as after the exit filled.
 
-The listener is the engine's global `OnOrderFilled` node, which the engine already routes manual fills to; the lowering of an event
-block now passes the block's side to it (it passed only the tag). The averaging is cancelled by its own cancel block, not by the
+The listener is the engine's global `OnOrderFilled` node, which the engine already routes manual fills to. The averaging is cancelled by its own cancel block, not by the
 template's `cancelAverage`: that block continues to the residual sale (`residualEvent → residual`, a market sale of the position), which
 is right after the exit filled and wrong while the position is open.
 
@@ -42,8 +41,8 @@ closes the position starts a new cycle by the template's own entry rules.
 - The rule lives in the strategy template, not in a venue: it holds for every venue the bot runs on (Bybit, T-Invest, Steam), through
   the orders the engine already cancels and submits.
 - It applies to the templates built on the resume-capable Ladder: "Ladder (как в Profit Fox)", Ladder SMA and Ladder+, new versions
-  of which carry the blocks. A strategy that was saved before keeps the graph it has, and its bot changes only when the owner moves
-  the strategy to a new version made from the updated template (ADR 0025). The plain Ladder template is not changed.
+  of which carry the blocks. A strategy that was saved before is brought forward by the system with an additive new version (ADR 0038);
+  one the owner changed away from the template, and the plain Ladder template, are not changed.
 - Backtests and replays are unaffected: a manual order exists only in a live bot, so the listener never fires there and the replay of a
   template is the same (the golden replays pass unchanged).
 - Tested on the scripted venue (`ManualFillRebuildsLadderTests`): a Ladder bot with an exit and an averaging order, a manual market
