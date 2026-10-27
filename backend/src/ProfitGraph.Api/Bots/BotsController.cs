@@ -9,6 +9,7 @@ using ProfitGraph.Application.Bots.ChangeBotForeignOrders;
 using ProfitGraph.Application.Bots.ConfirmOrderAbsent;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.GetBot;
+using ProfitGraph.Application.Bots.GetBotAccount;
 using ProfitGraph.Application.Bots.GetBotCandles;
 using ProfitGraph.Application.Bots.GetBotFeed;
 using ProfitGraph.Application.Bots.GetBotFills;
@@ -175,6 +176,16 @@ public sealed class BotsController(ISender sender) : ControllerBase
     public async Task<ActionResult<BotPositionResponse>> Position(Guid id, [FromQuery] int cycles = 20, CancellationToken cancellationToken = default)
     {
         return (await sender.Send(new GetBotPositionQuery(UserId(), id, cycles), cancellationToken)).ToResponse();
+    }
+
+    /// <summary>
+    ///     The exchange account the bot trades on, from stored data only (ADR 0049): no request reaches the venue and no
+    ///     secret leaves the server.
+    /// </summary>
+    [HttpGet("{id:guid}/account")]
+    public async Task<ActionResult<BotAccountResponse>> Account(Guid id, CancellationToken cancellationToken)
+    {
+        return (await sender.Send(new GetBotAccountQuery(UserId(), id), cancellationToken)).ToResponse();
     }
 
     [HttpPut("{id:guid}/parameters")]

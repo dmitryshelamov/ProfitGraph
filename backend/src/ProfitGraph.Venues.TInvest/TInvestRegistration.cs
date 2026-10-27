@@ -49,6 +49,7 @@ public static class TInvestRegistration
             TimeProvider.System));
         services.AddSingleton<IVenueFeeRateReader, TInvestFeeRateReader>();
         services.AddSingleton<IAccountBalanceReader>(provider => new TInvestAccountBalanceReader(provider.GetRequiredService<TInvestTransport>(), TimeProvider.System));
+        services.AddSingleton<IVenueAccountIdentityReader, TInvestAccountIdentityReader>();
         services.AddSingleton<IInstrumentCatalog, TInvestInstrumentCatalog>();
         services.AddSingleton<IInstrumentRulesSource, TInvestInstrumentRulesSource>();
         services.AddSingleton<IVenueMarketDataAccess, TInvestMarketDataAccess>();

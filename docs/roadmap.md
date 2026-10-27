@@ -120,3 +120,11 @@ Corrections to [ADR 0018](adr/0018-live-risk-controls.md) found in review.
 | Step | Scope | Done when | Status |
 |---|---|---|---|
 | 1. Daily loss across midnight | [ADR 0041](adr/0041-daily-loss-across-midnight.md): the first root of a UTC day takes the previous day's last recorded equity as its baseline and is checked against it; `bots.day_last_equity` | Domain tests kill a `1d` bot and a `1h` bot on a loss across midnight; the root committer kills a bot from the stored last equity | Done |
+
+## Bot page account summary
+
+[ADR 0049](adr/0049-bot-page-account-summary.md): the bot page begins with the exchange account the bot trades on.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Account card | `GET /api/bots/{id}/account` from stored data only; `IVenueAccountIdentityReader` for Bybit (`/v5/user/query-api`) and T-Invest (`GetAccounts`), cached daily in `account_identities` by the Worker; `BotAccountCard` first on the bot page with details behind a disclosure | Handler, endpoint and Worker tests pass against the test venue, the readers against the mock Bybit exchange and the mock Invest API, and the card in the app tests | Done on mocks; the real Bybit and T-Invest answers are not checked |

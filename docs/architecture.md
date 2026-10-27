@@ -208,7 +208,9 @@ src/
   levels; candles closed since the newest page arrive every minute ([ADR 0026](adr/0026-bot-chart.md)). The candle being formed follows `/ws/forming-candles`: the API keeps one venue connection per series and credential for all its followers, never stores the candle, and the chart draws it see-through after the closed history ([ADR 0027](adr/0027-forming-candle.md)). The position card subscribes to `/ws/live-prices` for the bot and shows a pushed ticker
   only when it is newer than the stored display price, with the price's source and age, and then recomputes the
   unrealized profit as the server does (base total × price − cost basis) in exact decimal strings. `CredentialsPage` shows each key's latest account value, its coins and why the last
-  read failed. `modules/notifications` and the `/profile` page, opened from the login in the header, issue a Telegram
+  read failed. The bot page starts with `BotAccountCard`: the account the bot trades on, its value and the bot's capital beside
+  the key's other running bots, from `/api/bots/{id}/account`, which reads stored data only; the account's identity is a
+  daily Worker cache ([ADR 0049](adr/0049-bot-page-account-summary.md)). `modules/notifications` and the `/profile` page, opened from the login in the header, issue a Telegram
   link code and unlink the chat.
 - **API client.** `shared/api/client.ts` is the only HTTP client. Its types come from
   `shared/api/generated/schema.d.ts`, generated from the API's OpenAPI document with `npm run generate:api` and never
