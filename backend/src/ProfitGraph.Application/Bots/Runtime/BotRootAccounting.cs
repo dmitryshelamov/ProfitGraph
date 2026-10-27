@@ -7,7 +7,7 @@ namespace ProfitGraph.Application.Bots.Runtime;
 /// <summary>
 ///     What a root changed in the bot's trading record (ADR 0021): the fill a venue update caused, as the change since the
 ///     order's previous fill, with the asset its fee was paid in, a late commission the venue reported for already accounted
-///     fills (ADR 0023, TC4), and the position opening or becoming flat.
+///     fills (ADR 0023, TC4), an order filled completely (ADR 0042), and the position opening or becoming flat.
 /// </summary>
 internal static class BotRootAccounting
 {
@@ -48,6 +48,41 @@ internal static class BotRootAccounting
                     order.Side == OrderSide.Buy ? buyFeeAsset : FeeAsset.Quote)
             ]
             : [];
+    }
+
+    /// <summary>
+    ///     The totals of the order a root filled completely (ADR 0042): the root applied a final fill to an order the checkpoint
+    ///     before it still held and the checkpoint after it no longer holds. Gross amounts and the fee are the update's cumulative
+    ///     values, as the bot's fills record them; a sell's realized profit adds the root's change to what the order's earlier
+    ///     fills realized. Nothing for any other root.
+    /// </summary>
+    public static BotOrderFill? OrderFilled(GraphEngineCheckpoint? before, GraphEngineCheckpoint after, ExternalOrderUpdate? update, InstrumentRules rules)
+    {
+        if (update is not { Kind: ExternalOrderUpdateKind.FinalFill, CumulativeGrossBase: > 0m and var grossBase, CumulativeGrossQuote: > 0m and var grossQuote } ||
+            before?.Account.Orders.FirstOrDefault(candidate => candidate.Id == update.OrderId) is not { } order ||
+            after.Account.Orders.Any(candidate => candidate.Id == update.OrderId))
+        {
+            return null;
+        }
+
+        ExternalOrderProgressCheckpoint? previous = before.Account.Progress.FirstOrDefault(progress => progress.OrderId == update.OrderId);
+        decimal fee = Math.Max(update.CumulativeFee.GetValueOrDefault(), previous?.Fee ?? 0m);
+        decimal? realized = order.Side == OrderSide.Sell
+            ? (previous?.RealizedPnl ?? 0m) + after.Account.RealizedPnl - before.Account.RealizedPnl
+            : null;
+
+        return new BotOrderFill(
+            order.Id,
+            order.Side,
+            order.Tag,
+            grossBase,
+            grossQuote,
+            fee,
+            order.Side == OrderSide.Buy ? rules.BuyFeeAsset : FeeAsset.Quote,
+            realized,
+            rules.QuantityStep,
+            rules.PriceTick,
+            rules.QuotePrecision);
     }
 
     /// <summary>

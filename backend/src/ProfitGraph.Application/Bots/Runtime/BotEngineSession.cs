@@ -385,6 +385,7 @@ public sealed class BotEngineSession
     {
         DateTimeOffset now = _clock.GetUtcNow();
         GraphEngineCheckpoint current = _dispatcher.CaptureCheckpoint(_version.Value.ToString("D"), LastCandle!.OpenTime + _timeframe.Duration);
+        BotOrderFill? filled = BotRootAccounting.OrderFilled(Checkpoint, current, update, _dispatcher.Account.Rules);
         await _committer.Commit(
             new BotRootCommit(
                 _botId,
@@ -400,6 +401,11 @@ public sealed class BotEngineSession
             bot =>
             {
                 bot.ApplyStrategyVersion(_version, now);
+
+                if (filled is not null)
+                {
+                    bot.RecordOrderFilled(filled, now);
+                }
 
                 if (_switchedParameters is { } parameters)
                 {

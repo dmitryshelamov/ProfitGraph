@@ -195,6 +195,18 @@ that account and share hold. Not an equality, because the owner may hold shares 
 A per-bot control, or the global trading halt, that stops bots at once, cancels their open orders and rejects
 submits that never left the process. It never sells a position.
 
+### Telegram Notification
+
+A message for a bot's owner in their linked Telegram chat: an alert with the «Принято» button, a start or stop, a recovery,
+a bot that waits for its owner, a closed position or a filled order. Outbox handlers queue it only while the owner has a
+chat; it is sent at least once, retried while Telegram is unavailable and skipped once it is too old. See
+[ADR 0042](docs/adr/0042-telegram-notifications.md).
+
+### Filled Order
+
+A bot's order that the venue executed completely. It sends one Telegram message with the order's totals, whatever number
+of fills it took; an order cancelled after a partial fill is not a filled order.
+
 ### Composition Root
 
 A host project that wires the application together: `ProfitGraph.Api` for HTTP and `ProfitGraph.Worker` for the

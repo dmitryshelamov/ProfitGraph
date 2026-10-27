@@ -1,5 +1,6 @@
 using MediatR;
 
+using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.Notifications.Contracts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Notifications;
@@ -10,6 +11,7 @@ internal sealed class ClaimTelegramNotificationsCommandHandler(
     ITelegramNotificationRepository notifications,
     ITelegramLinkRepository links,
     IBotRepository bots,
+    VenueRegistry venues,
     TimeProvider clock) : IRequestHandler<ClaimTelegramNotificationsCommand, TelegramClaimInternal>
 {
     public async Task<TelegramClaimInternal> Handle(ClaimTelegramNotificationsCommand command, CancellationToken cancellationToken)
@@ -37,7 +39,7 @@ internal sealed class ClaimTelegramNotificationsCommandHandler(
                         new TelegramOutgoingInternal(
                             notification.Id.Value,
                             link.ChatId,
-                            TelegramMessages.Notification(notification, bot),
+                            TelegramMessages.Notification(notification, bot, bot is null ? null : venues.Find(bot.Series.Venue.Value)),
                             TelegramMessages.Buttons(notification)));
                 }
                 else

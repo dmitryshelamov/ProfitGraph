@@ -1,14 +1,18 @@
+using System.Globalization;
 using System.Net;
 
+using ProfitGraph.Application.Common.Numbers;
+using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Application.Notifications.Contracts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Notifications;
+using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Application.Notifications;
 
 /// <summary>
 ///     The texts the Telegram bot sends (ADR 0020, ADR 0042), in Russian and HTML parse mode: replies to commands and the
-///     notifications, built when they are sent. A bot is named by its name and, without one, by its symbol and timeframe.
+///     notifications, built when they are sent. Amounts are allowed (ADR 0042). A bot is named by its name and, without one, by its symbol and timeframe.
 ///     Every value is HTML-encoded. Keys, tokens and venue payloads are never part of a text.
 /// </summary>
 public static class TelegramMessages
@@ -59,13 +63,87 @@ public static class TelegramMessages
         return notification.AlertId is { } alertId ? [new TelegramButtonInternal(Acknowledged, $"{AcknowledgeAction}:{alertId.Value:D}")] : [];
     }
 
-    public static string Notification(TelegramNotification notification, Bot? bot)
+    /// <summary>
+    ///     The text of a notification; <paramref name="venue" /> names the bot's venue in a filled-order message.
+    /// </summary>
+    public static string Notification(TelegramNotification notification, Bot? bot, IVenueDescriptor? venue)
     {
+        ArgumentNullException.ThrowIfNull(notification);
+        string name = BotName(bot);
+
         return notification.Kind switch
         {
-            TelegramNotificationKind.Alert => Alert(notification.Details, BotName(bot)),
+            TelegramNotificationKind.Alert => Alert(notification.Details, name),
+            TelegramNotificationKind.Started => Lines("▶️ <b>Бот запущен</b>", Line("Бот", name)),
+            TelegramNotificationKind.StopRequested => Lines("⏸ <b>Бот останавливается по команде владельца</b>", Line("Бот", name), "Заявки на бирже остаются."),
+            TelegramNotificationKind.Stopped => Lines("⏹ <b>Бот остановлен</b>", Line("Бот", name)),
+            TelegramNotificationKind.Recovered => Lines("🔄 <b>Бот снова работает</b>", Line("Бот", name)),
+            TelegramNotificationKind.WaitingForOwner => Lines(
+                "🛑 <b>Бот ждёт владельца</b>",
+                Line("Бот", name),
+                "Автоматические перезапуски исчерпаны, запустите бота вручную."),
+            TelegramNotificationKind.PositionClosed => PositionClosed(notification.Details, name),
+            TelegramNotificationKind.OrderFilled => OrderFilled(notification.Details, bot, name, venue),
             _ => throw new ArgumentOutOfRangeException(nameof(notification), notification.Kind, "Unknown notification kind.")
         };
+    }
+
+    /// <summary>
+    ///     Profit Fox's filled-order message: the side and symbol, the bot, venue and market, the quantity at the lot step, the
+    ///     average price at the tick, the amount at the quote precision, the fee when there is one, a sale's profit, and hashtags.
+    /// </summary>
+    private static string OrderFilled(IReadOnlyDictionary<string, string> details, Bot? bot, string name, IVenueDescriptor? venue)
+    {
+        bool buy = details.GetValueOrDefault("side") == nameof(OrderSide.Buy);
+        decimal grossBase = Number(details, "grossBase");
+        decimal grossQuote = Number(details, "grossQuote");
+        decimal fee = Number(details, "fee");
+        int quotePrecision = int.Parse(details["quotePrecision"], CultureInfo.InvariantCulture);
+        decimal? realized = details.TryGetValue("realizedPnl", out string? profit) ? decimal.Parse(profit, CultureInfo.InvariantCulture) : null;
+        string symbol = bot?.Series.Symbol.Value ?? string.Empty;
+        string venueName = venue?.Name ?? bot?.Series.Venue.Value ?? string.Empty;
+        string icon = buy ? "✅" : realized > 0m ? "🤑" : "💱";
+        List<string> lines = [$"{icon} <b>{(buy ? "КУПЛЕНО" : "ПРОДАНО")} · {Encode(symbol)}</b>", Line("Бот", name), Line("Биржа", venueName)];
+
+        if (venue?.Market is { } market)
+        {
+            lines.Add(Line("Рынок", market));
+        }
+
+        lines.Add(Line("Количество", Fixed(grossBase, Scale(Number(details, "quantityStep")))));
+        lines.Add(Line("Средняя цена исполнения", Fixed(grossQuote / grossBase, Scale(Number(details, "priceTick")))));
+        lines.Add(Line(buy ? "Потрачено" : "Получено", Fixed(grossQuote, quotePrecision)));
+
+        if (fee != 0m)
+        {
+            string asset = details.GetValueOrDefault("feeAsset") == nameof(FeeAsset.Base) ? " (в базовом активе)" : string.Empty;
+            lines.Add(Line(fee > 0m ? "Комиссия" : "Возврат комиссии", ExactDecimalText.Format(Math.Abs(fee)) + asset));
+        }
+
+        if (realized is { } pnl)
+        {
+            lines.Add(Line(pnl >= 0m ? "Прибыль (PnL)" : "Убыток (PnL)", Signed(Fixed(pnl, quotePrecision), pnl)));
+        }
+
+        string tags = string.Join(separator: ' ', new[] { symbol, venueName }.Select(Hashtag).Where(tag => tag.Length > 1));
+
+        if (tags.Length > 0)
+        {
+            lines.Add(string.Empty);
+            lines.Add(tags);
+        }
+
+        return string.Join(separator: '\n', lines);
+    }
+
+    private static string PositionClosed(IReadOnlyDictionary<string, string> details, string name)
+    {
+        decimal pnl = Number(details, "realizedPnl");
+
+        return Lines(
+            pnl >= 0m ? "💰 <b>Позиция закрыта</b>" : "📉 <b>Позиция закрыта</b>",
+            Line("Бот", name),
+            Line(pnl >= 0m ? "Прибыль (PnL)" : "Убыток (PnL)", Signed(ExactDecimalText.Format(pnl), pnl)));
     }
 
     private static string Alert(IReadOnlyDictionary<string, string> details, string botName)
@@ -99,6 +177,45 @@ public static class TelegramMessages
         }
 
         return string.Join(separator: '\n', lines);
+    }
+
+    private static string Lines(params string[] lines)
+    {
+        return string.Join(separator: '\n', lines);
+    }
+
+    private static decimal Number(IReadOnlyDictionary<string, string> details, string key)
+    {
+        return decimal.Parse(details[key], NumberStyles.Number, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    ///     The number of decimal places of a step or tick: 0.001 has three, 0.5 one and 10 none.
+    /// </summary>
+    private static int Scale(decimal step)
+    {
+        string text = ExactDecimalText.Format(step);
+        int dot = text.IndexOf(value: '.', StringComparison.Ordinal);
+
+        return dot < 0 ? 0 : text.Length - dot - 1;
+    }
+
+    private static string Fixed(decimal value, int decimals)
+    {
+        return Math.Round(value, decimals, MidpointRounding.AwayFromZero).ToString($"F{decimals}", CultureInfo.InvariantCulture);
+    }
+
+    private static string Signed(string text, decimal value)
+    {
+        return value >= 0m ? $"+{text}" : text;
+    }
+
+    /// <summary>
+    ///     A hashtag keeps letters, digits and underscores only.
+    /// </summary>
+    private static string Hashtag(string text)
+    {
+        return "#" + new string([.. text.Where(character => char.IsLetterOrDigit(character) || character == '_')]);
     }
 
     private static string Line(string label, string value)

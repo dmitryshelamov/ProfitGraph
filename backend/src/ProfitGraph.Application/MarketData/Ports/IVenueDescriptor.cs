@@ -17,6 +17,12 @@ public interface IVenueDescriptor
     IReadOnlyList<Timeframe> Timeframes { get; }
 
     /// <summary>
+    ///     The venue's market the bots trade on, for people (Telegram's filled-order message, ADR 0042), or null when the
+    ///     name says it.
+    /// </summary>
+    string? Market => null;
+
+    /// <summary>
     ///     What a backtest on this venue does not model, as stable codes a client turns into fixed texts next to the run's
     ///     results (ADR 0023: "the run says so"). Empty for a venue whose replay is exact.
     /// </summary>
