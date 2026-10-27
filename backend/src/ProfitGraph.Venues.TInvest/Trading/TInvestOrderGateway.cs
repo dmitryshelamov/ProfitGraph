@@ -471,7 +471,18 @@ internal sealed class TInvestOrderGateway(
                     continue;
             }
 
-            if (await reads.ByRequestId(context, attempt.RequestId, cancellationToken) is not { } state)
+            OrderState? known = await reads.ByRequestId(context, attempt.RequestId, cancellationToken);
+
+            if (known is null && order.OwnerConfirmedAbsent && attempt is { State: TInvestOrderAttemptState.Active, ExchangeOrderId: { } exchangeOrderId } &&
+                await ProvenRemoved(context, attempt, exchangeOrderId, onShare, cancellationToken))
+            {
+                found.Add(ExternalOrderUpdate.ConfirmCancel(order.EngineOrderId));
+                orders.Add(new ReconciledOrderInternal(order.ClientOrderId, IsFinal: true));
+
+                continue;
+            }
+
+            if (known is not { } state)
             {
                 return new BotReconciliationInternal(found, orders, BotStatusReason.UnresolvedOrder);
             }
@@ -492,6 +503,36 @@ internal sealed class TInvestOrderGateway(
             onShare.Any(order => !Guid.TryParse(order.OrderRequestId, out Guid id) || !owners.TryGetValue(id, out Guid owner) || owner != request.BotId.Value);
 
         return new BotReconciliationInternal(found, orders, foreign ? BotStatusReason.ForeignOrder : null);
+    }
+
+    /// <summary>
+    ///     Whether an attempt T-Invest had accepted, which the owner confirmed removed (ADR 0028), left nothing behind: no
+    ///     order of the account on the share carries its request ID or exchange order ID, T-Invest no longer knows it by the
+    ///     exchange order ID either, and no attempt of the engine order executed anything. When it ends so, the attempt is
+    ///     closed as an owner cancel; anything T-Invest still shows, or a read that fails, leaves the order unresolved.
+    /// </summary>
+    private async Task<bool> ProvenRemoved(
+        TInvestBotContext context,
+        TInvestOrderAttempt attempt,
+        string exchangeOrderId,
+        IReadOnlyList<OrderState> onShare,
+        CancellationToken cancellationToken)
+    {
+        if (onShare.Any(active => active.OrderId == exchangeOrderId || active.OrderRequestId == attempt.RequestId.ToString("D")) ||
+            (await attempts.ForOrder(attempt.BotId, attempt.EngineOrderId, cancellationToken)).Any(other => other.ExecutedLots > 0) ||
+            await reads.ByExchangeOrderId(context, exchangeOrderId, cancellationToken) is not null)
+        {
+            return false;
+        }
+
+        TInvestOrderAttempt closed = attempt with
+        {
+            State = TInvestOrderAttemptState.Final,
+            CancelledBy = TInvestCancelReason.Owner,
+            UpdatedAt = clock.GetUtcNow()
+        };
+
+        return await attempts.Transition(closed, attempt.State, cancellationToken);
     }
 
     /// <summary>

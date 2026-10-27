@@ -21,6 +21,7 @@ internal sealed class MockTInvestOrders
 {
     private readonly Dictionary<string, OrderState> _orders = new Dictionary<string, OrderState>(StringComparer.Ordinal);
     private readonly List<Channel<OrderStateStreamResponse>> _subscribers = [];
+    private readonly Dictionary<string, OrderState> _byExchangeId = new Dictionary<string, OrderState>(StringComparer.Ordinal);
     private long _exchangeIds = 7_000_000;
 
     public List<PostOrderRequest> Posted { get; } = [];
@@ -131,6 +132,24 @@ internal sealed class MockTInvestOrders
         }
 
         Signal(order);
+    }
+
+    /// <summary>
+    ///     T-Invest forgets the order under its request ID and no longer lists it, as when the exchange removed it with the
+    ///     end of its day. Its exchange order ID is still answered when <paramref name="keptByExchangeId" /> is set.
+    /// </summary>
+    public void Vanish(string requestId, bool keptByExchangeId = false)
+    {
+        lock (_orders)
+        {
+            OrderState order = _orders[requestId];
+            _orders.Remove(requestId);
+
+            if (keptByExchangeId)
+            {
+                _byExchangeId[order.OrderId] = order;
+            }
+        }
     }
 
     /// <summary>
@@ -289,9 +308,12 @@ internal sealed class MockTInvestOrders
     {
         lock (_orders)
         {
-            return request.OrderIdType == OrderIdType.Request && _orders.TryGetValue(request.OrderId, out OrderState? order)
-                ? order.Clone()
-                : throw MockTInvestApi.Refusal(StatusCode.NotFound, "50005");
+            OrderState? order = null;
+
+            return (request.OrderIdType == OrderIdType.Request && _orders.TryGetValue(request.OrderId, out order)) ||
+                (request.OrderIdType == OrderIdType.Exchange && _byExchangeId.TryGetValue(request.OrderId, out order))
+                    ? order.Clone()
+                    : throw MockTInvestApi.Refusal(StatusCode.NotFound, "50005");
         }
     }
 

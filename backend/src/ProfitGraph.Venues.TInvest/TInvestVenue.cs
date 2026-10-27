@@ -28,6 +28,8 @@ internal sealed class TInvestVenue : IVenueDescriptor
     public IReadOnlyList<string> BacktestLimits { get; } =
         ["reference_calendar", "holiday_sessions", "price_band", "trading_status", "gap_fills_at_limit", "no_trades_fill_nothing"];
 
+    public bool ConfirmsExpiredOrders => true;
+
     public bool TryParseSymbol(string? input, [NotNullWhen(true)] out InstrumentSymbol? symbol)
     {
         symbol = TInvestSymbol.TryParse(input, out TInvestSymbol? parsed) ? parsed.Symbol : null;

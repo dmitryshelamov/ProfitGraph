@@ -316,6 +316,7 @@ describe('bot reports', () => {
               placeStartedAt: '2026-10-26T02:40:43Z',
               canConfirmAbsent: confirmedAt === null,
               confirmedAbsentAt: confirmedAt,
+              acceptedByVenue: false,
             },
           ]),
         [`POST ${botPath}/order-intents/i1/confirm-absent`]: () => {
@@ -338,6 +339,68 @@ describe('bot reports', () => {
 
     await waitFor(() => expect(confirmed).toEqual(['i1']));
     expect(await within(unresolved).findByText(/Отсутствие подтверждено/)).toBeInTheDocument();
+  });
+
+  it('words the confirmation of an accepted order the venue removed, and refuses one with an execution', async () => {
+    const confirmed: string[] = [];
+    fakeApi(
+      routes({
+        [`GET ${botPath}/unresolved-orders`]: () =>
+          json([
+            {
+              intentId: 'i2',
+              engineOrderId: 2,
+              side: 'Buy',
+              type: 'Limit',
+              quantity: '10',
+              quoteBudget: null,
+              limitPrice: '99',
+              createdAt: '2026-10-26T07:00:00Z',
+              placeStartedAt: '2026-10-26T07:00:01Z',
+              canConfirmAbsent: true,
+              confirmedAbsentAt: null,
+              acceptedByVenue: true,
+            },
+            {
+              intentId: 'i3',
+              engineOrderId: 3,
+              side: 'Sell',
+              type: 'Limit',
+              quantity: '5',
+              quoteBudget: null,
+              limitPrice: '101',
+              createdAt: '2026-10-26T07:00:00Z',
+              placeStartedAt: '2026-10-26T07:00:01Z',
+              canConfirmAbsent: false,
+              confirmedAbsentAt: null,
+              acceptedByVenue: true,
+            },
+          ]),
+        [`POST ${botPath}/order-intents/i2/confirm-absent`]: () => {
+          confirmed.push('i2');
+
+          return new Response(null, { status: 204 });
+        },
+      }),
+    );
+    renderApp(`/bots/${bot.id}`);
+
+    const unresolved = await screen.findByRole('list', { name: 'Неясные заявки' });
+    expect(
+      within(unresolved).getByText(/Подтвердить нельзя: по заявке уже есть исполнение/),
+    ).toBeInTheDocument();
+    await userEvent.click(within(unresolved).getByRole('button', { name: 'Заявка снята биржей' }));
+    expect(
+      within(unresolved).getByText(/в приложении брокера заявки нет среди активных/),
+    ).toBeInTheDocument();
+    expect(confirmed).toEqual([]);
+    await userEvent.click(
+      within(unresolved).getByRole('button', {
+        name: 'Подтвердить: заявка снята, исполнения не было',
+      }),
+    );
+
+    await waitFor(() => expect(confirmed).toEqual(['i2']));
   });
 
   it('shows the bot’s feed with readable events', async () => {

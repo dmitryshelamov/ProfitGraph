@@ -3756,6 +3756,7 @@ export interface components {
             canConfirmAbsent: boolean;
             /** Format: date-time */
             confirmedAbsentAt: null | string;
+            acceptedByVenue: boolean;
         };
         CandleImportResponse: {
             venue: string;

@@ -20,12 +20,16 @@ internal sealed class GetBotUnresolvedOrdersQueryHandler(IBotRepository bots, IO
         return
         [
             .. (await intents.ListByBot(bot.Id, cancellationToken))
-            .Where(intent => OrderAbsence.IsUnresolved(intent, checkpoint))
-            .Select(intent => Unresolved(intent, OrderAbsence.Order(intent, checkpoint)!, OrderAbsence.CanConfirm(bot, intent, checkpoint, venue)))
+            .Where(intent => OrderAbsence.IsUnresolved(bot, intent, checkpoint, venue))
+            .Select(intent => Unresolved(
+                intent,
+                OrderAbsence.Order(intent, checkpoint)!,
+                OrderAbsence.CanConfirm(bot, intent, checkpoint, venue),
+                OrderAbsence.IsAcceptedAndStopped(bot, intent, checkpoint, venue)))
         ];
     }
 
-    private static BotUnresolvedOrderInternal Unresolved(OrderIntent intent, OrderSnapshot order, bool canConfirm)
+    private static BotUnresolvedOrderInternal Unresolved(OrderIntent intent, OrderSnapshot order, bool canConfirm, bool acceptedByVenue)
     {
         return new BotUnresolvedOrderInternal(
             intent.Id.Value,
@@ -38,6 +42,7 @@ internal sealed class GetBotUnresolvedOrdersQueryHandler(IBotRepository bots, IO
             intent.CreatedAt,
             intent.PlaceStartedAt,
             canConfirm,
-            intent.ConfirmedAbsentAt);
+            intent.ConfirmedAbsentAt,
+            acceptedByVenue);
     }
 }

@@ -2,6 +2,7 @@ using MediatR;
 
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.MarketData;
+using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
 
@@ -24,14 +25,25 @@ internal sealed class ConfirmOrderAbsentCommandHandler(
             throw new ResourceNotFoundException("The bot has no such order.", BotErrorCodes.OrderIntentNotFound);
         }
 
-        if (!OrderAbsence.CanConfirm(bot, intent, await checkpoints.Get(bot.Id, cancellationToken), venues.Find(bot.Series.Venue.Value)))
+        BotCheckpoint? checkpoint = await checkpoints.Get(bot.Id, cancellationToken);
+        IVenueDescriptor? venue = venues.Find(bot.Series.Venue.Value);
+
+        if (!OrderAbsence.CanConfirm(bot, intent, checkpoint, venue))
         {
             throw new StateConflictException(
-                "Only an unfilled submit whose delivery stopped the bot can be confirmed absent, on a venue that checks it.",
+                "Only an unfilled order that stopped the bot can be confirmed absent, on a venue that checks it.",
                 BotErrorCodes.AbsenceNotConfirmable);
         }
 
-        intent.ConfirmAbsent(new UserId(command.OwnerId), clock.GetUtcNow());
+        if (OrderAbsence.IsAcceptedAndStopped(bot, intent, checkpoint, venue))
+        {
+            intent.ConfirmExpired(new UserId(command.OwnerId), clock.GetUtcNow());
+        }
+        else
+        {
+            intent.ConfirmAbsent(new UserId(command.OwnerId), clock.GetUtcNow());
+        }
+
         await intents.Update(intent, cancellationToken);
     }
 }

@@ -268,6 +268,69 @@ public sealed class TInvestOrderGatewayTests
     }
 
     [Test]
+    public async Task AnAcceptedOrderTheExchangeRemovedIsCancelledOnlyWhenTheOwnerConfirmedItAndTInvestShowsNothing()
+    {
+        await _gateway.Submit(Submit(Limit(id: 1, OrderSide.Buy, quantity: 10m, price: 99m)), NoOp, CancellationToken.None);
+        string requestId = _orders.Posted.Single().OrderId;
+        _orders.Vanish(requestId);
+        ClientOrderId client = _gateway.ClientOrderIdFor(_bot, engineOrderId: 1);
+
+        (await Reconcile(new ReconcileOrderInternal(EngineOrderId: 1, client, MayHaveReachedVenue: true))).Degradation.ShouldBe(BotStatusReason.UnresolvedOrder);
+        _attempts.All.Single().State.ShouldBe(TInvestOrderAttemptState.Active);
+
+        BotReconciliationInternal confirmed =
+            await Reconcile(new ReconcileOrderInternal(EngineOrderId: 1, client, MayHaveReachedVenue: true, OwnerConfirmedAbsent: true));
+
+        confirmed.ShouldSatisfyAllConditions(
+            () => confirmed.Degradation.ShouldBeNull(),
+            () => confirmed.Updates.ShouldBe([ExternalOrderUpdate.ConfirmCancel(orderId: 1)]),
+            () => confirmed.Found.ShouldHaveSingleItem().IsFinal.ShouldBeTrue(),
+            () => _attempts.All.Single()
+                .ShouldSatisfyAllConditions(
+                    attempt => attempt.State.ShouldBe(TInvestOrderAttemptState.Final),
+                    attempt => attempt.CancelledBy.ShouldBe(TInvestCancelReason.Owner),
+                    attempt => attempt.ExecutedLots.ShouldBe(0)));
+    }
+
+    [Test]
+    public async Task AnOrderTInvestStillKnowsByItsExchangeIdIsNotProvenRemoved()
+    {
+        await _gateway.Submit(Submit(Limit(id: 1, OrderSide.Buy, quantity: 10m, price: 99m)), NoOp, CancellationToken.None);
+        _orders.Vanish(_orders.Posted.Single().OrderId, keptByExchangeId: true);
+
+        BotReconciliationInternal reconciliation = await Reconcile(
+            new ReconcileOrderInternal(EngineOrderId: 1, _gateway.ClientOrderIdFor(_bot, engineOrderId: 1), MayHaveReachedVenue: true, OwnerConfirmedAbsent: true));
+
+        reconciliation.ShouldSatisfyAllConditions(
+            () => reconciliation.Degradation.ShouldBe(BotStatusReason.UnresolvedOrder),
+            () => reconciliation.Updates.ShouldBeEmpty(),
+            () => _attempts.All.Single().State.ShouldBe(TInvestOrderAttemptState.Active));
+    }
+
+    [Test]
+    public async Task AnEarlierAttemptThatExecutedLotsKeepsTheOrderUnresolvedEvenWhenTheOwnerConfirmedIt()
+    {
+        await _gateway.Submit(Submit(Limit(id: 1, OrderSide.Buy, quantity: 10m, price: 99m)), NoOp, CancellationToken.None);
+        TInvestOrderAttempt first = _attempts.All.Single();
+        _orders.Vanish(first.RequestId.ToString("D"));
+        await _attempts.Add(
+            first with
+            {
+                Attempt = 2,
+                RequestId = TInvestOrderRequestIds.For(_bot, engineOrderId: 1, attempt: 2),
+                State = TInvestOrderAttemptState.Active,
+                ExchangeOrderId = "7000099"
+            },
+            CancellationToken.None);
+        await _attempts.Transition(first with { State = TInvestOrderAttemptState.Final, ExecutedLots = 3 }, TInvestOrderAttemptState.Active, CancellationToken.None);
+
+        BotReconciliationInternal reconciliation = await Reconcile(
+            new ReconcileOrderInternal(EngineOrderId: 1, _gateway.ClientOrderIdFor(_bot, engineOrderId: 1), MayHaveReachedVenue: true, OwnerConfirmedAbsent: true));
+
+        reconciliation.Degradation.ShouldBe(BotStatusReason.UnresolvedOrder);
+    }
+
+    [Test]
     public void RequestIdsAreDeterministicUuidsPerAttempt()
     {
         Guid first = TInvestOrderRequestIds.For(_bot, engineOrderId: 7, attempt: 1);

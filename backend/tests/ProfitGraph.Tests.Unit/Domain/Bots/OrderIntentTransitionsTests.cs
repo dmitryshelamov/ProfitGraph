@@ -370,6 +370,40 @@ public sealed class OrderIntentTransitionsTests
     }
 
     [Test]
+    public void AnOwnerConfirmsADeliveredSubmitExpiredOnceAndItStaysDelivered()
+    {
+        OrderIntent intent = Claimed();
+        intent.MarkPlaceStarted(Now);
+        intent.MarkSent(Now);
+        intent.ClearDomainEvents();
+        var owner = UserId.New();
+
+        intent.ConfirmExpired(owner, Now);
+
+        intent.ShouldSatisfyAllConditions(
+            () => intent.Status.ShouldBe(OrderIntentStatus.Sent),
+            () => intent.ConfirmedAbsentAt.ShouldBe(Now),
+            () => intent.ConfirmedAbsentBy.ShouldBe(owner),
+            () => intent.CanClaim(Now + TimeSpan.FromDays(1)).ShouldBeFalse(),
+            () => intent.DomainEvents.ShouldBe([new OrderIntentAbsenceConfirmed(Bot, intent.Id, EngineOrderId: 7, owner, Now)]));
+        Should.Throw<BotRuleException>(() => intent.ConfirmExpired(owner, Now));
+        OrderIntent.Restore(intent.ToSnapshot()).ConfirmedAbsentAt.ShouldBe(Now);
+    }
+
+    [Test]
+    public void OnlyADeliveredSubmitIsConfirmedExpired()
+    {
+        var owner = UserId.New();
+        OrderIntent failed = Placed();
+        failed.RecordFailure(Now);
+
+        Should.Throw<BotRuleException>(() => Submit().ConfirmExpired(owner, Now));
+        Should.Throw<BotRuleException>(() => Cancel().ConfirmExpired(owner, Now));
+        Should.Throw<BotRuleException>(() => Placed().ConfirmExpired(owner, Now));
+        Should.Throw<BotRuleException>(() => failed.ConfirmExpired(owner, Now));
+    }
+
+    [Test]
     public void DeferHoldsAClaimedSubmitUntilItsNextCheck()
     {
         OrderIntent intent = Claimed();
