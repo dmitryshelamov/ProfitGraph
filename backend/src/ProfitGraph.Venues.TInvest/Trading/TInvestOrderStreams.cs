@@ -137,7 +137,19 @@ internal sealed class TInvestOrderStreams(
 
         for (var read = 1;; read++)
         {
-            OrderState state = await reads.ByRequestId(context, attempt.RequestId, cancellationToken) ?? throw new TInvestOrderUnresolvedException("OrderNotFound");
+            // The stream tells of an order a moment before the order service answers for its request ID (ADR 0036): an order that
+            // is not found yet is read again, and only one that stays missing for every read is unresolved.
+            if (await reads.ByRequestId(context, attempt.RequestId, cancellationToken) is not { } state)
+            {
+                if (read >= MaxReads)
+                {
+                    throw new TInvestOrderUnresolvedException("OrderNotFound");
+                }
+
+                await Task.Delay(options.Value.OrderReadRetryDelay, cancellationToken);
+
+                continue;
+            }
 
             try
             {
