@@ -45,9 +45,9 @@ describe('trade markers', () => {
     expect(markers.map((item) => item.price)).toEqual([1.25, 4.5]);
   });
 
-  it('draws a buy arrow from below its price and a sell arrow from above it', () => {
-    expect(markerPosition('Buy')).toBe('atPriceBottom');
-    expect(markerPosition('Sell')).toBe('atPriceTop');
+  it('draws a buy arrow below its candle and a sell arrow above it', () => {
+    expect(markerPosition('Buy')).toBe('belowBar');
+    expect(markerPosition('Sell')).toBe('aboveBar');
   });
 
   it('keeps every trade of a candle at its price and labels only the latest of a side once', () => {
