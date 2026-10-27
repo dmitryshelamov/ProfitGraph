@@ -41,6 +41,11 @@ internal interface ITInvestOrderAttempts
     Task<IReadOnlyList<TInvestOrderAttempt>> ForOrder(Guid botId, long engineOrderId, CancellationToken cancellationToken);
 
     /// <summary>
+    ///     The bot's attempts on the share that executed something and last changed at or after the time given, oldest first.
+    /// </summary>
+    Task<IReadOnlyList<TInvestOrderAttempt>> ExecutedOnShare(Guid botId, string instrumentUid, DateTimeOffset since, CancellationToken cancellationToken);
+
+    /// <summary>
     ///     Final attempts with executions whose commission T-Invest has not reported yet, changed since the time given.
     /// </summary>
     Task<IReadOnlyList<TInvestOrderAttempt>> PendingFees(DateTimeOffset since, CancellationToken cancellationToken);

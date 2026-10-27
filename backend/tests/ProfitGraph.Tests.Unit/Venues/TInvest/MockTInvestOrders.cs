@@ -216,6 +216,17 @@ internal sealed class MockTInvestOrders
     }
 
     /// <summary>
+    ///     T-Invest no longer answers for the order by its exchange order ID.
+    /// </summary>
+    public void Forget(string exchangeOrderId)
+    {
+        lock (_orders)
+        {
+            _byExchangeId.Remove(exchangeOrderId);
+        }
+    }
+
+    /// <summary>
     ///     An order placed by someone else on the account, outside ProfitGraph.
     /// </summary>
     public void AddForeign(string instrumentUid)

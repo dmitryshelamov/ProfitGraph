@@ -66,7 +66,7 @@ The owner's confirmation stays, unchanged, as the fallback; when it was given, A
 A check that fails leaves the order unresolved as before, and the stop carries the check: `Degraded` with detail
 `AutoCheck:<failed check>`, which the bot page words (for example "позиция по бумаге не равна ожидаемой ботом"). Any execution
 of the share among the account's operations in the window blocks the proof, even one of another order; that is the cost of not
-guessing which operation belongs to which order, and it falls back to the owner.
+guessing which operation belongs to which order, and it falls back to the owner. ADR 0033 relaxes this for the bot's own, already booked executions.
 
 Not covered: an attempt whose place request had no clear answer (`Unknown`), a waiting or planned one and a partly filled one.
 They are not "accepted and removed", and the owner decides.

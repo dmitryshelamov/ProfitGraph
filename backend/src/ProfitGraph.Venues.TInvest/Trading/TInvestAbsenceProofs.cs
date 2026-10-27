@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -29,7 +31,10 @@ namespace ProfitGraph.Venues.TInvest.Trading;
 ///             </description>
 ///         </item>
 ///         <item>
-///             <description>the account's operations on the share since the order was planned show no execution, even a partial one;</description>
+///             <description>
+///                 the account's operations on the share since the order was planned show no execution, even a partial one, except
+///                 operations whose every trade number belongs to another executed order of the same bot (ADR 0033);
+///             </description>
 ///         </item>
 ///         <item>
 ///             <description>the account's position in the share equals the position the engine expects, with nothing blocked.</description>
@@ -129,7 +134,9 @@ internal sealed class TInvestAbsenceProofs(
             passed.Add(TInvestAbsenceChecks.TradingDayEndedByCalendar);
         }
 
-        TInvestShareOperations seen = await operations.OfShare(context, attempt.CreatedAt - Skew, now, cancellationToken);
+        DateTimeOffset windowStart = attempt.CreatedAt - Skew;
+        IReadOnlyDictionary<string, long> ownTrades = await OwnTrades(context, attempt, windowStart, cancellationToken);
+        TInvestShareOperations seen = await operations.OfShare(context, windowStart, now, ownTrades, cancellationToken);
 
         if (!seen.Complete)
         {
@@ -142,6 +149,11 @@ internal sealed class TInvestAbsenceProofs(
         }
 
         passed.Add(TInvestAbsenceChecks.NoExecutionInOperations);
+
+        if (seen.OwnOrders.Count > 0)
+        {
+            passed.Add(OwnExecutionsExcluded(seen.OwnOrders));
+        }
 
         if (expectedBase is not { } expected)
         {
@@ -166,6 +178,60 @@ internal sealed class TInvestAbsenceProofs(
         passed.Add(TInvestAbsenceChecks.PositionMatchesEngine);
 
         return new TInvestAbsenceProof(passed, Failed: null);
+    }
+
+    /// <summary>
+    ///     The journal code of the operations excluded as the bot's own: <c>OwnExecutionsExcluded:{count}:{engine orders joined by +}</c>.
+    /// </summary>
+    private static string OwnExecutionsExcluded(IReadOnlyList<long> orders)
+    {
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"{TInvestAbsenceChecks.OwnExecutionsExcluded}:{orders.Count}:{string.Join('+', orders.Distinct().Order())}");
+    }
+
+    /// <summary>
+    ///     The trade numbers of the bot's other orders on the share that executed in the window (ADR 0033), each tied to its
+    ///     engine order: the stages T-Invest keeps for the attempt's exchange order ID. An attempt without an exchange order
+    ///     ID, one T-Invest does not answer for, one whose stages do not add up to the lots the bot booked, and a stage without
+    ///     a trade number ties nothing. The checked order's own attempts never count.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, long>> OwnTrades(
+        TInvestBotContext context,
+        TInvestOrderAttempt attempt,
+        DateTimeOffset since,
+        CancellationToken cancellationToken)
+    {
+        var trades = new Dictionary<string, long>(StringComparer.Ordinal);
+        var ambiguous = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (TInvestOrderAttempt other in await attempts.ExecutedOnShare(attempt.BotId, attempt.InstrumentUid, since, cancellationToken))
+        {
+            if (other.EngineOrderId == attempt.EngineOrderId || other.ExchangeOrderId is not { } exchangeOrderId)
+            {
+                continue;
+            }
+
+            if (await orders.ByExchangeOrderId(context, exchangeOrderId, cancellationToken) is not { } state || state.Stages.Sum(stage => stage.Quantity) != other.ExecutedLots)
+            {
+                continue;
+            }
+
+            foreach (string tradeId in state.Stages.Select(stage => stage.TradeId).Where(id => !string.IsNullOrEmpty(id)))
+            {
+                if (!trades.TryAdd(tradeId, other.EngineOrderId) && trades[tradeId] != other.EngineOrderId)
+                {
+                    ambiguous.Add(tradeId);
+                }
+            }
+        }
+
+        foreach (string tradeId in ambiguous)
+        {
+            trades.Remove(tradeId);
+        }
+
+        return trades;
     }
 
     /// <summary>

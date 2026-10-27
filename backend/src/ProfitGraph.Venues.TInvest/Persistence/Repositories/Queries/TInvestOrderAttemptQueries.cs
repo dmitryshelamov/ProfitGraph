@@ -67,6 +67,13 @@ internal static class TInvestOrderAttemptQueries
                                     ORDER BY attempt
                                     """;
 
+    public const string ExecutedOnShare = $"""
+                                           SELECT {Columns}
+                                           FROM tinvest_order_attempts
+                                           WHERE bot_id = @botId AND instrument_uid = @instrumentUid AND executed_lots > 0 AND updated_at >= @since
+                                           ORDER BY engine_order_id, attempt
+                                           """;
+
     public const string PendingFees = $"""
                                        SELECT {Columns}
                                        FROM tinvest_order_attempts

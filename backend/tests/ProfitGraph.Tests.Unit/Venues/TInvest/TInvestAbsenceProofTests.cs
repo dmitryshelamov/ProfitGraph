@@ -9,6 +9,8 @@ using ProfitGraph.Venues.TInvest.Trading;
 
 using Tinkoff.InvestApi.V1;
 
+using EngineOrderType = ProfitGraph.Engine.Accounting.OrderType;
+
 namespace ProfitGraph.Tests.Unit.Venues.TInvest;
 
 /// <summary>
@@ -93,7 +95,7 @@ public sealed class TInvestAbsenceProofTests
             () => request.To.ToDateTimeOffset().ShouldBe(_harness.Clock.GetUtcNow()),
             () => request.Limit.ShouldBe(1000),
             () => request.WithoutCommissions.ShouldBeTrue(),
-            () => request.WithoutTrades.ShouldBeTrue());
+            () => request.WithoutTrades.ShouldBeFalse());
         _harness.Api.Calls.Count(call => call.Method.EndsWith("/GetPositions", StringComparison.Ordinal)).ShouldBe(1);
     }
 
@@ -149,6 +151,136 @@ public sealed class TInvestAbsenceProofTests
     {
         NextMorning();
         _harness.Orders.Operations.Add(Operation(OperationState.Unspecified, quantityDone: 0));
+
+        await StaysUnresolved("ExecutionInOperations");
+    }
+
+    [Test]
+    public async Task AnEarlierPurchaseOfTheBotInTheWindowIsNotAnExecutionOfTheOrder_AndTheFeedNamesIt()
+    {
+        NextMorning();
+        AddExecutedOrder(engineOrderId: 2, lots: 2, "trade-2a", "trade-2b");
+        _harness.Orders.Operations.Add(Operation(OperationState.Executed, quantityDone: 2, Trade("trade-2a", quantity: 1), Trade("trade-2b", quantity: 1)));
+        _harness.Orders.Operations.Add(Operation(OperationState.Canceled, quantityDone: 0));
+
+        BotReconciliationInternal reconciliation = await Reconcile(expectedBase: 0m);
+
+        reconciliation.ShouldSatisfyAllConditions(
+            () => reconciliation.Degradation.ShouldBeNull(),
+            () => reconciliation.Updates.ShouldBe([ExternalOrderUpdate.ConfirmCancel(orderId: 1)]),
+            () => reconciliation.Found.Single().AbsenceProof!.Checks.ShouldBe([.. AllChecks[..^1], "OwnExecutionsExcluded:1:2", AllChecks[^1]]));
+        _harness.Orders.Posted.Count.ShouldBe(1);
+    }
+
+    [Test]
+    public async Task OperationsOfSeveralOtherOrdersAreCountedPerOperationAndNamedByOrder()
+    {
+        NextMorning();
+        AddExecutedOrder(engineOrderId: 2, lots: 1, "trade-2");
+        AddExecutedOrder(engineOrderId: 3, lots: 1, "trade-3");
+        _harness.Orders.Operations.Add(Operation(OperationState.Executed, quantityDone: 1, Trade("trade-3", quantity: 1)));
+        _harness.Orders.Operations.Add(Operation(OperationState.Executed, quantityDone: 1, Trade("trade-2", quantity: 1)));
+
+        BotReconciliationInternal reconciliation = await Reconcile(expectedBase: 0m);
+
+        reconciliation.Found.Single().AbsenceProof!.Checks.ShouldContain("OwnExecutionsExcluded:2:2+3");
+    }
+
+    [Test]
+    public async Task AnOperationOfUnknownOriginAmongTheBotsOwnKeepsItUnresolved()
+    {
+        NextMorning();
+        AddExecutedOrder(engineOrderId: 2, lots: 1, "trade-2");
+        _harness.Orders.Operations.Add(Operation(OperationState.Executed, quantityDone: 1, Trade("trade-2", quantity: 1)));
+        _harness.Orders.Operations.Add(Operation(OperationState.Executed, quantityDone: 1, Trade("trade-of-someone-else", quantity: 1)));
+
+        await StaysUnresolved("ExecutionInOperations");
+    }
+
+    [Test]
+    public async Task AnOperationWhoseTradesAreOnlyPartlyKnownKeepsItUnresolved()
+    {
+        NextMorning();
+        AddExecutedOrder(engineOrderId: 2, lots: 1, "trade-2");
+        _harness.Orders.Operations.Add(Operation(OperationState.Executed, quantityDone: 2, Trade("trade-2", quantity: 1), Trade("trade-unknown", quantity: 1)));
+
+        await StaysUnresolved("ExecutionInOperations");
+    }
+
+    [Test]
+    public async Task AnExecutionOfTheCheckedOrderItselfKeepsItUnresolved()
+    {
+        NextMorning();
+        _harness.Orders.Operations.Add(Operation(OperationState.Executed, quantityDone: 1, Trade("trade-1", quantity: 1)));
+
+        await StaysUnresolved("ExecutionInOperations");
+    }
+
+    [Test]
+    public async Task AnOtherOrdersOperationStillExecutingKeepsItUnresolved()
+    {
+        NextMorning();
+        AddExecutedOrder(engineOrderId: 2, lots: 1, "trade-2");
+        _harness.Orders.Operations.Add(Operation(OperationState.Progress, quantityDone: 1, Trade("trade-2", quantity: 1)));
+
+        await StaysUnresolved("ExecutionInOperations");
+    }
+
+    [Test]
+    public async Task AnOperationWhoseTradesDoNotAddUpToItsExecutedQuantityKeepsItUnresolved()
+    {
+        NextMorning();
+        AddExecutedOrder(engineOrderId: 2, lots: 1, "trade-2");
+        _harness.Orders.Operations.Add(Operation(OperationState.Executed, quantityDone: 3, Trade("trade-2", quantity: 1)));
+
+        await StaysUnresolved("ExecutionInOperations");
+    }
+
+    [Test]
+    public async Task AnOperationWithoutATradeNumberKeepsItUnresolved()
+    {
+        NextMorning();
+        AddExecutedOrder(engineOrderId: 2, lots: 1, "trade-2");
+        _harness.Orders.Operations.Add(Operation(OperationState.Executed, quantityDone: 1));
+
+        await StaysUnresolved("ExecutionInOperations");
+
+        _harness.Orders.Operations.Clear();
+        _harness.Orders.Operations.Add(Operation(OperationState.Executed, quantityDone: 1, Trade(string.Empty, quantity: 1)));
+
+        await StaysUnresolved("ExecutionInOperations");
+    }
+
+    [Test]
+    public async Task AnOtherOperationTypeOnTheShareKeepsItUnresolved_EvenWithAKnownTradeNumber()
+    {
+        NextMorning();
+        AddExecutedOrder(engineOrderId: 2, lots: 1, "trade-2");
+        OperationItem fee = Operation(OperationState.Executed, quantityDone: 1, Trade("trade-2", quantity: 1));
+        fee.Type = OperationType.BrokerFee;
+        _harness.Orders.Operations.Add(fee);
+
+        await StaysUnresolved("ExecutionInOperations");
+    }
+
+    [Test]
+    public async Task AnOtherOrderThatT_InvestNoLongerAnswersForExplainsNothing()
+    {
+        NextMorning();
+        TInvestOrderAttempt other = AddExecutedOrder(engineOrderId: 2, lots: 1, "trade-2");
+        _harness.Orders.Forget(other.ExchangeOrderId!);
+        _harness.Orders.Operations.Add(Operation(OperationState.Executed, quantityDone: 1, Trade("trade-2", quantity: 1)));
+
+        await StaysUnresolved("ExecutionInOperations");
+    }
+
+    [Test]
+    public async Task AnOtherOrderWhoseStagesDisagreeWithTheBookedLotsExplainsNothing()
+    {
+        NextMorning();
+        TInvestOrderAttempt other = AddExecutedOrder(engineOrderId: 2, lots: 1, "trade-2");
+        (await _harness.Attempts.Transition(other with { ExecutedLots = 5 }, TInvestOrderAttemptState.Final, CancellationToken.None)).ShouldBeTrue();
+        _harness.Orders.Operations.Add(Operation(OperationState.Executed, quantityDone: 1, Trade("trade-2", quantity: 1)));
 
         await StaysUnresolved("ExecutionInOperations");
     }
@@ -459,7 +591,7 @@ public sealed class TInvestAbsenceProofTests
             () => reconciliation.DegradationDetail.ShouldBe($"AutoCheck:{failedCheck}"),
             () => reconciliation.Updates.ShouldBeEmpty(),
             () => reconciliation.Found.ShouldBeEmpty(),
-            () => _harness.Attempts.All.Single().State.ShouldBe(TInvestOrderAttemptState.Active));
+            () => _harness.Attempts.All.Single(row => row.EngineOrderId == 1).State.ShouldBe(TInvestOrderAttemptState.Active));
     }
 
     private Task<BotReconciliationInternal> Reconcile(decimal? expectedBase, decimal executedBase = 0m)
@@ -486,9 +618,63 @@ public sealed class TInvestAbsenceProofTests
         _harness.Clock.SetUtcNow(new DateTimeOffset(date.ToDateTime(new TimeOnly(hour, minute)), TimeSpan.Zero));
     }
 
-    private static OperationItem Operation(OperationState state, long quantityDone)
+    /// <summary>
+    ///     A final attempt of another engine order of the bot that booked lots, with the exchange order T-Invest still answers
+    ///     for and its trade stages (the lots split over the trades; one lot a trade when there are several).
+    /// </summary>
+    private TInvestOrderAttempt AddExecutedOrder(long engineOrderId, long lots, string firstTrade, params string[] otherTrades)
     {
-        return new OperationItem
+        string[] trades = [firstTrade, .. otherTrades];
+        var exchangeOrderId = $"8590{engineOrderId}1";
+        var requestId = Guid.NewGuid();
+        var state = new OrderState
+        {
+            OrderId = exchangeOrderId,
+            OrderRequestId = requestId.ToString("D"),
+            LotsRequested = lots,
+            LotsExecuted = lots,
+            ExecutionReportStatus = OrderExecutionReportStatus.ExecutionReportStatusFill
+        };
+
+        for (var index = 0; index < trades.Length; index++)
+        {
+            state.Stages.Add(new OrderStage { TradeId = trades[index], Quantity = trades.Length == 1 ? lots : lots / trades.Length });
+        }
+
+        _harness.Orders.KeepByExchangeId(state);
+
+        var added = new TInvestOrderAttempt(
+            _harness.Bot.Value,
+            engineOrderId,
+            Attempt: 1,
+            requestId,
+            TInvestGatewayHarness.ShareUid,
+            OrderSide.Buy,
+            EngineOrderType.Market,
+            lots,
+            Price: null,
+            TInvestOrderAttemptState.Final,
+            exchangeOrderId,
+            BrokerCode: null,
+            TInvestGatewayHarness.Now,
+            TInvestGatewayHarness.Now,
+            ExecutedLots: lots,
+            ExecutedQuote: 100m * lots,
+            ExecutedFee: 1m);
+
+        _harness.Attempts.Add(added, CancellationToken.None).Result.ShouldBeTrue();
+
+        return added;
+    }
+
+    private static OperationItemTrade Trade(string number, long quantity)
+    {
+        return new OperationItemTrade { Num = number, Quantity = quantity };
+    }
+
+    private static OperationItem Operation(OperationState state, long quantityDone, params OperationItemTrade[] trades)
+    {
+        var item = new OperationItem
         {
             Id = Guid.NewGuid().ToString("N"),
             InstrumentUid = TInvestGatewayHarness.ShareUid,
@@ -497,6 +683,14 @@ public sealed class TInvestAbsenceProofTests
             QuantityDone = quantityDone,
             Date = Timestamp.FromDateTimeOffset(TInvestGatewayHarness.Now.AddMinutes(1))
         };
+
+        if (trades.Length > 0)
+        {
+            item.TradesInfo = new OperationItemTrades();
+            item.TradesInfo.Trades.AddRange(trades);
+        }
+
+        return item;
     }
 
     private static (DateOnly Date, List<(string Type, DateTimeOffset From, DateTimeOffset To)> Intervals) Weekday(DateOnly date)
