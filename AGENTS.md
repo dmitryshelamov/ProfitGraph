@@ -15,9 +15,17 @@ bots. It is a module-by-module rebuild of Profit Fox Designer (ADR 0001); the ar
 
 ## Safety
 
-- Agents never request, inspect, copy, store or log real exchange keys, call authenticated exchange endpoints
-  directly, or manually place, amend or cancel real orders. The owner controls bot settings and authorizes changes
-  to each bot's desired state.
+- Agents never request, inspect, copy, store or log real exchange keys, never read or decrypt the stored credentials
+  or the master key, and never manually place, amend or cancel real orders. The owner controls bot settings and
+  authorizes changes to each bot's desired state.
+- Read-only broker checks are allowed under these conditions, all of them: the owner provides a read-only token in the
+  environment of the process (an environment variable the agent never prints or reads; the agent does not ask for the
+  value, take it from the database or write it anywhere); the script calls only methods that read (T-Invest
+  `GetOrders`, `GetOrderState`, `GetOperationsByCursor`, `GetPositions`, `GetAccounts`, `GetBrokerReport` and the
+  equivalent reads of other venues) and none that place, replace or cancel an order; it prints no token, no full
+  account number (the last four digits at most) and no balances beyond what the question needs; its output is kept
+  in the conversation, not in the repository. A script of this kind lives outside the repository (the session's
+  scratchpad). Without a token in the environment the agent prepares the script and the owner runs it.
 - Live trading stays disabled in every committed configuration. Tests use mocked venue clients only.
   Never put secrets, keys or tokens in the repository, logs or test fixtures.
 - Engine and backtest replay must not depend on live code or venue modules.
