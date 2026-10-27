@@ -13,6 +13,11 @@ public interface IStrategyRepository
 
     Task<IReadOnlyList<StrategySummary>> List(UserId ownerId, int limit, CancellationToken cancellationToken);
 
+    /// <summary>
+    ///     Every strategy of every owner, for work the system does on saved strategies (ADR 0038).
+    /// </summary>
+    Task<IReadOnlyList<Strategy>> ListAll(CancellationToken cancellationToken);
+
     Task<StrategyVersion?> GetVersion(StrategyId id, StrategyVersionNumber number, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<StrategyVersion>> GetVersions(StrategyId id, CancellationToken cancellationToken);

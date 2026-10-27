@@ -19,7 +19,10 @@ internal static class BotTestHost
             new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Postgres"] = TestDatabase.ConnectionString,
-                ["Outbox:PollingInterval"] = TimeSpan.FromMilliseconds(50).ToString()
+                ["Outbox:PollingInterval"] = TimeSpan.FromMilliseconds(50).ToString(),
+
+                // The template upgrade is tested by calling its command; a test host's service would change strategies of other tests.
+                ["Strategies:TemplateUpgrades:Enabled"] = "false"
             });
 
         if (settings is not null)

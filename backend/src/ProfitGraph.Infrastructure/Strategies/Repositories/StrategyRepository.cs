@@ -50,6 +50,13 @@ internal sealed class StrategyRepository(
         return rows.Select(row => row.ToDomain()).ToArray();
     }
 
+    public async Task<IReadOnlyList<Strategy>> ListAll(CancellationToken cancellationToken)
+    {
+        IEnumerable<StrategyDb> rows = await connection.QueryAsync<StrategyDb>(StrategyQueries.ListAll(transactions.Current, cancellationToken));
+
+        return rows.Select(row => row.ToDomain()).ToArray();
+    }
+
     public async Task<IReadOnlyList<StrategyVersion>> GetVersions(StrategyId id, CancellationToken cancellationToken)
     {
         IEnumerable<StrategyVersionDb> rows =
