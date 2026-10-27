@@ -120,3 +120,11 @@ Corrections to [ADR 0018](adr/0018-live-risk-controls.md) found in review.
 | Step | Scope | Done when | Status |
 |---|---|---|---|
 | 1. Daily loss across midnight | [ADR 0041](adr/0041-daily-loss-across-midnight.md): the first root of a UTC day takes the previous day's last recorded equity as its baseline and is checked against it; `bots.day_last_equity` | Domain tests kill a `1d` bot and a `1h` bot on a loss across midnight; the root committer kills a bot from the stored last equity | Done |
+
+## Outbox maintenance
+
+Corrections to the outbox of [ADR 0016](adr/0016-live-bot-runtime.md) found in review.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Retention and parked messages | [ADR 0045](adr/0045-outbox-retention-and-parked-messages.md): the Worker's `live` role deletes delivered messages older than 14 days in batches every hour; a message that failed 10 times is parked with its last error, logged without payload and reported by `/api/health/ready` as Degraded; `outbox_messages.parked_at` | Integration tests park a failing message with Degraded readiness and delete only expired delivered messages, batch by batch | Done |
