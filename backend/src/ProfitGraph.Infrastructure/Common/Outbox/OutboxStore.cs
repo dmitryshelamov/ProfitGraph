@@ -11,6 +11,7 @@ internal sealed class OutboxStore(NpgsqlConnection connection, PostgresTransacti
 {
     public Task<int> DeleteDelivered(DateTimeOffset before, int limit, CancellationToken cancellationToken)
     {
-        return connection.ExecuteAsync(new CommandDefinition(OutboxQueries.DeleteDelivered, new { before, limit }, transactions.Current, cancellationToken: cancellationToken));
+        return connection.ExecuteAsync(
+            new CommandDefinition(OutboxQueries.DeleteDelivered, new { before, limit }, transactions.Current, cancellationToken: cancellationToken));
     }
 }

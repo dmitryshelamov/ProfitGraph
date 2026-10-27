@@ -377,11 +377,11 @@ public sealed class OutboxTests
         Guid[] ids = [.. Enumerable.Range(start: 0, count).Select(_ => Guid.NewGuid())];
         await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
         await connection.ExecuteAsync(
-            """
-            INSERT INTO outbox_messages (id, type, payload, created_at, delivered_at, next_attempt_at)
-            SELECT id, 'RetentionTestEvent', '{}', @at, CASE WHEN @delivered THEN @at END, 'infinity'
-            FROM unnest(@ids) AS id
-            """,
+            sql: """
+                 INSERT INTO outbox_messages (id, type, payload, created_at, delivered_at, next_attempt_at)
+                 SELECT id, 'RetentionTestEvent', '{}', @at, CASE WHEN @delivered THEN @at END, 'infinity'
+                 FROM unnest(@ids) AS id
+                 """,
             new { ids, at, delivered });
 
         return ids;
