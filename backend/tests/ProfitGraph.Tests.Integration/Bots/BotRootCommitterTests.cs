@@ -209,17 +209,21 @@ public sealed class BotRootCommitterTests
     }
 
     [Test]
-    public async Task DailyLossIsMeasuredFromTheFirstRootOfEachUtcDay()
+    public async Task DailyLossIsMeasuredFromThePreviousDaysLastStoredEquity()
     {
         (Bot bot, LeaseHolderId holder) = await LeasedBot();
         var day = new DateOnly(year: 2026, month: 10, day: 25);
 
         await Commit(Root(bot, holder, epoch: 1), stored => stored.RecordDayEquity(day, equity: 100m, _clock.Now));
-        await Commit(Root(bot, holder, epoch: 1), stored => stored.RecordDayEquity(day.AddDays(1), equity: 85m, _clock.Now));
-        await Commit(Root(bot, holder, epoch: 1), stored => stored.RecordDayEquity(day.AddDays(1), equity: 80m, _clock.Now));
+        await Commit(Root(bot, holder, epoch: 1), stored => stored.RecordDayEquity(day, equity: 95m, _clock.Now));
+        await Commit(Root(bot, holder, epoch: 1), stored => stored.RecordDayEquity(day.AddDays(1), equity: 86m, _clock.Now));
 
         await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
         (await connection.ExecuteScalarAsync<string?>("SELECT status_reason FROM bots WHERE id = @id", new { id = bot.Id.Value })).ShouldBeNull();
+
+        await Commit(Root(bot, holder, epoch: 1), stored => stored.RecordDayEquity(day.AddDays(1), equity: 85m, _clock.Now));
+
+        (await connection.ExecuteScalarAsync<string?>("SELECT status_reason FROM bots WHERE id = @id", new { id = bot.Id.Value })).ShouldBe("DailyLossLimit");
     }
 
     private static async Task MarkSent(Bot bot)

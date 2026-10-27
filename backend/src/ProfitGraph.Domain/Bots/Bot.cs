@@ -452,8 +452,9 @@ public sealed class Bot : AggregateRoot
     }
 
     /// <summary>
-    ///     Records the equity at a live candle root. The first root of a UTC day sets the baseline; a later root whose
-    ///     loss from it reaches the daily limit kills the bot. Returns whether the bot was killed.
+    ///     Records the equity at a live candle root (ADR 0041). The first root after a start sets the baseline; the first root of a later
+    ///     UTC day takes the previous day's last recorded equity as its baseline, so a loss across midnight counts. Any root whose loss
+    ///     from the day's baseline reaches the daily limit kills the bot. Returns whether the bot was killed.
     /// </summary>
     public bool RecordDayEquity(DateOnly day, decimal equity, DateTimeOffset now)
     {
@@ -462,13 +463,20 @@ public sealed class Bot : AggregateRoot
             return false;
         }
 
-        if (DayBaseline is null || DayBaseline.Day != day)
+        if (DayBaseline is null)
         {
-            DayBaseline = new DailyLossBaseline(day, equity);
-            UpdatedAt = now;
-
-            return false;
+            DayBaseline = new DailyLossBaseline(day, equity, equity);
         }
+        else if (DayBaseline.Day != day)
+        {
+            DayBaseline = new DailyLossBaseline(day, DayBaseline.LastEquity, equity);
+        }
+        else
+        {
+            DayBaseline = DayBaseline with { LastEquity = equity };
+        }
+
+        UpdatedAt = now;
 
         if (DayBaseline.Equity - equity < RiskLimits.DailyLossLimitQuote)
         {

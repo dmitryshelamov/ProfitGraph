@@ -111,3 +111,11 @@ A saved version that adds or removes a parameter reaches running and stopped bot
 | Step | Scope | Done when | Status |
 |---|---|---|---|
 | 1. Values follow the version | A switch fits the run's and the bot's values to the version (new parameter: its default; removed: dropped); a start with changed settings takes them on the latest version in one root; a fresh start fits too; `live-impact` returns the bots' values and the editor names the defaults they take; the feed records the fit | A running bot takes a version with a new parameter and one without it, and a stored run takes the owner's values on the latest version, on the scripted venue | Done on the scripted venue |
+
+## Live risk controls
+
+Corrections to [ADR 0018](adr/0018-live-risk-controls.md) found in review.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Daily loss across midnight | [ADR 0041](adr/0041-daily-loss-across-midnight.md): the first root of a UTC day takes the previous day's last recorded equity as its baseline and is checked against it; `bots.day_last_equity` | Domain tests kill a `1d` bot and a `1h` bot on a loss across midnight; the root committer kills a bot from the stored last equity | Done |
