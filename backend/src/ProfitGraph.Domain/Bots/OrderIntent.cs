@@ -51,6 +51,12 @@ public sealed class OrderIntent : AggregateRoot
     public UserId? ConfirmedAbsentBy { get; private set; }
 
     /// <summary>
+    ///     True when the gateway closed the order on its own evidence instead of the owner's confirmation (ADR 0030): then
+    ///     <see cref="ConfirmedAbsentAt" /> is set and <see cref="ConfirmedAbsentBy" /> is not.
+    /// </summary>
+    public bool ConfirmedAbsentAutomatically { get; private set; }
+
+    /// <summary>
     ///     Why a deferred submit waits; its next check is <see cref="NextAttemptAt" />.
     /// </summary>
     public OrderDeferral? Deferral { get; private set; }
@@ -128,6 +134,7 @@ public sealed class OrderIntent : AggregateRoot
             Rejection = snapshot.Rejection,
             ConfirmedAbsentAt = snapshot.ConfirmedAbsentAt,
             ConfirmedAbsentBy = snapshot.ConfirmedAbsentBy,
+            ConfirmedAbsentAutomatically = snapshot.ConfirmedAbsentAutomatically,
             Deferral = snapshot.Deferral
         };
     }
@@ -372,6 +379,25 @@ public sealed class OrderIntent : AggregateRoot
     }
 
     /// <summary>
+    ///     The gateway proved by itself that a delivered submit, which the venue had accepted, was removed by the venue and
+    ///     executed nothing, and closes it without the owner (ADR 0030). The intent stays delivered; <paramref name="checks" />
+    ///     are the codes of the evidence, recorded in the event for the bot's feed.
+    /// </summary>
+    public void ConfirmExpiredAutomatically(IReadOnlyList<string> checks, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(checks);
+
+        if (Kind != OrderIntentKind.Submit || PlaceStartedAt is null || ConfirmedAbsentAt is not null || Status != OrderIntentStatus.Sent || checks.Count == 0)
+        {
+            throw Invalid("Only a delivered submit is closed automatically, once, with the checks that justify it.");
+        }
+
+        ConfirmedAbsentAt = now;
+        ConfirmedAbsentAutomatically = true;
+        AddDomainEvent(new OrderIntentAbsenceProven(BotId, Id, EngineOrderId, [.. checks], now));
+    }
+
+    /// <summary>
     ///     A failed submit that never left the process may be tried again from the start. Returns whether it was reset.
     /// </summary>
     public bool ResetUnsentFailure()
@@ -408,7 +434,8 @@ public sealed class OrderIntent : AggregateRoot
             CreatedAt,
             ConfirmedAbsentAt,
             ConfirmedAbsentBy,
-            Deferral);
+            Deferral,
+            ConfirmedAbsentAutomatically);
     }
 
     private void RejectNow(OrderIntentRejection rejection, DateTimeOffset now)

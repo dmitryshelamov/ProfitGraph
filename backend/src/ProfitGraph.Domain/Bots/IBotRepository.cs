@@ -25,6 +25,12 @@ public interface IBotRepository
     Task<IReadOnlyList<BotId>> ListDesiredRunning(CancellationToken cancellationToken);
 
     /// <summary>
+    ///     The bots that should run and are degraded with an unresolved order, which only a check of the venue or the owner can
+    ///     clear (ADR 0030).
+    /// </summary>
+    Task<IReadOnlyList<BotId>> ListDegradedOnUnresolvedOrder(CancellationToken cancellationToken);
+
+    /// <summary>
     ///     The distinct instruments of the bots that should run.
     /// </summary>
     Task<IReadOnlyList<LiveInstrument>> ListDesiredRunningInstruments(CancellationToken cancellationToken);

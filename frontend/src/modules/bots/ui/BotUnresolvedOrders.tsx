@@ -10,8 +10,10 @@ import { botKeys, botUnresolvedOrdersQuery, confirmOrderAbsent } from '../api/bo
 
 /**
  * Submits whose delivery to the venue is unknown, and orders the venue accepted but no longer knows (an expired day
- * order). The owner may confirm one absent after checking the account on the venue; restarting the bot then looks it up
- * again and closes it only when the venue shows nothing. Shown only while there are any.
+ * order). For an accepted order the bot checks the venue's own records itself and closes the order when every check holds
+ * (ADR 0030); the owner's confirmation is the fallback. The owner may confirm one absent after checking the account on the
+ * venue; restarting the bot then looks it up again and closes it only when the venue shows nothing. Shown only while there
+ * are any.
  */
 export function BotUnresolvedOrders({ botId }: { botId: string }) {
   const queryClient = useQueryClient();
@@ -51,6 +53,14 @@ export function BotUnresolvedOrders({ botId }: { botId: string }) {
                 </span>
               )}
             </p>
+            {order.acceptedByVenue && !order.confirmedAbsentAt && order.canConfirmAbsent && (
+              <p className="text-muted">
+                Бот проверяет такие заявки сам, каждые 5 минут, и закроет эту без вашего
+                подтверждения, когда выполнится всё: биржа её не знает, торговый день закончился, в
+                операциях по счёту нет исполнений, а позиция по бумаге равна ожидаемой. Если он её
+                не закрыл, причина записана в ленте. Подтверждение ниже — запасной путь.
+              </p>
+            )}
             {order.confirmedAbsentAt ? (
               <p className="text-muted">
                 {order.acceptedByVenue

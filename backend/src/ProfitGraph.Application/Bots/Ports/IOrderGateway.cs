@@ -41,4 +41,15 @@ public interface IOrderGateway : IVenuePort
     ///     trade, a safety reason. A venue that cannot answer now throws, and the runner tries again later.
     /// </summary>
     Task<BotReconciliationInternal> Reconcile(BotReconcileInternal request, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Whether the gateway would close, on its own evidence and without the owner, every order of the request that the
+    ///     venue cannot confirm (ADR 0030). Only reads: nothing is sent to the venue, the module's own records stay as they
+    ///     are, and no stream is opened. False for a gateway that does not prove absences, and when any check fails or cannot
+    ///     be read now.
+    /// </summary>
+    Task<bool> CanProveAbsence(BotReconcileInternal request, CancellationToken cancellationToken)
+    {
+        return Task.FromResult(false);
+    }
 }

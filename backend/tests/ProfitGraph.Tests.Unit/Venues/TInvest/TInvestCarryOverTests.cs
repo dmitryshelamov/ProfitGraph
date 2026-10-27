@@ -126,6 +126,88 @@ public sealed class TInvestCarryOverTests
     }
 
     [Test]
+    public async Task ADayOrderOfABotNobodyRunsIsLeftAloneWhenTheCoreDoesNotAllowTheCarryOver()
+    {
+        _harness.Orders.Schedule.Add(Weekday(Tuesday));
+        await Reconcile();
+        await Submit(TInvestGatewayHarness.Limit(id: 1, OrderSide.Buy, quantity: 30m, price: 100m));
+        await _harness.Streams.Close(_harness.Bot);
+
+        At(Tuesday, hour: 20, minute: 45, second: 0);
+        await _harness.Worker.Round(CancellationToken.None);
+
+        _harness.Orders.Cancelled.ShouldBeEmpty();
+        _harness.Attempts.All.ShouldHaveSingleItem().State.ShouldBe(TInvestOrderAttemptState.Active);
+    }
+
+    [Test]
+    public async Task ADayOrderOfABotNobodyRunsIsCarriedOverWhenTheCoreAllowsIt_AndTheNextStartHearsTheFillsOfTheCancelledAttempt()
+    {
+        _harness.Orders.Schedule.Add(Weekday(Tuesday));
+        _harness.Orders.Schedule.Add(Weekday(Tuesday.AddDays(1)));
+        await Reconcile();
+        await Submit(TInvestGatewayHarness.Limit(id: 1, OrderSide.Buy, quantity: 30m, price: 100m));
+        string first = _harness.Orders.Posted.Single().OrderId;
+        _harness.Orders.Fill(first, lots: 1, price: 99.5m, commission: 0.5m);
+        await _harness.Streams.Close(_harness.Bot);
+        _harness.Waits.MayCarryOver = true;
+
+        At(Tuesday, hour: 20, minute: 44, second: 30);
+        await _harness.Worker.Round(CancellationToken.None);
+
+        _harness.Orders.Cancelled.ShouldHaveSingleItem().OrderId.ShouldBe(first);
+        _harness.Attempts.All.Select(attempt => (attempt.Attempt, attempt.State, attempt.Lots, attempt.WaitingCode, attempt.ExecutedLots))
+            .ShouldBe(
+            [
+                (1, TInvestOrderAttemptState.Final, 3L, null, 1L),
+                (2, TInvestOrderAttemptState.Planned, 2L, (OrderWaitingCode?)OrderWaitingCode.CarryOver, 0L)
+            ]);
+
+        At(Tuesday.AddDays(1), hour: 4, minute: 0, second: 0);
+        BotReconciliationInternal reconciliation = await Reconcile(
+            new ReconcileOrderInternal(EngineOrderId: 1, _harness.Gateway.ClientOrderIdFor(_harness.Bot, engineOrderId: 1), MayHaveReachedVenue: true));
+
+        reconciliation.ShouldSatisfyAllConditions(
+            () => reconciliation.Degradation.ShouldBeNull(),
+            () => reconciliation.Updates.ShouldBe(
+            [
+                ExternalOrderUpdate.Accept(orderId: 1),
+                ExternalOrderUpdate.Partial(orderId: 1, grossBase: 10m, grossQuote: 995m, fee: 0.5m, commissionPartitioned: true),
+                ExternalOrderUpdate.AcceptLocally(orderId: 1)
+            ]),
+            () => reconciliation.Found.ShouldHaveSingleItem().IsFinal.ShouldBeFalse());
+    }
+
+    [Test]
+    public async Task AnOrderFilledWhileNobodyRanIsFinalAtTheNextStartEvenThoughTInvestNoLongerAnswersForIt()
+    {
+        _harness.Orders.Schedule.Add(Weekday(Tuesday));
+        await Reconcile();
+        await Submit(TInvestGatewayHarness.Limit(id: 1, OrderSide.Sell, quantity: 10m, price: 101m));
+        string first = _harness.Orders.Posted.Single().OrderId;
+        await _harness.Streams.Close(_harness.Bot);
+        _harness.Waits.MayCarryOver = true;
+        _harness.Orders.Fill(first, lots: 1, price: 101m, commission: 0.5m);
+
+        At(Tuesday, hour: 20, minute: 45, second: 0);
+        await _harness.Worker.Round(CancellationToken.None);
+        _harness.Orders.Vanish(first);
+        At(Tuesday.AddDays(1), hour: 4, minute: 0, second: 0);
+
+        BotReconciliationInternal reconciliation = await Reconcile(
+            new ReconcileOrderInternal(EngineOrderId: 1, _harness.Gateway.ClientOrderIdFor(_harness.Bot, engineOrderId: 1), MayHaveReachedVenue: true));
+
+        reconciliation.ShouldSatisfyAllConditions(
+            () => reconciliation.Degradation.ShouldBeNull(),
+            () => reconciliation.Updates.ShouldBe(
+            [
+                ExternalOrderUpdate.Accept(orderId: 1),
+                ExternalOrderUpdate.Final(orderId: 1, grossBase: 10m, grossQuote: 1010m, fee: 0.5m, commissionPartitioned: true)
+            ]),
+            () => reconciliation.Found.ShouldHaveSingleItem().IsFinal.ShouldBeTrue());
+    }
+
+    [Test]
     public async Task AHolidayIntervalCountsAsClosed_EvenWhileTheStatusIsOpen()
     {
         _harness.Orders.Schedule.Add(

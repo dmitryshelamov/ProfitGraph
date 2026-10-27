@@ -35,7 +35,8 @@ internal static class OrderIntentDbConverter
                 row.ConfirmedAbsentBy is { } by ? new UserId(by) : null,
                 row.DeferralCode is null
                     ? null
-                    : new OrderDeferral(Enum.Parse<OrderWaitingCode>(row.DeferralCode), row.DeferralSince!.Value, row.DeferralUntil, row.DeferralLow, row.DeferralHigh)));
+                    : new OrderDeferral(Enum.Parse<OrderWaitingCode>(row.DeferralCode), row.DeferralSince!.Value, row.DeferralUntil, row.DeferralLow, row.DeferralHigh),
+                row.ConfirmedAbsentAutomatically));
     }
 
     public static OrderIntentDb ToDb(this OrderIntent intent)
@@ -62,6 +63,7 @@ internal static class OrderIntentDbConverter
             CreatedAt = snapshot.CreatedAt,
             ConfirmedAbsentAt = snapshot.ConfirmedAbsentAt,
             ConfirmedAbsentBy = snapshot.ConfirmedAbsentBy?.Value,
+            ConfirmedAbsentAutomatically = snapshot.ConfirmedAbsentAutomatically,
             DeferralCode = snapshot.Deferral?.Code.ToString(),
             DeferralSince = snapshot.Deferral?.Since,
             DeferralUntil = snapshot.Deferral?.Until,

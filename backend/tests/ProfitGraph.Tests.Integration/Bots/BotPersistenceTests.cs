@@ -173,6 +173,50 @@ public sealed class BotPersistenceTests
     }
 
     [Test]
+    public async Task AnIntentTheGatewayClosedOnItsOwnEvidenceRoundTripsWithNoConfirmingUser()
+    {
+        Bot bot = await BotSeed.NewBot();
+        OrderIntent submit = OrderIntent.Submit(OrderIntentId.New(), bot.Id, BotSeed.MarketBuy(id: 4), new ClientOrderId("pg-4"), BotSeed.Now);
+        await InTransaction(async services =>
+        {
+            await services.GetRequiredService<IBotRepository>().Add(bot, CancellationToken.None);
+            await services.GetRequiredService<IOrderIntentRepository>().TryAdd(submit, CancellationToken.None);
+        });
+        await InTransaction(async services =>
+        {
+            var intents = services.GetRequiredService<IOrderIntentRepository>();
+            OrderIntent locked = (await intents.GetForUpdate(submit.Id, CancellationToken.None)).ShouldNotBeNull();
+            locked.Claim(BotSeed.Now);
+            locked.MarkPlaceStarted(BotSeed.Now);
+            locked.MarkSent(BotSeed.Now);
+            locked.ConfirmExpiredAutomatically(["NotFoundByRequestId", "TradingDayEnded"], BotSeed.Now);
+            await intents.Update(locked, CancellationToken.None);
+        });
+
+        OrderIntent stored = (await Read(services => services.GetRequiredService<IOrderIntentRepository>().ListByBot(bot.Id, CancellationToken.None))).Single();
+
+        stored.ShouldSatisfyAllConditions(
+            () => stored.ConfirmedAbsentAt.ShouldBe(BotSeed.Now),
+            () => stored.ConfirmedAbsentBy.ShouldBeNull(),
+            () => stored.ConfirmedAbsentAutomatically.ShouldBeTrue(),
+            () => stored.Status.ShouldBe(OrderIntentStatus.Sent));
+    }
+
+    [Test]
+    public async Task OnlyBotsThatShouldRunAndStoppedOnAnUnresolvedOrderAreListedForTheRecheck()
+    {
+        Bot unresolved = await DegradedBot(BotStatusReason.UnresolvedOrder);
+        Bot foreign = await DegradedBot(BotStatusReason.ForeignOrder);
+        Bot ownerStopped = await DegradedBot(BotStatusReason.UnresolvedOrder, stop: true);
+
+        IReadOnlyList<BotId> listed = await Read(services => services.GetRequiredService<IBotRepository>().ListDegradedOnUnresolvedOrder(CancellationToken.None));
+
+        listed.ShouldContain(unresolved.Id);
+        listed.ShouldNotContain(foreign.Id);
+        listed.ShouldNotContain(ownerStopped.Id);
+    }
+
+    [Test]
     public async Task HaltIsASingleStoredRow()
     {
         await InTransaction(async services =>
@@ -194,6 +238,25 @@ public sealed class BotPersistenceTests
 
         stored.IsHalted.ShouldBeTrue();
         stored.UpdatedAt.ShouldBe(BotSeed.Now);
+    }
+
+    private async Task<Bot> DegradedBot(BotStatusReason reason, bool stop = false)
+    {
+        Bot bot = await BotSeed.NewBot();
+        bot.Start(bot.StrategyVersionId, hasCheckpoint: false, tradingHalted: false, BotSeed.Now);
+        bot.RecordLeaseAcquired(BotSeed.Now);
+        bot.MarkStarting(BotSeed.Now);
+        bot.MarkRunning(BotSeed.Now);
+        bot.Degrade(reason, BotSeed.Now);
+
+        if (stop)
+        {
+            bot.Stop(BotSeed.Now);
+        }
+
+        await InTransaction(services => services.GetRequiredService<IBotRepository>().Add(bot, CancellationToken.None));
+
+        return bot;
     }
 
     private Task InTransaction(Func<IServiceProvider, Task> action)

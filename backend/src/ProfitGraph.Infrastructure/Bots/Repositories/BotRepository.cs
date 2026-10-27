@@ -60,6 +60,13 @@ internal sealed class BotRepository(NpgsqlConnection connection, PostgresTransac
         return [.. ids.Select(id => new BotId(id))];
     }
 
+    public async Task<IReadOnlyList<BotId>> ListDegradedOnUnresolvedOrder(CancellationToken cancellationToken)
+    {
+        IEnumerable<Guid> ids = await connection.QueryAsync<Guid>(Command(BotQueries.ListDegradedOnUnresolvedOrder, parameters: null, cancellationToken));
+
+        return [.. ids.Select(id => new BotId(id))];
+    }
+
     public async Task<IReadOnlyList<BotId>> ListDesiredRunningOnSeries(CandleSeries series, CancellationToken cancellationToken)
     {
         IEnumerable<Guid> ids = await connection.QueryAsync<Guid>(

@@ -8,6 +8,7 @@ internal static class OrderIntentQueries
                                    next_attempt_at AS NextAttemptAt, claimed_at AS ClaimedAt, place_started_at AS PlaceStartedAt,
                                    sent_at AS SentAt, rejection_reason AS RejectionReason, rejection_message AS RejectionMessage,
                                    created_at AS CreatedAt, confirmed_absent_at AS ConfirmedAbsentAt, confirmed_absent_by AS ConfirmedAbsentBy,
+                                   confirmed_absent_automatically AS ConfirmedAbsentAutomatically,
                                    deferral_code AS DeferralCode, deferral_since AS DeferralSince, deferral_until AS DeferralUntil,
                                    deferral_low AS DeferralLow, deferral_high AS DeferralHigh
                                    """;
@@ -37,7 +38,8 @@ internal static class OrderIntentQueries
                                        status = @Status, attempts = @Attempts, next_attempt_at = @NextAttemptAt, claimed_at = @ClaimedAt,
                                        place_started_at = @PlaceStartedAt, sent_at = @SentAt, rejection_reason = @RejectionReason,
                                        rejection_message = @RejectionMessage, confirmed_absent_at = @ConfirmedAbsentAt,
-                                       confirmed_absent_by = @ConfirmedAbsentBy, deferral_code = @DeferralCode, deferral_since = @DeferralSince,
+                                       confirmed_absent_by = @ConfirmedAbsentBy, confirmed_absent_automatically = @ConfirmedAbsentAutomatically,
+                                       deferral_code = @DeferralCode, deferral_since = @DeferralSince,
                                        deferral_until = @DeferralUntil, deferral_low = @DeferralLow, deferral_high = @DeferralHigh
                                    WHERE id = @Id
                                    """;

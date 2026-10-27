@@ -302,7 +302,7 @@ withdrawals); and that the endpoint certificate is still issued by the Russian T
   after fills of an earlier attempt is unresolved.
 - **Who cancelled.** An owner or strategy cancel records `cancelled_by = Owner` before its request and wins over a
   carry-over in progress. Its cancellation ends the engine order, and a cancel of a waiting remainder stays local. A
-  cancellation with no recorded reason, such as a DAY order the exchange expired, is `UnresolvedOrder`; the owner ends it as ADR 0028 describes.
+  cancellation with no recorded reason, such as a DAY order the exchange expired, is `UnresolvedOrder`; the owner ends it as ADR 0028 describes, and ADR 0030 lets the bot close it when the broker's records prove it.
 - **Unknown days.** A day with an unknown token, or no schedule, plans no carry-over. Its DAY orders expire at the
   exchange, so the bot degrades with `UnresolvedOrder`, which alerts the owner. There is no separate schedule alert.
 - **Not modelled.** No separate read at the scheduled opening: the 30-second recheck covers it. Holiday weekday

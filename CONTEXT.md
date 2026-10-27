@@ -166,6 +166,13 @@ A bot's working order that its venue holds locally instead of at the venue, with
 session, a carry-over to the next session, a settlement hold and the like. The strategy sees it as working; the bot page
 and the feed say why it waits.
 
+### Unresolved Order
+
+An order of a bot whose state at the venue the bot cannot establish (`Degraded/UnresolvedOrder`): a submit whose delivery is
+unknown, or an accepted order the venue no longer knows. The bot stops. The owner may confirm the order absent after checking
+the venue; where a venue's own records can prove it, the bot closes the order itself and the feed lists the checks that held
+(ADR 0030).
+
 ### Kill Switch
 
 A per-bot control, or the global trading halt, that stops bots at once, cancels their open orders and rejects

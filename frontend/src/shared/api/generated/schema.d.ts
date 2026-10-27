@@ -3617,7 +3617,7 @@ export interface components {
             occurredAt: string;
         };
         /** @enum {unknown} */
-        BotFeedKind: "Started" | "Stopped" | "Killed" | "Degraded" | "Recovered" | "RuntimeStopped" | "RunRestarted" | "GraphVersionApplied" | "GraphChangeRejected" | "FeedStalled" | "FeedRecovered" | "ExchangeUnavailable" | "SubmitHeld" | "OrderPlaced" | "OrderRejected" | "OrderFailed" | "OrderAbsenceConfirmed" | "Fill" | "PositionOpened" | "PositionClosed" | "SettingsChanged" | "FeeCorrected" | "OrderWaiting" | "OrderWaitingEnded" | "HistoryRestated";
+        BotFeedKind: "Started" | "Stopped" | "Killed" | "Degraded" | "Recovered" | "RuntimeStopped" | "RunRestarted" | "GraphVersionApplied" | "GraphChangeRejected" | "FeedStalled" | "FeedRecovered" | "ExchangeUnavailable" | "SubmitHeld" | "OrderPlaced" | "OrderRejected" | "OrderFailed" | "OrderAbsenceConfirmed" | "Fill" | "PositionOpened" | "PositionClosed" | "SettingsChanged" | "FeeCorrected" | "OrderWaiting" | "OrderWaitingEnded" | "HistoryRestated" | "OrderAbsenceProven";
         BotFeedPageResponse: {
             items: components["schemas"]["BotFeedEntryResponse"][];
             /** Format: int64 */

@@ -120,6 +120,7 @@ const feedLabels: Record<BotFeedKind, string> = {
   OrderRejected: 'Заявка отклонена',
   OrderFailed: 'Заявку не удалось доставить',
   OrderAbsenceConfirmed: 'Владелец подтвердил: заявки на бирже нет',
+  OrderAbsenceProven: 'Заявка закрыта автоматически',
   Fill: 'Исполнение',
   PositionOpened: 'Позиция открыта',
   PositionClosed: 'Позиция закрыта',

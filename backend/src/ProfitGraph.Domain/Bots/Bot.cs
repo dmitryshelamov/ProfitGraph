@@ -408,6 +408,30 @@ public sealed class Bot : AggregateRoot
     }
 
     /// <summary>
+    ///     Returns a bot that should run and stopped on an unresolved order to Created, once the venue's evidence shows that the
+    ///     automatic check would close the order (ADR 0030), so the runtime takes it again and its reconciliation closes the
+    ///     order before anything is sent. A stopped bot, or any other reason, is left as it is: only the owner starts a bot.
+    ///     Returns whether the bot changed.
+    /// </summary>
+    public bool ClearUnresolvedOrder(DateTimeOffset now)
+    {
+        if (DesiredState != BotDesiredState.Running || !IsDegraded || StatusReason != BotStatusReason.UnresolvedOrder)
+        {
+            return false;
+        }
+
+        RuntimeStatus = BotRuntimeStatus.Created;
+        StatusReason = null;
+        Diagnostics = BotDiagnostics.None;
+        RestartAttempts = 0;
+        NextRestartAt = null;
+        UpdatedAt = now;
+        AddDomainEvent(new BotRecovered(Id, now));
+
+        return true;
+    }
+
+    /// <summary>
     ///     Records that the bot continued on a restated last closed candle (ADR 0029).
     /// </summary>
     public void RecordHistoryRestated(DateTimeOffset openTime, decimal previousClose, decimal restatedClose, DateTimeOffset now)
