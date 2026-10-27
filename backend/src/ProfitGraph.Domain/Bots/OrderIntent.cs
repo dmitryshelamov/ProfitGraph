@@ -355,6 +355,23 @@ public sealed class OrderIntent : AggregateRoot
     }
 
     /// <summary>
+    ///     The owner confirms that a delivered submit, which the venue had accepted, was removed by the venue on its own
+    ///     (an expired day order) and executed nothing. The intent stays delivered; the next reconciliation decides, and
+    ///     only for the venue that checks it (ADR 0028).
+    /// </summary>
+    public void ConfirmExpired(UserId owner, DateTimeOffset now)
+    {
+        if (Kind != OrderIntentKind.Submit || PlaceStartedAt is null || ConfirmedAbsentAt is not null || Status != OrderIntentStatus.Sent)
+        {
+            throw Invalid("Only a delivered submit is confirmed expired, once.");
+        }
+
+        ConfirmedAbsentAt = now;
+        ConfirmedAbsentBy = owner;
+        AddDomainEvent(new OrderIntentAbsenceConfirmed(BotId, Id, EngineOrderId, owner, now));
+    }
+
+    /// <summary>
     ///     A failed submit that never left the process may be tried again from the start. Returns whether it was reset.
     /// </summary>
     public bool ResetUnsentFailure()

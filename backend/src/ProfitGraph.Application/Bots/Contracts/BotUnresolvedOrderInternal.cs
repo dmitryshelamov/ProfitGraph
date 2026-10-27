@@ -3,8 +3,9 @@ using ProfitGraph.Engine.Accounting;
 namespace ProfitGraph.Application.Bots.Contracts;
 
 /// <summary>
-///     A submit whose delivery to the venue is unknown, with the engine's order and whether the owner may confirm it absent
-///     now.
+///     A submit whose delivery to the venue is unknown, or an order the venue accepted and the bot can no longer account for,
+///     with the engine's order and whether the owner may confirm it absent now. <see cref="AcceptedByVenue" /> tells the
+///     second case: the owner then confirms that the venue removed the order and nothing was executed.
 /// </summary>
 public sealed record BotUnresolvedOrderInternal(
     Guid IntentId,
@@ -17,4 +18,5 @@ public sealed record BotUnresolvedOrderInternal(
     DateTimeOffset CreatedAt,
     DateTimeOffset? PlaceStartedAt,
     bool CanConfirmAbsent,
-    DateTimeOffset? ConfirmedAbsentAt);
+    DateTimeOffset? ConfirmedAbsentAt,
+    bool AcceptedByVenue);

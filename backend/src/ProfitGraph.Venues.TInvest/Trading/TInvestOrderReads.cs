@@ -38,6 +38,34 @@ internal sealed class TInvestOrderReads(TInvestTransport transport)
         }
     }
 
+    /// <summary>
+    ///     The order T-Invest knows under its exchange order ID, or null when it reports none (ADR 0028): a second, independent
+    ///     key for an order the request ID no longer finds.
+    /// </summary>
+    public async Task<OrderState?> ByExchangeOrderId(TInvestBotContext context, string exchangeOrderId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await transport.Unary(
+                context.Token,
+                TInvestMethodGroup.Orders,
+                (invoker, options) => new OrdersService.OrdersServiceClient(invoker).GetOrderStateAsync(
+                    new GetOrderStateRequest
+                    {
+                        AccountId = context.AccountId,
+                        OrderId = exchangeOrderId,
+                        OrderIdType = OrderIdType.Exchange,
+                        PriceType = PriceType.Currency
+                    },
+                    options),
+                cancellationToken);
+        }
+        catch (TInvestRpcException error) when (error.Kind == TInvestFailureKind.NotFound)
+        {
+            return null;
+        }
+    }
+
     public async Task<IReadOnlyList<OrderState>> Active(TInvestBotContext context, CancellationToken cancellationToken)
     {
         GetOrdersResponse response = await transport.Unary(

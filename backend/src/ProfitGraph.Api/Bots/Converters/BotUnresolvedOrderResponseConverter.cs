@@ -19,6 +19,7 @@ internal static class BotUnresolvedOrderResponseConverter
             order.CreatedAt,
             order.PlaceStartedAt,
             order.CanConfirmAbsent,
-            order.ConfirmedAbsentAt);
+            order.ConfirmedAbsentAt,
+            order.AcceptedByVenue);
     }
 }

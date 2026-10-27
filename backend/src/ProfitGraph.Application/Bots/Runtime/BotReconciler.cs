@@ -71,7 +71,7 @@ public sealed class BotReconciler(IOrderIntentRepository intents, ISender sender
     /// <summary>
     ///     Engine orders that are not final, and orders of submits and cancels whose delivery may have happened or failed.
     ///     An order may have reached the venue once the engine saw it accepted or a place request may have left. A submit the
-    ///     owner confirmed absent says so, for the gateway to check.
+    ///     owner confirmed absent, or an accepted order the owner confirmed removed by the venue, says so, for the gateway to check.
     /// </summary>
     private static IReadOnlyList<ReconcileOrderInternal> Orders(BotId botId, BotEngineSession session, IOrderGateway gateway, IReadOnlyList<OrderIntent> stored)
     {
@@ -107,7 +107,7 @@ public sealed class BotReconciler(IOrderIntentRepository intents, ISender sender
                 pair.Value || stored.Any(intent => intent.Kind == OrderIntentKind.Submit && intent.EngineOrderId == pair.Key &&
                     (intent.PlaceStartedAt is not null || intent.Status == OrderIntentStatus.Sent)),
                 stored.Any(intent => intent is { Kind: OrderIntentKind.Submit, ConfirmedAbsentAt: not null } && intent.EngineOrderId == pair.Key &&
-                    intent.Status is OrderIntentStatus.Pending or OrderIntentStatus.Failed)))
+                    intent.Status is OrderIntentStatus.Pending or OrderIntentStatus.Failed or OrderIntentStatus.Sent)))
         ];
     }
 }

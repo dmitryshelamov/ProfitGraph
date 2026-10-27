@@ -9,9 +9,9 @@ import { DateTime } from '@/shared/ui/DateTime';
 import { botKeys, botUnresolvedOrdersQuery, confirmOrderAbsent } from '../api/botsApi';
 
 /**
- * Submits whose delivery to the venue is unknown. The owner may confirm one absent after checking the account on the
- * venue; restarting the bot then looks it up again and rejects it only when the venue shows nothing. Shown only while
- * there are any.
+ * Submits whose delivery to the venue is unknown, and orders the venue accepted but no longer knows (an expired day
+ * order). The owner may confirm one absent after checking the account on the venue; restarting the bot then looks it up
+ * again and closes it only when the venue shows nothing. Shown only while there are any.
  */
 export function BotUnresolvedOrders({ botId }: { botId: string }) {
   const queryClient = useQueryClient();
@@ -53,23 +53,28 @@ export function BotUnresolvedOrders({ botId }: { botId: string }) {
             </p>
             {order.confirmedAbsentAt ? (
               <p className="text-muted">
-                Отсутствие подтверждено <DateTime value={order.confirmedAbsentAt} />. Нажмите
-                «Перезапустить»: бот ещё раз проверит биржу и закроет заявку, только если её там
-                нет.
+                {order.acceptedByVenue
+                  ? 'Снятие заявки биржей подтверждено'
+                  : 'Отсутствие подтверждено'}{' '}
+                <DateTime value={order.confirmedAbsentAt} />. Нажмите «Перезапустить»: бот ещё раз
+                проверит биржу и закроет заявку, только если её там нет.
               </p>
             ) : order.canConfirmAbsent ? (
               confirming === order.intentId ? (
                 <div className="space-y-2">
                   <p className="text-muted">
-                    Подтверждайте, только если на бирже нет ни этой заявки, ни её исполнения: ни
-                    запроса на покупку, ни покупки в истории, ни ожидающего подтверждения.
+                    {order.acceptedByVenue
+                      ? 'Биржа приняла эту заявку, но теперь её не знает: так бывает, когда дневную заявку снимают в конце торгового дня, пока бот не работает. Подтверждайте, только если в приложении брокера заявки нет среди активных, а в операциях и в позиции нет её исполнения, даже частичного.'
+                      : 'Подтверждайте, только если на бирже нет ни этой заявки, ни её исполнения: ни запроса на покупку, ни покупки в истории, ни ожидающего подтверждения.'}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <Button
                       disabled={confirm.isPending}
                       onClick={() => confirm.mutate(order.intentId)}
                     >
-                      Подтвердить: заявки на бирже нет
+                      {order.acceptedByVenue
+                        ? 'Подтвердить: заявка снята, исполнения не было'
+                        : 'Подтвердить: заявки на бирже нет'}
                     </Button>
                     <Button variant="ghost" onClick={() => setConfirming(null)}>
                       Отмена
@@ -78,9 +83,13 @@ export function BotUnresolvedOrders({ botId }: { botId: string }) {
                 </div>
               ) : (
                 <Button variant="ghost" onClick={() => setConfirming(order.intentId)}>
-                  Заявки на бирже нет
+                  {order.acceptedByVenue ? 'Заявка снята биржей' : 'Заявки на бирже нет'}
                 </Button>
               )
+            ) : order.acceptedByVenue ? (
+              <p className="text-muted">
+                Подтвердить нельзя: по заявке уже есть исполнение. Сверьте её в приложении брокера.
+              </p>
             ) : (
               <p className="text-muted">Бот ждёт, пока биржа покажет, что стало с заявкой.</p>
             )}

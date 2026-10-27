@@ -30,6 +30,13 @@ public interface IVenueDescriptor
     bool ConfirmsOrderAbsence => false;
 
     /// <summary>
+    ///     Whether the owner may confirm that an order the venue had accepted was removed by the venue itself, such as an
+    ///     expired day order, with nothing executed: the venue's gateway then checks that the venue no longer knows the order
+    ///     before the engine cancels it locally (ADR 0028). False for a venue whose gateway does not check.
+    /// </summary>
+    bool ConfirmsExpiredOrders => false;
+
+    /// <summary>
     ///     Turns user input into the venue's canonical symbol, or reports that the input is not a symbol of this venue.
     /// </summary>
     bool TryParseSymbol(string? input, [NotNullWhen(true)] out InstrumentSymbol? symbol);
