@@ -223,7 +223,7 @@ public sealed class BotEngineSession
     /// <summary>
     ///     Applies one venue update against the last closed candle and drains the events it causes.
     /// </summary>
-    public async Task ProcessExternalUpdate(ExternalOrderUpdate update, CancellationToken cancellationToken)
+    public async Task ProcessExternalUpdate(ExternalOrderUpdate update, CancellationToken cancellationToken, bool resumeAfterVenueCancel = true)
     {
         if (Checkpoint is null || LastCandle is null)
         {
@@ -239,11 +239,21 @@ public sealed class BotEngineSession
             _lastCandleIndex + 1);
 
         // The venue reports fills as they happen, so the position opens at the candle the fill falls in.
-        _dispatcher.ApplyExternalOrderUpdate(
+        IReadOnlyList<EventOccurrence> occurrences = _dispatcher.ApplyExternalOrderUpdate(
             update,
             context,
             update.Kind is ExternalOrderUpdateKind.PartialFill or ExternalOrderUpdateKind.FinalFill ? _clock.GetUtcNow() : null);
         _dispatcher.Drain(cancellationToken);
+
+        // An order the venue cancelled without the engine asking (the owner's cancel at the broker) leaves the strategy's grid short of
+        // an order: one more resume lets the strategy restore it (ADR 0039). The engine's own cancels also complete a pending cancel.
+        if (resumeAfterVenueCancel &&
+            occurrences.Any(occurrence => occurrence.Kind == EventKind.Cancelled) &&
+            occurrences.All(occurrence => occurrence.Kind != EventKind.CancelCompleted))
+        {
+            _dispatcher.ResumeRestartAndDrain(LastCandle.OpenTime + _timeframe.Duration, cancellationToken);
+        }
+
         await Save(liveCandle: false, cancellationToken, update: update);
     }
 

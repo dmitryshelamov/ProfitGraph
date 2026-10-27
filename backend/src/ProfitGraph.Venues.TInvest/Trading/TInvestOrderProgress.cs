@@ -17,7 +17,7 @@ namespace ProfitGraph.Venues.TInvest.Trading;
 ///     cancelled once the trading day that holds it has ended, by the schedule, is recorded as <see cref="TInvestCancelReason.Expired" />
 ///     and ends the engine order with what it executed, but only while the account's position covers its bots
 ///     (<see cref="TInvestPositionCoverage" />, ADR 0031); a schedule that cannot be read leaves the state unrecorded and the
-///     read is tried again.
+///     read is tried again. Any other cancellation nobody asked for is recorded as the owner's own cancel at the broker (ADR 0039).
 /// </summary>
 internal sealed class TInvestOrderProgress(
     ITInvestOrderAttempts attempts,
@@ -64,11 +64,14 @@ internal sealed class TInvestOrderProgress(
         if (attempt.State != TInvestOrderAttemptState.Final && (attempt.State != next || attempt.ExchangeOrderId != exchangeOrderId))
         {
             TInvestExecution own = final ? TInvestOrderTranslation.Executed(state, context.Share.Lot) : TInvestExecution.None;
-            TInvestCancelReason? cancelledBy = attempt.CancelledBy is null &&
-                state.ExecutionReportStatus == OrderExecutionReportStatus.ExecutionReportStatusCancelled &&
-                await Expired(context, attempt, cancellationToken)
-                    ? TInvestCancelReason.Expired
-                    : attempt.CancelledBy;
+            TInvestCancelReason? cancelledBy = attempt.CancelledBy;
+
+            if (cancelledBy is null && state.ExecutionReportStatus == OrderExecutionReportStatus.ExecutionReportStatusCancelled)
+            {
+                // A cancellation nobody asked for is the end of the trading day when the schedule shows it, and otherwise the owner's own
+                // cancel at the broker (ADR 0039): the executions the state shows are booked and the order ends as cancelled.
+                cancelledBy = await Expired(context, attempt, cancellationToken) ? TInvestCancelReason.Expired : TInvestCancelReason.Owner;
+            }
             TInvestOrderAttempt moved = attempt with
             {
                 State = next,
