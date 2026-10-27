@@ -31,8 +31,8 @@ to this table.
 Inside a project, the first folder level is a **feature**, never a technical type. Everything one feature needs in a
 layer lives in that feature's folder. Shared base types and cross-cutting mechanisms live in `Common/`.
 
-Features: `Strategies`, `Backtesting`, `Optimization`, `MarketData`, `Bots`, `Accounts`. Add a new feature folder only
-for a new product area, and list it here.
+Features: `Strategies`, `Backtesting`, `Optimization`, `MarketData`, `Bots`, `Accounts`, `Notifications`. Add a new
+feature folder only for a new product area, and list it here.
 
 ```text
 Domain/

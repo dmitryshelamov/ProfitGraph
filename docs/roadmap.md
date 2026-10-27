@@ -37,7 +37,7 @@ disabled throughout.
 | Live | Fee rates, account value, trading status, price band, live candles, order attempts, carry-over, late commissions, bot UI | A ladder bot passes its scenarios against the mock T-Invest: band waiting, a closed session, a day order carried over a night with a partial fill, a late commission, a restart at night and an unknown submit outcome | Done on the mock (T9–T15); trading stays disabled until the owner checks of ADR 0023 pass |
 | Expired day order | The owner's absence confirmation extended to an order T-Invest accepted and then removed, with gateway checks by request ID, active orders and exchange order ID ([ADR 0028](adr/0028-confirm-order-removed-by-the-venue.md)) | A bot stopped by an expired DAY order starts again after the owner's confirmation, and never with an executed lot | Done on the mock; carry-over for a bot that is not running is closed by ADR 0030 |
 
-Telegram bot control on top of the wave 1 alerts is also part of wave 2.
+Telegram bot control on top of the notifications of [ADR 0042](adr/0042-telegram-notifications.md) is also part of wave 2.
 
 ## Wave 3: Steam
 
@@ -120,3 +120,16 @@ Corrections to [ADR 0018](adr/0018-live-risk-controls.md) found in review.
 | Step | Scope | Done when | Status |
 |---|---|---|---|
 | 1. Daily loss across midnight | [ADR 0041](adr/0041-daily-loss-across-midnight.md): the first root of a UTC day takes the previous day's last recorded equity as its baseline and is checked against it; `bots.day_last_equity` | Domain tests kill a `1d` bot and a `1h` bot on a loss across midnight; the root committer kills a bot from the stored last equity | Done |
+
+## Telegram notifications
+
+[ADR 0042](adr/0042-telegram-notifications.md): a delivery queue fed by outbox handlers, a separate delivery host with
+retries, an update processor with the «Принято» button, and Profit Fox's messages for lifecycle, closed positions and
+filled orders.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Decision | ADR 0042 | The owner accepted it | Proposed |
+| 2. Queue and delivery | `telegram_notifications`, alert handler, `TelegramDeliveryHost` with claims, retries, age and rate limits, bot names, migration of unsent alerts | Integration tests against a fake Bot API: a 429 and a 500 are retried, a 400 fails one row without holding the next, a 403 blocks the chat, old rows are skipped | Planned |
+| 3. Updates | `TelegramUpdateProcessor`, message and callback handlers, `/help`, the «Принято» button | A pressed button acknowledges the owner's alert and only theirs | Planned |
+| 4. Trading messages | Lifecycle, closed positions, `BotOrderFilled` and the filled-order message | A partly filled order sends one message when it is filled; Engine hashes unchanged | Planned |
