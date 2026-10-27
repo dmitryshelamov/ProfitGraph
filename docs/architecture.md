@@ -132,8 +132,12 @@ Venues.Bybit/
 - **Authentication.** Invite-only accounts with cookie sessions (`profitgraph.session`, HttpOnly, SameSite=Strict, Secure
   outside Development and Testing, 7 days sliding). Every endpoint requires a signed-in active account unless it opts
   out with `AllowAnonymous`, including unknown routes; each request re-checks that the account is still active, so
-  blocking ends existing sessions. Sign-in is limited to 20 attempts per minute per client address and 10 per login,
-  and an unknown or blocked login costs the same password verification as a wrong password. The first Owner comes
+  blocking ends existing sessions; blocking also closes the account's realtime connections, and every hub connection
+  and hub method call re-checks the account. Sign-in is limited to 20 attempts per minute per client address; after 5
+  consecutive failures a login is locked out for 30 s, doubling to 15 min, until a successful sign-in, except on client
+  addresses it signed in from before (in-memory, one API process). An unknown or blocked login is counted the same way
+  and costs the same password verification as a wrong password. See
+  [ADR 0043](adr/0043-sign-in-throttling-and-session-end.md). The first Owner comes
   from `Auth:BootstrapOwner` only while no account exists. Account management requires the Owner role.
 - **Secrets at rest.** Exchange credentials are encrypted per value with AES-256-GCM under master keys configured
   outside the repository; no response or log contains a secret. See [ADR 0015](adr/0015-exchange-credentials.md).
@@ -168,7 +172,7 @@ src/
   without a session). The router's `_authenticated` layout route guards every screen except `/sign-in` in
   `beforeLoad` and redirects there with `returnTo`. Sign-in and sign-out clear the whole query cache, so no data of a
   previous user survives; any 401 from a query or mutation means the session expired and sends the user back to sign
-  in. Only same-application paths are accepted as `returnTo`.
+  in. `returnTo` is resolved against the current origin and accepted only on the same origin (ADR 0043).
 - **Strategy editor.** `modules/strategy-editor` draws the block definition as a flowchart with React Flow. The draft,
   selection and undo/redo history live in a Zustand store; every change is an editor command, so undo restores exact
   drafts. Saving sends the version the draft started from; `strategy_changed` keeps the draft and offers to reload.
