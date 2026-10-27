@@ -48,6 +48,11 @@ public sealed class BotReconciler(IOrderIntentRepository intents, ISender sender
             await session.ProcessExternalUpdate(update, cancellationToken);
         }
 
+        if (reconciliation.Degradation is null && reconciliation.Updates.Any(ChangesWhatTheStrategyRestores))
+        {
+            await session.ResumeAfterReconciliation(cancellationToken);
+        }
+
         HashSet<string> active = [.. reconciliation.Found.Where(order => !order.IsFinal).Select(order => order.ClientOrderId.Value)];
         BotStatusReason? degradation = reconciliation.Degradation ??
             (stored.Any(intent => intent is { Kind: OrderIntentKind.Cancel, Status: OrderIntentStatus.Failed } && active.Contains(intent.ClientOrderId.Value))
@@ -70,5 +75,15 @@ public sealed class BotReconciler(IOrderIntentRepository intents, ISender sender
         }
 
         return new BotReconcileResult(VenueAnswered: true, degradation);
+    }
+
+    /// <summary>
+    ///     An update that removes or fills an order the engine held as working: the strategy's resume at open, which ran before
+    ///     the venue answered, saw that order as it was.
+    /// </summary>
+    private static bool ChangesWhatTheStrategyRestores(ExternalOrderUpdate update)
+    {
+        return update.Kind is ExternalOrderUpdateKind.Rejected or ExternalOrderUpdateKind.CancelConfirmed or ExternalOrderUpdateKind.PartialFill
+            or ExternalOrderUpdateKind.FinalFill;
     }
 }

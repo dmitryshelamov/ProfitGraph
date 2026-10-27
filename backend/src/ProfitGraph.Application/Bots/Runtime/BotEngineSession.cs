@@ -126,6 +126,22 @@ public sealed class BotEngineSession
     }
 
     /// <summary>
+    ///     After a start's reconciliation changed the engine's orders (a cancel, a rejection or a closed order the venue no longer
+    ///     knows), one more <c>Resume(Restart)</c> is drained at the latest closed candle, so the strategy restores what the
+    ///     reconciliation took away: the resume at open ran before the venue's answer and saw those orders as working (ADR 0035).
+    /// </summary>
+    public async Task ResumeAfterReconciliation(CancellationToken cancellationToken)
+    {
+        if (Checkpoint is null || LastCandle is null)
+        {
+            return;
+        }
+
+        _dispatcher.ResumeRestartAndDrain(LastCandle.OpenTime + _timeframe.Duration, cancellationToken);
+        await Save(liveCandle: false, cancellationToken);
+    }
+
+    /// <summary>
     ///     Processes one live closed candle; an older or repeated one is ignored. Before a candle after a gap the venue's
     ///     history of the gap is read: its candles are processed in order and its market closures are recorded (ADR 0023,
     ///     TC3). A gap that neither covers fails.

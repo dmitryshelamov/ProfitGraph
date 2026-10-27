@@ -61,6 +61,12 @@ public sealed class ScriptedOrderGateway : IOrderGateway
     /// </summary>
     public ConcurrentQueue<ClientOrderId> ConfirmedAbsent { get; } = new ConcurrentQueue<ClientOrderId>();
 
+    /// <summary>
+    ///     When set, a reconciliation closes every order it finds as cancelled by the venue, as T-Invest does for a DAY order its
+    ///     exchange removed (ADR 0030): the engine is told <c>CancelConfirmed</c> for it.
+    /// </summary>
+    public bool CancelEveryFoundOrder { get; set; }
+
     public VenueId Venue { get; } = new VenueId(TestHistoryVenue.WithHistory);
 
     public ClientOrderId ClientOrderIdFor(BotId botId, long engineOrderId)
@@ -148,7 +154,8 @@ public sealed class ScriptedOrderGateway : IOrderGateway
         return Task.FromResult(
             new BotReconciliationInternal(
                 [
-                    .. found.Select(order => ExternalOrderUpdate.Accept(order.EngineOrderId)),
+                    .. found.Select(
+                        order => CancelEveryFoundOrder ? ExternalOrderUpdate.ConfirmCancel(order.EngineOrderId) : ExternalOrderUpdate.Accept(order.EngineOrderId)),
                     .. absent.Select(order => ExternalOrderUpdate.Reject(
                         order.EngineOrderId,
                         RejectionReason.OwnerConfirmedAbsent,
@@ -156,7 +163,7 @@ public sealed class ScriptedOrderGateway : IOrderGateway
                         ownerConfirmedAbsent: true))
                 ],
                 [
-                    .. found.Select(order => new ReconciledOrderInternal(order.ClientOrderId, IsFinal: false)),
+                    .. found.Select(order => new ReconciledOrderInternal(order.ClientOrderId, IsFinal: CancelEveryFoundOrder)),
                     .. absent.Select(order => new ReconciledOrderInternal(order.ClientOrderId, IsFinal: true))
                 ],
                 ReconcileDegradation));
