@@ -27,6 +27,66 @@ public sealed class ManualOrderRequestTests
     }
 
     [Test]
+    public void MarketRequestHasNoPrice()
+    {
+        ManualOrderRequest request = Request();
+
+        request.Type.ShouldBe(OrderType.Market);
+        request.LimitPrice.ShouldBeNull();
+    }
+
+    [Test]
+    public void LimitRequestKeepsItsPriceAsTyped()
+    {
+        ManualOrderRequest request = ManualOrderRequest.CreateLimit(ManualOrderRequestId.New(), BotId.New(), OrderSide.Sell, amount: 10m, limitPrice: 301.257m, Now);
+
+        request.Type.ShouldBe(OrderType.Limit);
+        request.LimitPrice.ShouldBe(301.257m);
+        request.Status.ShouldBe(ManualOrderStatus.Pending);
+    }
+
+    [TestCase(0)]
+    [TestCase(-5)]
+    public void LimitPriceMustBePositive(decimal limitPrice)
+    {
+        Should.Throw<BotRuleException>(
+            () => ManualOrderRequest.CreateLimit(ManualOrderRequestId.New(), BotId.New(), OrderSide.Buy, amount: 25m, limitPrice, Now));
+    }
+
+    [Test]
+    public void LimitRequestResolvesLikeAMarketOne()
+    {
+        ManualOrderRequest submitted = ManualOrderRequest.CreateLimit(ManualOrderRequestId.New(), BotId.New(), OrderSide.Buy, amount: 25m, limitPrice: 4m, Now);
+        ManualOrderRequest rejected = ManualOrderRequest.CreateLimit(ManualOrderRequestId.New(), BotId.New(), OrderSide.Buy, amount: 25m, limitPrice: 4m, Now);
+
+        submitted.MarkSubmitted(engineOrderId: 7, Now);
+        rejected.Reject(nameof(RejectionReason.TagActive), Now);
+
+        submitted.Status.ShouldBe(ManualOrderStatus.Submitted);
+        submitted.LimitPrice.ShouldBe(4m);
+        rejected.Status.ShouldBe(ManualOrderStatus.Rejected);
+        Should.Throw<BotRuleException>(() => submitted.Reject("expired", Now)).Code.ShouldBe(BotRuleException.ManualOrderResolved);
+    }
+
+    [Test]
+    public void UntakenLimitRequestExpires()
+    {
+        ManualOrderRequest request = ManualOrderRequest.CreateLimit(ManualOrderRequestId.New(), BotId.New(), OrderSide.Buy, amount: 25m, limitPrice: 4m, Now);
+
+        request.Expire(Now + ManualOrderRequest.Lifetime + TimeSpan.FromTicks(1)).ShouldBeTrue();
+
+        request.RejectionReason.ShouldBe("expired");
+    }
+
+    [Test]
+    public void RestoreChecksThePriceMatchesTheType()
+    {
+        Should.Throw<BotRuleException>(() => Restored(OrderType.Limit, limitPrice: null));
+        Should.Throw<BotRuleException>(() => Restored(OrderType.Market, limitPrice: 4m));
+        Restored(OrderType.Limit, limitPrice: 4m).LimitPrice.ShouldBe(4m);
+    }
+
+    [Test]
     public void SubmittedRequestKeepsItsEngineOrder()
     {
         ManualOrderRequest request = Request();
@@ -77,12 +137,30 @@ public sealed class ManualOrderRequestTests
             ManualOrderRequestId.New(),
             BotId.New(),
             OrderSide.Sell,
+            OrderType.Market,
             amount: 0.5m,
+            limitPrice: null,
             ManualOrderStatus.Submitted,
             engineOrderId: null,
             rejectionReason: null,
             Now,
             Now));
+    }
+
+    private static ManualOrderRequest Restored(OrderType type, decimal? limitPrice)
+    {
+        return ManualOrderRequest.Restore(
+            ManualOrderRequestId.New(),
+            BotId.New(),
+            OrderSide.Buy,
+            type,
+            amount: 25m,
+            limitPrice,
+            ManualOrderStatus.Pending,
+            engineOrderId: null,
+            rejectionReason: null,
+            Now,
+            resolvedAt: null);
     }
 
     private static ManualOrderRequest Request()

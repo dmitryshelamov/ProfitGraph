@@ -22,7 +22,9 @@ internal sealed class SubmitManualOrderCommandHandler(IBotRepository bots, IManu
             await manualOrders.Update(locked, cancellationToken);
         }
 
-        var request = ManualOrderRequest.Create(ManualOrderRequestId.New(), bot.Id, command.Side, command.Amount, now);
+        ManualOrderRequest request = command.LimitPrice is { } limitPrice
+            ? ManualOrderRequest.CreateLimit(ManualOrderRequestId.New(), bot.Id, command.Side, command.Amount, limitPrice, now)
+            : ManualOrderRequest.Create(ManualOrderRequestId.New(), bot.Id, command.Side, command.Amount, now);
 
         if (!await manualOrders.TryAdd(request, cancellationToken))
         {

@@ -198,8 +198,8 @@ src/
   key's last four characters. `modules/bots` lists and creates bots (a strategy's parameters start from its defaults),
   follows a bot's state by polling every five seconds and offers start, stop and the kill switch, which asks to
   confirm. Risk limits change at any time; parameters, the bot's capital and foreign orders only while it is stopped.
-  The bot page lists its alerts with acknowledgement and sends an owner manual order, followed until the runner
-  resolves it. `TradingHaltBanner` shows the global halt to everyone and lets the Owner halt or resume. When a save is
+  The bot page lists its alerts with acknowledgement and sends an owner manual order, market or limit, followed until the runner
+  resolves it; a limit order asks for confirmation first and checks the price against the instrument's tick. `TradingHaltBanner` shows the global halt to everyone and lets the Owner halt or resume. When a save is
   refused with `live_impact`, the editor lists the running bots and saves again with `confirmLiveImpact`.
 - **Live reports.** The bot page shows the position, the feed and the fills; the feed and the fills page backwards
   through `before` cursors. Its chart (`BotChart`, drawn by `CandleHistoryChart` in `modules/market-chart`) shows the

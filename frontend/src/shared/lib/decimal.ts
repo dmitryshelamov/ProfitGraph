@@ -146,3 +146,52 @@ export function subtractDecimals(left: string, right: string): string | null {
     scale,
   );
 }
+
+/** Whether `value` is a whole number of `step`s, exactly; null for a non-decimal or a non-positive step. */
+export function isMultipleOf(value: string, step: string): boolean | null {
+  const a = parts(value);
+  const b = parts(step);
+
+  if (!a || !b || b.coefficient <= 0n) {
+    return null;
+  }
+
+  const scale = Math.max(a.scale, b.scale);
+
+  return (
+    (a.coefficient * 10n ** BigInt(scale - a.scale)) %
+      (b.coefficient * 10n ** BigInt(scale - b.scale)) ===
+    0n
+  );
+}
+
+/** Rounds a non-negative `value` down to a whole number of `step`s, as the backend does; null for a non-decimal or a bad step. */
+export function floorToStep(value: string, step: string): string | null {
+  const a = parts(value);
+  const b = parts(step);
+
+  if (!a || !b || b.coefficient <= 0n || a.coefficient < 0n) {
+    return null;
+  }
+
+  const scale = Math.max(a.scale, b.scale);
+  const x = a.coefficient * 10n ** BigInt(scale - a.scale);
+  const y = b.coefficient * 10n ** BigInt(scale - b.scale);
+
+  return formatCoefficient((x / y) * y, scale);
+}
+
+/** Divides `left` by `right` and rounds the quotient down to `places` decimals; null for a non-decimal or a non-positive `right`. */
+export function divideDecimals(left: string, right: string, places: number): string | null {
+  const a = parts(left);
+  const b = parts(right);
+
+  if (!a || !b || b.coefficient <= 0n || a.coefficient < 0n) {
+    return null;
+  }
+
+  const numerator = a.coefficient * 10n ** BigInt(places + b.scale);
+  const denominator = b.coefficient * 10n ** BigInt(a.scale);
+
+  return formatCoefficient(numerator / denominator, places);
+}

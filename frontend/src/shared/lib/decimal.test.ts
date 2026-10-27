@@ -1,8 +1,11 @@
 import {
   compareDecimals,
+  divideDecimals,
+  floorToStep,
   fractionToPercent,
   isBackendDecimal,
   isDecimalString,
+  isMultipleOf,
   multiplyDecimals,
   percentToFraction,
   roundDecimal,
@@ -87,5 +90,35 @@ describe('multiplyDecimals and subtractDecimals', () => {
   it('reject non-decimals', () => {
     expect(multiplyDecimals('1e3', '1')).toBeNull();
     expect(subtractDecimals('1', 'abc')).toBeNull();
+  });
+});
+
+describe('isMultipleOf, floorToStep and divideDecimals', () => {
+  it('tell a price on the tick exactly', () => {
+    expect(isMultipleOf('301.25', '0.01')).toBe(true);
+    expect(isMultipleOf('301.257', '0.01')).toBe(false);
+    expect(isMultipleOf('300', '10')).toBe(true);
+    expect(isMultipleOf('305', '10')).toBe(false);
+    expect(isMultipleOf('0.3', '0.1')).toBe(true);
+  });
+
+  it('round down to a step like the backend', () => {
+    expect(floorToStep('37', '10')).toBe('30');
+    expect(floorToStep('301.257', '0.01')).toBe('301.25');
+    expect(floorToStep('9.99', '10')).toBe('0');
+    expect(floorToStep('0.123456789', '0.0001')).toBe('0.1234');
+  });
+
+  it('divide rounding down', () => {
+    expect(divideDecimals('3000', '150', 8)).toBe('20');
+    expect(divideDecimals('10', '3', 4)).toBe('3.3333');
+    expect(divideDecimals('0.5', '0.25', 2)).toBe('2');
+  });
+
+  it('reject non-decimals and bad steps', () => {
+    expect(isMultipleOf('1', '0')).toBeNull();
+    expect(isMultipleOf('x', '1')).toBeNull();
+    expect(floorToStep('1', '-1')).toBeNull();
+    expect(divideDecimals('1', '0', 2)).toBeNull();
   });
 });
