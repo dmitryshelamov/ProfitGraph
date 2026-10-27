@@ -79,6 +79,23 @@ internal sealed class TInvestTransport(ITInvestCallInvokers invokers, TInvestReq
         }
     }
 
+    /// <summary>
+    ///     Opens a bidirectional stream under the token's service-group limit, without a deadline. It lasts until the caller
+    ///     disposes it, <paramref name="cancellationToken" /> is cancelled or the broker ends it; each request written later is
+    ///     admitted under the same limit.
+    /// </summary>
+    public async Task<TInvestDuplexStream<TRequest, TResponse>> Duplex<TRequest, TResponse>(
+        TInvestToken token,
+        TInvestMethodGroup group,
+        Func<CallInvoker, CallOptions, AsyncDuplexStreamingCall<TRequest, TResponse>> call,
+        CancellationToken cancellationToken)
+    {
+        await limiter.Admit(token, group, cancellationToken);
+        AsyncDuplexStreamingCall<TRequest, TResponse> opened = call(invokers.Get(), new CallOptions(Metadata(token), deadline: null, cancellationToken));
+
+        return new TInvestDuplexStream<TRequest, TResponse>(opened, stop => limiter.Admit(token, group, stop), cancellationToken);
+    }
+
     private Metadata Metadata(TInvestToken token)
     {
         return new Metadata

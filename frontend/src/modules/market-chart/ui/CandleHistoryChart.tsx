@@ -19,6 +19,7 @@ import {
   drawableCandles,
   type HistoryCandle,
 } from '../model/candleHistory';
+import { drawableLive, type LiveCandle, withAlpha } from '../model/liveCandles';
 import { markerPosition, tradeMarkers } from '../model/tradeMarkers';
 
 /** How many candles the chart shows when it first opens. */
@@ -26,6 +27,9 @@ const initialBars = 120;
 
 /** How close to the oldest loaded candle the view must come before older candles are asked for. */
 const loadAheadBars = 10;
+
+/** How see-through the candle that is not closed yet is drawn. */
+const formingAlpha = 0.45;
 
 /** Dashed, as a level that is not a trade yet. */
 const dashedLine = 2;
@@ -36,12 +40,14 @@ function token(name: string, fallback: string): string {
 
 /**
  * Closed candles in UTC with trade markers whose arrow tips touch their prices and dashed levels. Scrolling to the oldest loaded
- * candle calls `onReachStart`; candles added before it keep the view where it was.
+ * candle calls `onReachStart`; candles added before it keep the view where it was. Live candles (the one being formed) are
+ * drawn after the closed ones, the unclosed one see-through; a live candle the history already has is not drawn again.
  */
 export function CandleHistoryChart({
   candles,
   trades,
   levels = [],
+  live = [],
   candleSeconds,
   label,
   onReachStart,
@@ -49,6 +55,7 @@ export function CandleHistoryChart({
   candles: readonly HistoryCandle[];
   trades: readonly ChartTrade[];
   levels?: readonly ChartLevel[];
+  live?: readonly LiveCandle[];
   /** The length of one candle; a trade is drawn only inside a candle's period. */
   candleSeconds: number;
   label: string;
@@ -62,8 +69,10 @@ export function CandleHistoryChart({
     lines: IPriceLine[];
   } | null>(null);
   const firstTime = useRef<number | null>(null);
+  const liveBase = useRef<unknown>(null);
   const reachStart = useRef(onReachStart);
   const drawn = useMemo(() => drawableCandles(candles), [candles]);
+  const drawnLive = useMemo(() => drawableLive(drawn, live), [drawn, live]);
   const placed = useMemo(
     () => tradeMarkers(drawn, trades, candleSeconds),
     [drawn, trades, candleSeconds],
@@ -114,6 +123,7 @@ export function CandleHistoryChart({
       api.remove();
       chart.current = null;
       firstTime.current = null;
+      liveBase.current = null;
     };
   }, []);
 
@@ -147,6 +157,39 @@ export function CandleHistoryChart({
 
     firstTime.current = drawn[0]?.time ?? null;
   }, [drawn]);
+
+  useEffect(() => {
+    const current = chart.current;
+
+    if (!current) {
+      return;
+    }
+
+    // `setData` above dropped earlier live candles, so a new history draws them all again; otherwise only the newest changed.
+    const redraw = liveBase.current !== drawn;
+    liveBase.current = drawn;
+    const up = token('--color-up', '#3fd393');
+    const down = token('--color-down', '#ff6b81');
+
+    for (const candle of redraw ? drawnLive : drawnLive.slice(-1)) {
+      const colour = candle.close >= candle.open ? up : down;
+      const style = candle.forming
+        ? {
+            color: withAlpha(colour, formingAlpha),
+            wickColor: withAlpha(colour, formingAlpha),
+            borderColor: withAlpha(colour, formingAlpha),
+          }
+        : {};
+      current.candles.update({
+        time: candle.time as UTCTimestamp,
+        open: candle.open,
+        high: candle.high,
+        low: candle.low,
+        close: candle.close,
+        ...style,
+      });
+    }
+  }, [drawn, drawnLive]);
 
   useEffect(() => {
     const up = token('--color-up', '#3fd393');
@@ -195,6 +238,7 @@ export function CandleHistoryChart({
       ref={container}
       aria-label={label}
       data-candles={drawn.length}
+      data-live={drawnLive.length}
       data-markers={placed.length}
       data-levels={levels.length}
       className="h-90 w-full overflow-hidden rounded-md border border-line"

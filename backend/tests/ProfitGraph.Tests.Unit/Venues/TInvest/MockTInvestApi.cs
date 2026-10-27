@@ -12,6 +12,7 @@ internal sealed class MockTInvestApi : CallInvoker
 {
     private readonly Dictionary<string, Func<object, Metadata, object>> _handlers = new Dictionary<string, Func<object, Metadata, object>>();
     private readonly Dictionary<string, Delegate> _streams = new Dictionary<string, Delegate>();
+    private readonly Dictionary<string, Delegate> _duplexes = new Dictionary<string, Delegate>();
 
     public List<(string Method, Metadata Headers, DateTime? Deadline)> Calls { get; } = [];
 
@@ -33,6 +34,17 @@ internal sealed class MockTInvestApi : CallInvoker
         Func<TRequest, CancellationToken, IAsyncEnumerable<TResponse>> handler)
     {
         _streams[Name(service, method)] = handler;
+
+        return this;
+    }
+
+    /// <summary>
+    ///     Answers a bidirectional method: each opened stream is handed to <paramref name="opened" />, which keeps it to push or fail
+    ///     responses and to read the requests written.
+    /// </summary>
+    public MockTInvestApi OnDuplex<TRequest, TResponse>(ServiceDescriptor service, string method, Action<MockTInvestDuplexCall<TRequest, TResponse>> opened)
+    {
+        _duplexes[Name(service, method)] = opened;
 
         return this;
     }
@@ -101,6 +113,19 @@ internal sealed class MockTInvestApi : CallInvoker
         string? host,
         CallOptions options)
     {
-        throw new NotSupportedException("Streams arrive with live market data.");
+        lock (Calls)
+        {
+            Calls.Add((method.FullName, options.Headers ?? [], options.Deadline));
+        }
+
+        if (!_duplexes.TryGetValue(method.FullName, out Delegate? opened))
+        {
+            throw Refusal(StatusCode.Unimplemented, "mock");
+        }
+
+        var call = new MockTInvestDuplexCall<TRequest, TResponse> { Headers = options.Headers ?? [] };
+        ((Action<MockTInvestDuplexCall<TRequest, TResponse>>)opened)(call);
+
+        return new AsyncDuplexStreamingCall<TRequest, TResponse>(call, call, Task.FromResult(new Metadata()), () => Status.DefaultSuccess, () => [], call.Dispose);
     }
 }

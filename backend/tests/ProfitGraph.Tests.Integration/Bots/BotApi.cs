@@ -32,9 +32,9 @@ internal static class BotApi
         };
     }
 
-    internal static async Task<BotOwner> NewOwner(ProfitGraphApiFactory factory, string venue = TestHistoryVenue.WithHistory)
+    internal static async Task<BotOwner> NewOwner(ProfitGraphApiFactory factory, string venue = TestHistoryVenue.WithHistory, UserInternal? account = null)
     {
-        UserInternal user = await factory.CreateAccount(UserRole.User);
+        UserInternal user = account ?? await factory.CreateAccount(UserRole.User);
         HttpClient client = await factory.SignIn(user);
         Guid strategyId = await BacktestScenario.CreateStrategy(factory, user.Id);
         HttpResponseMessage credential = await client.PostAsJsonAsync(
