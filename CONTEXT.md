@@ -365,6 +365,13 @@ An owner-submitted market or limit order in a running live bot, outside the stra
 It enters the bot's engine account with the reserved tag `manual` and no originating block, so balances, risk limits and
 the position ledger include it, while the graph observes it only through global listeners filtered by that tag.
 
+### Owner Order Cancel
+
+The owner's request to cancel one working order of a running live bot from the bot page
+([ADR 0048](docs/adr/0048-owner-cancels-an-active-order.md)). The bot's runner takes it as a root and the engine cancels the order as it
+cancels its own, so the cancel goes out as an ordinary cancel intent; the venue's confirmation of a cancel the engine asked for does not
+resume the strategy, which may still place the order again later by its own rules. A request nobody takes within a minute expires.
+
 ### Order Lifecycle Output
 
 An exit on an order block reporting events for orders it created: submitted, filled, cancelled or rejected. The event remains associated with its originating block even when another block cancels the order; global listeners observe the same underlying occurrence.

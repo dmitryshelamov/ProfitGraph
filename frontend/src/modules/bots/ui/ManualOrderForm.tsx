@@ -23,7 +23,7 @@ const sideLabels: Record<OrderSide, string> = { Buy: 'купить', Sell: 'пр
 /**
  * An owner order in a running bot, market or limit (ADR 0027): a buy is sized in quote, a sell in base. The bot takes it
  * within a minute; the strategy sees it only through its global order listeners. A limit order is confirmed before it is
- * sent, because it rests on the venue until it fills and the system cannot cancel it yet.
+ * sent, because it rests on the venue until it fills or the owner cancels it among the active orders (ADR 0048).
  */
 export function ManualOrderForm({ bot }: { bot: Bot }) {
   const [type, setType] = useState<ManualOrderType>('Market');
@@ -137,7 +137,7 @@ export function ManualOrderForm({ bot }: { bot: Bot }) {
           {check.quantity !== null && ` ${check.quantity}`} {display.baseAsset ?? ''} по цене{' '}
           {price.trim()} {display.quoteAsset ?? ''}
           {side === 'Buy' && ` на сумму не более ${amount.trim()} ${amountAsset ?? ''}`}. Заявка
-          будет стоять на бирже до исполнения; отменить её из ProfitGraph пока нельзя.
+          будет стоять на бирже до исполнения; отменить её можно в блоке «Активные ордера».
         </p>
       )}
       <div className="flex gap-2">

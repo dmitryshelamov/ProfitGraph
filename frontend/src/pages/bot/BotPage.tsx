@@ -182,7 +182,7 @@ export function BotPage() {
       </Card>
       <BotUnresolvedOrders botId={current.id} />
       <Card title="Активные ордера">
-        <BotOpenOrders botId={current.id} display={display} />
+        <BotOpenOrders bot={current} display={display} />
       </Card>
       <BotWaitingOrders botId={current.id} />
       <Card title="Алерты">

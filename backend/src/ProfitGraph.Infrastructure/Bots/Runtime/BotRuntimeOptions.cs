@@ -29,7 +29,7 @@ internal sealed class BotRuntimeOptions
     public TimeSpan ReconcileRetryDelay { get; init; } = TimeSpan.FromSeconds(5);
 
     /// <summary>
-    ///     How often a runner looks for its bot's pending manual order.
+    ///     How often a runner looks for its bot's pending owner requests: a manual order and an order cancel (ADR 0048).
     /// </summary>
     public TimeSpan ManualOrderPollInterval { get; init; } = TimeSpan.FromSeconds(1);
 

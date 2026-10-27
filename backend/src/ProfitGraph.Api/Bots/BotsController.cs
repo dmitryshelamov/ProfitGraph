@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using ProfitGraph.Api.Bots.Contracts;
 using ProfitGraph.Api.Bots.Converters;
 using ProfitGraph.Api.Common.Authentication;
+using ProfitGraph.Application.Bots.CancelBotOrder;
 using ProfitGraph.Application.Bots.ChangeBotForeignOrders;
 using ProfitGraph.Application.Bots.ConfirmOrderAbsent;
 using ProfitGraph.Application.Bots.Contracts;
@@ -18,6 +19,7 @@ using ProfitGraph.Application.Bots.GetBots;
 using ProfitGraph.Application.Bots.GetBotUnresolvedOrders;
 using ProfitGraph.Application.Bots.GetBotWaitingOrders;
 using ProfitGraph.Application.Bots.GetManualOrder;
+using ProfitGraph.Application.Bots.GetOrderCancel;
 using ProfitGraph.Application.Bots.KillBot;
 using ProfitGraph.Application.Bots.RenameBot;
 using ProfitGraph.Application.Bots.StartBot;
@@ -137,6 +139,25 @@ public sealed class BotsController(ISender sender) : ControllerBase
     public async Task<ActionResult<IReadOnlyList<BotOpenOrderResponse>>> OpenOrders(Guid id, CancellationToken cancellationToken)
     {
         return (await sender.Send(new GetBotOpenOrdersQuery(UserId(), id), cancellationToken)).Select(order => order.ToResponse()).ToArray();
+    }
+
+    /// <summary>
+    ///     The owner cancels one of the running bot's open orders (ADR 0048). The request waits for the bot's runner, which turns it into
+    ///     the engine's ordinary cancel within a minute or lets it expire; poll it by its identifier. A stopped bot, an order that is
+    ///     no longer open and an order already being cancelled answer 409.
+    /// </summary>
+    [HttpPost("{id:guid}/open-orders/{engineOrderId:long}/cancel")]
+    public async Task<ActionResult<OrderCancelResponse>> CancelOrder(Guid id, long engineOrderId, CancellationToken cancellationToken)
+    {
+        OrderCancelInternal cancel = await sender.Send(new CancelBotOrderCommand(UserId(), id, engineOrderId), cancellationToken);
+
+        return AcceptedAtAction(nameof(GetOrderCancel), new { id, cancelId = cancel.Id }, cancel.ToResponse());
+    }
+
+    [HttpGet("{id:guid}/order-cancels/{cancelId:guid}")]
+    public async Task<ActionResult<OrderCancelResponse>> GetOrderCancel(Guid id, Guid cancelId, CancellationToken cancellationToken)
+    {
+        return (await sender.Send(new GetOrderCancelQuery(UserId(), id, cancelId), cancellationToken)).ToResponse();
     }
 
     /// <summary>

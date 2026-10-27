@@ -727,6 +727,18 @@ public sealed class Bot : AggregateRoot
         }
     }
 
+    /// <summary>
+    ///     An owner's cancel of one of the bot's orders (ADR 0048) is accepted only while the bot should run and runs: a stopped bot
+    ///     has no runner to turn it into the engine's cancel, and its strategy would restore the order at the next start.
+    /// </summary>
+    public void EnsureAcceptsOrderCancels()
+    {
+        if (DesiredState != BotDesiredState.Running || RuntimeStatus != BotRuntimeStatus.Running)
+        {
+            throw new BotRuleException(BotRuleException.NotRunning, "Cancelling an order of the bot needs a running bot.");
+        }
+    }
+
     public BotSnapshot ToSnapshot()
     {
         return new BotSnapshot(
