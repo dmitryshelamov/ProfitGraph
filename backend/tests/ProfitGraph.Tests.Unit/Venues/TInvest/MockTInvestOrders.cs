@@ -333,7 +333,9 @@ internal sealed class MockTInvestOrders
             int start = request.HasCursor ? int.Parse(request.Cursor, CultureInfo.InvariantCulture) : 0;
             int size = Math.Min(OperationsPageSize, request.Limit);
             IEnumerable<OperationItem> listed = FilterOperationsByRange
-                ? Operations.Where(item => item.Date.ToDateTimeOffset() >= request.From.ToDateTimeOffset() && item.Date.ToDateTimeOffset() <= request.To.ToDateTimeOffset())
+                ? Operations.Where(
+                    item => item.Date.ToDateTimeOffset() >= request.From.ToDateTimeOffset() &&
+                        item.Date.ToDateTimeOffset() <= request.To.ToDateTimeOffset())
                 : Operations;
             OperationItem[] page = [.. listed.Skip(start).Take(size)];
             var response = new GetOperationsByCursorResponse
