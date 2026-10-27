@@ -75,5 +75,5 @@ test('a bot is created with a key, trades, is stopped and reported', async ({ pa
     timeout: 20_000,
   });
   await expect(feed.getByText('Остановлен', { exact: true })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText('Базовый актив')).toBeVisible();
+  await expect(page.getByText('Объём', { exact: true })).toBeVisible();
 });
