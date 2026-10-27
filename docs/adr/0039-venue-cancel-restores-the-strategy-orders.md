@@ -31,6 +31,15 @@ shows are booked first (the cumulative partial update the owner's cancels alread
 stop `UnresolvedOrder` stays where the broker's state cannot be read (an order T-Invest does not know) and for an expiry that the
 position does not cover (ADR 0031, ADR 0030); the owner's confirmation (ADR 0028) stays as the way out of those.
 
+### Follow-up: an unreadable schedule is not a stop
+
+Telling the owner's cancel from the end of the DAY order needs the trading day's end, and `TradingSchedules` answers for today and the
+next week only, so it refuses the range of a day that has passed. The first version threw `TradingScheduleUnreadable` for it
+(ADR 0031's "read again"), which ended the order stream and the runner: the owner's cancel of the GAZP exit at 2026-10-27 18:24 UTC
+failed the bot. `Expired` now falls back as ADR 0032 does for the absence proof: the Moscow calendar ends the day of a MOEX share, and
+any other exchange is not expired, so the cancellation is the owner's and the strategy restores the order. A schedule that cannot be
+read never fails the bot here.
+
 ## Consequences
 
 - Cancelling the exit or the averaging order at the broker no longer stops the bot: the exit is placed again within a moment, by the

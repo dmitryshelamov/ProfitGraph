@@ -141,7 +141,7 @@ internal sealed class TInvestOrderProgress(
     ///     Whether a cancellation of the attempt that nobody asked for would now be the exchange's end of its DAY order: the
     ///     attempt is a limit order and the trading day that holds its last recorded instant, which is not earlier than its
     ///     place request, has ended. A day outside the schedule's vocabulary, or no day, is not ended; a schedule that
-    ///     cannot be read is tried again.
+    ///     cannot be read leaves the Moscow calendar to end the day of a MOEX share and is otherwise not ended.
     /// </summary>
     public async Task<bool> Expired(TInvestBotContext context, TInvestOrderAttempt attempt, CancellationToken cancellationToken)
     {
@@ -151,8 +151,14 @@ internal sealed class TInvestOrderProgress(
         }
 
         DateTimeOffset now = clock.GetUtcNow();
-        IReadOnlyList<TInvestTradingDay> days = await schedules.DaysBetween(context, attempt.UpdatedAt.AddDays(-1), now.AddDays(1), cancellationToken) ??
-            throw new TInvestOrderUnresolvedException("TradingScheduleUnreadable", isTransient: true);
+
+        // T-Invest answers the schedule for today and the next week only, so a day that has passed is usually refused; the Moscow
+        // calendar then ends the day of a MOEX share (ADR 0032), and any other exchange is not expired (ADR 0039): the cancellation is
+        // then the owner's, and the strategy restores the order.
+        if (await schedules.DaysBetween(context, attempt.UpdatedAt.AddDays(-1), now.AddDays(1), cancellationToken) is not { } days)
+        {
+            return TInvestMoscowCalendar.Covers(context.Share.Exchange) && now >= TInvestMoscowCalendar.DayEnd(attempt.UpdatedAt);
+        }
 
         return TInvestSchedules.Holding(days, attempt.UpdatedAt) is { Known: true, End: { } end } && now >= end;
     }

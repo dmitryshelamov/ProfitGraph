@@ -338,6 +338,32 @@ public sealed class TInvestDayEndTests
     }
 
     [Test]
+    public async Task ACancellationNobodyAskedForIsTheOwnersCancelEvenWhenTheScheduleCannotBeRead()
+    {
+        _harness.Orders.ScheduleFailure = MockTInvestApi.Refusal(StatusCode.InvalidArgument, "30003");
+        string requestId = await PlaceBuy(lots: 1);
+
+        At(Tuesday, hour: 12, minute: 0);
+        _harness.Orders.Expire(requestId);
+
+        (await _harness.Until(update => update.Kind == ExternalOrderUpdateKind.CancelConfirmed))[^1].ShouldBe(ExternalOrderUpdate.ConfirmCancel(orderId: 1));
+        Attempt().CancelledBy.ShouldBe(TInvestCancelReason.Owner);
+    }
+
+    [Test]
+    public async Task WhenTheScheduleCannotBeReadTheMoscowCalendarEndsTheDayOfTheCancelledOrder()
+    {
+        _harness.Orders.ScheduleFailure = MockTInvestApi.Refusal(StatusCode.InvalidArgument, "30003");
+        string requestId = await PlaceBuy(lots: 1);
+
+        At(Tuesday.AddDays(1), hour: 0, minute: 30);
+        _harness.Orders.Expire(requestId);
+
+        (await _harness.Until(update => update.Kind == ExternalOrderUpdateKind.CancelConfirmed))[^1].ShouldBe(ExternalOrderUpdate.ConfirmCancel(orderId: 1));
+        Attempt().CancelledBy.ShouldBe(TInvestCancelReason.Expired);
+    }
+
+    [Test]
     public async Task ACancellationNobodyAskedForIsStillClosedWhenTInvestHasForgottenTheOrderAtTheNextStart()
     {
         string requestId = await PlaceBuy(lots: 1);
