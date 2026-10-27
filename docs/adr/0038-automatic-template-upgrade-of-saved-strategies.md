@@ -25,10 +25,10 @@ A new version of a saved strategy is made by the system when an upgrade applies 
   them (the plain Ladder, or one the owner changed away from the template) is left as it is. The template kind is not the test: older
   saved graphs carry another kind for the same shape.
 - **The upgraded graph is validated** with the strategy validator and the node registry; one that does not validate is not saved.
-- **Who runs it.** `StrategyTemplateUpgradeHost` in the Worker's `live` role, 15 seconds after the start and then once an hour, sends
+- **Who runs it.** `StrategyTemplateUpgradeHost` in the Worker's `live` role, 15 seconds after the start (once; a failed pass is tried again after a minute, up to three passes), sends
   `UpgradeStrategyTemplatesCommand`: for every strategy, in one transaction, it reads the current version, applies the upgrade, and
   saves the next version only if the strategy's current version is still the one it read (an owner's save in the meantime wins and the
-  strategy is upgraded on the next pass). It logs each upgraded strategy and how many bots that should run follow it.
+  strategy is upgraded at the next start of the Worker). It logs each upgraded strategy and how many bots that should run follow it.
   `Strategies:TemplateUpgrades:Enabled` (default `true`) switches the host off.
 - **Bots follow by the existing rule.** The save does not ask for `ConfirmLiveImpact`: the owner asked for the upgrade to run by
   itself, and what it adds changes no order and no size, only what the strategy does when the owner's own order fills. A bot adopts

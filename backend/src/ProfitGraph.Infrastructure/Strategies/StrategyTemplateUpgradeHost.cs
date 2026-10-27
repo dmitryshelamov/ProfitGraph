@@ -11,9 +11,11 @@ using ProfitGraph.Application.Strategies.UpgradeStrategyTemplates;
 namespace ProfitGraph.Infrastructure.Strategies;
 
 /// <summary>
-///     Brings saved strategies forward to the later revision of their template, shortly after the Worker's <c>live</c> role starts and
-///     then once an hour (ADR 0038). Each upgrade is a new version of the strategy that only adds blocks; running bots follow it on their
-///     next root (ADR 0019). <c>Strategies:TemplateUpgrades:Enabled</c> (default true) switches it off.
+///     Brings saved strategies forward to the later revision of their template, once, shortly after the Worker's <c>live</c> role
+///     starts, and again after a minute when the pass failed, up to three passes (ADR 0038). A strategy saved later is made from the
+///     current template, which has the blocks already; one that is not (an old copy) is upgraded at the next start. Each upgrade is a
+///     new version of the strategy that only adds blocks; running bots follow it on their next root (ADR 0019).
+///     <c>Strategies:TemplateUpgrades:Enabled</c> (default true) switches it off.
 /// </summary>
 internal sealed class StrategyTemplateUpgradeHost(
     IServiceScopeFactory scopes,
@@ -22,7 +24,8 @@ internal sealed class StrategyTemplateUpgradeHost(
     ILogger<StrategyTemplateUpgradeHost> logger) : BackgroundService
 {
     private static readonly TimeSpan FirstPass = TimeSpan.FromSeconds(15);
-    private static readonly TimeSpan Interval = TimeSpan.FromHours(1);
+    private static readonly TimeSpan RetryAfter = TimeSpan.FromMinutes(1);
+    private const int MaxPasses = 3;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -34,13 +37,11 @@ internal sealed class StrategyTemplateUpgradeHost(
         try
         {
             await Task.Delay(FirstPass, clock, stoppingToken);
-            using var timer = new PeriodicTimer(Interval, clock);
 
-            do
+            for (var pass = 1; pass <= MaxPasses && !await Upgrade(stoppingToken); pass++)
             {
-                await Upgrade(stoppingToken);
+                await Task.Delay(RetryAfter, clock, stoppingToken);
             }
-            while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -48,7 +49,7 @@ internal sealed class StrategyTemplateUpgradeHost(
         }
     }
 
-    private async Task Upgrade(CancellationToken cancellationToken)
+    private async Task<bool> Upgrade(CancellationToken cancellationToken)
     {
         try
         {
@@ -65,10 +66,16 @@ internal sealed class StrategyTemplateUpgradeHost(
                     strategy.Version,
                     strategy.RunningBots);
             }
+
+            return true;
         }
         catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
         {
-            logger.LogWarning("Upgrading the strategies' templates failed with {ExceptionType}; it is tried again.", exception.GetType().Name);
+            logger.LogWarning(
+                "Upgrading the strategies' templates failed with {ExceptionType}; it is tried again after a minute, up to three passes.",
+                exception.GetType().Name);
+
+            return false;
         }
     }
 }
