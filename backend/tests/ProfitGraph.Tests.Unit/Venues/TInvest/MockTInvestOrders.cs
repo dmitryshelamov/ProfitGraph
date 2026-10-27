@@ -63,6 +63,41 @@ internal sealed class MockTInvestOrders
     /// </summary>
     public List<(DateOnly Date, List<(string Type, DateTimeOffset From, DateTimeOffset To)> Intervals)> Schedule { get; } = [];
 
+    /// <summary>
+    ///     The account's operations on the share, as <c>GetOperationsByCursor</c> lists them, oldest first.
+    /// </summary>
+    public List<OperationItem> Operations { get; } = [];
+
+    /// <summary>
+    ///     What <c>GetOperationsByCursor</c> was asked, page by page.
+    /// </summary>
+    public List<GetOperationsByCursorRequest> OperationRequests { get; } = [];
+
+    /// <summary>
+    ///     How many operations one page holds; a smaller number than the request's limit makes the mock page.
+    /// </summary>
+    public int OperationsPageSize { get; set; } = 1000;
+
+    /// <summary>
+    ///     When set, every page claims another one follows, with the same cursor.
+    /// </summary>
+    public bool OperationsNeverEnd { get; set; }
+
+    public RpcException? OperationsFailure { get; set; }
+
+    /// <summary>
+    ///     The account's free shares of the share that <c>GetPositions</c> reports, and those that working orders block.
+    /// </summary>
+    public string PositionInstrumentUid { get; set; } = string.Empty;
+
+    public long PositionShares { get; set; }
+
+    public long PositionBlockedShares { get; set; }
+
+    public bool LimitsLoading { get; set; }
+
+    public RpcException? PositionsFailure { get; set; }
+
     public MockTInvestOrders(MockTInvestApi api, string accountId)
     {
         AccountId = accountId;
@@ -75,6 +110,8 @@ internal sealed class MockTInvestOrders
         api.On<GetTradingStatusRequest, GetTradingStatusResponse>(MarketDataService.Descriptor, "GetTradingStatus", Status);
         api.On<GetOrderBookRequest, GetOrderBookResponse>(MarketDataService.Descriptor, "GetOrderBook", Book);
         api.On<TradingSchedulesRequest, TradingSchedulesResponse>(InstrumentsService.Descriptor, "TradingSchedules", Schedules);
+        api.On<GetOperationsByCursorRequest, GetOperationsByCursorResponse>(OperationsService.Descriptor, "GetOperationsByCursor", OperationsPage);
+        api.On<PositionsRequest, PositionsResponse>(OperationsService.Descriptor, "GetPositions", Positions);
         api.OnStream<OrderStateStreamRequest, OrderStateStreamResponse>(OrdersStreamService.Descriptor, "OrderStateStream", Stream);
     }
 
@@ -149,6 +186,17 @@ internal sealed class MockTInvestOrders
             {
                 _byExchangeId[order.OrderId] = order;
             }
+        }
+    }
+
+    /// <summary>
+    ///     T-Invest still answers for the order by its exchange order ID, though not by its request ID.
+    /// </summary>
+    public void KeepByExchangeId(OrderState order)
+    {
+        lock (_orders)
+        {
+            _byExchangeId[order.OrderId] = order;
         }
     }
 
@@ -233,6 +281,50 @@ internal sealed class MockTInvestOrders
         }
 
         return new TradingSchedulesResponse { Exchanges = { schedule } };
+    }
+
+    private GetOperationsByCursorResponse OperationsPage(GetOperationsByCursorRequest request)
+    {
+        lock (Operations)
+        {
+            OperationRequests.Add(request);
+
+            if (OperationsFailure is { } failure)
+            {
+                throw failure;
+            }
+
+            int start = request.HasCursor ? int.Parse(request.Cursor, CultureInfo.InvariantCulture) : 0;
+            int size = Math.Min(OperationsPageSize, request.Limit);
+            OperationItem[] page = [.. Operations.Skip(start).Take(size)];
+            var response = new GetOperationsByCursorResponse
+            {
+                HasNext = OperationsNeverEnd || start + size < Operations.Count,
+                NextCursor = OperationsNeverEnd ? request.Cursor : (start + size).ToString(CultureInfo.InvariantCulture)
+            };
+            response.Items.AddRange(page);
+
+            return response;
+        }
+    }
+
+    private PositionsResponse Positions(PositionsRequest request)
+    {
+        if (PositionsFailure is { } failure)
+        {
+            throw failure;
+        }
+
+        var response = new PositionsResponse { AccountId = AccountId, LimitsLoadingInProgress = LimitsLoading };
+        response.Securities.Add(
+            new PositionsSecurities
+            {
+                InstrumentUid = PositionInstrumentUid,
+                Balance = PositionShares,
+                Blocked = PositionBlockedShares
+            });
+
+        return response;
     }
 
     private GetOrderBookResponse Book(GetOrderBookRequest request)

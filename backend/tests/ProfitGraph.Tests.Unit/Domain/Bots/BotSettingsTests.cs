@@ -93,6 +93,34 @@ public sealed class BotSettingsTests
     }
 
     [Test]
+    public void AnUnresolvedOrderIsClearedOnlyForABotThatShouldRun()
+    {
+        Bot stopped = BotFixture.Running();
+        stopped.Degrade(BotStatusReason.UnresolvedOrder, Now).ShouldBeTrue();
+        stopped.Stop(Now);
+        Bot unresolved = BotFixture.Running();
+        unresolved.Degrade(BotStatusReason.UnresolvedOrder, Now, "AutoCheck:TradingDayNotEnded").ShouldBeTrue();
+        Bot foreign = BotFixture.DegradedBy(BotStatusReason.ForeignOrder);
+        Bot healthy = BotFixture.Running();
+        unresolved.ClearDomainEvents();
+
+        unresolved.ClearUnresolvedOrder(Now).ShouldBeTrue();
+        stopped.ClearUnresolvedOrder(Now).ShouldBeFalse();
+        foreign.ClearUnresolvedOrder(Now).ShouldBeFalse();
+        healthy.ClearUnresolvedOrder(Now).ShouldBeFalse();
+
+        unresolved.ShouldSatisfyAllConditions(
+            () => unresolved.RuntimeStatus.ShouldBe(BotRuntimeStatus.Created),
+            () => unresolved.StatusReason.ShouldBeNull(),
+            () => unresolved.DesiredState.ShouldBe(BotDesiredState.Running),
+            () => unresolved.Diagnostics.ShouldBe(BotDiagnostics.None),
+            () => unresolved.DomainEvents.ShouldBe([new BotRecovered(unresolved.Id, Now)]));
+        stopped.StatusReason.ShouldBe(BotStatusReason.UnresolvedOrder);
+        stopped.DesiredState.ShouldBe(BotDesiredState.Stopped);
+        foreign.StatusReason.ShouldBe(BotStatusReason.ForeignOrder);
+    }
+
+    [Test]
     public void SellerFeesReplaceTheRatesAndCountAsAChange()
     {
         var schedule = new SellerFeeSchedule([0.05m, 0.10m], minimum: 0.01m);

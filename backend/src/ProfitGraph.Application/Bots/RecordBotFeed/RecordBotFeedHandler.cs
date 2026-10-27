@@ -29,6 +29,7 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
         INotificationHandler<OrderIntentRejected>,
         INotificationHandler<OrderIntentFailed>,
         INotificationHandler<OrderIntentAbsenceConfirmed>,
+        INotificationHandler<OrderIntentAbsenceProven>,
         INotificationHandler<BotFillRecorded>,
         INotificationHandler<BotPositionOpened>,
         INotificationHandler<BotPositionClosed>,
@@ -245,6 +246,17 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
     public Task Handle(OrderIntentAbsenceConfirmed notification, CancellationToken cancellationToken)
     {
         return Record(notification.BotId, BotFeedKind.OrderAbsenceConfirmed, notification.At, cancellationToken, ("engineOrderId", Number(notification.EngineOrderId)));
+    }
+
+    public Task Handle(OrderIntentAbsenceProven notification, CancellationToken cancellationToken)
+    {
+        return Record(
+            notification.BotId,
+            BotFeedKind.OrderAbsenceProven,
+            notification.At,
+            cancellationToken,
+            ("engineOrderId", Number(notification.EngineOrderId)),
+            ("checks", string.Join(',', notification.Checks)));
     }
 
     public Task Handle(OrderIntentFailed notification, CancellationToken cancellationToken)

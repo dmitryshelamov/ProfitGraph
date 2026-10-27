@@ -20,6 +20,7 @@ internal sealed class OrderIntentDb
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset? ConfirmedAbsentAt { get; init; }
     public Guid? ConfirmedAbsentBy { get; init; }
+    public bool ConfirmedAbsentAutomatically { get; init; }
     public string? DeferralCode { get; init; }
     public DateTimeOffset? DeferralSince { get; init; }
     public DateTimeOffset? DeferralUntil { get; init; }

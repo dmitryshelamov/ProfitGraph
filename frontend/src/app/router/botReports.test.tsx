@@ -387,6 +387,9 @@ describe('bot reports', () => {
 
     const unresolved = await screen.findByRole('list', { name: 'Неясные заявки' });
     expect(
+      within(unresolved).getByText(/Бот проверяет такие заявки сам, каждые 5 минут/),
+    ).toBeInTheDocument();
+    expect(
       within(unresolved).getByText(/Подтвердить нельзя: по заявке уже есть исполнение/),
     ).toBeInTheDocument();
     await userEvent.click(within(unresolved).getByRole('button', { name: 'Заявка снята биржей' }));
@@ -409,6 +412,23 @@ describe('bot reports', () => {
         [`GET ${botPath}/feed?limit=50`]: () =>
           json({
             items: [
+              {
+                sequence: 6,
+                id: 'e6',
+                kind: 'OrderAbsenceProven',
+                details: {
+                  engineOrderId: '9',
+                  checks: 'NotFoundByRequestId,TradingDayEnded,PositionMatchesEngine',
+                },
+                occurredAt: '2026-10-24T13:00:00Z',
+              },
+              {
+                sequence: 5,
+                id: 'e5',
+                kind: 'Degraded',
+                details: { reason: 'UnresolvedOrder', detail: 'AutoCheck:PositionDiffers' },
+                occurredAt: '2026-10-24T12:30:00Z',
+              },
               {
                 sequence: 4,
                 id: 'e4',
@@ -458,6 +478,16 @@ describe('bot reports', () => {
     expect(within(feed).getByText('Настройки изменены: общий символ включён')).toBeInTheDocument();
     expect(
       within(feed).getByText(/Комиссия уточнена: заявка 7: было 0, стало 1.5/),
+    ).toBeInTheDocument();
+    expect(
+      within(feed).getByText(
+        'Заявка закрыта автоматически: заявка 9 закрыта автоматически, потому что биржа не находит заявку по номеру запроса; торговый день заявки закончился; позиция по бумаге равна ожидаемой ботом, ничего не заблокировано',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(feed).getByText(
+        /состояние заявки на бирже не установлено; автоматически заявку закрыть не удалось: позиция по бумаге не равна ожидаемой ботом/,
+      ),
     ).toBeInTheDocument();
   });
 });

@@ -12,7 +12,8 @@ namespace ProfitGraph.Application.Bots.Runtime;
 ///     Reconciles an opened bot with its venue before its submit gate opens (ADR 0016, Profit Fox Designer ADR 0055): it
 ///     looks up every engine order that is not final and every submit or cancel whose delivery is unknown, applies what the
 ///     venue reports to the engine and records the outcome. A failed cancel of an order that is still active, or a safety
-///     reason from the venue, degrades the bot; a venue that cannot answer leaves the bot to retry.
+///     reason from the venue, degrades the bot; a venue that cannot answer leaves the bot to retry. An order the gateway
+///     closed on its own evidence (ADR 0030) is recorded with the checks that justified it.
 /// </summary>
 public sealed class BotReconciler(IOrderIntentRepository intents, ISender sender)
 {
@@ -30,7 +31,7 @@ public sealed class BotReconciler(IOrderIntentRepository intents, ISender sender
         try
         {
             reconciliation = await gateway.Reconcile(
-                new BotReconcileInternal(bot.Id, bot.AllowForeignOrders, Orders(bot.Id, session, gateway, stored)),
+                ReconcileRequests.For(bot, session.Checkpoint, gateway, stored),
                 cancellationToken);
         }
         catch (OrderGatewaySafetyException exception)
@@ -58,7 +59,10 @@ public sealed class BotReconciler(IOrderIntentRepository intents, ISender sender
             epoch,
             [.. reconciliation.Found.Select(order => order.ClientOrderId.Value)],
             [.. reconciliation.Found.Where(order => order.IsFinal).Select(order => order.ClientOrderId.Value)],
-            degradation);
+            degradation,
+            reconciliation.Degradation is null ? null : reconciliation.DegradationDetail,
+            reconciliation.Found.Where(order => order.AbsenceProof is not null)
+                .ToDictionary(order => order.ClientOrderId.Value, order => order.AbsenceProof!.Checks));
 
         if (!await sender.Send(applied, cancellationToken))
         {
@@ -66,48 +70,5 @@ public sealed class BotReconciler(IOrderIntentRepository intents, ISender sender
         }
 
         return new BotReconcileResult(VenueAnswered: true, degradation);
-    }
-
-    /// <summary>
-    ///     Engine orders that are not final, and orders of submits and cancels whose delivery may have happened or failed.
-    ///     An order may have reached the venue once the engine saw it accepted or a place request may have left. A submit the
-    ///     owner confirmed absent, or an accepted order the owner confirmed removed by the venue, says so, for the gateway to check.
-    /// </summary>
-    private static IReadOnlyList<ReconcileOrderInternal> Orders(BotId botId, BotEngineSession session, IOrderGateway gateway, IReadOnlyList<OrderIntent> stored)
-    {
-        var orders = new SortedDictionary<long, bool>();
-
-        foreach (OrderSnapshot order in session.Checkpoint?.Account.Orders ?? [])
-        {
-            if (order.Status is OrderStatus.Active or OrderStatus.PendingSubmit or OrderStatus.PendingCancel)
-            {
-                orders[order.Id] = order.Status != OrderStatus.PendingSubmit;
-            }
-        }
-
-        foreach (OrderIntent intent in stored.Where(intent => intent is { Kind: OrderIntentKind.Submit, Status: OrderIntentStatus.Deferred }))
-        {
-            // A deferred submit never left the process, however the engine sees it (ADR 0024).
-            orders[intent.EngineOrderId] = false;
-        }
-
-        foreach (OrderIntent intent in stored)
-        {
-            if (intent.Status is OrderIntentStatus.Failed or OrderIntentStatus.Sending || intent is { Status: OrderIntentStatus.Pending, PlaceStartedAt: not null })
-            {
-                orders.TryAdd(intent.EngineOrderId, value: false);
-            }
-        }
-
-        return
-        [
-            .. orders.Select(pair => new ReconcileOrderInternal(
-                pair.Key,
-                gateway.ClientOrderIdFor(botId, pair.Key),
-                pair.Value || stored.Any(intent => intent.Kind == OrderIntentKind.Submit && intent.EngineOrderId == pair.Key &&
-                    (intent.PlaceStartedAt is not null || intent.Status == OrderIntentStatus.Sent)),
-                stored.Any(intent => intent is { Kind: OrderIntentKind.Submit, ConfirmedAbsentAt: not null } && intent.EngineOrderId == pair.Key &&
-                    intent.Status is OrderIntentStatus.Pending or OrderIntentStatus.Failed or OrderIntentStatus.Sent)))
-        ];
     }
 }

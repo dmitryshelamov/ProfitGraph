@@ -2,6 +2,7 @@ using MediatR;
 
 using Microsoft.Extensions.DependencyInjection;
 
+using ProfitGraph.Application.Bots.AuthorizeOfflineCarryOver;
 using ProfitGraph.Application.Bots.AuthorizeWaitingRelease;
 using ProfitGraph.Application.Bots.RecordOrderWaiting;
 using ProfitGraph.Domain.Bots;
@@ -25,5 +26,12 @@ internal sealed class TInvestOrderWaits(IServiceScopeFactory scopes) : ITInvestO
         using IServiceScope scope = scopes.CreateScope();
 
         return await scope.ServiceProvider.GetRequiredService<ISender>().Send(new AuthorizeWaitingReleaseCommand(botId.Value), cancellationToken);
+    }
+
+    public async Task<bool> MayCarryOverOffline(BotId botId, CancellationToken cancellationToken)
+    {
+        using IServiceScope scope = scopes.CreateScope();
+
+        return await scope.ServiceProvider.GetRequiredService<ISender>().Send(new AuthorizeOfflineCarryOverCommand(botId.Value), cancellationToken);
     }
 }

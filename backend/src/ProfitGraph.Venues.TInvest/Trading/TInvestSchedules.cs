@@ -42,28 +42,21 @@ internal sealed class TInvestSchedules(TInvestTransport transport, TimeProvider 
             return cached.Days;
         }
 
-        IReadOnlyList<TInvestTradingDay>? days;
-
-        try
-        {
-            TradingSchedulesResponse response = await transport.Unary(
-                context.Token,
-                TInvestMethodGroup.Instruments,
-                (invoker, options) => new InstrumentsService.InstrumentsServiceClient(invoker).TradingSchedulesAsync(
-                    new TradingSchedulesRequest { Exchange = exchange, From = now.ToTimestamp(), To = now.AddDays(7).ToTimestamp() },
-                    options),
-                cancellationToken);
-            days = Classify(response.Exchanges.SingleOrDefault(schedule => string.Equals(schedule.Exchange, exchange, StringComparison.OrdinalIgnoreCase)));
-        }
-        catch (TInvestRpcException exception)
-        {
-            logger.LogWarning("The T-Invest trading schedule could not be read: {Failure}", exception.Kind);
-            days = null;
-        }
+        IReadOnlyList<TInvestTradingDay>? days = await Fetch(context, now, now.AddDays(7), cancellationToken);
 
         _schedules[exchange] = (days, now);
 
         return days;
+    }
+
+    /// <summary>
+    ///     The trading days between two instants, read now and not kept, or null when the schedule cannot be read. It serves the
+    ///     proof that the trading day of a stopped order has ended (ADR 0030), which needs days that are already past; a broker
+    ///     that refuses such a range leaves the proof unmade.
+    /// </summary>
+    public Task<IReadOnlyList<TInvestTradingDay>?> DaysBetween(TInvestBotContext context, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
+    {
+        return string.IsNullOrEmpty(context.Share.Exchange) ? Task.FromResult<IReadOnlyList<TInvestTradingDay>?>(null) : Fetch(context, from, to, cancellationToken);
     }
 
     /// <summary>
@@ -72,6 +65,30 @@ internal sealed class TInvestSchedules(TInvestTransport transport, TimeProvider 
     public static TInvestTradingDay? Current(IReadOnlyList<TInvestTradingDay> days, DateTimeOffset now)
     {
         return days.FirstOrDefault(day => day.End > now);
+    }
+
+    private async Task<IReadOnlyList<TInvestTradingDay>?> Fetch(TInvestBotContext context, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
+    {
+        string exchange = context.Share.Exchange;
+
+        try
+        {
+            TradingSchedulesResponse response = await transport.Unary(
+                context.Token,
+                TInvestMethodGroup.Instruments,
+                (invoker, options) => new InstrumentsService.InstrumentsServiceClient(invoker).TradingSchedulesAsync(
+                    new TradingSchedulesRequest { Exchange = exchange, From = from.ToTimestamp(), To = to.ToTimestamp() },
+                    options),
+                cancellationToken);
+
+            return Classify(response.Exchanges.SingleOrDefault(schedule => string.Equals(schedule.Exchange, exchange, StringComparison.OrdinalIgnoreCase)));
+        }
+        catch (TInvestRpcException exception)
+        {
+            logger.LogWarning("The T-Invest trading schedule could not be read: {Failure}", exception.Kind);
+
+            return null;
+        }
     }
 
     private IReadOnlyList<TInvestTradingDay>? Classify(TradingSchedule? schedule)

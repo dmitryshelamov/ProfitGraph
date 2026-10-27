@@ -39,11 +39,13 @@ internal sealed class TInvestGatewayHarness
 
     public TInvestOrderGateway Gateway { get; }
 
+    public TInvestOrderStreams Streams { get; }
+
     public TInvestWaitingOrdersWorker Worker { get; }
 
     public TInvestGatewayHarness()
     {
-        Orders = new MockTInvestOrders(Api, AccountId);
+        Orders = new MockTInvestOrders(Api, AccountId) { PositionInstrumentUid = ShareUid };
         IOptions<TInvestOptions> options = Options.Create(new TInvestOptions());
         var transport = new TInvestTransport(
             new MockTInvestInvokers(Api),
@@ -62,13 +64,21 @@ internal sealed class TInvestGatewayHarness
             Exchange);
         var contexts = new FixedTInvestBotContexts(new TInvestBotContext(Bot, new TInvestToken("t.invented-token"), AccountId, share));
         var progress = new TInvestOrderProgress(Attempts, Waits, Clock);
-        var streams = new TInvestOrderStreams(transport, reads, Attempts, Updates, progress, options, NullLogger<TInvestOrderStreams>.Instance);
+        Streams = new TInvestOrderStreams(transport, reads, Attempts, Updates, progress, options, NullLogger<TInvestOrderStreams>.Instance);
         var schedules = new TInvestSchedules(transport, Clock, NullLogger<TInvestSchedules>.Instance);
+        var proofs = new TInvestAbsenceProofs(
+            reads,
+            new TInvestOperationReads(transport),
+            Attempts,
+            schedules,
+            options,
+            Clock,
+            NullLogger<TInvestAbsenceProofs>.Instance);
         Gateway = new TInvestOrderGateway(
             contexts,
             Attempts,
             reads,
-            streams,
+            Streams,
             Updates,
             new TInvestPrices(transport),
             new TInvestTradingStatuses(transport),
@@ -76,6 +86,7 @@ internal sealed class TInvestGatewayHarness
             schedules,
             Waits,
             progress,
+            proofs,
             transport,
             options,
             Clock);
@@ -83,10 +94,10 @@ internal sealed class TInvestGatewayHarness
             Attempts,
             contexts,
             Waits,
-            streams,
+            Streams,
             Gateway,
             schedules,
-            new TInvestLateCommissions(Attempts, contexts, reads, streams, Updates, Clock, NullLogger<TInvestLateCommissions>.Instance),
+            new TInvestLateCommissions(Attempts, contexts, reads, Streams, Updates, Clock, NullLogger<TInvestLateCommissions>.Instance),
             Updates,
             options,
             Clock,

@@ -1,0 +1,49 @@
+const passed: Record<string, string> = {
+  NotFoundByRequestId: 'биржа не находит заявку по номеру запроса',
+  NotAmongActiveOrders: 'среди активных заявок счёта по этой бумаге её нет',
+  NoExecutionRecorded: 'бот не учёл по заявке ни одного исполнения',
+  NotFoundByExchangeId: 'биржа не знает её и по биржевому номеру',
+  TradingDayEnded: 'торговый день заявки закончился',
+  NoExecutionInOperations: 'в операциях по счёту и бумаге за время жизни заявки исполнений нет',
+  PositionMatchesEngine: 'позиция по бумаге равна ожидаемой ботом, ничего не заблокировано',
+};
+
+const failed: Record<string, string> = {
+  ActiveOrderFound: 'заявка найдена среди активных на бирже',
+  ExecutionRecorded: 'по заявке уже есть исполнение',
+  KnownByExchangeId: 'биржа знает заявку по биржевому номеру',
+  TradingDayUnknown: 'не удалось определить торговый день заявки',
+  TradingDayNotEnded: 'торговый день заявки ещё не закончился или не прошла выдержка после него',
+  OrderTooOld: 'заявка слишком старая для автоматической проверки',
+  OperationsIncomplete: 'операций по бумаге слишком много, проверить все не удалось',
+  ExecutionInOperations: 'в операциях по счёту есть исполнение, возможно частичное',
+  ExpectedPositionUnknown: 'бот не знает ожидаемую позицию',
+  PositionUnreadable: 'позицию по бумаге биржа сейчас не отдаёт',
+  PositionBlocked: 'часть позиции заблокирована заявками',
+  PositionDiffers: 'позиция по бумаге не равна ожидаемой ботом',
+  ReadFailed: 'биржа не ответила на проверочный запрос',
+  AttemptChanged: 'запись о заявке изменилась во время проверки',
+};
+
+/** The checks that closed an order without the owner, as the feed lists them (comma-separated codes). */
+export function absenceProofText(checks: string): string {
+  return checks
+    .split(',')
+    .filter((code) => code.length > 0)
+    .map((code) => passed[code] ?? code)
+    .join('; ');
+}
+
+/**
+ * Why the automatic check left an order to the owner, from the stop's detail (`AutoCheck:<code>`), or null for a stop that
+ * the automatic check did not write.
+ */
+export function autoCheckFailure(detail: string | undefined): string | null {
+  if (!detail?.startsWith('AutoCheck:')) {
+    return null;
+  }
+
+  const code = detail.slice('AutoCheck:'.length);
+
+  return failed[code] ?? code;
+}

@@ -23,6 +23,9 @@ internal static class BotQueries
 
     internal const string ListDesiredRunning = "SELECT id FROM bots WHERE desired_state = 'Running' ORDER BY id";
 
+    internal const string ListDegradedOnUnresolvedOrder =
+        "SELECT id FROM bots WHERE desired_state = 'Running' AND runtime_status = 'Degraded' AND status_reason = 'UnresolvedOrder' ORDER BY id";
+
     internal const string ListDesiredRunningInstruments = "SELECT DISTINCT venue, symbol FROM bots WHERE desired_state = 'Running' ORDER BY venue, symbol";
 
     internal const string ListDesiredRunningOnStrategy =

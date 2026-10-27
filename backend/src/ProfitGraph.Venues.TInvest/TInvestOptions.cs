@@ -75,12 +75,26 @@ public sealed class TInvestOptions
     /// </summary>
     public TimeSpan CommissionPendingWindow { get; init; } = TimeSpan.FromDays(7);
 
+    /// <summary>
+    ///     How long after the end of a trading day its working orders must have been gone before the module may treat a
+    ///     missing one as expired and without execution (ADR 0030): the broker's operations lag behind the exchange.
+    /// </summary>
+    public TimeSpan AbsenceSettleDelay { get; init; } = TimeSpan.FromHours(1);
+
+    /// <summary>
+    ///     The longest life of an order for which the module reads the account's operations to prove its absence. An older order
+    ///     stays with the owner.
+    /// </summary>
+    public TimeSpan AbsenceMaxWindow { get; init; } = TimeSpan.FromDays(10);
+
     internal bool IsValid()
     {
         if (RequestTimeout <= TimeSpan.Zero || CandleCloseGrace < TimeSpan.Zero || CommissionProbeNotional <= 0m || MarketBuySlippage is < 0m or >= 0.2m ||
             WaitingRecheckInterval <= TimeSpan.Zero || CarryOverLead <= TimeSpan.Zero || CarryOverLead > TimeSpan.FromHours(1) ||
             CommissionRecheckInterval <= TimeSpan.Zero ||
             CommissionPendingWindow <= TimeSpan.Zero ||
+            AbsenceSettleDelay < TimeSpan.Zero || AbsenceSettleDelay > TimeSpan.FromDays(1) ||
+            AbsenceMaxWindow <= TimeSpan.Zero || AbsenceMaxWindow > TimeSpan.FromDays(30) ||
             !Limits.IsValid() || !History.IsValid() ||
             string.IsNullOrWhiteSpace(AppName) ||
             string.IsNullOrWhiteSpace(TrustedRootsPath))

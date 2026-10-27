@@ -35,7 +35,7 @@ disabled throughout.
 | Core | Market closures in history and live, candles without trades, waiting codes and fee corrections in the bot runtime, choosing a venue account for a credential, market data with the caller's credential | Each change has its tests; Bybit's and Steam's pinned values are byte-identical | Done |
 | Backtests | T-Invest module and mock, credential form with account selection, share search and rules, history with a reference share, backtest UI | A Ladder backtest on minute candles of a MOEX share runs from share selection to result charts with closures, candles without trades, lots and rouble fees | Done (T6–T8, T16; proven by `TInvestBacktestTests`) |
 | Live | Fee rates, account value, trading status, price band, live candles, order attempts, carry-over, late commissions, bot UI | A ladder bot passes its scenarios against the mock T-Invest: band waiting, a closed session, a day order carried over a night with a partial fill, a late commission, a restart at night and an unknown submit outcome | Done on the mock (T9–T15); trading stays disabled until the owner checks of ADR 0023 pass |
-| Expired day order | The owner's absence confirmation extended to an order T-Invest accepted and then removed, with gateway checks by request ID, active orders and exchange order ID ([ADR 0028](adr/0028-confirm-order-removed-by-the-venue.md)) | A bot stopped by an expired DAY order starts again after the owner's confirmation, and never with an executed lot | Done on the mock; carry-over for a bot that is not running stays open (ADR 0028) |
+| Expired day order | The owner's absence confirmation extended to an order T-Invest accepted and then removed, with gateway checks by request ID, active orders and exchange order ID ([ADR 0028](adr/0028-confirm-order-removed-by-the-venue.md)) | A bot stopped by an expired DAY order starts again after the owner's confirmation, and never with an executed lot | Done on the mock; carry-over for a bot that is not running is closed by ADR 0030 |
 
 Telegram bot control on top of the wave 1 alerts is also part of wave 2.
 
@@ -64,6 +64,17 @@ checkpoint check and the log showed only an exception type.
 | 1. Restated history | `RestatesClosedCandles` port capability; Steam continues on a restated last candle and records `HistoryRestated`; other venues stop with `HistoryDataCorrection` without spending restarts | `BotRuntimeTests` restart a bot on a changed last candle on both kinds of venue | Done on mocks; whether the real Steam restated the incident's hour is not proven |
 | 2. Diagnostics | Allow-listed failure description in the log and the `Degraded` feed entry | The feed shows the type chain and our own message, never a foreign message | Done |
 | 3. Status text | "бот ждёт владельца" once the restarts are spent | The bot page shows it from `nextRestartAt` | Done |
+
+## Automatic check of unresolved orders
+
+[ADR 0030](adr/0030-automatic-check-of-unresolved-orders.md), after a T-Invest bot stopped on DAY orders the exchange removed
+while its runner was down. Two pull requests: T-Invest with the shared parts first, Bybit and Steam second.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Prevention | T-Invest carry-over for a bot nobody runs when the core authorizes it; the engine hears the recorded fills at the next start | The mock Invest API shows a failed bot's day order cancelled before the day ends and its fills replayed at the next start | Done on the mock |
+| 2. T-Invest proof | Operations and positions readers, the proof of a removed order, `Bot.ClearUnresolvedOrder` and the five-minute recheck, marks on the intent, `OrderAbsenceProven` in the feed, bot page texts | The mock shows a closed order with its checks, and each failed check leaves the order to the owner with its reason | Done on the mock; not checked on the real broker (ADR 0030) |
+| 3. Bybit and Steam | The safe part of ADR 0030, section 5 | | Planned |
 
 ## Manual limit order
 

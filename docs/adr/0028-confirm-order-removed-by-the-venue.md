@@ -65,7 +65,8 @@ out an execution the stream and `GetOrderState` never reported, for example a fi
 the bot was down. That is the owner's part: the bot page says to confirm only after checking, in the broker's app, that the
 order is not active and that operations and the position show no execution, even a partial one. A position and operations
 check in the gateway is a later improvement; it needs the operations methods, their request limits and an agreed rule for
-matching an operation to an order.
+matching an operation to an order. ADR 0030 adds both checks for the bot's own automatic closing, with the rule that any
+execution of the share in the order's window blocks it.
 
 ### Interface
 
@@ -84,7 +85,8 @@ exchange removes it. This is intended by ADR 0023 ("a stopped, killed or degrade
 session opened") for sending, and the same safety applies to cancelling: carrying over for a bot nobody runs would cancel
 real orders the owner may have stopped on purpose, and the remainder would then wait for a bot that is not running.
 
-It is not a trivial defect, so it is not changed here. Open options for a later ADR: an alert that a bot with working DAY
+It is not a trivial defect, so it is not changed here (ADR 0030 changes it: carry-over also serves a bot nobody runs, and the bot
+closes an order that was removed anyway when the broker's records prove it). Open options considered for a later ADR: an alert that a bot with working DAY
 orders is not running some minutes before the day's end; or a carry-over for a degraded bot whose desired state is
 `Running`, recorded as `cancelled_by = CarryOver` so that the next reconciliation continues the remainder (the data path
 already supports this, since reconciliation applies a cancelled carried attempt through `TInvestOrderProgress`). The cause of

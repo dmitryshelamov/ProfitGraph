@@ -5,6 +5,7 @@ import { DateTime } from '@/shared/ui/DateTime';
 
 import { botFeedQuery } from '../api/botsApi';
 import { feedLabel, reasonLabel } from '../model/botStatus';
+import { absenceProofText, autoCheckFailure } from '../model/orderAbsence';
 import { waitingReason } from '../model/orderWaiting';
 import type { BotFeedEntry } from '../model/types';
 
@@ -27,7 +28,17 @@ function details(entry: BotFeedEntry): string {
       : label;
   }
 
+  if (entry.details.checks) {
+    return `заявка ${engineOrderId} закрыта автоматически, потому что ${absenceProofText(entry.details.checks)}`;
+  }
+
   if (reason) {
+    const unclosed = autoCheckFailure(entry.details.detail);
+
+    if (unclosed) {
+      return `${reasonLabel(reason)}; автоматически заявку закрыть не удалось: ${unclosed}`;
+    }
+
     return entry.details.detail
       ? `${reasonLabel(reason)} (${entry.details.detail})`
       : reasonLabel(reason);

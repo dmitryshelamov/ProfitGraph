@@ -404,6 +404,54 @@ public sealed class OrderIntentTransitionsTests
     }
 
     [Test]
+    public void AGatewayClosesADeliveredSubmitOnItsOwnEvidenceOnceAndTheEventCarriesTheChecks()
+    {
+        OrderIntent intent = Placed();
+        intent.MarkSent(Now);
+        intent.ClearDomainEvents();
+        string[] checks = ["NotFoundByRequestId", "TradingDayEnded"];
+
+        intent.ConfirmExpiredAutomatically(checks, Now);
+
+        intent.ShouldSatisfyAllConditions(
+            () => intent.Status.ShouldBe(OrderIntentStatus.Sent),
+            () => intent.ConfirmedAbsentAt.ShouldBe(Now),
+            () => intent.ConfirmedAbsentBy.ShouldBeNull(),
+            () => intent.ConfirmedAbsentAutomatically.ShouldBeTrue(),
+            () => intent.DomainEvents.OfType<OrderIntentAbsenceProven>()
+                .ShouldHaveSingleItem()
+                .ShouldSatisfyAllConditions(
+                    proven => proven.BotId.ShouldBe(Bot),
+                    proven => proven.IntentId.ShouldBe(intent.Id),
+                    proven => proven.EngineOrderId.ShouldBe(7),
+                    proven => proven.Checks.ShouldBe(checks),
+                    proven => proven.At.ShouldBe(Now)),
+            () => intent.DomainEvents.Count.ShouldBe(1));
+        Should.Throw<BotRuleException>(() => intent.ConfirmExpiredAutomatically(checks, Now));
+        Should.Throw<BotRuleException>(() => intent.ConfirmExpired(UserId.New(), Now));
+        OrderIntent restored = OrderIntent.Restore(intent.ToSnapshot());
+        restored.ShouldSatisfyAllConditions(
+            () => restored.ConfirmedAbsentAt.ShouldBe(Now),
+            () => restored.ConfirmedAbsentAutomatically.ShouldBeTrue());
+    }
+
+    [Test]
+    public void OnlyADeliveredSubmitWithChecksIsClosedAutomatically()
+    {
+        OrderIntent delivered = Placed();
+        delivered.MarkSent(Now);
+        OrderIntent failed = Placed();
+        failed.RecordFailure(Now);
+
+        Should.Throw<BotRuleException>(() => delivered.ConfirmExpiredAutomatically([], Now));
+        Should.Throw<BotRuleException>(() => Submit().ConfirmExpiredAutomatically(["TradingDayEnded"], Now));
+        Should.Throw<BotRuleException>(() => Placed().ConfirmExpiredAutomatically(["TradingDayEnded"], Now));
+        Should.Throw<BotRuleException>(() => failed.ConfirmExpiredAutomatically(["TradingDayEnded"], Now));
+        Should.Throw<BotRuleException>(() => Cancel().ConfirmExpiredAutomatically(["TradingDayEnded"], Now));
+        Should.Throw<ArgumentNullException>(() => delivered.ConfirmExpiredAutomatically(null!, Now));
+    }
+
+    [Test]
     public void DeferHoldsAClaimedSubmitUntilItsNextCheck()
     {
         OrderIntent intent = Claimed();

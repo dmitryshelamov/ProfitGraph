@@ -11,8 +11,10 @@ namespace ProfitGraph.Venues.TInvest.Trading;
 ///     Every <see cref="TInvestOptions.WaitingRecheckInterval" /> carries working DAY orders over the end of their trading day,
 ///     then reads the trading status and the price band of the orders the module holds locally and sends those that may go
 ///     (ADR 0023, T12). Only a bot whose runner in this process reads
-///     its updates is considered, and only when the core still lets it submit: a stopped, killed or degraded bot never sends
-///     because a band moved or a session opened. A failure is logged by kind only and the order stays waiting.
+///     its updates is considered for sending, and only when the core still lets it submit: a stopped, killed or degraded bot
+///     never sends because a band moved or a session opened. Carry-over also serves a bot that nobody runs right now, when
+///     its owner wants it to run and nothing but a failed run holds it, so a day order is not lost to the exchange (ADR 0030).
+///     A failure is logged by kind only and the order stays waiting.
 /// </summary>
 internal sealed class TInvestWaitingOrdersWorker(
     ITInvestOrderAttempts attempts,
@@ -66,7 +68,7 @@ internal sealed class TInvestWaitingOrdersWorker(
 
     /// <summary>
     ///     <see cref="TInvestOptions.CarryOverLead" /> before the end of the current trading day's last exchange interval, each
-    ///     working DAY limit attempt of a reading bot is cancelled and its remainder carried to the next trading date. A day
+    ///     working DAY limit attempt of a reading bot, or of a bot the core allows to carry over offline, is cancelled and its remainder carried to the next trading date. A day
     ///     the schedule does not know, or no schedule, plans nothing: such an order expires at the exchange and its bot
     ///     degrades with an unresolved order for the owner.
     /// </summary>
@@ -92,13 +94,13 @@ internal sealed class TInvestWaitingOrdersWorker(
         {
             var botId = new BotId(bot.Key);
 
-            if (!streams.IsOpen(botId))
-            {
-                continue;
-            }
-
             try
             {
+                if (!streams.IsOpen(botId) && !await waits.MayCarryOverOffline(botId, cancellationToken))
+                {
+                    continue;
+                }
+
                 TInvestBotContext context = await contexts.Get(botId, cancellationToken);
 
                 if (await schedules.Days(context, cancellationToken) is not { } days ||

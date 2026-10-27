@@ -25,7 +25,9 @@ namespace ProfitGraph.Venues.TInvest.Trading;
 ///     attempt that may have reached T-Invest is never sent again: it is resolved only by <c>GetOrderState</c> with its
 ///     request ID. Only a status whose description is a broker code rejects; every other failure is unknown, so the intent
 ///     retries and eventually degrades the bot. Reconciliation checks the account's access, subscribes to the account's
-///     order states and refuses another active order on the bot's share unless the bot allows them.
+///     order states and refuses another active order on the bot's share unless the bot allows them. An accepted order that
+///     T-Invest no longer finds is closed when the owner confirmed it removed, or when the broker's own records prove it was
+///     removed with nothing executed (ADR 0028, ADR 0030); otherwise it is unresolved.
 /// </summary>
 internal sealed class TInvestOrderGateway(
     ITInvestBotContexts contexts,
@@ -39,6 +41,7 @@ internal sealed class TInvestOrderGateway(
     TInvestSchedules schedules,
     ITInvestOrderWaits waits,
     TInvestOrderProgress progress,
+    TInvestAbsenceProofs proofs,
     TInvestTransport transport,
     IOptions<TInvestOptions> options,
     TimeProvider clock) : IOrderGateway
@@ -230,6 +233,64 @@ internal sealed class TInvestOrderGateway(
 
             throw;
         }
+    }
+
+    /// <summary>
+    ///     Whether reconciliation would now close, on the broker's own records, every order of the request that T-Invest no
+    ///     longer finds (ADR 0030), and has no other reason to stop the bot. It reads and changes nothing: no stream is opened and
+    ///     no attempt moves.
+    /// </summary>
+    public async Task<bool> CanProveAbsence(BotReconcileInternal request, CancellationToken cancellationToken)
+    {
+        TInvestBotContext context = await contexts.Get(request.BotId, cancellationToken);
+
+        if (!await AccountMayTrade(context, cancellationToken))
+        {
+            return false;
+        }
+
+        OrderState[] onShare = [.. (await reads.Active(context, cancellationToken)).Where(order => order.InstrumentUid == context.Share.Uid)];
+        var proven = false;
+
+        foreach (ReconcileOrderInternal order in request.Orders)
+        {
+            TInvestOrderAttempt? attempt = await attempts.Latest(request.BotId.Value, order.EngineOrderId, cancellationToken);
+
+            switch (attempt)
+            {
+                case null when order.MayHaveReachedVenue:
+                    return false;
+                case null or { State: TInvestOrderAttemptState.Planned } or { State: TInvestOrderAttemptState.Final, ExchangeOrderId: null, BrokerCode: not null }:
+                    continue;
+            }
+
+            OrderState? known = await reads.ByRequestId(context, attempt.RequestId, cancellationToken);
+
+            if (known is not null)
+            {
+                if (known.ExecutionReportStatus == OrderExecutionReportStatus.ExecutionReportStatusCancelled && attempt.CancelledBy is null)
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (attempt is { State: TInvestOrderAttemptState.Final, ExchangeOrderId: not null, Lots: > 0 } && attempt.ExecutedLots == attempt.Lots)
+            {
+                continue;
+            }
+
+            if (attempt is not { State: TInvestOrderAttemptState.Active, ExchangeOrderId: { } exchangeOrderId } ||
+                !(await proofs.Evaluate(context, attempt, exchangeOrderId, onShare, order, request.ExpectedBase, cancellationToken)).IsProven)
+            {
+                return false;
+            }
+
+            proven = true;
+        }
+
+        return proven;
     }
 
     /// <summary>
@@ -457,6 +518,7 @@ internal sealed class TInvestOrderGateway(
                 case null when order.MayHaveReachedVenue:
                     return new BotReconciliationInternal(found, orders, BotStatusReason.UnresolvedOrder);
                 case { State: TInvestOrderAttemptState.Planned, WaitingCode: { } waiting }:
+                    found.AddRange(await CarriedExecutions(context, attempt, cancellationToken));
                     found.Add(ExternalOrderUpdate.AcceptLocally(order.EngineOrderId));
                     orders.Add(new ReconciledOrderInternal(order.ClientOrderId, IsFinal: false));
                     await waits.Report(request.BotId, order.EngineOrderId, waiting, attempt.BandLow, attempt.BandHigh, cancellationToken);
@@ -473,18 +535,49 @@ internal sealed class TInvestOrderGateway(
 
             OrderState? known = await reads.ByRequestId(context, attempt.RequestId, cancellationToken);
 
-            if (known is null && order.OwnerConfirmedAbsent && attempt is { State: TInvestOrderAttemptState.Active, ExchangeOrderId: { } exchangeOrderId } &&
-                await ProvenRemoved(context, attempt, exchangeOrderId, onShare, cancellationToken))
+            if (known is null && attempt is { State: TInvestOrderAttemptState.Final, ExchangeOrderId: not null, Lots: > 0 } && attempt.ExecutedLots == attempt.Lots)
             {
-                found.Add(ExternalOrderUpdate.ConfirmCancel(order.EngineOrderId));
+                // The module recorded the fill while no runner read it, such as at a carry-over after the bot failed (ADR 0030), and T-Invest no
+                // longer answers for a past day's order: the recorded totals are the final state.
+                found.AddRange(await RecordedFill(context, attempt, cancellationToken));
                 orders.Add(new ReconciledOrderInternal(order.ClientOrderId, IsFinal: true));
 
                 continue;
             }
 
+            string? failedCheck = null;
+
+            if (known is null && attempt is { State: TInvestOrderAttemptState.Active, ExchangeOrderId: { } exchangeOrderId })
+            {
+                if (order.OwnerConfirmedAbsent)
+                {
+                    if (await ProvenRemoved(context, attempt, exchangeOrderId, onShare, cancellationToken))
+                    {
+                        found.Add(ExternalOrderUpdate.ConfirmCancel(order.EngineOrderId));
+                        orders.Add(new ReconciledOrderInternal(order.ClientOrderId, IsFinal: true));
+
+                        continue;
+                    }
+                }
+                else
+                {
+                    TInvestAbsenceProof evidence = await proofs.Evaluate(context, attempt, exchangeOrderId, onShare, order, request.ExpectedBase, cancellationToken);
+
+                    if (evidence.IsProven && await CloseRemoved(attempt, cancellationToken))
+                    {
+                        found.Add(ExternalOrderUpdate.ConfirmCancel(order.EngineOrderId));
+                        orders.Add(new ReconciledOrderInternal(order.ClientOrderId, IsFinal: true, evidence.ToInternal()));
+
+                        continue;
+                    }
+
+                    failedCheck = evidence.Failed ?? TInvestAbsenceChecks.AttemptChanged;
+                }
+            }
+
             if (known is not { } state)
             {
-                return new BotReconciliationInternal(found, orders, BotStatusReason.UnresolvedOrder);
+                return new BotReconciliationInternal(found, orders, BotStatusReason.UnresolvedOrder, failedCheck is null ? null : $"AutoCheck:{failedCheck}");
             }
 
             try
@@ -525,6 +618,15 @@ internal sealed class TInvestOrderGateway(
             return false;
         }
 
+        return await CloseRemoved(attempt, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Closes an attempt T-Invest no longer knows as an owner cancel with nothing executed, so the engine cancels the order
+    ///     as it does for the owner's. Moves the attempt only from <see cref="TInvestOrderAttemptState.Active" />.
+    /// </summary>
+    private async Task<bool> CloseRemoved(TInvestOrderAttempt attempt, CancellationToken cancellationToken)
+    {
         TInvestOrderAttempt closed = attempt with
         {
             State = TInvestOrderAttemptState.Final,
@@ -533,6 +635,57 @@ internal sealed class TInvestOrderGateway(
         };
 
         return await attempts.Transition(closed, attempt.State, cancellationToken);
+    }
+
+    /// <summary>
+    ///     What earlier attempts of the engine order executed, as the cumulative updates the engine needs when it did not hear
+    ///     them: an engine order whose first attempt was carried over while no runner read its updates continues as a later
+    ///     attempt that waits. The engine ignores a total it already booked.
+    /// </summary>
+    private async Task<IReadOnlyList<ExternalOrderUpdate>> CarriedExecutions(TInvestBotContext context, TInvestOrderAttempt attempt, CancellationToken cancellationToken)
+    {
+        TInvestExecution earlier = await Executed(attempt.BotId, attempt.EngineOrderId, attempt.Attempt, cancellationToken);
+
+        return earlier.Lots == 0
+            ? []
+            :
+            [
+                ExternalOrderUpdate.Accept(attempt.EngineOrderId),
+                ExternalOrderUpdate.Partial(
+                    attempt.EngineOrderId,
+                    earlier.Lots * context.Share.Lot,
+                    earlier.Quote,
+                    earlier.Fee,
+                    commissionPending: earlier.Fee == 0m,
+                    commissionPartitioned: true)
+            ];
+    }
+
+    /// <summary>
+    ///     The final fill of an engine order from the module's records: the totals of every attempt up to and including this one.
+    /// </summary>
+    private async Task<IReadOnlyList<ExternalOrderUpdate>> RecordedFill(TInvestBotContext context, TInvestOrderAttempt attempt, CancellationToken cancellationToken)
+    {
+        TInvestExecution total = await Executed(attempt.BotId, attempt.EngineOrderId, attempt.Attempt + 1, cancellationToken);
+
+        return
+        [
+            ExternalOrderUpdate.Accept(attempt.EngineOrderId),
+            ExternalOrderUpdate.Final(
+                attempt.EngineOrderId,
+                total.Lots * context.Share.Lot,
+                total.Quote,
+                total.Fee,
+                commissionPending: attempt.ExecutedFee == 0m,
+                commissionPartitioned: true)
+        ];
+    }
+
+    private async Task<TInvestExecution> Executed(Guid botId, long engineOrderId, int before, CancellationToken cancellationToken)
+    {
+        return (await attempts.ForOrder(botId, engineOrderId, cancellationToken))
+            .Where(other => other.Attempt < before && other.State == TInvestOrderAttemptState.Final)
+            .Aggregate(TInvestExecution.None, (sum, other) => sum.Add(new TInvestExecution(other.ExecutedLots, other.ExecutedQuote, other.ExecutedFee)));
     }
 
     /// <summary>

@@ -22,21 +22,38 @@ internal sealed class ApplyBotReconciliationCommandHandler(IBotRepository bots, 
         HashSet<string> found = [.. command.FoundClientOrderIds];
         HashSet<string> final = [.. command.FinalClientOrderIds];
 
+        IReadOnlyDictionary<string, IReadOnlyList<string>> proven = command.ProvenAbsences ?? new Dictionary<string, IReadOnlyList<string>>();
+
         foreach (OrderIntent listed in await intents.ListByBot(botId, cancellationToken))
         {
-            if (listed.Status is not (OrderIntentStatus.Pending or OrderIntentStatus.Sending or OrderIntentStatus.Failed))
+            bool undelivered = listed.Status is OrderIntentStatus.Pending or OrderIntentStatus.Sending or OrderIntentStatus.Failed;
+            bool closed = listed.Kind == OrderIntentKind.Submit && proven.ContainsKey(listed.ClientOrderId.Value);
+
+            if (!undelivered && !closed)
             {
                 continue;
             }
 
             OrderIntent intent = await intents.GetForUpdate(listed.Id, cancellationToken) ?? throw new InvalidOperationException("A listed intent does not exist.");
+            var changedIntent = false;
 
-            if (Resolves(intent, found, final))
+            if (undelivered && Resolves(intent, found, final))
             {
                 intent.Resolve(now);
-                await intents.Update(intent, cancellationToken);
+                changedIntent = true;
             }
-            else if (intent.ResetUnsentFailure())
+            else if (undelivered && intent.ResetUnsentFailure())
+            {
+                changedIntent = true;
+            }
+
+            if (closed && intent is { Status: OrderIntentStatus.Sent, ConfirmedAbsentAt: null, PlaceStartedAt: not null })
+            {
+                intent.ConfirmExpiredAutomatically(proven[intent.ClientOrderId.Value], now);
+                changedIntent = true;
+            }
+
+            if (changedIntent)
             {
                 await intents.Update(intent, cancellationToken);
             }
@@ -46,7 +63,7 @@ internal sealed class ApplyBotReconciliationCommandHandler(IBotRepository bots, 
 
         if (command.Degradation is { } reason)
         {
-            changed |= bot.Degrade(reason, now);
+            changed |= bot.Degrade(reason, now, command.DegradationDetail);
         }
 
         if (changed)
