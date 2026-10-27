@@ -136,3 +136,9 @@ new method on the externally executed account used only by the live runner.
 - A refusal is recorded as a rejected strategy version of the version the run runs (`GraphChangeRejected` diagnostic and one
   alert); the run keeps its values. Another start retries it and records nothing new while the diagnostic stands.
 - Not built yet: the `SettingsApplied` feed event and the applied values in the API and on the bot page (stage 2).
+
+## Amendment: the latest version (ADR 0039)
+
+- The start takes the bot's changed values and allocation on the strategy's latest version, fitted to its parameters, in one root,
+  instead of on the version the run runs; a refusal rejects the latest version. See
+  [ADR 0039](0039-bot-values-follow-the-strategy-parameters.md).

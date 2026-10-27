@@ -143,6 +143,10 @@ public sealed class BotControlEndpointTests
         bot.Timeframe.ShouldBe("1h");
         bot.StrategyVersionId.ShouldBe(started.GetProperty("strategyVersionId").GetGuid());
         bot.RuntimeStatus.ShouldBe(BotRuntimeStatus.Created);
+        bot.Parameters.ShouldBe(
+            started.GetProperty("parameters").EnumerateObject().ToDictionary(property => property.Name, property => property.Value.GetString()!),
+            ignoreOrder: true);
+        bot.Parameters.ShouldNotBeEmpty();
         refused.StatusCode.ShouldBe(HttpStatusCode.Conflict);
         (await BotApi.Code(refused)).ShouldBe("live_impact");
         saved.StatusCode.ShouldBe(HttpStatusCode.OK);

@@ -19,6 +19,8 @@ export {
 } from './api/botsApi';
 export { botTitle, fractionLabel } from './model/botDisplay';
 export { botStatusLabel, diagnosticLabel, feedLabel, restartsExhausted } from './model/botStatus';
+export type { DraftParameter } from './model/liveImpact';
+export { parameterFitText } from './model/liveImpact';
 export type { Bot, BotAlert, LiveImpactBot } from './model/types';
 export { useBotDisplay } from './model/useBotDisplay';
 export { AlertsList } from './ui/AlertsList';

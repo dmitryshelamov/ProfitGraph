@@ -4,6 +4,7 @@ using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Accounting;
+using ProfitGraph.Engine.Blocks;
 using ProfitGraph.Engine.Dispatch;
 using ProfitGraph.Engine.Evaluation;
 using ProfitGraph.Engine.Market;
@@ -28,6 +29,7 @@ public sealed class BotEngineSession
     private StrategyVersionId _version;
     private int _lastCandleIndex;
     private (Candle Previous, Candle Restated)? _restatement;
+    private IReadOnlyList<StrategyParameter>? _switchedParameters;
 
     public GraphEngineCheckpoint? Checkpoint { get; private set; }
 
@@ -250,11 +252,15 @@ public sealed class BotEngineSession
     /// <summary>
     ///     Switches the engine to <paramref name="candidate" /> between roots (ADR 0019): indicators whose definition is
     ///     unchanged keep their state, the others warm on <paramref name="closedHistory" />, orders of removed blocks are
-    ///     cancelled and one <c>Resume(GraphChanged)</c> is drained; the root is committed. Returns null when it switched, or
-    ///     the reason the engine refused the candidate, in which case nothing changed.
+    ///     cancelled and one <c>Resume(GraphChanged)</c> is drained; the root is committed. <paramref name="applied" /> are the
+    ///     run's values fitted to the candidate's <paramref name="parameters" />, and the bot's values follow them in the same
+    ///     commit (ADR 0039). Returns null when it switched, or the reason the engine refused the candidate, in which case
+    ///     nothing changed.
     /// </summary>
     internal async Task<string?> ChangeGraph(
         StrategyVersionId candidate,
+        BotParameters applied,
+        IReadOnlyList<StrategyParameter> parameters,
         LoweredStrategyGraph lowered,
         IReadOnlyList<Candle> closedHistory,
         CancellationToken cancellationToken)
@@ -272,20 +278,22 @@ public sealed class BotEngineSession
             return result.Diagnostic ?? "The engine refused the graph change.";
         }
 
-        _version = candidate;
-        await Save(liveCandle: false, cancellationToken);
+        await Switched(candidate, applied, parameters, cancellationToken);
 
         return null;
     }
 
     /// <summary>
-    ///     Gives a stored run the bot's current values and allocation (ADR 0025): the engine switches to the same version
-    ///     compiled with <paramref name="applied" />, the account's capital becomes <paramref name="allocationCap" /> (the
-    ///     difference moves the quote balance), and one <c>Resume(GraphChanged)</c> is drained; the root is committed. Returns null
-    ///     when it applied, or the reason it was refused, in which case nothing changed.
+    ///     Gives a stored run the bot's current values and allocation (ADR 0025) on <paramref name="target" />, the strategy's
+    ///     latest version, in one root (ADR 0039): the engine switches to it compiled with <paramref name="applied" />, the
+    ///     account's capital becomes <paramref name="allocationCap" /> (the difference moves the quote balance), and one
+    ///     <c>Resume(GraphChanged)</c> is drained; the root is committed. Returns null when it applied, or the reason it was
+    ///     refused, in which case nothing changed.
     /// </summary>
     internal async Task<string?> ApplySettings(
+        StrategyVersionId target,
         BotParameters applied,
+        IReadOnlyList<StrategyParameter> parameters,
         decimal allocationCap,
         LoweredStrategyGraph lowered,
         IReadOnlyList<Candle> closedHistory,
@@ -300,7 +308,7 @@ public sealed class BotEngineSession
             lowered.Graph,
             lowered.Catalog,
             EngineExecutionInputs.Empty,
-            _version.Value.ToString("D"),
+            target.Value.ToString("D"),
             closedHistory,
             LastCandle!.OpenTime + _timeframe.Duration);
 
@@ -310,8 +318,7 @@ public sealed class BotEngineSession
         }
 
         account.AdjustCapital(allocationCap);
-        AppliedParameters = applied;
-        await Save(liveCandle: false, cancellationToken);
+        await Switched(target, applied, parameters, cancellationToken);
 
         return null;
     }
@@ -345,6 +352,25 @@ public sealed class BotEngineSession
         await Save(liveCandle: false, cancellationToken);
     }
 
+    /// <summary>
+    ///     Commits the root of a version switch: the bot records the version and fits its values to the version's parameters.
+    /// </summary>
+    private async Task Switched(StrategyVersionId version, BotParameters applied, IReadOnlyList<StrategyParameter> parameters, CancellationToken cancellationToken)
+    {
+        _version = version;
+        AppliedParameters = applied;
+        _switchedParameters = parameters;
+
+        try
+        {
+            await Save(liveCandle: false, cancellationToken);
+        }
+        finally
+        {
+            _switchedParameters = null;
+        }
+    }
+
     private async Task Save(bool liveCandle, CancellationToken cancellationToken, BotRootManualOrder? manualOrder = null, ExternalOrderUpdate? update = null)
     {
         DateTimeOffset now = _clock.GetUtcNow();
@@ -364,6 +390,11 @@ public sealed class BotEngineSession
             bot =>
             {
                 bot.ApplyStrategyVersion(_version, now);
+
+                if (_switchedParameters is { } parameters)
+                {
+                    bot.FitParameters(parameters, now);
+                }
 
                 if (_restatement is { } restatement)
                 {

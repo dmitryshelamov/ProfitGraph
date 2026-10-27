@@ -75,15 +75,16 @@ public sealed class StrategiesController(ISender sender) : ControllerBase
     }
 
     /// <summary>
-    ///     The running bots a save would switch to the new version (ADR 0019); a save while any exists needs
-    ///     <c>confirmLiveImpact</c> and otherwise answers 409 <c>live_impact</c>.
+    ///     The running bots a save would switch to the new version (ADR 0019) with their values, so the editor shows which new
+    ///     parameters take their default (ADR 0039); a save while any exists needs <c>confirmLiveImpact</c> and otherwise answers
+    ///     409 <c>live_impact</c>.
     /// </summary>
     [HttpGet("{id:guid}/live-impact")]
     public async Task<ActionResult<IReadOnlyList<LiveImpactBotResponse>>> LiveImpact(Guid id, CancellationToken cancellationToken)
     {
         IReadOnlyList<LiveImpactBotInternal> bots = await sender.Send(new GetStrategyLiveImpactQuery(UserId(), id), cancellationToken);
 
-        return bots.Select(bot => new LiveImpactBotResponse(bot.BotId, bot.Venue, bot.Symbol, bot.Timeframe, bot.StrategyVersionId, bot.RuntimeStatus)).ToArray();
+        return bots.Select(bot => bot.ToResponse()).ToArray();
     }
 
     [HttpGet("{id:guid}/versions")]

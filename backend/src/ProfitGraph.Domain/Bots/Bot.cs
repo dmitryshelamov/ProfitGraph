@@ -2,6 +2,7 @@ using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Common;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Strategies;
+using ProfitGraph.Engine.Blocks;
 
 namespace ProfitGraph.Domain.Bots;
 
@@ -516,6 +517,29 @@ public sealed class Bot : AggregateRoot
         AllocationCap = allocationCap;
         UpdatedAt = now;
         AddDomainEvent(new BotParametersChanged(Id, now));
+    }
+
+    /// <summary>
+    ///     The bot now runs a strategy version that names other parameters (ADR 0039): a value of a removed parameter is dropped
+    ///     and a new parameter takes its default, so the bot's values stay those its run applies. It happens with the version
+    ///     switch, also while the bot runs. Returns whether the values changed.
+    /// </summary>
+    public bool FitParameters(IReadOnlyList<StrategyParameter> parameters, DateTimeOffset now)
+    {
+        BotParameters fitted = Parameters.Fit(parameters);
+
+        if (fitted == Parameters)
+        {
+            return false;
+        }
+
+        Dictionary<string, decimal> added = fitted.Values.Where(pair => !Parameters.Values.ContainsKey(pair.Key)).ToDictionary(StringComparer.Ordinal);
+        string[] removed = [.. Parameters.Values.Keys.Where(name => !fitted.Values.ContainsKey(name))];
+        Parameters = fitted;
+        UpdatedAt = now;
+        AddDomainEvent(new BotParametersFitted(Id, added, removed, now));
+
+        return true;
     }
 
     /// <summary>

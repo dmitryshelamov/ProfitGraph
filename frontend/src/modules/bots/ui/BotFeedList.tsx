@@ -23,9 +23,17 @@ function details(entry: BotFeedEntry): string {
   if (setting) {
     const label = settingLabels[setting] ?? setting;
 
-    return setting === 'foreignOrders'
-      ? `${label} ${entry.details.allowForeignOrders === 'true' ? 'включён' : 'выключен'}`
-      : label;
+    if (setting === 'foreignOrders') {
+      return `${label} ${entry.details.allowForeignOrders === 'true' ? 'включён' : 'выключен'}`;
+    }
+
+    const { added, removed } = entry.details;
+    const changes = [
+      ...(added ? [`по умолчанию ${added}`] : []),
+      ...(removed ? [`удалены ${removed}`] : []),
+    ];
+
+    return changes.length > 0 ? `${label}: ${changes.join('; ')}` : label;
   }
 
   if (entry.details.checks) {

@@ -3919,6 +3919,9 @@ export interface components {
             /** Format: uuid */
             strategyVersionId: string;
             runtimeStatus: components["schemas"]["BotRuntimeStatus"];
+            parameters: {
+                [key: string]: string;
+            };
         };
         ManualOrderResponse: {
             /** Format: uuid */

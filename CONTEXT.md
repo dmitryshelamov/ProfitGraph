@@ -243,6 +243,10 @@ A named numeric setting with a declared value type and an exact default value. B
 parameter by name. Backtest overrides and optimization search-space ranges also use that name, rather than an
 internal node ID or parameter-port key. Ranges belong to an optimization request, rather than a saved definition.
 
+A bot holds a value for every parameter of the strategy version it runs. When it switches to a version that adds a
+parameter, the bot takes that parameter's default; the value of a removed parameter is dropped. See
+[ADR 0039](docs/adr/0039-bot-values-follow-the-strategy-parameters.md).
+
 ### Wire
 
 An event connection from a block's named exit to another block: `{ from: { block, exit }, to }`. Several wires may
