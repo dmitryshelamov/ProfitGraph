@@ -202,7 +202,7 @@ test('a version conflict preserves the dirty block until reload', async ({ page 
   await expect(page.getByLabel('Название стратегии')).toHaveValue(`${current.name} external`);
 });
 
-test('Ladder opens one connected flowchart started only by the run start, driven by order events', async ({
+test('Ladder opens one connected flowchart started by the run start, a resume and a manual fill, driven by order events', async ({
   page,
 }, testInfo) => {
   await page.goto('/strategies');
@@ -213,7 +213,8 @@ test('Ladder opens one connected flowchart started only by the run start, driven
   await expect(page).toHaveURL(/\/strategies\/[0-9a-f-]+\/edit$/);
   const rules = page.getByRole('region', { name: 'Блок-схема стратегии' });
   await expect(rules.locator('.react-flow')).toBeVisible();
-  await expect(rules.locator('.flowchart-start')).toHaveCount(1);
+  // The run start, the resume (ADR 0040) and the owner's manual fill (ADR 0037) are the events that start the chart.
+  await expect(rules.locator('.flowchart-start')).toHaveCount(3);
   await expect(rules.locator('.flowchart-decision').first()).toBeVisible();
   await expect(rules.locator('[data-flowchart-node="entry"]')).toBeVisible();
   await expect(rules.locator('[data-flowchart-node="cancelExit"]')).toBeVisible();
