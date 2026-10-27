@@ -21,7 +21,7 @@ const statusLabels = {
 const sideLabels: Record<OrderSide, string> = { Buy: 'купить', Sell: 'продать' };
 
 /**
- * An owner order in a running bot, market or limit (ADR 0027): a buy is sized in quote, a sell in base. The bot takes it
+ * An owner order in a running bot, market or limit (ADR 0046): a buy is sized in quote, a sell in base. The bot takes it
  * within a minute; the strategy sees it only through its global order listeners. A limit order is confirmed before it is
  * sent, because it rests on the venue until it fills and the system cannot cancel it yet.
  */

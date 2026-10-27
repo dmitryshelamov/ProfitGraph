@@ -24,7 +24,7 @@ namespace ProfitGraph.Tests.Integration.Bots;
 
 /// <summary>
 ///     Running bots follow a newly saved strategy version on their next root (stage 5.10, ADR 0019): an order of a removed
-///     block is cancelled once, a new parameter takes its default and a removed one is dropped (ADR 0039), and a version the
+///     block is cancelled once, a new parameter takes its default and a removed one is dropped (ADR 0047), and a version the
 ///     bot cannot take leaves it on its version with one rejection.
 /// </summary>
 [NonParallelizable]

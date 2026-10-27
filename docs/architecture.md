@@ -47,7 +47,7 @@ Application/
     Converters/               StrategyInternalConverter.cs (ToInternal / ToDomain extensions)
 Infrastructure/
   Common/
-    Postgres/Migrations/      every migration, e.g. 202610240001_create_user_table.cs (class CreateUserTableMigration)
+    Postgres/Migrations/      every core migration, e.g. 202610240001_create_user_table.cs (class CreateUserTableMigration)
     Postgres/, Messaging/     connection, transactions, behaviors
   Strategies/
     Repositories/             StrategyRepository.cs, StrategyVersionReader.cs
@@ -82,8 +82,11 @@ Venues.Bybit/
   `*Migration` for migrations. Domain events are past-tense facts without a suffix (`BotDegraded`).
 - **One type per file**, named after the type, with no nested types. Generic and non-generic variants of one name
   are separate files (`ICommand.cs`, `ICommandOfTResponse.cs`).
-- **Migrations** all live in `Infrastructure/Common/Postgres/Migrations/` as `{version}_{snake_case}.cs`, for example
-  `202610240001_create_user_table.cs` with class `CreateUserTableMigration`.
+- **Migrations** live in `Infrastructure/Common/Postgres/Migrations/` as `{version}_{snake_case}.cs`, for example
+  `202610240001_create_user_table.cs` with class `CreateUserTableMigration`. A venue module may own tables named after
+  its venue (`steam_*`, `tinvest_*`); their migrations live in the module's `Persistence/Migrations/` folder with the
+  same version scheme and naming, and the module adds its assembly to the shared migration runner. See
+  [ADR 0006](adr/0006-persistence-and-migrations.md).
 - **Contracts and converters** sit in `Contracts/` and `Converters/` subfolders of the feature (Application, Api) or of
   `Repositories/` (Infrastructure); architecture tests enforce `*Internal`, `*Request`/`*Response`, `*Db` and `*Converter`.
 - **Forbidden top-level folders** in Domain, Application, Infrastructure and Api: `Commands`, `Queries`, `Contracts`,

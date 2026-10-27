@@ -528,7 +528,7 @@ public sealed class Bot : AggregateRoot
     }
 
     /// <summary>
-    ///     The bot now runs a strategy version that names other parameters (ADR 0039): a value of a removed parameter is dropped
+    ///     The bot now runs a strategy version that names other parameters (ADR 0047): a value of a removed parameter is dropped
     ///     and a new parameter takes its default, so the bot's values stay those its run applies. It happens with the version
     ///     switch, also while the bot runs. Returns whether the values changed.
     /// </summary>

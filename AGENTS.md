@@ -99,8 +99,9 @@ Key invariants:
   `docs/architecture.md#folder-conventions` and never add top-level `Commands/`, `Entities/` or similar type folders.
 - One type per file, no nested types. Application contracts are `*Internal` in `<Feature>/Contracts` with
   `*InternalConverter` in `<Feature>/Converters`; HTTP contracts are `*Request`/`*Response` with `*ResponseConverter`.
-  Repositories follow `<Feature>/Repositories/{Contracts,Converters,Queries}` with `*Db` row models. All migrations are
-  `Infrastructure/Common/Postgres/Migrations/{version}_{snake_case}.cs` with a `*Migration` class.
+  Repositories follow `<Feature>/Repositories/{Contracts,Converters,Queries}` with `*Db` row models. Migrations are
+  `{version}_{snake_case}.cs` with a `*Migration` class in `Infrastructure/Common/Postgres/Migrations/`; a venue module
+  that owns `<venue>_*` tables keeps their migrations in its `Persistence/Migrations/` folder (ADR 0006).
 - Only `ProfitGraph.Venues.*` projects name concrete venues (ADR 0003).
 - Aggregates change state only through their methods; repositories contain no business rules (ADR 0004).
 - Use cases are MediatR commands and queries; MediatR stays on 12.5.0 (ADR 0005).
