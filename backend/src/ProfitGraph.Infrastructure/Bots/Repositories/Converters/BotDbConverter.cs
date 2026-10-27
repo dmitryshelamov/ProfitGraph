@@ -36,7 +36,7 @@ internal static class BotDbConverter
                 row.NextRestartAt,
                 row.HasRun,
                 row.FirstStartedAt,
-                row.DayStartUtc is { } day ? new DailyLossBaseline(DateOnly.FromDateTime(day), row.DayStartEquity!.Value) : null,
+                row.DayStartUtc is { } day ? new DailyLossBaseline(DateOnly.FromDateTime(day), row.DayStartEquity!.Value, row.DayLastEquity!.Value) : null,
                 row.RejectedVersionId is { } rejected ? new StrategyVersionId(rejected) : null,
                 row.CreatedAt,
                 row.UpdatedAt,
@@ -80,6 +80,7 @@ internal static class BotDbConverter
             FirstStartedAt = snapshot.FirstStartedAt,
             DayStartUtc = snapshot.DayBaseline?.Day.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified),
             DayStartEquity = snapshot.DayBaseline?.Equity,
+            DayLastEquity = snapshot.DayBaseline?.LastEquity,
             RejectedVersionId = snapshot.RejectedVersionId?.Value,
             CreatedAt = snapshot.CreatedAt,
             UpdatedAt = snapshot.UpdatedAt

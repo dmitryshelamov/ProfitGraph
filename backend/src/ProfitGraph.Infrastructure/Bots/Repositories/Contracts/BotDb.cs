@@ -32,6 +32,7 @@ internal sealed class BotDb
     public DateTimeOffset? FirstStartedAt { get; init; }
     public DateTime? DayStartUtc { get; init; }
     public decimal? DayStartEquity { get; init; }
+    public decimal? DayLastEquity { get; init; }
     public Guid? RejectedVersionId { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }

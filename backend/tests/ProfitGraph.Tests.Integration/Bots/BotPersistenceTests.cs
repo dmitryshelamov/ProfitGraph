@@ -45,6 +45,7 @@ public sealed class BotPersistenceTests
         bot.RecordRuntimeFailure(BotSeed.Now);
         bot.RecordRun(BotSeed.Now);
         bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 25), equity: 99.5m, BotSeed.Now);
+        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 25), equity: 99.25m, BotSeed.Now);
         bot.RejectStrategyVersion(StrategyVersionId.New(), BotSeed.Now);
         bot.MarkFeedStale(stale: true, BotSeed.Now);
 

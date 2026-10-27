@@ -257,7 +257,7 @@ public sealed class BotTransitionsTests
     {
         Bot bot = BotFixture.Running();
 
-        bot.RecordRuntimeFailure(Now, detail: "  The strategy\n version   does not exist.  ");
+        bot.RecordRuntimeFailure(Now, "  The strategy\n version   does not exist.  ");
 
         bot.DomainEvents.ShouldBe([new BotDegraded(bot.Id, BotStatusReason.RuntimeFailure, Now, "The strategy version does not exist.")]);
     }
@@ -267,7 +267,7 @@ public sealed class BotTransitionsTests
     {
         Bot bot = BotFixture.Running();
 
-        bot.RecordRuntimeFailure(Now, new string('x', count: 1000));
+        bot.RecordRuntimeFailure(Now, new string(c: 'x', count: 1000));
 
         ((BotDegraded)bot.DomainEvents.Single()).Detail!.Length.ShouldBe(expected: 300);
     }
@@ -423,7 +423,7 @@ public sealed class BotTransitionsTests
     }
 
     [Test]
-    public void FirstRootOfADaySetsTheBaseline()
+    public void FirstRootAfterAStartSetsTheBaseline()
     {
         Bot bot = BotFixture.Running();
         var day = new DateOnly(year: 2026, month: 10, day: 25);
@@ -431,7 +431,7 @@ public sealed class BotTransitionsTests
         bot.RecordDayEquity(day, equity: 100m, Now).ShouldBeFalse();
         bot.RecordDayEquity(day, equity: 95m, Now).ShouldBeFalse();
 
-        bot.DayBaseline.ShouldBe(new DailyLossBaseline(day, Equity: 100m));
+        bot.DayBaseline.ShouldBe(new DailyLossBaseline(day, Equity: 100m, LastEquity: 95m));
     }
 
     [Test]
@@ -449,15 +449,69 @@ public sealed class BotTransitionsTests
     }
 
     [Test]
-    public void ANewUtcDayMovesTheBaseline()
+    public void ANewUtcDayTakesThePreviousDaysLastEquityAsItsBaseline()
+    {
+        Bot bot = BotFixture.Running();
+        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 25), equity: 100m, Now);
+        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 25), equity: 104m, Now);
+
+        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 26), equity: 97m, Now).ShouldBeFalse();
+
+        bot.DayBaseline.ShouldBe(new DailyLossBaseline(new DateOnly(year: 2026, month: 10, day: 26), Equity: 104m, LastEquity: 97m));
+        bot.DesiredState.ShouldBe(BotDesiredState.Running);
+    }
+
+    [Test]
+    public void DailyBotLosingTheLimitBetweenTwoDailyRootsIsKilled()
+    {
+        Bot bot = BotFixture.Running();
+        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 25), equity: 100m, Now).ShouldBeFalse();
+
+        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 26), equity: 89m, Now).ShouldBeTrue();
+
+        bot.StatusReason.ShouldBe(BotStatusReason.DailyLossLimit);
+        bot.DesiredState.ShouldBe(BotDesiredState.Stopped);
+    }
+
+    [Test]
+    public void LossAcrossMidnightIsCounted()
+    {
+        Bot bot = BotFixture.Running();
+        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 25), equity: 100m, Now);
+        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 25), equity: 96m, Now);
+
+        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 26), equity: 91m, Now).ShouldBeFalse();
+        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 26), equity: 86m, Now).ShouldBeTrue();
+
+        bot.StatusReason.ShouldBe(BotStatusReason.DailyLossLimit);
+    }
+
+    [Test]
+    public void LossBelowTheLimitAcrossDaysDoesNotKill()
     {
         Bot bot = BotFixture.Running();
         bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 25), equity: 100m, Now);
 
-        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 26), equity: 80m, Now).ShouldBeFalse();
+        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 26), equity: 92m, Now).ShouldBeFalse();
+        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 27), equity: 84m, Now).ShouldBeFalse();
 
-        bot.DayBaseline.ShouldBe(new DailyLossBaseline(new DateOnly(year: 2026, month: 10, day: 26), Equity: 80m));
-        bot.DesiredState.ShouldBe(BotDesiredState.Running);
+        bot.ShouldSatisfyAllConditions(
+            () => bot.DesiredState.ShouldBe(BotDesiredState.Running),
+            () => bot.StatusReason.ShouldBeNull(),
+            () => bot.DayBaseline.ShouldBe(new DailyLossBaseline(new DateOnly(year: 2026, month: 10, day: 27), Equity: 92m, LastEquity: 84m)));
+    }
+
+    [Test]
+    public void StartAfterADailyLossKillMeasuresFromItsFirstRoot()
+    {
+        Bot bot = BotFixture.Running();
+        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 25), equity: 100m, Now);
+        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 25), equity: 90m, Now).ShouldBeTrue();
+        bot.Start(BotFixture.FirstVersion, hasCheckpoint: true, tradingHalted: false, Now.AddMinutes(1));
+
+        bot.RecordDayEquity(new DateOnly(year: 2026, month: 10, day: 26), equity: 85m, Now.AddMinutes(2)).ShouldBeFalse();
+
+        bot.DayBaseline.ShouldBe(new DailyLossBaseline(new DateOnly(year: 2026, month: 10, day: 26), Equity: 85m, LastEquity: 85m));
     }
 
     [Test]

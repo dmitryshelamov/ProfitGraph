@@ -63,3 +63,9 @@ decides how the runtime, the order delivery and the API apply them, and how the 
   that gives the position away. A limit sell priced below half of the last closed candle's close is rejected with
   `RiskLimit` before its first place; a market sell is not floored. The ratio is a constant, `0.5`; making it a bot
   setting is open (ADR 0024, question 2).
+
+## Amendment: the daily baseline carries over midnight (ADR 0041)
+
+- The first root of a UTC day no longer sets the baseline from its own equity: it takes the previous day's last recorded
+  equity and is checked against it like any later root. Only the first root after a start sets the baseline from its own
+  equity. This makes the limit work on the `1d` timeframe and counts the loss between two days.
