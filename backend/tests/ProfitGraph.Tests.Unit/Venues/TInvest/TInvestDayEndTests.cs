@@ -71,7 +71,7 @@ public sealed class TInvestDayEndTests
     }
 
     [Test]
-    public async Task ACancellationNobodyAskedForDuringTheSessionStaysUnresolved_ButItsOutcomeIsRecorded()
+    public async Task ACancellationNobodyAskedForDuringTheSessionIsTheOwnersCancel_WithItsExecutionsBooked()
     {
         string requestId = await PlaceBuy(lots: 3);
         _harness.Orders.Fill(requestId, lots: 1, price: 99.5m, commission: 0.5m);
@@ -80,20 +80,20 @@ public sealed class TInvestDayEndTests
         At(Tuesday, hour: 12, minute: 0);
         _harness.Orders.Expire(requestId);
 
-        var failure = await Should.ThrowAsync<OrderGatewaySafetyException>(() => _harness.Until(_ => false));
-        failure.Reason.ShouldBe(BotStatusReason.UnresolvedOrder);
+        IReadOnlyList<ExternalOrderUpdate> updates = await _harness.Until(update => update.Kind == ExternalOrderUpdateKind.CancelConfirmed);
+
+        updates[^1].ShouldBe(ExternalOrderUpdate.ConfirmCancel(orderId: 1));
         Attempt()
             .ShouldSatisfyAllConditions(
                 attempt => attempt.State.ShouldBe(TInvestOrderAttemptState.Final),
-                attempt => attempt.CancelledBy.ShouldBeNull(),
+                attempt => attempt.CancelledBy.ShouldBe(TInvestCancelReason.Owner),
                 attempt => attempt.ExecutedLots.ShouldBe(1),
                 attempt => attempt.ExecutedQuote.ShouldBe(995m),
                 attempt => attempt.ExecutedFee.ShouldBe(0.5m));
-        (await Reconcile(executedBase: 10m)).Degradation.ShouldBe(BotStatusReason.UnresolvedOrder);
     }
 
     [Test]
-    public async Task OnADayTheScheduleDoesNotKnowACancellationNobodyAskedForStaysUnresolved()
+    public async Task OnADayTheScheduleDoesNotKnowACancellationNobodyAskedForIsTheOwnersCancel()
     {
         _harness.Orders.Schedule.Clear();
         (DateOnly Date, List<(string Type, DateTimeOffset From, DateTimeOffset To)> Intervals) day = Weekday(Tuesday);
@@ -104,8 +104,8 @@ public sealed class TInvestDayEndTests
         At(Tuesday, hour: 22, minute: 30);
         _harness.Orders.Expire(requestId);
 
-        (await Should.ThrowAsync<OrderGatewaySafetyException>(() => _harness.Until(_ => false))).Reason.ShouldBe(BotStatusReason.UnresolvedOrder);
-        Attempt().CancelledBy.ShouldBeNull();
+        (await _harness.Until(update => update.Kind == ExternalOrderUpdateKind.CancelConfirmed))[^1].ShouldBe(ExternalOrderUpdate.ConfirmCancel(orderId: 1));
+        Attempt().CancelledBy.ShouldBe(TInvestCancelReason.Owner);
     }
 
     [Test]
@@ -338,21 +338,18 @@ public sealed class TInvestDayEndTests
     }
 
     [Test]
-    public async Task TheOwnersConfirmationStillEndsACancellationNobodyAskedForOnceTInvestHasForgottenIt()
+    public async Task ACancellationNobodyAskedForIsStillClosedWhenTInvestHasForgottenTheOrderAtTheNextStart()
     {
         string requestId = await PlaceBuy(lots: 1);
         At(Tuesday, hour: 12, minute: 0);
         _harness.Orders.Expire(requestId);
-        await Should.ThrowAsync<OrderGatewaySafetyException>(() => _harness.Until(_ => false));
+        await _harness.Until(update => update.Kind == ExternalOrderUpdateKind.CancelConfirmed);
         _harness.Orders.Vanish(requestId);
         At(Tuesday.AddDays(1), hour: 8, minute: 0);
 
-        (await Reconcile(executedBase: 0m)).Degradation.ShouldBe(BotStatusReason.UnresolvedOrder);
-        BotReconciliationInternal confirmed = await Reconcile(executedBase: 0m, ownerConfirmedAbsent: true);
+        BotReconciliationInternal reconciliation = await Reconcile(executedBase: 0m);
 
-        confirmed.ShouldSatisfyAllConditions(
-            () => confirmed.Degradation.ShouldBeNull(),
-            () => confirmed.Updates.ShouldBe([ExternalOrderUpdate.ConfirmCancel(orderId: 1)]));
+        reconciliation.Degradation.ShouldBeNull();
         Attempt().CancelledBy.ShouldBe(TInvestCancelReason.Owner);
     }
 

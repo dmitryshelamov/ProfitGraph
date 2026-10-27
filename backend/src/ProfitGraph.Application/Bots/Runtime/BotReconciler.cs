@@ -45,7 +45,7 @@ public sealed class BotReconciler(IOrderIntentRepository intents, ISender sender
 
         foreach (ExternalOrderUpdate update in reconciliation.Updates)
         {
-            await session.ProcessExternalUpdate(update, cancellationToken);
+            await session.ProcessExternalUpdate(update, cancellationToken, resumeAfterVenueCancel: false);
         }
 
         if (reconciliation.Degradation is null && reconciliation.Updates.Any(ChangesWhatTheStrategyRestores))

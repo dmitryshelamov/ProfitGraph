@@ -111,18 +111,15 @@ public sealed class TInvestCarryOverTests
     }
 
     [Test]
-    public async Task ACancellationNobodyAskedForIsUnresolved()
+    public async Task ACancellationNobodyAskedForIsTheOwnersOwnCancelAtTheBroker()
     {
         await Reconcile();
         await Submit(TInvestGatewayHarness.Limit(id: 1, OrderSide.Buy, quantity: 10m, price: 100m));
 
         _harness.Orders.Expire(_harness.Orders.Posted.Single().OrderId);
 
-        var failure = await Should.ThrowAsync<OrderGatewaySafetyException>(() => _harness.Until(_ => false));
-        failure.Reason.ShouldBe(BotStatusReason.UnresolvedOrder);
-        BotReconciliationInternal reconciliation = await Reconcile(
-            new ReconcileOrderInternal(EngineOrderId: 1, _harness.Gateway.ClientOrderIdFor(_harness.Bot, engineOrderId: 1), MayHaveReachedVenue: true));
-        reconciliation.Degradation.ShouldBe(BotStatusReason.UnresolvedOrder);
+        (await _harness.Until(update => update.Kind == ExternalOrderUpdateKind.CancelConfirmed))[^1].ShouldBe(ExternalOrderUpdate.ConfirmCancel(orderId: 1));
+        _harness.Attempts.All.ShouldHaveSingleItem().CancelledBy.ShouldBe(TInvestCancelReason.Owner);
     }
 
     [Test]
