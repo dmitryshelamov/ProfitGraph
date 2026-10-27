@@ -22,7 +22,7 @@ A new version of a saved strategy is made by the system when an upgrade applies 
 - **It applies only to the shape it attaches to.** The graph must be the Ladder with resume: the blocks `resume`, `cancelExit`,
   `exitConditions`, `exit`, `averageConditions`, `restartEvent` and the wires `cancelExit.completed → exitConditions`,
   `exitConditions.yes → exit`, `exit.submitted → averageConditions` and `restartEvent.yes → entryConditions`. A graph without one of
-  them (the plain Ladder, or one the owner changed away from the template) is left as it is. The template kind is not the test: older
+  them (the plain Ladder, or one the owner changed away from the template) is left as it is (the plain Ladder gets the resume blocks first, ADR 0040). The template kind is not the test: older
   saved graphs carry another kind for the same shape.
 - **The upgraded graph is validated** with the strategy validator and the node registry; one that does not validate is not saved.
 - **Who runs it.** `StrategyTemplateUpgradeHost` in the Worker's `live` role, 15 seconds after the start (once; a failed pass is tried again after a minute, up to three passes), sends

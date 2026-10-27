@@ -109,7 +109,7 @@ public sealed class StrategyTemplateEndpointTests
         using HttpClient client = await application.CreateSignedInClient();
         var templates = (await client.GetFromJsonAsync<JsonArray>("/api/strategy-templates"))!;
         templates[0]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(5);
-        templates[1]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(13);
+        templates[1]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(17);
         templates[2]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(17);
         templates[3]!["name"]!.GetValue<string>().ShouldBe("Ladder (как в Profit Fox)");
         templates[3]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("LadderV2");

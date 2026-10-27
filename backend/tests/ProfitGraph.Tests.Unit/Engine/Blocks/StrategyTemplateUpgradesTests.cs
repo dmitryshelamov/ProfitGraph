@@ -43,9 +43,47 @@ public sealed class StrategyTemplateUpgradesTests
     }
 
     [Test]
-    public void ALadderWithoutResumeIsLeftAsItIs()
+    public void TheManualReactionAloneAttachesOnlyToALadderThatResumes()
     {
         StrategyTemplateUpgrades.WithManualFillRebuild(LadderStrategyBlockFactory.Create()).ShouldBeNull();
+    }
+
+    [TestCaseSource(nameof(Templates))]
+    public void ALadderSavedBeforeTheResumeBlocksGetsExactlyWhatTheTemplateHas(StrategyDefinition template)
+    {
+        StrategyDefinition saved = WithoutResume(template);
+
+        StrategyDefinition upgraded = StrategyTemplateUpgrades.Upgrade(saved).ShouldNotBeNull();
+
+        upgraded.Blocks.Select(block => block.Id).Order().ShouldBe(template.Blocks.Select(block => block.Id).Order());
+        upgraded.Wires.Select(Describe).Order().ShouldBe(template.Wires.Select(Describe).Order());
+        upgraded.Parameters.ShouldBe(saved.Parameters);
+        upgraded.Values.ShouldBe(saved.Values);
+        upgraded.TemplateKind.ShouldBe(saved.TemplateKind);
+        StrategyTemplateUpgrades.Upgrade(upgraded).ShouldBeNull();
+    }
+
+    [Test]
+    public void ThePlainLadderGetsTheResumeBlocksAndTheManualReaction()
+    {
+        StrategyDefinition upgraded = StrategyTemplateUpgrades.Upgrade(LadderStrategyBlockFactory.Create()).ShouldNotBeNull();
+
+        upgraded.Blocks.Select(block => block.Id).Order().ShouldBe(LadderResumeStrategyBlockFactory.Create().Blocks.Select(block => block.Id).Order());
+        upgraded.Wires.Select(Describe).Order().ShouldBe(LadderResumeStrategyBlockFactory.Create().Wires.Select(Describe).Order());
+    }
+
+    [Test]
+    public void AGraphThatIsNotTheLadderChainIsNotGivenTheResumeBlocks()
+    {
+        StrategyDefinition noExit = new StrategyDefinition(
+            LadderStrategyBlockFactory.Create().Parameters,
+            LadderStrategyBlockFactory.Create().Values,
+            LadderStrategyBlockFactory.Create().Blocks.Where(block => block.Id != "exit"),
+            LadderStrategyBlockFactory.Create().Wires.Where(wire => wire.From.Block != "exit" && wire.To != "exit"),
+            LadderStrategyBlockFactory.Create().TemplateKind);
+
+        StrategyTemplateUpgrades.WithResumeRestore(noExit).ShouldBeNull();
+        StrategyTemplateUpgrades.Upgrade(noExit).ShouldBeNull();
     }
 
     [Test]
@@ -82,6 +120,18 @@ public sealed class StrategyTemplateUpgradesTests
         var custom = new StrategyDefinition(saved.Parameters, saved.Values, [.. saved.Blocks, own], saved.Wires, saved.TemplateKind);
 
         StrategyTemplateUpgrades.WithManualFillRebuild(custom).ShouldBeNull();
+    }
+
+    private static StrategyDefinition WithoutResume(StrategyDefinition template)
+    {
+        string[] removed = [.. ManualBlocks, "resume", "resumeExitGuard"];
+
+        return new StrategyDefinition(
+            template.Parameters,
+            template.Values,
+            template.Blocks.Where(block => !removed.Contains(block.Id)),
+            template.Wires.Where(wire => !removed.Contains(wire.From.Block) && !removed.Contains(wire.To)),
+            template.TemplateKind);
     }
 
     private static StrategyDefinition Without(StrategyDefinition template)

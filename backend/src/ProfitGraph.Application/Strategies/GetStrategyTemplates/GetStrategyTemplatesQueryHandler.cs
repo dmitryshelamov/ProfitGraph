@@ -15,7 +15,11 @@ internal sealed class GetStrategyTemplatesQueryHandler : IRequestHandler<GetStra
     {
         cancellationToken.ThrowIfCancellationRequested();
         StrategyDefinition sma = SmaStrategyBlockFactory.Create();
-        StrategyDefinition ladder = LadderStrategyBlockFactory.Create();
+
+        // The plain Ladder gets the resume blocks and the manual-fill reaction like every saved Ladder (ADR 0040), so a strategy made
+        // from it restores its orders after a start, a reconciliation and an order the venue cancelled.
+        StrategyDefinition plainLadder = LadderStrategyBlockFactory.Create();
+        StrategyDefinition ladder = StrategyTemplateUpgrades.Upgrade(plainLadder) ?? plainLadder;
         StrategyDefinition ladderV2 = LadderResumeStrategyBlockFactory.Create();
         StrategyDefinition profitFox = ProfitFoxLadderStrategyBlockFactory.Create();
         StrategyDefinition ladderSma = LadderSmaStrategyBlockFactory.Create();
@@ -34,7 +38,7 @@ internal sealed class GetStrategyTemplatesQueryHandler : IRequestHandler<GetStra
             new StrategyTemplateInternal(
                 ladder.TemplateKind!.Value,
                 "Ladder",
-                "Вход, усреднение и выход лимитными ордерами с восстановлением и защитной отменой.",
+                "Вход, усреднение и выход лимитными ордерами: восстановление после возобновления, перестройка при ручной заявке.",
                 ladder.ToInternal(),
                 StrategyTemplateLayouts.Ladder().ToInternal()),
             new StrategyTemplateInternal(

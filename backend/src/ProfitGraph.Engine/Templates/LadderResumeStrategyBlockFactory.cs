@@ -1,8 +1,6 @@
 using ProfitGraph.Engine.Blocks;
 using ProfitGraph.Engine.Graphs;
 
-using static ProfitGraph.Engine.Templates.StrategyBlockExpressions;
-
 namespace ProfitGraph.Engine.Templates;
 
 /// <summary>
@@ -20,24 +18,8 @@ public static class LadderResumeStrategyBlockFactory
         return new StrategyDefinition(
             original.Parameters,
             original.Values,
-            [
-                .. original.Blocks,
-                new StrategyBlock("resume", "event", "Возобновление", "OnResume"),
-                .. LadderManualFillRebuild.Blocks(),
-                new StrategyBlock(
-                    "resumeExitGuard",
-                    "condition",
-                    "Восстановить выход?",
-                    join: "all",
-                    checks: [new StrategyCheck("HasBaseBalance"), NoTag("ladder.exit")])
-            ],
-            [
-                .. original.Wires,
-                Wire("resume", "out", "entryConditions"),
-                Wire("resume", "out", "resumeExitGuard"),
-                Wire("resumeExitGuard", "yes", "exitConditions"),
-                .. LadderManualFillRebuild.Wires()
-            ],
+            [.. original.Blocks, .. LadderResumeRestore.Blocks(), .. LadderManualFillRebuild.Blocks()],
+            [.. original.Wires, .. LadderResumeRestore.Wires(), .. LadderManualFillRebuild.Wires()],
             StrategyTemplateKind.LadderV2);
     }
 }

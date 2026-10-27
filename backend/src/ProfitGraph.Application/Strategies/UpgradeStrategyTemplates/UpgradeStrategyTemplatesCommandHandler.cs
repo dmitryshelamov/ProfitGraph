@@ -22,7 +22,7 @@ internal sealed class UpgradeStrategyTemplatesCommandHandler(IStrategyRepository
             StrategyVersion? current = await Current(strategy, cancellationToken);
 
             // An upgraded graph that does not validate is left out: the strategy keeps the graph it has.
-            if (current is null || StrategyTemplateUpgrades.WithManualFillRebuild(current.Definition) is not { } definition ||
+            if (current is null || StrategyTemplateUpgrades.Upgrade(current.Definition) is not { } definition ||
                 !new StrategyDefinitionValidator().Validate(definition, registry.GetAll()).IsValid)
             {
                 continue;
