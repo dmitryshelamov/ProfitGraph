@@ -1,4 +1,4 @@
-import { drawableCandles } from './candleHistory';
+import { drawableCandles, pricePrecision } from './candleHistory';
 
 const candle = (openTime: string, close: string) => ({
   openTime,
@@ -18,5 +18,19 @@ describe('candle history', () => {
     ]);
 
     expect(drawn.map((item) => item.close)).toEqual([1, 2, 3]);
+  });
+});
+
+describe('pricePrecision', () => {
+  const at = (price: string) => candle('2026-10-27T00:00:00Z', price);
+
+  it('uses the places the instrument is known by', () => {
+    expect(pricePrecision(5, [at('0.03')])).toBe(5);
+  });
+
+  it('follows the candles when the places are unknown', () => {
+    expect(pricePrecision(null, [at('0.03596'), at('0.0360')])).toBe(5);
+    expect(pricePrecision(null, [at('114.4')])).toBe(2);
+    expect(pricePrecision(null, [])).toBe(2);
   });
 });
