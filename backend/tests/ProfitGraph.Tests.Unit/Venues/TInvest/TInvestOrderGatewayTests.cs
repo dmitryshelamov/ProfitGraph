@@ -198,6 +198,22 @@ public sealed class TInvestOrderGatewayTests
     }
 
     [Test]
+    public async Task AnOrderTheServiceDoesNotKnowYetIsReadAgainBeforeItIsUnresolved()
+    {
+        (await Reconcile()).Degradation.ShouldBeNull();
+        await _gateway.Submit(Submit(Limit(id: 1, OrderSide.Buy, quantity: 10m, price: 99m)), NoOp, CancellationToken.None);
+        string requestId = _orders.Posted.Single().OrderId;
+        (await Next(count: 1)).ShouldBe([ExternalOrderUpdate.Accept(orderId: 1)]);
+        _orders.StateNotFoundReads = 1;
+
+        _orders.Fill(requestId, lots: 1, price: 99m, commission: 0.5m);
+
+        (await Until(update => update.Kind == ExternalOrderUpdateKind.FinalFill))[^1]
+            .ShouldBe(ExternalOrderUpdate.Final(orderId: 1, grossBase: 10m, grossQuote: 990m, fee: 0.5m, commissionPartitioned: true));
+        _orders.StateNotFoundReads.ShouldBe(0);
+    }
+
+    [Test]
     public async Task ACancelGoesByRequestIdAndItsOutcomeIsReadBack_AndAnAttemptNeverSentCancelsLocally()
     {
         await _gateway.Submit(Submit(Limit(id: 1, OrderSide.Sell, quantity: 10m, price: 101m)), NoOp, CancellationToken.None);

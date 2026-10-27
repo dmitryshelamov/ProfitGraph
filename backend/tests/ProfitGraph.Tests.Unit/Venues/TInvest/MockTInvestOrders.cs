@@ -50,6 +50,12 @@ internal sealed class MockTInvestOrders
     public int StateFailures { get; set; }
 
     /// <summary>
+    ///     How many of the next <c>GetOrderState</c> calls answer <c>NotFound</c> for an order the service does know, as it does
+    ///     for a moment after the order is placed.
+    /// </summary>
+    public int StateNotFoundReads { get; set; }
+
+    /// <summary>
     ///     How many <c>GetOrderState</c> calls arrived, failed ones included.
     /// </summary>
     public int StateReads { get; private set; }
@@ -448,6 +454,13 @@ internal sealed class MockTInvestOrders
                 StateFailures--;
 
                 throw MockTInvestApi.Refusal(StatusCode.Unavailable, "70001");
+            }
+
+            if (StateNotFoundReads > 0)
+            {
+                StateNotFoundReads--;
+
+                throw MockTInvestApi.Refusal(StatusCode.NotFound, "50005");
             }
 
             OrderState? order = null;
