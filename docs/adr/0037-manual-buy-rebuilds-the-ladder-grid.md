@@ -1,0 +1,47 @@
+# ADR 0037: A Manual Purchase Rebuilds the Ladder's Grid
+
+Status: Proposed, 2026-10-28. Supplements ADR 0016 and ADR 0027; follows Profit Fox (`LadderStrategy.RebuildGridAfterBuy`: "a manual
+market fill changes the reference for both grid legs"); proven on the scripted venue only. The owner reviews it in the pull request.
+
+## Context
+
+The owner buys by hand through the bot's manual order block (ADR 0016, ADR 0027): the order is a bot order with the tag `manual` and
+the origin `$manual`. ADR 0027 said the strategy is not consulted by it. In the real GAZP bot (2026-10-28) a manual market buy of 30
+shares raised the position to 50 shares at an average of 116.33, but the exit stayed a sale of 20 shares at 122.82 (the old position's
+price) and the averaging order stayed as it was: the strategy re-prices its exit only when its own entry or averaging order fills
+(`entry filled → cancelExit`, `average filled → cancelExit`), and a manual fill reaches no order node. In Profit Fox a manual
+averaging buy rebuilds the whole grid: it cancels the active limit buys and the exit and builds the exit on the updated position
+again. The owner wants the same here: a purchase made through the bot affects the bot.
+
+## Decision
+
+The resume-capable Ladder template (`LadderResumeStrategyBlockFactory`, the base of the Ladder "as in Profit Fox", Ladder SMA and
+Ladder+ templates) gets an event block
+`manualBuy`, an `OnOrderFilled` listener with tag `manual` and side `Buy`, and a cancel block `manualCancelAverage` for the
+`ladder.average` order. Its wires: `manualBuy → manualCancelAverage`, `manualCancelAverage.completed → cancelExit`. From `cancelExit`
+the template's own wires continue as after an averaging fill: `cancelExit.completed → exitConditions → exit` (the exit on the whole
+free base at the average cost of the updated position times one plus the rise), `exit.submitted → averageConditions → average` (the
+averaging order by the template's own conditions and price, which depend on the last buy price or the SMA, the remaining allocation
+and the cash).
+
+The listener is the engine's global `OnOrderFilled` node, which the engine already routes manual fills to; the lowering of an event
+block now passes the block's side to it (it passed only the tag). The averaging is cancelled by its own cancel block, not by the
+template's `cancelAverage`: that block continues to the residual sale (`residualEvent → residual`, a market sale of the position), which
+is right after the exit filled and wrong while the position is open.
+
+Only a filled manual **buy** rebuilds the grid. A manual sell is not covered here; a partial fill of a manual limit buy is not
+distinguished from its final fill by the listener (the event is emitted per fill), so a manual limit buy that fills in parts rebuilds
+the grid at each part.
+
+## Consequences
+
+- The rule lives in the strategy template, not in a venue: it holds for every venue the bot runs on (Bybit, T-Invest, Steam), through
+  the orders the engine already cancels and submits.
+- It applies to the templates built on the resume-capable Ladder: "Ladder (как в Profit Fox)", Ladder SMA and Ladder+, new versions
+  of which carry the blocks. A strategy that was saved before keeps the graph it has, and its bot changes only when the owner moves
+  the strategy to a new version made from the updated template (ADR 0025). The plain Ladder template is not changed.
+- Backtests and replays are unaffected: a manual order exists only in a live bot, so the listener never fires there and the replay of a
+  template is the same (the golden replays pass unchanged).
+- Tested on the scripted venue (`ManualBuyRebuildsLadderTests`): a Ladder bot with an exit and an averaging order, a manual market
+  buy and its fill, the cancels of the averaging and the exit, and both orders placed again with the exit on the larger position; the
+  test fails without the wires. Not tested against the real brokers.

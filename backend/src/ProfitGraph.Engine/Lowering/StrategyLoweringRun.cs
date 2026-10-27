@@ -175,6 +175,12 @@ internal sealed class StrategyLoweringRun
                 parameters["tag"] = Binding(block.Tag, "block:" + StrategyDefinitionLowerer.Encode(block.Id) + ":tag", source);
             }
 
+            // OnOrderFilled also filters by the side of the fill; the other events take no side.
+            if (block.Source == "OnOrderFilled" && block.Side is not null)
+            {
+                parameters["side"] = Text(block.Side);
+            }
+
             Node(block.Id, block.Source!, source, parameters, name: block.DisplayName);
 
             return;
