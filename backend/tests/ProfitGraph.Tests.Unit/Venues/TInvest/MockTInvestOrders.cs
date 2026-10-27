@@ -96,6 +96,11 @@ internal sealed class MockTInvestOrders
     public RpcException? OperationsFailure { get; set; }
 
     /// <summary>
+    ///     How every <c>TradingSchedules</c> call fails, as the broker does for a past range (<c>Rejected</c> or a timeout).
+    /// </summary>
+    public RpcException? ScheduleFailure { get; set; }
+
+    /// <summary>
     ///     The account's free shares of the share that <c>GetPositions</c> reports, and those that working orders block.
     /// </summary>
     public string PositionInstrumentUid { get; set; } = string.Empty;
@@ -272,6 +277,11 @@ internal sealed class MockTInvestOrders
 
     private TradingSchedulesResponse Schedules(TradingSchedulesRequest request)
     {
+        if (ScheduleFailure is { } failure)
+        {
+            throw failure;
+        }
+
         var schedule = new TradingSchedule { Exchange = request.Exchange.ToUpperInvariant() };
 
         foreach ((DateOnly date, List<(string Type, DateTimeOffset From, DateTimeOffset To)> intervals) in Schedule)

@@ -15,6 +15,12 @@ describe('absenceProofText', () => {
     );
   });
 
+  it('words the day end that the Moscow calendar gave when the schedule was unavailable', () => {
+    expect(absenceProofText('TradingDayEnded,TradingDayEndedByCalendar')).toBe(
+      'торговый день заявки закончился; расписание биржи недоступно, конец дня определён по календарю Москвы (сутки по МСК закончились)',
+    );
+  });
+
   it('keeps a code it does not know and ignores empty parts', () => {
     expect(absenceProofText('Unknown,,TradingDayEnded')).toBe(
       'Unknown; торговый день заявки закончился',
