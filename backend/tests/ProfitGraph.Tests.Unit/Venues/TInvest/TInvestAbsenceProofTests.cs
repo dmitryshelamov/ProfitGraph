@@ -412,7 +412,8 @@ public sealed class TInvestAbsenceProofTests
     public async Task AClockBehindTheOrdersLastRecordedInstantProvesNothing()
     {
         _harness.Orders.ScheduleFailure = MockTInvestApi.Refusal(StatusCode.InvalidArgument, "30003");
-        At(Tuesday, hour: 7, minute: 0);
+        TInvestOrderAttempt recorded = _harness.Attempts.All.Single();
+        (await _harness.Attempts.Transition(recorded with { UpdatedAt = recorded.UpdatedAt.AddHours(2) }, recorded.State, CancellationToken.None)).ShouldBeTrue();
 
         await StaysUnresolved("TradingDayUnknown");
     }
