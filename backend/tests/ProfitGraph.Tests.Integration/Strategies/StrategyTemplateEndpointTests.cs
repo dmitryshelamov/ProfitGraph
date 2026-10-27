@@ -110,13 +110,13 @@ public sealed class StrategyTemplateEndpointTests
         var templates = (await client.GetFromJsonAsync<JsonArray>("/api/strategy-templates"))!;
         templates[0]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(5);
         templates[1]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(13);
-        templates[2]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(15);
+        templates[2]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(17);
         templates[3]!["name"]!.GetValue<string>().ShouldBe("Ladder (как в Profit Fox)");
         templates[3]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("LadderV2");
-        templates[3]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(15);
+        templates[3]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(17);
         templates[4]!["name"]!.GetValue<string>().ShouldBe("Ladder SMA");
         templates[4]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("LadderSma");
-        templates[4]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(16);
+        templates[4]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(18);
 
         templates[5]!["name"]!.GetValue<string>().ShouldBe("Откуп капитуляции");
         templates[5]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("CapitulationDip");
@@ -126,7 +126,7 @@ public sealed class StrategyTemplateEndpointTests
         templates[6]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(6);
         templates[7]!["name"]!.GetValue<string>().ShouldBe("Ladder+");
         templates[7]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("LadderPlus");
-        templates[7]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(21);
+        templates[7]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(23);
         templates[8]!["name"]!.GetValue<string>().ShouldBe("DCA (как в Profit Fox)");
         templates[8]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("DcaProfitFox");
         templates[8]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(6);
