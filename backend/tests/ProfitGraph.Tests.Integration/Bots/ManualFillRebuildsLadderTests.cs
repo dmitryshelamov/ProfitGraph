@@ -12,12 +12,12 @@ using ProfitGraph.Tests.Integration.Common;
 namespace ProfitGraph.Tests.Integration.Bots;
 
 /// <summary>
-///     The owner's purchase through the bot changes the bot (ADR 0037, as in Profit Fox): when a manual market buy of a Ladder bot is
-///     filled, the averaging order and the exit are cancelled and placed again, the exit on the whole position, as after the strategy's
-///     own averaging fill.
+///     The owner's trade through the bot changes the bot (ADR 0037, as in Profit Fox): when a manual order of a Ladder bot fills, whole or
+///     in part, the averaging order and the exit are cancelled and placed again, the exit on the whole position, as after the
+///     strategy's own averaging fill.
 /// </summary>
 [NonParallelizable]
-public sealed class ManualBuyRebuildsLadderTests
+public sealed class ManualFillRebuildsLadderTests
 {
     private ProfitGraphApiFactory _api = null!;
 
@@ -41,7 +41,21 @@ public sealed class ManualBuyRebuildsLadderTests
     }
 
     [Test]
-    public async Task AFilledManualBuyCancelsTheAveragingAndTheExitAndPlacesThemAgainOnTheWholePosition()
+    public async Task AFilledManualMarketBuyRebuildsTheGridOnTheWholePosition()
+    {
+        await RebuildAfter(limitPrice: null, partial: null, final: manualId => ExternalOrderUpdate.Final(manualId, grossBase: 0.1m, grossQuote: 10m, fee: 0.0001m));
+    }
+
+    [Test]
+    public async Task AManualLimitBuyFilledInPartsRebuildsTheGridWhenItIsFilled_NotAtEachPart()
+    {
+        await RebuildAfter(
+            limitPrice: 0.5m,
+            partial: manualId => ExternalOrderUpdate.Partial(manualId, grossBase: 0.01m, grossQuote: 0.005m, fee: 0m),
+            final: manualId => ExternalOrderUpdate.Final(manualId, grossBase: 0.02m, grossQuote: 0.01m, fee: 0m));
+    }
+
+    private async Task RebuildAfter(decimal? limitPrice, Func<long, ExternalOrderUpdate>? partial, Func<long, ExternalOrderUpdate> final)
     {
         var scenario = new RuntimeScenario();
         using IHost worker = scenario.Worker();
@@ -57,10 +71,18 @@ public sealed class ManualBuyRebuildsLadderTests
         OrderSnapshot firstExit = (await Orders(worker, bot)).Single(order => order.Tag == "ladder.exit");
         OrderSnapshot firstAverage = (await Orders(worker, bot)).Single(order => order.Tag == "ladder.average");
 
-        ManualOrderInternal manual = await Send(worker, new SubmitManualOrderCommand(bot.OwnerId.Value, bot.Id.Value, OrderSide.Buy, Amount: 10m));
-        await RuntimeScenario.Until(() => Task.FromResult(scenario.Gateway.Places == 4), "the manual buy is placed");
+        await Send(worker, new SubmitManualOrderCommand(bot.OwnerId.Value, bot.Id.Value, OrderSide.Buy, Amount: 10m, LimitPrice: limitPrice));
+        await RuntimeScenario.Until(() => Task.FromResult(scenario.Gateway.Places == 4), "the manual order is placed");
         long manualId = (await Orders(worker, bot)).Single(order => order.Tag == ManualOrder.Tag).Id;
-        scenario.Gateway.Push(bot.Id, ExternalOrderUpdate.Final(manualId, grossBase: 0.1m, grossQuote: 10m, fee: 0.0001m));
+
+        if (partial is not null)
+        {
+            scenario.Gateway.Push(bot.Id, partial(manualId));
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            scenario.Gateway.Cancels.ShouldBeEmpty();
+        }
+
+        scenario.Gateway.Push(bot.Id, final(manualId));
 
         await RuntimeScenario.Until(() => Task.FromResult(scenario.Gateway.Cancels.Count >= 1), "the averaging is cancelled first");
         scenario.Gateway.Push(bot.Id, ExternalOrderUpdate.ConfirmCancel(firstAverage.Id));
@@ -75,7 +97,6 @@ public sealed class ManualBuyRebuildsLadderTests
         OrderSnapshot exit = orders.Single(order => order.Tag == "ladder.exit" && order.Id > manualId);
         OrderSnapshot average = orders.Single(order => order.Tag == "ladder.average" && order.Id > manualId);
 
-        manual.Type.ShouldBe(OrderType.Market);
         exit.Quantity.ShouldNotBeNull().ShouldBeGreaterThan(firstExit.Quantity.ShouldNotBeNull());
         average.LimitPrice.ShouldNotBeNull();
         (await RuntimeScenario.Read(worker, bot.Id)).RuntimeStatus.ShouldNotBe(BotRuntimeStatus.Degraded);
