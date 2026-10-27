@@ -15,33 +15,40 @@ bots. It is a module-by-module rebuild of Profit Fox Designer (ADR 0001); the ar
 
 ## Safety
 
-- Without the owner's explicit approval in chat, agents must not retrieve, inspect or decrypt real exchange
-  credentials or their master keys, or make authenticated requests to an exchange or broker.
-- Owner-approved credential access and broker requests: with the owner's explicit approval in chat, agents may
-  retrieve credentials from the owner's environments or databases, read the required master key, decrypt stored
-  credentials when necessary, and use them to make authenticated exchange or broker API requests. Use the
-  application's credential path or a throwaway script outside the repository. Approval covers the agreed task
-  and its required sequence of calls; do not request approval again for each call within that scope. Ask again
-  only when the scope changes or the owner revokes approval.
-- Read-only broker checks: approved checks may read both reference data and account data needed for the task,
-  including balances, positions, orders, operations and broker reports. The owner may provide a token in the
-  process environment or approve retrieval and decryption of stored credentials; agents may run these checks
-  themselves within the approved scope. Approval to access credentials or perform read-only checks does not
-  authorize state-changing requests; those require explicit approval of the intended change. Agents must not
-  manually place, amend or cancel real orders. The owner controls bot settings and authorizes changes to each
-  bot's desired state.
+- Owner authorization: explicit permission, approval or a direct instruction in chat authorizes the requested
+  exchange or broker work. Informal wording such as "go ahead", "approved", "do it", "добро", "апрув" or
+  "требую" counts when it refers to that work. A direct instruction is itself authorization; do not require a
+  separate approval phrase. Without such authorization, do not access real credentials or their master keys,
+  or make authenticated exchange or broker requests.
+- Authorized exchange and broker work may include any interaction covered by the owner's instruction: reading
+  reference and account data, placing, amending and cancelling real orders, changing bot settings and desired
+  state, enabling live trading, and other state-changing API requests. There is no blanket prohibition on
+  manual real-order operations when the owner authorizes them. Permission limited to read-only work remains
+  read-only; broad permission to perform any exchange interaction covers both reads and changes.
+- Credential access for authorized work: agents may retrieve exchange or broker keys, tokens and secrets from
+  the development PostgreSQL (`localhost:5435`), the owner's other databases or environments, read the required
+  master key, decrypt stored credentials, and use them for the authorized work. Authorization for exchange or
+  broker work includes this necessary credential access; do not ask separately for each key, decryption or
+  request. Use the application's credential path or a throwaway script outside the repository. Reading dev
+  credentials does not authorize unrelated database writes, cleanup or deletion.
+- Authorization covers the agreed scope and its required sequence of calls, including necessary follow-up
+  calls. Proceed without repeated confirmation within that scope. Ask again only for actions outside the
+  authorized scope; stop if the owner revokes authorization. These project rules permit owner-authorized work
+  but do not override tool permissions or higher-priority platform restrictions.
 - Secret handling: keep decrypted credentials and master keys in memory only. Never commit secrets or write them
   to repository files, logs or test fixtures. Do not print secret values or include them in chat unless the owner
   explicitly requests and approves disclosure of those specific values. Never print or log signatures or
   authentication headers. Report only the response fields needed for the approved task; full account IDs may
   be shown when the owner requests them.
-- Live trading stays disabled in every committed configuration. Tests use mocked venue clients only.
+- Live trading is disabled by default in committed configurations; enabling it, including in a committed
+  configuration, requires an explicit owner instruction covering that change. Tests use mocked venue clients only.
   Never put secrets, keys or tokens in the repository, logs or test fixtures.
 - Engine and backtest replay must not depend on live code or venue modules.
 - Use public market data only when a task requires it.
-- State-changing checks may use only the test PostgreSQL from `docker-compose.test.yml` (`localhost:5436`, tmpfs,
-  disposable). Do not drop, clean or manually modify the development database (`localhost:5435`, persistent volume)
-  without explicit permission.
+- Automated database tests that change state may use only the test PostgreSQL from `docker-compose.test.yml`
+  (`localhost:5436`, tmpfs, disposable). This does not restrict owner-authorized exchange or broker operations
+  described above. Do not drop, clean or manually modify the development database (`localhost:5435`, persistent
+  volume) without explicit permission. Reading its credentials for authorized work is permitted as described above.
 - The Profit Fox Designer stack (ports 5173, 5191, 5433, 5434) may run on the same machine. Do not stop or modify it
   as part of ProfitGraph work.
 
@@ -79,8 +86,9 @@ npm run build
 - macOS and T-Invest: .NET on macOS does not complete the TLS handshake with `invest-public-api.tbank.ru` (cause not
   proven), so run the API and Worker in Linux containers with `docker compose -f docker-compose.dev-app.yml up -d --build --wait`
   and stop them with `docker compose -f docker-compose.dev-app.yml down` (never `-v`). Details: `docs/dev-containers.md`.
-  Stop the host-run API first (port 5291). Do not touch the dev database `5435` or the Profit Fox Designer stack
-  (5173, 5191, 5433, 5434) beyond that.
+  Stop the host-run API first (port 5291). Do not modify or stop the dev database `5435` as part of container
+  management; authorized credential reads follow the Safety rules above. Do not touch the Profit Fox Designer
+  stack (5173, 5191, 5433, 5434).
 - Frontend: `npm run dev` in `frontend/` on `localhost:5273` (`strictPort`); `/api` and `/ws` are proxied to the API.
   Regenerate the API client with `npm run generate:api` while the API runs.
 - Development PostgreSQL: `docker compose -f docker-compose.dev.yml up -d --wait` on `localhost:5435`.
