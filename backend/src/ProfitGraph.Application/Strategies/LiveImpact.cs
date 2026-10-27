@@ -17,7 +17,8 @@ internal static class LiveImpact
                 bot.Series.Symbol.Value,
                 bot.Series.Timeframe.Key,
                 bot.StrategyVersionId.Value,
-                bot.RuntimeStatus))
+                bot.RuntimeStatus,
+                bot.Parameters.Values))
         ];
     }
 }

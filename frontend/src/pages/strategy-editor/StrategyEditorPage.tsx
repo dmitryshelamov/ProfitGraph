@@ -3,7 +3,8 @@ import { getRouteApi, Link, useBlocker } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 import { StrategyRuns } from '@/modules/backtests';
-import { liveImpactQuery } from '@/modules/bots';
+import type { DraftParameter } from '@/modules/bots';
+import { liveImpactQuery, parameterFitText } from '@/modules/bots';
 import {
   authoringDiagnosticLabel,
   FlowchartEditor,
@@ -289,6 +290,7 @@ export function StrategyEditorPage() {
           {liveImpact && (
             <LiveImpactPrompt
               strategyId={strategyId}
+              parameters={editor.draft?.definition.parameters ?? []}
               saving={saving}
               onConfirm={() => void save(true)}
               onCancel={cancelLiveImpact}
@@ -401,19 +403,25 @@ export function StrategyEditorPage() {
   );
 }
 
-/** Running bots switch to a saved version on their next root, so the save asks to confirm after listing them. */
+/**
+ * Running bots switch to a saved version on their next root, so the save asks to confirm after listing them. A parameter the
+ * version adds takes its default on every bot and a removed one is dropped (ADR 0039); the prompt names those values.
+ */
 function LiveImpactPrompt({
   strategyId,
+  parameters,
   saving,
   onConfirm,
   onCancel,
 }: {
   strategyId: string;
+  parameters: readonly DraftParameter[];
   saving: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
   const bots = useQuery(liveImpactQuery(strategyId));
+  const fit = bots.data ? parameterFitText(bots.data, parameters) : null;
 
   return (
     <div role="alertdialog" aria-label="Работающие боты" className="board-toast board-conflict">
@@ -422,7 +430,7 @@ function LiveImpactPrompt({
         {bots.data &&
           bots.data.length > 0 &&
           `: ${bots.data.map((bot) => `${bot.symbol} ${bot.timeframe}`).join(', ')}`}
-        .
+        .{fit && ` Значения ботов изменятся: ${fit}.`}
       </span>
       <button type="button" disabled={saving} onClick={onConfirm} className="board-button">
         Сохранить и переключить ботов

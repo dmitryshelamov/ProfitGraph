@@ -1,3 +1,5 @@
+using ProfitGraph.Engine.Blocks;
+
 namespace ProfitGraph.Domain.Bots;
 
 /// <summary>
@@ -24,6 +26,22 @@ public sealed record BotParameters
     {
         return other is not null && Values.Count == other.Values.Count &&
             Values.All(pair => other.Values.TryGetValue(pair.Key, out decimal value) && value == pair.Value);
+    }
+
+    /// <summary>
+    ///     The values for a strategy version that names <paramref name="parameters" /> (ADR 0039): a value of a parameter the
+    ///     version still has is kept, a new parameter takes its default and a value of a removed parameter is dropped.
+    /// </summary>
+    public BotParameters Fit(IReadOnlyList<StrategyParameter> parameters)
+    {
+        ArgumentNullException.ThrowIfNull(parameters);
+
+        return new BotParameters(
+            parameters.DistinctBy(parameter => parameter.Name, StringComparer.Ordinal)
+                .ToDictionary(
+                    parameter => parameter.Name,
+                    parameter => Values.TryGetValue(parameter.Name, out decimal value) ? value : parameter.DefaultValue,
+                    StringComparer.Ordinal));
     }
 
     public override int GetHashCode()

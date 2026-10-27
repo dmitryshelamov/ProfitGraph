@@ -34,6 +34,7 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
         INotificationHandler<BotPositionOpened>,
         INotificationHandler<BotPositionClosed>,
         INotificationHandler<BotParametersChanged>,
+        INotificationHandler<BotParametersFitted>,
         INotificationHandler<BotRiskLimitsChanged>,
         INotificationHandler<BotForeignOrdersPolicyChanged>,
         INotificationHandler<BotFeeRatesChanged>,
@@ -53,18 +54,6 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
                 ("reason", notification.Reason.ToString()),
                 ("detail", detail))
             : Record(notification.BotId, BotFeedKind.Degraded, notification.At, cancellationToken, ("reason", notification.Reason.ToString()));
-    }
-
-    public Task Handle(BotHistoryRestated notification, CancellationToken cancellationToken)
-    {
-        return Record(
-            notification.BotId,
-            BotFeedKind.HistoryRestated,
-            notification.At,
-            cancellationToken,
-            ("openTime", notification.OpenTime.ToString("O", CultureInfo.InvariantCulture)),
-            ("previousClose", Number(notification.PreviousClose)),
-            ("restatedClose", Number(notification.RestatedClose)));
     }
 
     public Task Handle(BotExchangeUnavailable notification, CancellationToken cancellationToken)
@@ -144,6 +133,18 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
             ("strategyVersionId", notification.StrategyVersionId.Value.ToString("D")));
     }
 
+    public Task Handle(BotHistoryRestated notification, CancellationToken cancellationToken)
+    {
+        return Record(
+            notification.BotId,
+            BotFeedKind.HistoryRestated,
+            notification.At,
+            cancellationToken,
+            ("openTime", notification.OpenTime.ToString("O", CultureInfo.InvariantCulture)),
+            ("previousClose", Number(notification.PreviousClose)),
+            ("restatedClose", Number(notification.RestatedClose)));
+    }
+
     public Task Handle(BotKilled notification, CancellationToken cancellationToken)
     {
         return Record(notification.BotId, BotFeedKind.Killed, notification.At, cancellationToken, ("reason", notification.Reason.ToString()));
@@ -185,6 +186,27 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
     public Task Handle(BotParametersChanged notification, CancellationToken cancellationToken)
     {
         return Record(notification.BotId, BotFeedKind.SettingsChanged, notification.At, cancellationToken, ("setting", "parameters"));
+    }
+
+    /// <summary>
+    ///     The values followed a new strategy version (ADR 0039): <c>added</c> lists <c>name=default</c> pairs, <c>removed</c> names.
+    /// </summary>
+    public Task Handle(BotParametersFitted notification, CancellationToken cancellationToken)
+    {
+        var details = new List<(string Name, string Value)> { ("setting", "parameters") };
+
+        if (notification.Added.Count > 0)
+        {
+            details.Add(
+                ("added", string.Join(", ", notification.Added.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => $"{pair.Key}={Number(pair.Value)}"))));
+        }
+
+        if (notification.Removed.Count > 0)
+        {
+            details.Add(("removed", string.Join(", ", notification.Removed.Order(StringComparer.Ordinal))));
+        }
+
+        return Record(notification.BotId, BotFeedKind.SettingsChanged, notification.At, cancellationToken, [.. details]);
     }
 
     public Task Handle(BotPositionClosed notification, CancellationToken cancellationToken)
@@ -256,7 +278,7 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
             notification.At,
             cancellationToken,
             ("engineOrderId", Number(notification.EngineOrderId)),
-            ("checks", string.Join(',', notification.Checks)));
+            ("checks", string.Join(separator: ',', notification.Checks)));
     }
 
     public Task Handle(OrderIntentFailed notification, CancellationToken cancellationToken)

@@ -464,6 +464,13 @@ describe('bot reports', () => {
                 details: { setting: 'foreignOrders', allowForeignOrders: 'true' },
                 occurredAt: '2026-10-24T07:00:00Z',
               },
+              {
+                sequence: -1,
+                id: 'e-1',
+                kind: 'SettingsChanged',
+                details: { setting: 'parameters', added: 'buyAmount=50', removed: 'rise' },
+                occurredAt: '2026-10-24T06:00:00Z',
+              },
             ],
             next: null,
           }),
@@ -476,6 +483,11 @@ describe('bot reports', () => {
     expect(within(feed).getByText(/покупка 0.001 на 60/)).toBeInTheDocument();
     expect(within(feed).getByText(/на символе есть чужие заявки/)).toBeInTheDocument();
     expect(within(feed).getByText('Настройки изменены: общий символ включён')).toBeInTheDocument();
+    expect(
+      within(feed).getByText(
+        'Настройки изменены: параметры стратегии: по умолчанию buyAmount=50; удалены rise',
+      ),
+    ).toBeInTheDocument();
     expect(
       within(feed).getByText(/Комиссия уточнена: заявка 7: было 0, стало 1.5/),
     ).toBeInTheDocument();

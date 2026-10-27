@@ -1,6 +1,9 @@
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Accounting;
+using ProfitGraph.Engine.Blocks;
+
+using ValueType = ProfitGraph.Engine.Nodes.ValueType;
 
 namespace ProfitGraph.Tests.Unit.Domain.Bots;
 
@@ -34,6 +37,47 @@ public sealed class BotSettingsTests
 
         Should.Throw<BotRuleException>(() => running.ChangeParameters(running.Parameters, allocationCap: 50m, Now)).Code.ShouldBe(BotRuleException.MustBeStopped);
         Should.Throw<BotRuleException>(() => stopping.ChangeParameters(stopping.Parameters, allocationCap: 50m, Now)).Code.ShouldBe(BotRuleException.MustBeStopped);
+    }
+
+    [Test]
+    public void ValuesFollowTheParametersOfTheVersionTheBotRunsEvenWhileRunning()
+    {
+        Bot bot = BotFixture.Running();
+        StrategyParameter[] parameters = [new StrategyParameter("buyAmount", ValueType.Scalar, DefaultValue: 50m)];
+
+        bot.FitParameters(parameters, Now).ShouldBeTrue();
+
+        bot.ShouldSatisfyAllConditions(
+            () => bot.Parameters.ShouldBe(new BotParameters(new Dictionary<string, decimal> { ["buyAmount"] = 50m })),
+            () => bot.UpdatedAt.ShouldBe(Now),
+            () => bot.DomainEvents.ShouldHaveSingleItem()
+                .ShouldBeOfType<BotParametersFitted>()
+                .ShouldSatisfyAllConditions(
+                    fitted => fitted.Added.ShouldBe(new Dictionary<string, decimal> { ["buyAmount"] = 50m }),
+                    fitted => fitted.Removed.ShouldBe(new[] { "drop" }),
+                    fitted => fitted.At.ShouldBe(Now)));
+    }
+
+    [Test]
+    public void ValuesThatFitTheVersionStayAndRaiseNothing()
+    {
+        Bot bot = BotFixture.Running();
+
+        bot.FitParameters([new StrategyParameter("drop", ValueType.Scalar, DefaultValue: 0.5m)], Now).ShouldBeFalse();
+
+        bot.Parameters.Values["drop"].ShouldBe(0.02m);
+        bot.DomainEvents.ShouldBeEmpty();
+    }
+
+    [Test]
+    public void FittedValuesKeepKnownValuesTakeDefaultsForNewParametersAndDropRemovedOnes()
+    {
+        var values = new BotParameters(new Dictionary<string, decimal> { ["drop"] = 0.02m, ["rise"] = 0.1m });
+
+        BotParameters fitted = values.Fit(
+            [new StrategyParameter("drop", ValueType.Scalar, DefaultValue: 0.5m), new StrategyParameter("levels", ValueType.Integer, DefaultValue: 3m)]);
+
+        fitted.Values.ShouldBe(new Dictionary<string, decimal> { ["drop"] = 0.02m, ["levels"] = 3m }, ignoreOrder: true);
     }
 
     [Test]

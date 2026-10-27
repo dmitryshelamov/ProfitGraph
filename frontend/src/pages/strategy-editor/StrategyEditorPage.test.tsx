@@ -15,7 +15,8 @@ const routerNavigation = vi.hoisted((): { request: (to: string) => void } => ({
   request: vi.fn(),
 }));
 
-vi.mock('@/modules/bots', () => ({
+vi.mock('@/modules/bots', async (importOriginal) => ({
+  parameterFitText: (await importOriginal<typeof import('@/modules/bots')>()).parameterFitText,
   liveImpactQuery: (strategyId: string) => ({
     queryKey: ['strategies', strategyId, 'live-impact'],
     queryFn: () =>
@@ -27,6 +28,7 @@ vi.mock('@/modules/bots', () => ({
           timeframe: '1h',
           strategyVersionId: 'v1',
           runtimeStatus: 'Running',
+          parameters: {},
         },
       ]),
   }),
@@ -315,6 +317,9 @@ describe('cached editor', () => {
 
     const prompt = await screen.findByRole('alertdialog', { name: 'Работающие боты' });
     await waitFor(() => expect(prompt).toHaveTextContent('BTCUSDT 1h'));
+    expect(prompt).toHaveTextContent(
+      'Значения ботов изменятся: BTCUSDT 1h: fastPeriod = 2 (по умолчанию).',
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить и переключить ботов' }));
 
     await waitFor(() => expect(screen.getByText('v2')).toBeInTheDocument());

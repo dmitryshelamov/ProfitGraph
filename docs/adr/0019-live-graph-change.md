@@ -45,3 +45,9 @@ bot uses it and how the owner learns about it.
   graph-change root on its queue. Before any root the runner follows as before, so the switch, the rejection rules and the
   `Resume(GraphChanged)` are unchanged; the root only makes the switch happen now.
 - The check costs two reads per bot every interval and writes nothing unless the bot switches.
+
+## Amendment: parameters of a new version (ADR 0039)
+
+- A candidate no longer needs the run's values to name exactly its parameters: they are fitted to it (a new parameter takes its
+  default, a removed one is dropped), and the bot's own values follow in the same commit. See
+  [ADR 0039](0039-bot-values-follow-the-strategy-parameters.md).

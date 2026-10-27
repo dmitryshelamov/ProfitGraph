@@ -103,3 +103,11 @@ A candle chart on the bot page ([ADR 0026](adr/0026-bot-chart.md)), for every ve
 | 1. Closed candles | `/api/bots/{id}/candles` from the bot's own series and market data access, pages read through the cache, incomplete venue history shown without being cached, the bot's fills of the same range; the chart pages back, marks fills and working limit orders | The chart scrolls through Bybit, T-Invest and Steam history with the bot's fills against the test venue, the mock Invest API and the mock Steam | Done |
 | 2. Forming candle | A separate in-memory live channel per instrument with a closed or forming flag, throttled, never stored; history, then subscription, then reconciliation; Bybit, then T-Invest; none for Steam ([ADR 0027](adr/0027-forming-candle.md)) | The forming candle updates in its own style and becomes a closed candle without a gap | Done on mocks: Bybit and T-Invest against fake transports and the mock Invest API; no real venue stream checked |
 | 3. Indicators and conditions | The strategy's indicators and node conditions in a tooltip or a panel under the chart | | Planned |
+
+## Strategy changes on live bots
+
+A saved version that adds or removes a parameter reaches running and stopped bots ([ADR 0039](adr/0039-bot-values-follow-the-strategy-parameters.md)).
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Values follow the version | A switch fits the run's and the bot's values to the version (new parameter: its default; removed: dropped); a start with changed settings takes them on the latest version in one root; a fresh start fits too; `live-impact` returns the bots' values and the editor names the defaults they take; the feed records the fit | A running bot takes a version with a new parameter and one without it, and a stored run takes the owner's values on the latest version, on the scripted venue | Done on the scripted venue |

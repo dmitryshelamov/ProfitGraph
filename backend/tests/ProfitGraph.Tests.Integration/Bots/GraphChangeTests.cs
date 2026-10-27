@@ -24,7 +24,8 @@ namespace ProfitGraph.Tests.Integration.Bots;
 
 /// <summary>
 ///     Running bots follow a newly saved strategy version on their next root (stage 5.10, ADR 0019): an order of a removed
-///     block is cancelled once, and a version the bot cannot take leaves it on its version with one rejection.
+///     block is cancelled once, a new parameter takes its default and a removed one is dropped (ADR 0039), and a version the
+///     bot cannot take leaves it on its version with one rejection.
 /// </summary>
 [NonParallelizable]
 public sealed class GraphChangeTests
@@ -87,12 +88,17 @@ public sealed class GraphChangeTests
         await worker.StartAsync();
         await EntriesAccepted(worker, bots);
 
+        // The run's 0.05 cannot be a value of a whole-number parameter, so the fitted values do not fit the version.
         StrategyVersionId next = await Save(
             worker,
             bot,
             definition => definition with
             {
-                Parameters = [.. definition.Parameters, new StrategyParameterInternal("extra", ValueType.Scalar, DefaultValue: 1m)]
+                Parameters =
+                [
+                    .. definition.Parameters.Select(parameter =>
+                        parameter.Name == "drop" ? parameter with { ValueType = ValueType.Integer, DefaultValue = 1m } : parameter)
+                ]
             });
         await PushNextCandle(worker, scenario, bot);
         await RuntimeScenario.Until(async () => (await RuntimeScenario.Read(worker, bot.Id)).RejectedVersionId == next, "the version is rejected");
@@ -107,6 +113,101 @@ public sealed class GraphChangeTests
                 "SELECT count(*) FROM outbox_messages WHERE type = 'BotGraphChangeRejected' AND payload->>'BotId' = @id",
                 new { id = bot.Id.Value.ToString() }))
             .ShouldBe(1);
+    }
+
+    [Test]
+    public async Task ARunningBotTakesANewParameterWithItsDefaultAndDropsARemovedOne()
+    {
+        var scenario = new RuntimeScenario();
+        using IHost worker = scenario.Worker();
+        Bot bot = (await RuntimeScenario.RunningLadders(worker, count: 1))[0];
+        await worker.StartAsync();
+        await EntriesAccepted(worker, [bot]);
+
+        StrategyVersionId added = await Save(
+            worker,
+            bot,
+            definition => definition with { Parameters = [.. definition.Parameters, new StrategyParameterInternal("extra", ValueType.Scalar, DefaultValue: 1m)] });
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Read(worker, bot.Id)).StrategyVersionId == added,
+            "the bot takes the version with the new parameter");
+        Bot afterAdding = await RuntimeScenario.Read(worker, bot.Id);
+        BotCheckpoint addedRun = (await RuntimeScenario.Checkpoint(worker, bot.Id))!;
+
+        StrategyVersionId removed = await Save(
+            worker,
+            bot,
+            definition => definition with { Parameters = [.. definition.Parameters.Where(parameter => parameter.Name != "extra")] });
+        await RuntimeScenario.Until(async () => (await RuntimeScenario.Read(worker, bot.Id)).StrategyVersionId == removed, "the bot takes the version without it");
+        await worker.StopAsync();
+
+        Bot stored = await RuntimeScenario.Read(worker, bot.Id);
+        BotCheckpoint removedRun = (await RuntimeScenario.Checkpoint(worker, bot.Id))!;
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+
+        stored.ShouldSatisfyAllConditions(
+            () => afterAdding.Parameters.Values["extra"].ShouldBe(1m),
+            () => addedRun.AppliedParameters.Values["extra"].ShouldBe(1m),
+            () => addedRun.AppliedParameters.Values["drop"].ShouldBe(0.05m),
+            () => stored.Parameters.Values.ContainsKey("extra").ShouldBeFalse(),
+            () => removedRun.AppliedParameters.ShouldBe(bot.Parameters),
+            () => stored.Diagnostics.HasFlag(BotDiagnostics.GraphChangeRejected).ShouldBeFalse());
+        (await connection.ExecuteScalarAsync<int>(
+                "SELECT count(*) FROM outbox_messages WHERE type = 'BotParametersFitted' AND payload->>'BotId' = @id",
+                new { id = bot.Id.Value.ToString() }))
+            .ShouldBe(2);
+    }
+
+    [Test]
+    public async Task AStoredRunTakesTheOwnersValuesOnTheLatestVersionWithANewParameter()
+    {
+        var scenario = new RuntimeScenario();
+        Bot bot;
+
+        using (IHost first = scenario.Worker())
+        {
+            bot = (await RuntimeScenario.RunningLadders(first, count: 1))[0];
+            await first.StartAsync();
+            await EntriesAccepted(first, [bot]);
+            await first.StopAsync();
+        }
+
+        using IHost reader = scenario.Worker();
+        StrategyVersionId latest = await Save(
+            reader,
+            bot,
+            definition => definition with { Parameters = [.. definition.Parameters, new StrategyParameterInternal("extra", ValueType.Scalar, DefaultValue: 1m)] });
+
+        await using (var connection = new NpgsqlConnection(TestDatabase.ConnectionString))
+        {
+            Dictionary<string, decimal> values = bot.Parameters.Values.ToDictionary(pair => pair.Key, pair => pair.Key == "drop" ? 0.07m : pair.Value);
+            values["extra"] = 2m;
+            await connection.ExecuteAsync(
+                "UPDATE bots SET allocation_cap = 250, parameters = CAST(@parameters AS jsonb) WHERE id = @id",
+                new { id = bot.Id.Value, parameters = JsonSerializer.Serialize(values) });
+        }
+
+        using IHost second = scenario.Worker();
+        await second.StartAsync();
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Read(second, bot.Id)).StrategyVersionId == latest &&
+                (await RuntimeScenario.Checkpoint(second, bot.Id))?.Engine.Account.StartingCapital == 250m,
+            "the run takes the latest version with the new values and allocation");
+        await second.StopAsync();
+
+        Bot stored = await RuntimeScenario.Read(second, bot.Id);
+        BotCheckpoint after = (await RuntimeScenario.Checkpoint(second, bot.Id))!;
+        await using var reading = new NpgsqlConnection(TestDatabase.ConnectionString);
+
+        stored.ShouldSatisfyAllConditions(
+            () => after.AppliedParameters.Values["drop"].ShouldBe(0.07m),
+            () => after.AppliedParameters.Values["extra"].ShouldBe(2m),
+            () => stored.Parameters.ShouldBe(after.AppliedParameters),
+            () => stored.Diagnostics.HasFlag(BotDiagnostics.GraphChangeRejected).ShouldBeFalse());
+        (await reading.ExecuteScalarAsync<int>(
+                "SELECT count(*) FROM outbox_messages WHERE type IN ('BotGraphChangeRejected', 'BotParametersFitted') AND payload->>'BotId' = @id",
+                new { id = bot.Id.Value.ToString() }))
+            .ShouldBe(0);
     }
 
     [Test]
