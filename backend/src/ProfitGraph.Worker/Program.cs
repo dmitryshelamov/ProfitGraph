@@ -12,7 +12,6 @@ using ProfitGraph.Venues.TInvest;
 using ProfitGraph.Worker.Bots;
 
 using Serilog;
-using Serilog.Formatting.Json;
 
 namespace ProfitGraph.Worker;
 
@@ -30,10 +29,7 @@ public static class Program
         HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
         builder.Services.AddSerilog(
-            (_, configuration) => configuration
-                .ReadFrom.Configuration(builder.Configuration)
-                .Enrich.FromLogContext()
-                .WriteTo.Console(new JsonFormatter()),
+            (_, configuration) => configuration.ReadFrom.Configuration(builder.Configuration),
             preserveStaticLogger: true);
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<IFormingCandleFeeds, NoFormingCandleFeeds>();

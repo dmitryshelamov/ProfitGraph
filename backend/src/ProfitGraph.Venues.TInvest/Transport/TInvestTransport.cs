@@ -14,8 +14,6 @@ namespace ProfitGraph.Venues.TInvest.Transport;
 /// </summary>
 internal sealed class TInvestTransport(ITInvestCallInvokers invokers, TInvestRequestLimiter limiter, IOptions<TInvestOptions> options)
 {
-    private static readonly TimeSpan DefaultReset = TimeSpan.FromMinutes(1);
-
     public async Task<TResponse> Unary<TResponse>(
         TInvestToken token,
         TInvestMethodGroup group,
@@ -37,7 +35,7 @@ internal sealed class TInvestTransport(ITInvestCallInvokers invokers, TInvestReq
         {
             if (error.StatusCode == StatusCode.ResourceExhausted)
             {
-                limiter.Pause(token, group, Reset(error.Trailers) ?? DefaultReset);
+                limiter.Pause(token, group, Reset(error.Trailers) ?? options.Value.RateLimitDefaultReset);
             }
 
             throw TInvestRpcException.From(error);

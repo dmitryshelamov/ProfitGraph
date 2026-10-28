@@ -1,4 +1,5 @@
 using ProfitGraph.Application.Bots.Contracts;
+using ProfitGraph.Venues.Bybit.MarketData;
 
 namespace ProfitGraph.Venues.Bybit.Trading;
 
@@ -12,8 +13,8 @@ namespace ProfitGraph.Venues.Bybit.Trading;
 ///         </item>
 ///         <item>
 ///             <description>
-///                 that request is at least <see cref="SettleDelay" /> old, long enough for the history to catch up, and not older than
-///                 <see cref="MaxAge" />;
+///                 that request is at least <see cref="BybitOptions.AbsenceSettleDelay" /> old, long enough for the history to catch
+///                 up, and not older than <see cref="BybitOptions.AbsenceMaxAge" />;
 ///             </description>
 ///         </item>
 ///         <item>
@@ -29,20 +30,8 @@ namespace ProfitGraph.Venues.Bybit.Trading;
 ///     A wallet that holds more or less of the coin than the bot, such as coins of the owner's own, makes the last check fail and
 ///     leaves the order with the owner. The proof only reads.
 /// </summary>
-internal sealed class BybitAbsenceProofs(BybitOrderReads reads, TimeProvider clock)
+internal sealed class BybitAbsenceProofs(BybitOrderReads reads, BybitOptions options, TimeProvider clock)
 {
-    /// <summary>
-    ///     How old a place request must be. Bybit's history lag is an open owner check of ADR 0017; a day is far beyond any lag seen.
-    /// </summary>
-    internal static readonly TimeSpan SettleDelay = TimeSpan.FromHours(24);
-
-    /// <summary>
-    ///     The execution list covers seven days at most.
-    /// </summary>
-    internal static readonly TimeSpan MaxAge = TimeSpan.FromDays(6);
-
-    private static readonly TimeSpan Skew = TimeSpan.FromMinutes(5);
-
     public async Task<BybitAbsenceProof> Evaluate(BybitBotContext context, ReconcileOrderInternal order, decimal? expectedBase, CancellationToken cancellationToken)
     {
         List<string> passed = ["NotFoundInOpenAndHistoricalOrders"];
@@ -59,12 +48,12 @@ internal sealed class BybitAbsenceProofs(BybitOrderReads reads, TimeProvider clo
 
         DateTimeOffset now = clock.GetUtcNow();
 
-        if (now - placed > MaxAge)
+        if (now - placed > options.AbsenceMaxAge)
         {
             return new BybitAbsenceProof(passed, "OrderTooOld");
         }
 
-        if (now - placed < SettleDelay)
+        if (now - placed < options.AbsenceSettleDelay)
         {
             return new BybitAbsenceProof(passed, "SettleDelayNotPassed");
         }
@@ -73,7 +62,7 @@ internal sealed class BybitAbsenceProofs(BybitOrderReads reads, TimeProvider clo
 
         try
         {
-            if (await reads.ExecutedBetween(context, order.ClientOrderId.Value, placed - Skew, now, cancellationToken))
+            if (await reads.ExecutedBetween(context, order.ClientOrderId.Value, placed - options.AbsenceClockSkew, now, cancellationToken))
             {
                 return new BybitAbsenceProof(passed, "ExecutionFound");
             }

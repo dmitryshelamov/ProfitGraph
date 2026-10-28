@@ -40,10 +40,9 @@ internal sealed class DispatchOrderIntentCommandHandler(
     IBotOrderWaitingRepository waiting,
     BotUpdateBus updates,
     ITransactionExecutor transactions,
+    OrderDispatchOptions options,
     TimeProvider clock) : IRequestHandler<DispatchOrderIntentCommand, bool>
 {
-    private const int CandidateLimit = 20;
-
     public async Task<bool> Handle(DispatchOrderIntentCommand command, CancellationToken cancellationToken)
     {
         var holder = new LeaseHolderId(command.HolderId);
@@ -160,7 +159,7 @@ internal sealed class DispatchOrderIntentCommandHandler(
             {
                 DateTimeOffset now = clock.GetUtcNow();
 
-                foreach (OrderIntentId id in await intents.ListDeliveryCandidates(holder, gateways.Venues, now, CandidateLimit, cancellationToken))
+                foreach (OrderIntentId id in await intents.ListDeliveryCandidates(holder, gateways.Venues, now, options.CandidateLimit, cancellationToken))
                 {
                     // Rows are locked lease, bot, intent everywhere; the intent is read unlocked first only to find its bot.
                     if (await intents.Get(id, cancellationToken) is not { } candidate || !candidate.CanClaim(now))
@@ -273,7 +272,7 @@ internal sealed class DispatchOrderIntentCommandHandler(
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            return new OrderReadinessInternal(OrderWaitingCode.RateLimited, RecheckAt: clock.GetUtcNow() + OrderDeferralSchedule.UnknownRetry);
+            return new OrderReadinessInternal(OrderWaitingCode.RateLimited, RecheckAt: clock.GetUtcNow() + options.UnknownReadinessRetry);
         }
     }
 
@@ -294,7 +293,10 @@ internal sealed class DispatchOrderIntentCommandHandler(
                 }
 
                 OrderWaitingCode code = ready.Code!.Value;
-                intent.Defer(new OrderDeferral(code, now, ready.Until, ready.Low, ready.High), OrderDeferralSchedule.NextCheck(ready.RecheckAt, ready.Until, now), now);
+                intent.Defer(
+                    new OrderDeferral(code, now, ready.Until, ready.Low, ready.High),
+                    OrderDeferralSchedule.NextCheck(ready.RecheckAt, ready.Until, now, options),
+                    now);
                 await intents.Update(intent, cancellationToken);
                 await OrderWaitingRecorder.Record(waiting, intent.BotId, intent.EngineOrderId, code, now, ready.Until, ready.Low, ready.High, cancellationToken);
 

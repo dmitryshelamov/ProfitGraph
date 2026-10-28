@@ -39,10 +39,40 @@ internal sealed class BotRuntimeOptions
     /// </summary>
     public TimeSpan GraphCheckInterval { get; init; } = TimeSpan.FromSeconds(2);
 
+    /// <summary>
+    ///     How often the bots stopped on an unresolved order are checked again (ADR 0030).
+    /// </summary>
+    public TimeSpan UnresolvedOrderRecheckInterval { get; init; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    ///     How often the display-price subscriptions are matched to the instruments of the bots that should run (S5-19).
+    /// </summary>
+    public TimeSpan MarkPriceRefreshInterval { get; init; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    ///     The shortest time between two stored display prices of one instrument.
+    /// </summary>
+    public TimeSpan MarkPriceStoreInterval { get; init; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    ///     The pause before a lost display-price subscription is opened again.
+    /// </summary>
+    public TimeSpan MarkPriceReconnectDelay { get; init; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    ///     How often bot feed entries past their retention are removed (ADR 0021).
+    /// </summary>
+    public TimeSpan FeedRetentionInterval { get; init; } = TimeSpan.FromHours(1);
+
     public bool IsValid()
     {
         return PollingInterval > TimeSpan.Zero && ReconcileRetryDelay > TimeSpan.Zero && ManualOrderPollInterval > TimeSpan.Zero && GraphCheckInterval > TimeSpan.Zero &&
             DispatchInterval > TimeSpan.Zero &&
+            UnresolvedOrderRecheckInterval > TimeSpan.Zero &&
+            MarkPriceRefreshInterval > TimeSpan.Zero &&
+            MarkPriceStoreInterval >= TimeSpan.Zero &&
+            MarkPriceReconnectDelay > TimeSpan.Zero &&
+            FeedRetentionInterval > TimeSpan.Zero &&
             RenewInterval > TimeSpan.Zero &&
             LeaseDuration > RenewInterval * 2;
     }

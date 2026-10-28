@@ -17,14 +17,14 @@ internal sealed class SignInFailures
         return LockedUntil > now ? LockedUntil - now : TimeSpan.Zero;
     }
 
-    public void Fail(DateTimeOffset now)
+    public void Fail(DateTimeOffset now, AuthOptions options)
     {
         Count++;
         LastFailureAt = now;
 
-        if (Count >= SignInThrottle.FreeFailures)
+        if (Count >= options.FreeFailures)
         {
-            LockedUntil = now + SignInThrottle.Lockout(Count);
+            LockedUntil = now + SignInThrottle.Lockout(Count, options);
         }
     }
 }

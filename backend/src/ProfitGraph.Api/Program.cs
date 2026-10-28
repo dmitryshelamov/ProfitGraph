@@ -6,6 +6,7 @@ using ProfitGraph.Api.Backtesting.Realtime;
 using ProfitGraph.Api.Bots.Realtime;
 using ProfitGraph.Api.Common.Authentication;
 using ProfitGraph.Api.Common.Errors;
+using ProfitGraph.Api.Common.Realtime;
 using ProfitGraph.Api.MarketData;
 using ProfitGraph.Api.Optimization.Realtime;
 using ProfitGraph.Application.Bots.Ports;
@@ -18,7 +19,6 @@ using ProfitGraph.Venues.Steam;
 using ProfitGraph.Venues.TInvest;
 
 using Serilog;
-using Serilog.Formatting.Json;
 
 namespace ProfitGraph.Api;
 
@@ -30,10 +30,7 @@ public class Program
         WebApplicationBuilder builder = WebApplication.CreateBuilder([.. args.Where(argument => argument != "--migrate-only")]);
 
         builder.Services.AddSerilog(
-            (_, configuration) => configuration
-                .ReadFrom.Configuration(builder.Configuration)
-                .Enrich.FromLogContext()
-                .WriteTo.Console(new JsonFormatter()),
+            (_, configuration) => configuration.ReadFrom.Configuration(builder.Configuration),
             preserveStaticLogger: true);
         builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
             HttpErrors.Enrich(context.ProblemDetails, context.HttpContext));
@@ -61,13 +58,17 @@ public class Program
         builder.Services.AddTInvestVenue(builder.Configuration);
         builder.Services.AddScoped<CsvImportLimitsFilter>();
         builder.Services.AddSignalR();
+        builder.Services.AddOptions<RealtimeOptions>()
+            .Bind(builder.Configuration.GetSection(RealtimeOptions.SectionName))
+            .Validate(options => options.IsValid(), "Realtime needs a positive retry delay and page sizes.")
+            .ValidateOnStart();
         builder.Services.AddSingleton<BacktestProgressSubscriptions>();
         builder.Services.AddHostedService<BacktestProgressPublisher>();
         builder.Services.AddSingleton<OptimizationProgressSubscriptions>();
         builder.Services.AddHostedService<OptimizationProgressPublisher>();
         builder.Services.AddHostedService<LivePricePublisher>();
         builder.Services.AddSingleton<IFormingCandleSink, FormingCandleSink>();
-        builder.Services.AddFormingCandleFeeds();
+        builder.Services.AddFormingCandleFeeds(builder.Configuration);
         builder.AddProfitGraphAuthentication();
 
         WebApplication app = builder.Build();

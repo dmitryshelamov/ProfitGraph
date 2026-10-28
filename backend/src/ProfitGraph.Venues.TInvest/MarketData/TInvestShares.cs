@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 
+using Microsoft.Extensions.Options;
+
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Venues.TInvest.Transport;
 
@@ -12,10 +14,8 @@ namespace ProfitGraph.Venues.TInvest.MarketData;
 ///     the main board that API trading allows, with a positive lot and price increment (ADR 0023). A share read is reused
 ///     for an hour.
 /// </summary>
-internal sealed class TInvestShares(TInvestTransport transport, TimeProvider clock)
+internal sealed class TInvestShares(TInvestTransport transport, IOptions<TInvestOptions> options, TimeProvider clock)
 {
-    private static readonly TimeSpan Reuse = TimeSpan.FromHours(1);
-
     private readonly ConcurrentDictionary<string, (TInvestShare Share, DateTimeOffset ReadAt)> _read =
         new ConcurrentDictionary<string, (TInvestShare Share, DateTimeOffset ReadAt)>();
 
@@ -23,7 +23,7 @@ internal sealed class TInvestShares(TInvestTransport transport, TimeProvider clo
     {
         string key = symbol.Symbol.Value;
 
-        if (_read.TryGetValue(key, out (TInvestShare Share, DateTimeOffset ReadAt) cached) && clock.GetUtcNow() - cached.ReadAt < Reuse)
+        if (_read.TryGetValue(key, out (TInvestShare Share, DateTimeOffset ReadAt) cached) && clock.GetUtcNow() - cached.ReadAt < options.Value.ShareReuse)
         {
             return cached.Share;
         }

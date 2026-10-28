@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
 
 using ProfitGraph.Api.Backtesting.Contracts;
 using ProfitGraph.Api.Backtesting.Converters;
+using ProfitGraph.Api.Common.Realtime;
 using ProfitGraph.Application.Backtesting.Contracts;
 using ProfitGraph.Application.Backtesting.Ports;
 using ProfitGraph.Domain.Backtesting;
@@ -19,11 +21,9 @@ public sealed class BacktestProgressPublisher(
     BacktestProgressSubscriptions subscriptions,
     IHubContext<BacktestHub> hub,
     IServiceScopeFactory scopes,
+    IOptions<RealtimeOptions> options,
     ILogger<BacktestProgressPublisher> logger) : BackgroundService
 {
-    private const int PageSize = 100;
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(1);
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -42,7 +42,7 @@ public sealed class BacktestProgressPublisher(
             catch (Exception exception)
             {
                 logger.LogWarning(exception, "Listening for backtest progress failed; listening again.");
-                await Task.Delay(RetryDelay, stoppingToken);
+                await Task.Delay(options.Value.RetryDelay, stoppingToken);
             }
         }
     }
@@ -64,7 +64,7 @@ public sealed class BacktestProgressPublisher(
 
         while (after is { } cursor)
         {
-            BacktestPageInternal<BacktestObservationInternal> page = await reader.Observations(runId, cursor, PageSize, cancellationToken);
+            BacktestPageInternal<BacktestObservationInternal> page = await reader.Observations(runId, cursor, options.Value.BacktestProgressPageSize, cancellationToken);
 
             foreach (BacktestObservationInternal observation in page.Items)
             {

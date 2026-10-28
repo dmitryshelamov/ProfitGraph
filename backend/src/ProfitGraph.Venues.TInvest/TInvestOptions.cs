@@ -100,6 +100,82 @@ public sealed class TInvestOptions
     /// </summary>
     public TimeSpan ClosedSessionSweepInterval { get; init; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    ///     The first wait before an account whose closed-session sweep could not finish is tried again; later waits double up
+    ///     to <see cref="ClosedSessionSweepMaxRetryDelay" />, at most <see cref="ClosedSessionSweepMaxRetries" /> times.
+    /// </summary>
+    public TimeSpan ClosedSessionSweepFirstRetryDelay { get; init; } = TimeSpan.FromSeconds(5);
+
+    public TimeSpan ClosedSessionSweepMaxRetryDelay { get; init; } = TimeSpan.FromMinutes(1);
+
+    public int ClosedSessionSweepMaxRetries { get; init; } = 6;
+
+    /// <summary>
+    ///     The longest pause between closed-session passes, so a new working order or a day's end is seen soon.
+    /// </summary>
+    public TimeSpan ClosedSessionSweepIdle { get; init; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    ///     The shortest pause between closed-session passes.
+    /// </summary>
+    public TimeSpan ClosedSessionSweepShortestPause { get; init; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    ///     How far ahead the schedule is read to find the next session after a day's end, a weekend included.
+    /// </summary>
+    public TimeSpan ClosedSessionSweepLookahead { get; init; } = TimeSpan.FromDays(4);
+
+    /// <summary>
+    ///     How long a share read by ticker is reused.
+    /// </summary>
+    public TimeSpan ShareReuse { get; init; } = TimeSpan.FromHours(1);
+
+    /// <summary>
+    ///     How long a read trading schedule is reused.
+    /// </summary>
+    public TimeSpan ScheduleLifetime { get; init; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    ///     How long a failed schedule read is remembered before the schedule is read again.
+    /// </summary>
+    public TimeSpan ScheduleFailureLifetime { get; init; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    ///     How long a share's price band is reused.
+    /// </summary>
+    public TimeSpan PriceBandLifetime { get; init; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    ///     How many times an order state stream message reads the order before it gives up on it.
+    /// </summary>
+    public int OrderStreamMaxReads { get; init; } = 5;
+
+    /// <summary>
+    ///     The size of one operations page; the broker's largest page is 1000.
+    /// </summary>
+    public int OperationPageSize { get; init; } = 1000;
+
+    /// <summary>
+    ///     The most operations pages read for one proof; a window with more operations is left to the owner.
+    /// </summary>
+    public int OperationMaxPages { get; init; } = 5;
+
+    /// <summary>
+    ///     How far ahead of this process's clock the last recorded instant of an attempt may lie before the calendar proof
+    ///     refuses it.
+    /// </summary>
+    public TimeSpan AbsenceFutureSkew { get; init; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    ///     How many published intervals without trades the live candle source remembers.
+    /// </summary>
+    public int LiveRememberedQuietCandles { get; init; } = 120;
+
+    /// <summary>
+    ///     How long a request is paused after a rate-limit error that does not say when the limit resets.
+    /// </summary>
+    public TimeSpan RateLimitDefaultReset { get; init; } = TimeSpan.FromMinutes(1);
+
     internal bool IsValid()
     {
         if (RequestTimeout <= TimeSpan.Zero || CandleCloseGrace < TimeSpan.Zero || CommissionProbeNotional <= 0m || MarketBuySlippage is < 0m or >= 0.2m ||
@@ -110,6 +186,12 @@ public sealed class TInvestOptions
             AbsenceMaxWindow <= TimeSpan.Zero || AbsenceMaxWindow > TimeSpan.FromDays(30) ||
             AbsenceClockSkew < TimeSpan.Zero || AbsenceClockSkew > TimeSpan.FromMinutes(5) ||
             ClosedSessionSweepInterval <= TimeSpan.Zero || ClosedSessionSweepInterval > TimeSpan.FromHours(1) ||
+            ClosedSessionSweepFirstRetryDelay <= TimeSpan.Zero || ClosedSessionSweepMaxRetryDelay < ClosedSessionSweepFirstRetryDelay ||
+            ClosedSessionSweepMaxRetries < 0 || ClosedSessionSweepShortestPause <= TimeSpan.Zero || ClosedSessionSweepIdle < ClosedSessionSweepShortestPause ||
+            ClosedSessionSweepLookahead <= TimeSpan.Zero ||
+            ShareReuse < TimeSpan.Zero || ScheduleLifetime < TimeSpan.Zero || ScheduleFailureLifetime < TimeSpan.Zero || PriceBandLifetime < TimeSpan.Zero ||
+            OrderStreamMaxReads <= 0 || OperationPageSize is <= 0 or > 1000 || OperationMaxPages <= 0 || AbsenceFutureSkew < TimeSpan.Zero ||
+            LiveRememberedQuietCandles <= 0 || RateLimitDefaultReset <= TimeSpan.Zero ||
             !Limits.IsValid() || !History.IsValid() ||
             string.IsNullOrWhiteSpace(AppName) ||
             string.IsNullOrWhiteSpace(TrustedRootsPath))

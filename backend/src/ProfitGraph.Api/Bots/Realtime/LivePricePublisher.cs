@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
 
 using ProfitGraph.Api.Bots.Contracts;
 using ProfitGraph.Api.Common.Parsing;
+using ProfitGraph.Api.Common.Realtime;
 using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Domain.Bots.MarkPrices;
 
@@ -15,10 +17,9 @@ public sealed class LivePricePublisher(
     ILiveMarkPriceNotifications notifications,
     IHubContext<LivePriceHub> hub,
     IServiceScopeFactory scopes,
+    IOptions<RealtimeOptions> options,
     ILogger<LivePricePublisher> logger) : BackgroundService
 {
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(1);
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -37,7 +38,7 @@ public sealed class LivePricePublisher(
             catch (Exception exception)
             {
                 logger.LogWarning(exception, "Listening for display prices failed; listening again.");
-                await Task.Delay(RetryDelay, stoppingToken);
+                await Task.Delay(options.Value.RetryDelay, stoppingToken);
             }
         }
     }

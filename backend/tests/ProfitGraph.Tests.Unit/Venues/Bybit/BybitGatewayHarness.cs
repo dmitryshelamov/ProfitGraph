@@ -20,6 +20,7 @@ using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Market;
+using ProfitGraph.Venues.Bybit.MarketData;
 using ProfitGraph.Venues.Bybit.Trading;
 
 namespace ProfitGraph.Tests.Unit.Venues.Bybit;
@@ -96,7 +97,7 @@ internal sealed class BybitGatewayHarness
         var http = new HttpClient(Exchange) { BaseAddress = new Uri("https://bybit.invalid/") };
 
         // A frozen host clock makes Bybit's server time exact, so signed timestamps and auth expiries are predictable.
-        var clock = new BybitServerClock(new FakeTimeProvider(DateTimeOffset.UnixEpoch.AddDays(1)));
+        var clock = new BybitServerClock(new BybitOptions(), new FakeTimeProvider(DateTimeOffset.UnixEpoch.AddDays(1)));
         var read = new BybitReadClient(http, clock);
         ReadClient = read;
         var reads = new BybitOrderReads(read);
@@ -111,11 +112,12 @@ internal sealed class BybitGatewayHarness
                 Updates,
                 services.GetRequiredService<IServiceScopeFactory>(),
                 Reconnect,
+                new BybitOptions(),
                 Time,
                 NullLogger<BybitPrivateStreams>.Instance),
             new BybitBotContexts(services.GetRequiredService<IServiceScopeFactory>()),
             Updates,
-            new BybitAbsenceProofs(reads, Time));
+            new BybitAbsenceProofs(reads, new BybitOptions(), Time));
         FeeRates = new BybitFeeRateReader(read);
     }
 

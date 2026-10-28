@@ -16,8 +16,6 @@ namespace ProfitGraph.Venues.TInvest.MarketData;
 /// </summary>
 internal sealed class TInvestHistoricalCandleSource(TInvestShares shares, TInvestCandleReader reader, IOptions<TInvestOptions> options) : IHistoricalCandleSource
 {
-    private static readonly TimeSpan Padding = TimeSpan.FromDays(1);
-
     public VenueId Venue => TInvestVenue.VenueId;
 
     public string Source => TInvestSessionGrid.Policy;
@@ -45,8 +43,8 @@ internal sealed class TInvestHistoricalCandleSource(TInvestShares shares, TInves
         CancellationToken cancellationToken)
     {
         (TInvestToken token, TInvestShare share) = await Share(symbol, from, to, cancellationToken);
-        DateTimeOffset paddedFrom = from - Padding;
-        DateTimeOffset paddedTo = to + Padding;
+        DateTimeOffset paddedFrom = from - options.Value.History.Padding;
+        DateTimeOffset paddedTo = to + options.Value.History.Padding;
         Dictionary<DateTimeOffset, Candle> candles = await reader.Read(token, share, timeframe, paddedFrom, paddedTo, cancellationToken);
         HashSet<DateTimeOffset> reference = await Reference(token, share, timeframe, paddedFrom, paddedTo, candles, cancellationToken);
         decimal? priorClose = candles.Keys.Any(time => time < from && !TInvestSessionGrid.IsWeekend(time))

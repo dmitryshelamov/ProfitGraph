@@ -399,6 +399,7 @@ public sealed class SteamOrderGatewayTests
             scopes,
             new SteamMarketHistory(_receipts, Options.Create(_harness.Options)),
             _harness.Sessions(),
+            Options.Create(_harness.Options),
             _harness.Clock);
     }
 
@@ -415,6 +416,7 @@ public sealed class SteamOrderGatewayTests
             _harness.Sessions(),
             new SteamBuyOrderClient(options),
             _updates,
+            options,
             _harness.Clock);
 
         return new SteamOrderWorker(

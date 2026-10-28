@@ -2,16 +2,15 @@ using System.Net.WebSockets;
 using System.Runtime.CompilerServices;
 using System.Text;
 
+using ProfitGraph.Venues.Bybit.MarketData;
+
 namespace ProfitGraph.Venues.Bybit.Trading;
 
 /// <summary>
 ///     One private WebSocket. It sends Bybit's application ping every 20 s while messages are read.
 /// </summary>
-internal sealed class BybitPrivateWebSocketConnection(ClientWebSocket socket) : IBybitPrivateConnection
+internal sealed class BybitPrivateWebSocketConnection(ClientWebSocket socket, BybitOptions options) : IBybitPrivateConnection
 {
-    private const int MaxMessageBytes = 1_048_576;
-    private static readonly TimeSpan PingInterval = TimeSpan.FromSeconds(20);
-
     private readonly SemaphoreSlim _sending = new SemaphoreSlim(initialCount: 1, maxCount: 1);
 
     public async IAsyncEnumerable<string> Messages([EnumeratorCancellation] CancellationToken cancellationToken)
@@ -47,7 +46,7 @@ internal sealed class BybitPrivateWebSocketConnection(ClientWebSocket socket) : 
         {
             if (socket.State == WebSocketState.Open)
             {
-                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                using var timeout = new CancellationTokenSource(options.PrivateStreamCloseTimeout);
                 await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription: null, timeout.Token);
             }
         }
@@ -99,7 +98,7 @@ internal sealed class BybitPrivateWebSocketConnection(ClientWebSocket socket) : 
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            await Task.Delay(PingInterval, cancellationToken);
+            await Task.Delay(options.PrivateStreamPingInterval, cancellationToken);
             await Send(BybitPrivateStreamMessages.Ping, cancellationToken);
         }
     }
@@ -119,7 +118,7 @@ internal sealed class BybitPrivateWebSocketConnection(ClientWebSocket socket) : 
                 return null;
             }
 
-            if (received.MessageType != WebSocketMessageType.Text || message.Length + received.Count > MaxMessageBytes)
+            if (received.MessageType != WebSocketMessageType.Text || message.Length + received.Count > options.MaxStreamMessageBytes)
             {
                 throw new InvalidDataException("Invalid Bybit private stream message.");
             }

@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.Ports;
@@ -40,20 +41,9 @@ internal sealed class SteamOrderGateway(
     IServiceScopeFactory scopes,
     SteamMarketHistory history,
     SteamAccountSessions sessions,
+    IOptions<SteamOptions> options,
     TimeProvider clock) : IOrderGateway
 {
-    /// <summary>
-    ///     How much earlier than its place request a purchase may be stamped by Steam and still be the buy's (Profit Fox
-    ///     Designer's fixed local tolerance, as in <see cref="SteamExecutions" />).
-    /// </summary>
-    private static readonly TimeSpan Skew = TimeSpan.FromSeconds(60);
-
-    /// <summary>
-    ///     How old a buy's place request must be before Steam's silence about it counts as proof (ADR 0030): the market history
-    ///     lags, and a day is far beyond any lag Profit Fox Designer saw.
-    /// </summary>
-    internal static readonly TimeSpan AbsenceSettleDelay = TimeSpan.FromHours(24);
-
     /// <summary>
     ///     The codes of the checks that close a buy by itself, in order (ADR 0030).
     /// </summary>
@@ -188,6 +178,44 @@ internal sealed class SteamOrderGateway(
         return new BotReconciliationInternal(known, found, Degradation: null);
     }
 
+    /// <summary>
+    ///     Whether reconciliation would now close, on Steam's own records, every unresolved buy of the request and has no other
+    ///     reason to stop the bot (ADR 0030). It only reads: no entry moves.
+    /// </summary>
+    public async Task<bool> CanProveAbsence(BotReconcileInternal request, CancellationToken cancellationToken)
+    {
+        SteamBotAccount bot = await accounts.Get(request.BotId.Value, cancellationToken);
+
+        if (await Refusal(bot, request.AllowForeignOrders, cancellationToken) is not null)
+        {
+            return false;
+        }
+
+        var proven = false;
+
+        foreach (ReconcileOrderInternal order in request.Orders)
+        {
+            if (await journal.Get(order.ClientOrderId.Value, cancellationToken) is not { } entry || entry.BotId != bot.BotId)
+            {
+                continue;
+            }
+
+            if (Unresolved(entry) || (entry.Side == OrderSide.Sell && (await journal.Reservations(entry.ClientOrderId, cancellationToken)).Any(reservation =>
+                    reservation.State is SteamReservationState.Listing or SteamReservationState.Approving or SteamReservationState.Delisting or
+                        SteamReservationState.Unknown)))
+            {
+                if (!Unresolved(entry) || await AutomaticFailure(bot, entry, order, close: false, cancellationToken) is not null)
+                {
+                    return false;
+                }
+
+                proven = true;
+            }
+        }
+
+        return proven;
+    }
+
     private static bool Unresolved(SteamOrderJournalEntry entry)
     {
         return entry.State is SteamOrderJournalState.Placing or SteamOrderJournalState.Approving or SteamOrderJournalState.Unknown;
@@ -216,7 +244,7 @@ internal sealed class SteamOrderGateway(
             return "PlaceStartUnknown";
         }
 
-        if (clock.GetUtcNow() - placed < AbsenceSettleDelay)
+        if (clock.GetUtcNow() - placed < options.Value.AbsenceSettleDelay)
         {
             return "SettleDelayNotPassed";
         }
@@ -288,7 +316,7 @@ internal sealed class SteamOrderGateway(
         }
 
         HashSet<string> attributed = [.. (await attributions.Of(bot.CredentialId, cancellationToken)).Select(attribution => attribution.ReceiptId)];
-        DateTimeOffset since = (entry.PlaceStartedAt ?? entry.CreatedAt) - Skew;
+        DateTimeOffset since = (entry.PlaceStartedAt ?? entry.CreatedAt) - options.Value.ReceiptClockSkew;
 
         if ((await receipts.From(bot.CredentialId, position: 0, cancellationToken)).Any(stored => stored.Receipt is
                 {
@@ -303,44 +331,6 @@ internal sealed class SteamOrderGateway(
             entry with { State = SteamOrderJournalState.Done, Outcome = SteamOrderOutcome.Rejected, UpdatedAt = clock.GetUtcNow() },
             entry.State,
             cancellationToken);
-    }
-
-    /// <summary>
-    ///     Whether reconciliation would now close, on Steam's own records, every unresolved buy of the request and has no other
-    ///     reason to stop the bot (ADR 0030). It only reads: no entry moves.
-    /// </summary>
-    public async Task<bool> CanProveAbsence(BotReconcileInternal request, CancellationToken cancellationToken)
-    {
-        SteamBotAccount bot = await accounts.Get(request.BotId.Value, cancellationToken);
-
-        if (await Refusal(bot, request.AllowForeignOrders, cancellationToken) is not null)
-        {
-            return false;
-        }
-
-        var proven = false;
-
-        foreach (ReconcileOrderInternal order in request.Orders)
-        {
-            if (await journal.Get(order.ClientOrderId.Value, cancellationToken) is not { } entry || entry.BotId != bot.BotId)
-            {
-                continue;
-            }
-
-            if (Unresolved(entry) || (entry.Side == OrderSide.Sell && (await journal.Reservations(entry.ClientOrderId, cancellationToken)).Any(reservation =>
-                    reservation.State is SteamReservationState.Listing or SteamReservationState.Approving or SteamReservationState.Delisting or
-                        SteamReservationState.Unknown)))
-            {
-                if (!Unresolved(entry) || await AutomaticFailure(bot, entry, order, close: false, cancellationToken) is not null)
-                {
-                    return false;
-                }
-
-                proven = true;
-            }
-        }
-
-        return proven;
     }
 
     /// <summary>

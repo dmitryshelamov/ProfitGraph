@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 using ProfitGraph.Venues.TInvest.MarketData;
 using ProfitGraph.Venues.TInvest.Transport;
@@ -15,11 +16,8 @@ namespace ProfitGraph.Venues.TInvest.Trading;
 ///     failure thirty seconds, in which the schedule is unknown. A schedule never authorizes a send; it only plans carry-over
 ///     and marks holiday intervals closed.
 /// </summary>
-internal sealed class TInvestSchedules(TInvestTransport transport, TimeProvider clock, ILogger<TInvestSchedules> logger)
+internal sealed class TInvestSchedules(TInvestTransport transport, IOptions<TInvestOptions> options, TimeProvider clock, ILogger<TInvestSchedules> logger)
 {
-    private static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan FailureLifetime = TimeSpan.FromSeconds(30);
-
     private readonly ConcurrentDictionary<string, (IReadOnlyList<TInvestTradingDay>? Days, DateTimeOffset ReadAt)> _schedules =
         new ConcurrentDictionary<string, (IReadOnlyList<TInvestTradingDay>? Days, DateTimeOffset ReadAt)>(StringComparer.OrdinalIgnoreCase);
 
@@ -37,7 +35,7 @@ internal sealed class TInvestSchedules(TInvestTransport transport, TimeProvider 
         }
 
         if (_schedules.TryGetValue(exchange, out (IReadOnlyList<TInvestTradingDay>? Days, DateTimeOffset ReadAt) cached) &&
-            now - cached.ReadAt < (cached.Days is null ? FailureLifetime : Lifetime))
+            now - cached.ReadAt < (cached.Days is null ? options.Value.ScheduleFailureLifetime : options.Value.ScheduleLifetime))
         {
             return cached.Days;
         }

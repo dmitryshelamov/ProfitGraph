@@ -47,7 +47,7 @@ public static class BybitRegistration
         services.AddSingleton<ILiveCandleSource, BybitLiveCandleSource>();
         services.AddSingleton<ILiveMarkPriceSource, BybitLiveMarkPriceSource>();
         services.AddSingleton<IFormingCandleSource, BybitFormingCandleSource>();
-        services.AddSingleton(_ => new BybitServerClock(TimeProvider.System));
+        services.AddSingleton(provider => new BybitServerClock(provider.GetRequiredService<BybitOptions>(), TimeProvider.System));
         services.AddHttpClient<BybitReadClient>(Configure).RemoveAllLoggers();
         services.AddTransient<IVenueFeeRateReader, BybitFeeRateReader>();
         services.AddTransient<IAccountBalanceReader, BybitAccountBalanceReader>();
@@ -67,7 +67,10 @@ public static class BybitRegistration
         services.AddSingleton<BybitOrderUpdates>();
         services.AddSingleton<BybitBotContexts>();
         services.AddSingleton<BybitOrderReads>();
-        services.AddSingleton(provider => new BybitAbsenceProofs(provider.GetRequiredService<BybitOrderReads>(), TimeProvider.System));
+        services.AddSingleton(provider => new BybitAbsenceProofs(
+            provider.GetRequiredService<BybitOrderReads>(),
+            provider.GetRequiredService<BybitOptions>(),
+            TimeProvider.System));
         services.AddSingleton<IBybitPrivateStreamTransport, BybitPrivateWebSocketTransport>();
         services.TryAddSingleton(new PrivateStreamReconnectPolicy());
         services.AddSingleton(provider => ActivatorUtilities.CreateInstance<BybitPrivateStreams>(provider, TimeProvider.System));

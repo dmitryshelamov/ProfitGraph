@@ -37,8 +37,6 @@ internal sealed class TInvestOrderStreams(
     TimeProvider clock,
     ILogger<TInvestOrderStreams> logger)
 {
-    private const int MaxReads = 5;
-
     private readonly ConcurrentDictionary<BotId, TInvestOrderStream> _streams = new ConcurrentDictionary<BotId, TInvestOrderStream>();
 
     /// <summary>
@@ -277,7 +275,7 @@ internal sealed class TInvestOrderStreams(
             // is not found yet is read again, and only one that stays missing for every read is unresolved.
             if (await reads.ByRequestId(context, attempt.RequestId, cancellationToken) is not { } state)
             {
-                if (read >= MaxReads)
+                if (read >= options.Value.OrderStreamMaxReads)
                 {
                     throw new TInvestOrderUnresolvedException("OrderNotFound");
                 }
@@ -293,7 +291,7 @@ internal sealed class TInvestOrderStreams(
 
                 return;
             }
-            catch (TInvestOrderUnresolvedException unresolved) when (unresolved.IsTransient && read < MaxReads)
+            catch (TInvestOrderUnresolvedException unresolved) when (unresolved.IsTransient && read < options.Value.OrderStreamMaxReads)
             {
                 await Task.Delay(options.Value.OrderReadRetryDelay, cancellationToken);
             }

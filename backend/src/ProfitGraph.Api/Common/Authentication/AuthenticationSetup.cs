@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Accounts.BootstrapOwner;
 using ProfitGraph.Application.Accounts.Contracts;
@@ -37,6 +38,10 @@ internal static class AuthenticationSetup
             builder.Services.AddDataProtection().SetApplicationName("ProfitGraph").PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
         }
 
+        builder.Services.AddOptions<AuthOptions>()
+            .Bind(builder.Configuration.GetSection(AuthOptions.SectionName))
+            .Validate(options => options.IsValid(), "Auth needs positive limits and a maximum lockout no shorter than the first.")
+            .ValidateOnStart();
         bool insecureCookiesAllowed = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing");
         builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
             .AddCookie(options =>
@@ -45,21 +50,27 @@ internal static class AuthenticationSetup
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Strict;
                 options.Cookie.SecurePolicy = insecureCookiesAllowed ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
-                options.ExpireTimeSpan = TimeSpan.FromDays(7);
                 options.SlidingExpiration = true;
                 options.Events.OnRedirectToLogin = context => Status(context.Response, StatusCodes.Status401Unauthorized);
                 options.Events.OnRedirectToAccessDenied = context => Status(context.Response, StatusCodes.Status403Forbidden);
                 options.Events.OnValidatePrincipal = RejectInactiveAccounts;
             });
+        builder.Services.AddOptions<CookieAuthenticationOptions>(CookieAuthenticationDefaults.AuthenticationScheme)
+            .Configure<IOptions<AuthOptions>>((cookie, auth) => cookie.ExpireTimeSpan = auth.Value.SessionLifetime);
         builder.Services.AddAuthorizationBuilder().SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
         builder.Services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.AddPolicy(
                 SignInPolicy,
-                context => RateLimitPartition.GetFixedWindowLimiter(
-                    context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                    _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+                context =>
+                {
+                    AuthOptions auth = context.RequestServices.GetRequiredService<IOptions<AuthOptions>>().Value;
+
+                    return RateLimitPartition.GetFixedWindowLimiter(
+                        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new FixedWindowRateLimiterOptions { PermitLimit = auth.SignInPermitLimit, Window = auth.SignInWindow, QueueLimit = 0 });
+                });
         });
         builder.Services.AddSingleton<SignInThrottle>();
         builder.Services.AddSingleton<AccountConnections>();

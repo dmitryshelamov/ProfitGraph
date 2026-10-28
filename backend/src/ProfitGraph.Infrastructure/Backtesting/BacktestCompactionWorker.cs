@@ -18,8 +18,6 @@ internal sealed class BacktestCompactionWorker(
     TimeProvider clock,
     ILogger<BacktestCompactionWorker> logger) : BackgroundService
 {
-    private const int MaxRunsPerPass = 10;
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(options.Value.CompactionInterval, clock);
@@ -33,7 +31,7 @@ internal sealed class BacktestCompactionWorker(
                 DateTimeOffset cutoff = clock.GetUtcNow() - options.Value.CompactAfter;
                 var compacted = 0;
 
-                while (compacted < MaxRunsPerPass && await compactor.CompactNext(cutoff, stoppingToken))
+                while (compacted < options.Value.CompactionRunsPerPass && await compactor.CompactNext(cutoff, stoppingToken))
                 {
                     compacted++;
                 }

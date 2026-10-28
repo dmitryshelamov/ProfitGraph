@@ -18,15 +18,13 @@ namespace ProfitGraph.Infrastructure.Notifications;
 ///     Sends queued Telegram notifications in every process of the Worker's <c>live</c> role (ADR 0042), apart from polling
 ///     and without a lease. Each pass claims due notifications under its own claim, sends them outside any transaction
 ///     within Telegram's limits and records each answer; a transport failure is tried again later. A process that dies
-///     leaves its claimed notifications to another after the claim expires. Finished notifications are pruned hourly.
+///     leaves its claimed notifications to another after the claim expires. Finished notifications are pruned every
+///     <see cref="TelegramOptions.PruneInterval" />.
 /// </summary>
 internal sealed class TelegramDeliveryHost(IServiceScopeFactory scopes, IOptions<TelegramOptions> options, TimeProvider clock, ILogger<TelegramDeliveryHost> logger)
     : BackgroundService
 {
-    private const int Batch = 10;
-    private static readonly TimeSpan PruneInterval = TimeSpan.FromHours(1);
-
-    private readonly TelegramRateLimiter _limits = new TelegramRateLimiter(clock);
+    private readonly TelegramRateLimiter _limits = new TelegramRateLimiter(options.Value, clock);
     private DateTimeOffset _nextPruneAt = DateTimeOffset.MinValue;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -72,7 +70,7 @@ internal sealed class TelegramDeliveryHost(IServiceScopeFactory scopes, IOptions
         var sender = scope.ServiceProvider.GetRequiredService<ISender>();
         var telegram = scope.ServiceProvider.GetRequiredService<ITelegramClient>();
         var claimId = Guid.NewGuid();
-        TelegramClaimInternal claim = await sender.Send(new ClaimTelegramNotificationsCommand(claimId, Batch), stoppingToken);
+        TelegramClaimInternal claim = await sender.Send(new ClaimTelegramNotificationsCommand(claimId, options.Value.DeliveryBatchSize), stoppingToken);
 
         foreach (TelegramOutgoingInternal message in claim.Messages)
         {
@@ -112,7 +110,7 @@ internal sealed class TelegramDeliveryHost(IServiceScopeFactory scopes, IOptions
             return;
         }
 
-        _nextPruneAt = now + PruneInterval;
+        _nextPruneAt = now + options.Value.PruneInterval;
         using IServiceScope scope = scopes.CreateScope();
         await scope.ServiceProvider.GetRequiredService<ISender>().Send(new PruneTelegramNotificationsCommand(), stoppingToken);
     }

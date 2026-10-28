@@ -184,6 +184,28 @@ public sealed class SteamOptions
 
     public int ActivationAttempts { get; init; } = 3;
 
+    /// <summary>
+    ///     The pause before the live candle source reads Steam's history again when the next close is already due.
+    /// </summary>
+    public TimeSpan LiveCandleRetryPause { get; init; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    ///     How much earlier than its place request a purchase or sale may be stamped by Steam and still be the order's (Profit
+    ///     Fox Designer's local tolerance).
+    /// </summary>
+    public TimeSpan ReceiptClockSkew { get; init; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    ///     How old a buy's place request must be before Steam's silence about it counts as proof (ADR 0030): the market history
+    ///     lags, and a day is far beyond any lag Profit Fox Designer saw.
+    /// </summary>
+    public TimeSpan AbsenceSettleDelay { get; init; } = TimeSpan.FromHours(24);
+
+    /// <summary>
+    ///     How many redirects one page read follows.
+    /// </summary>
+    public int MaximumPageRedirects { get; init; } = 3;
+
     public bool IsValid()
     {
         (string Address, string Host)[] origins =
@@ -205,7 +227,8 @@ public sealed class SteamOptions
             EligibilityReuse >= TimeSpan.Zero &&
             EligibilityBackoff >= TimeSpan.Zero && ClockTolerance > TimeSpan.Zero &&
             EnrollmentLifetime > TimeSpan.Zero && EnrollmentLifetime <= TimeSpan.FromHours(1) && CoolingDownEstimate >= TimeSpan.Zero &&
-            CoolingDownEstimate <= TimeSpan.FromDays(30) && ActivationAttempts is >= 1 and <= 5;
+            CoolingDownEstimate <= TimeSpan.FromDays(30) && ActivationAttempts is >= 1 and <= 5 && LiveCandleRetryPause > TimeSpan.Zero &&
+            ReceiptClockSkew >= TimeSpan.Zero && AbsenceSettleDelay > TimeSpan.Zero && MaximumPageRedirects is >= 0 and <= 10;
 
         return timings && origins.All(origin => Enabled
             ? IsAllowedOrigin(origin.Address, origin.Host)

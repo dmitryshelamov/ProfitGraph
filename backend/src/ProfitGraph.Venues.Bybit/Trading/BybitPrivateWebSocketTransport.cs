@@ -11,8 +11,6 @@ namespace ProfitGraph.Venues.Bybit.Trading;
 /// </summary>
 internal sealed class BybitPrivateWebSocketTransport(BybitOptions options) : IBybitPrivateStreamTransport
 {
-    private static readonly TimeSpan ConfirmTimeout = TimeSpan.FromSeconds(10);
-
     public async Task<IBybitPrivateConnection> Connect(ExchangeCredentialSecretsInternal credential, long expiresAt, CancellationToken cancellationToken)
     {
         var socket = new ClientWebSocket();
@@ -20,10 +18,10 @@ internal sealed class BybitPrivateWebSocketTransport(BybitOptions options) : IBy
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(ConfirmTimeout);
-            socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+            timeout.CancelAfter(options.PrivateStreamConfirmTimeout);
+            socket.Options.KeepAliveInterval = options.StreamKeepAliveInterval;
             await socket.ConnectAsync(new Uri(options.PrivateStreamAddress), timeout.Token);
-            var connection = new BybitPrivateWebSocketConnection(socket);
+            var connection = new BybitPrivateWebSocketConnection(socket, options);
             await connection.Send(BybitPrivateStreamMessages.Auth(credential.ApiKey, credential.ApiSecret, expiresAt), timeout.Token);
             await connection.Confirm("auth", timeout.Token);
             await connection.Send(BybitPrivateStreamMessages.Subscribe, timeout.Token);

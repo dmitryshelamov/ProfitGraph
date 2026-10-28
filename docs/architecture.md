@@ -151,13 +151,20 @@ Venues.Bybit/
   blocking ends existing sessions; blocking also closes the account's realtime connections and cuts its Telegram
   channel, and every hub connection and hub method call re-checks the account. Sign-in is limited to 20 attempts per minute per client address; after 5
   consecutive failures a login is locked out for 30 s, doubling to 15 min, until a successful sign-in, except on client
-  addresses it signed in from before (in-memory, one API process). An unknown or blocked login is counted the same way
+  addresses it signed in from before (in-memory, one API process); the section `Auth` sets these numbers. An unknown or blocked login is counted the same way
   and costs the same password verification as a wrong password. See
   [ADR 0043](adr/0043-sign-in-throttling-and-session-end.md). The first Owner comes
   from `Auth:BootstrapOwner` only while no account exists. Account management requires the Owner role.
 - **Secrets at rest.** Exchange credentials are encrypted per value with AES-256-GCM under master keys configured
   outside the repository; no response or log contains a secret. See [ADR 0015](adr/0015-exchange-credentials.md).
-- **Logging.** Serilog JSON to the console. Never log secrets, credentials, signatures or authentication headers.
+- **Logging.** Serilog JSON to the console, configured in the `Serilog` section of `appsettings.json` (sinks, enrichers,
+  levels). Never log secrets, credentials, signatures or authentication headers.
+- **Configuration.** Operational settings (intervals, timeouts, retries, cache lifetimes, page sizes and limits, venue
+  addresses) are options classes bound from a section and validated on start; a class or method does not hide such a
+  value in a constant. Each host's `appsettings.json` lists every setting of the sections that host reads, with the
+  value the options class has as its default; a new setting goes into both. Secrets and machine-specific values (keys,
+  tokens, connection strings, the bootstrap Owner) never appear there. Facts of a protocol or format (a venue's error
+  codes, page maxima, precision, client order id length) and input validation rules stay in code.
 
 ## Numbers and Time
 

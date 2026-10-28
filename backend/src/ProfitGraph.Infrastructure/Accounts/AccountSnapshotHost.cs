@@ -3,7 +3,9 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
+using ProfitGraph.Application.Accounts;
 using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.Ports;
 using ProfitGraph.Application.Accounts.ReadExchangeCredentialSecrets;
@@ -21,17 +23,19 @@ namespace ProfitGraph.Infrastructure.Accounts;
 ///     The Worker's <c>live</c> role reads the account value of every credential with a bot, stopped or running and even
 ///     while trading is halted (Profit Fox Designer ADR 0069): a credential is due five minutes after a success, and after
 ///     a failure 5, 10, 20, 40 and then 60 minutes later. Failures stay per credential. No transaction spans a venue read.
-///     History older than seven days is thinned to hourly once an hour. The account's identity, on a venue that describes
+///     History older than <see cref="AccountSnapshotOptions.FullDetail" /> is thinned to hourly every
+///     <see cref="AccountSnapshotOptions.ThinInterval" />. The account's identity, on a venue that describes
 ///     it, is read once a day and an hour after a failure (ADR 0049), never on a page view.
 /// </summary>
-internal sealed class AccountSnapshotHost(IServiceScopeFactory scopes, TimeProvider clock, ILogger<AccountSnapshotHost> logger) : BackgroundService
+internal sealed class AccountSnapshotHost(
+    IServiceScopeFactory scopes,
+    IOptions<AccountSnapshotOptions> options,
+    TimeProvider clock,
+    ILogger<AccountSnapshotHost> logger) : BackgroundService
 {
-    private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(1);
-    private static readonly TimeSpan ThinInterval = TimeSpan.FromHours(1);
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(PollInterval, clock);
+        using var timer = new PeriodicTimer(options.Value.PollInterval, clock);
         var thinnedAt = DateTimeOffset.MinValue;
 
         try
@@ -43,7 +47,7 @@ internal sealed class AccountSnapshotHost(IServiceScopeFactory scopes, TimeProvi
                     await ReadDue(stoppingToken);
                     await ReadDueIdentities(stoppingToken);
 
-                    if (clock.GetUtcNow() - thinnedAt >= ThinInterval)
+                    if (clock.GetUtcNow() - thinnedAt >= options.Value.ThinInterval)
                     {
                         using IServiceScope scope = scopes.CreateScope();
                         await scope.ServiceProvider.GetRequiredService<ISender>().Send(new ThinAccountSnapshotsCommand(), stoppingToken);

@@ -44,6 +44,67 @@ public sealed class BybitOptions
     /// </summary>
     public TimeSpan InstrumentListLifetime { get; init; } = TimeSpan.FromHours(1);
 
+    /// <summary>
+    ///     The pause before a lost public candle stream is opened again.
+    /// </summary>
+    public TimeSpan LiveFeedReconnectDelay { get; init; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    ///     The WebSocket keep-alive of the public and private streams.
+    /// </summary>
+    public TimeSpan StreamKeepAliveInterval { get; init; } = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    ///     The largest stream message that is read; a larger one ends the connection.
+    /// </summary>
+    public int MaxStreamMessageBytes { get; init; } = 1_048_576;
+
+    /// <summary>
+    ///     How long a measured offset to Bybit's server time is reused.
+    /// </summary>
+    public TimeSpan ServerClockLifetime { get; init; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    ///     The longest server-time round trip whose answer is trusted.
+    /// </summary>
+    public TimeSpan ServerClockMaxRoundTrip { get; init; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    ///     How long the private stream's authentication signature stays valid.
+    /// </summary>
+    public TimeSpan PrivateStreamAuthLifetime { get; init; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    ///     How long the private stream may take to confirm the authentication and the subscription.
+    /// </summary>
+    public TimeSpan PrivateStreamConfirmTimeout { get; init; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    ///     How often the private stream sends Bybit's application-level ping.
+    /// </summary>
+    public TimeSpan PrivateStreamPingInterval { get; init; } = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    ///     How long closing the private stream may take.
+    /// </summary>
+    public TimeSpan PrivateStreamCloseTimeout { get; init; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    ///     How old a place request must be before the order may be proven absent. Bybit's history lag is an open owner check
+    ///     of ADR 0017; a day is far beyond any lag seen.
+    /// </summary>
+    public TimeSpan AbsenceSettleDelay { get; init; } = TimeSpan.FromHours(24);
+
+    /// <summary>
+    ///     The oldest place request an absence proof accepts: the execution list covers seven days at most.
+    /// </summary>
+    public TimeSpan AbsenceMaxAge { get; init; } = TimeSpan.FromDays(6);
+
+    /// <summary>
+    ///     How far before the place request the executions are read, for clock differences.
+    /// </summary>
+    public TimeSpan AbsenceClockSkew { get; init; } = TimeSpan.FromMinutes(5);
+
     public bool IsValid()
     {
         return IsValidBaseAddress(BaseAddress) &&
@@ -55,7 +116,12 @@ public sealed class BybitOptions
             AttemptTimeout > TimeSpan.Zero && TotalTimeout >= AttemptTimeout && TotalTimeout <= TimeSpan.FromDays(1) &&
             CircuitFailureRatio is > 0 and <= 1 && CircuitMinimumThroughput >= 2 &&
             CircuitSamplingDuration >= TimeSpan.FromMilliseconds(500) && CircuitBreakDuration >= TimeSpan.FromMilliseconds(500) &&
-            InstrumentListLifetime >= TimeSpan.FromSeconds(1) && InstrumentListLifetime <= TimeSpan.FromDays(1);
+            InstrumentListLifetime >= TimeSpan.FromSeconds(1) && InstrumentListLifetime <= TimeSpan.FromDays(1) &&
+            LiveFeedReconnectDelay > TimeSpan.Zero && StreamKeepAliveInterval > TimeSpan.Zero && MaxStreamMessageBytes > 0 &&
+            ServerClockLifetime > TimeSpan.Zero && ServerClockMaxRoundTrip > TimeSpan.Zero &&
+            PrivateStreamAuthLifetime > TimeSpan.Zero && PrivateStreamConfirmTimeout > TimeSpan.Zero && PrivateStreamPingInterval > TimeSpan.Zero &&
+            PrivateStreamCloseTimeout > TimeSpan.Zero &&
+            AbsenceSettleDelay > TimeSpan.Zero && AbsenceMaxAge > AbsenceSettleDelay && AbsenceMaxAge < TimeSpan.FromDays(7) && AbsenceClockSkew >= TimeSpan.Zero;
     }
 
     /// <summary>

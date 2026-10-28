@@ -35,6 +35,31 @@ public sealed class TelegramOptions
     public TimeSpan DeliveryInterval { get; init; } = TimeSpan.FromSeconds(1);
 
     /// <summary>
+    ///     How many due notifications one delivery pass claims.
+    /// </summary>
+    public int DeliveryBatchSize { get; init; } = 10;
+
+    /// <summary>
+    ///     How often finished notifications are pruned.
+    /// </summary>
+    public TimeSpan PruneInterval { get; init; } = TimeSpan.FromHours(1);
+
+    /// <summary>
+    ///     How long the poller lease lasts; the process that holds it reads the bot's updates.
+    /// </summary>
+    public TimeSpan PollerLeaseDuration { get; init; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    ///     The shortest time between two messages to one chat (Telegram's published limit, ADR 0042).
+    /// </summary>
+    public TimeSpan PerChatInterval { get; init; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    ///     The shortest time between two messages of one process: 25 per second (Telegram's published limit, ADR 0042).
+    /// </summary>
+    public TimeSpan PerMessageInterval { get; init; } = TimeSpan.FromMilliseconds(40);
+
+    /// <summary>
     ///     The <c>t.me</c> link that starts the bot with <paramref name="code" />, when the bot's username is known.
     /// </summary>
     public string? StartLink(string code)
@@ -46,6 +71,8 @@ public sealed class TelegramOptions
     {
         return !Enabled || (!string.IsNullOrWhiteSpace(BotToken) && Uri.TryCreate(BaseAddress, UriKind.Absolute, out Uri? address) &&
             address.Scheme is "https" or "http" &&
-            PollTimeout >= TimeSpan.Zero && RetryDelay > TimeSpan.Zero && DeliveryInterval > TimeSpan.Zero);
+            PollTimeout >= TimeSpan.Zero && RetryDelay > TimeSpan.Zero && DeliveryInterval > TimeSpan.Zero && DeliveryBatchSize > 0 &&
+            PruneInterval > TimeSpan.Zero && PollerLeaseDuration > PollTimeout && PerChatInterval >= TimeSpan.Zero &&
+            PerMessageInterval >= TimeSpan.Zero);
     }
 }

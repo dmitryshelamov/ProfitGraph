@@ -72,7 +72,10 @@ public sealed class TInvestFormingCandleTests
             new MockTInvestInvokers(_api),
             new TInvestRequestLimiter(new TInvestRequestLimits { MarketData = 1000, Instruments = 1000 }, _clock),
             Options.Create(new TInvestOptions()));
-        _source = new TInvestFormingCandleSource(new TInvestShares(transport, _clock), new TInvestCandleStreams(transport, NullLoggerFactory.Instance), _clock);
+        _source = new TInvestFormingCandleSource(
+            new TInvestShares(transport, Options.Create(new TInvestOptions()), _clock),
+            new TInvestCandleStreams(transport, NullLoggerFactory.Instance),
+            _clock);
     }
 
     [TestCase("1m", arg2: true)]

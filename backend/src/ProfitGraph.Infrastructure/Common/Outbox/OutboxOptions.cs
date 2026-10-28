@@ -29,8 +29,14 @@ internal sealed class OutboxOptions
     /// </summary>
     public int RetentionBatchSize { get; init; } = 1000;
 
+    /// <summary>
+    ///     How often delivered messages past <see cref="Retention" /> are deleted.
+    /// </summary>
+    public TimeSpan RetentionInterval { get; init; } = TimeSpan.FromHours(1);
+
     public bool IsValid()
     {
-        return PollingInterval > TimeSpan.Zero && MaxRetryDelay > TimeSpan.Zero && MaxAttempts > 0 && Retention > TimeSpan.Zero && RetentionBatchSize > 0;
+        return PollingInterval > TimeSpan.Zero && MaxRetryDelay > TimeSpan.Zero && MaxAttempts > 0 && Retention > TimeSpan.Zero && RetentionBatchSize > 0 &&
+            RetentionInterval > TimeSpan.Zero;
     }
 }

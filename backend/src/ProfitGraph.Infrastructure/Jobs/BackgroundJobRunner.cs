@@ -35,11 +35,6 @@ internal sealed class BackgroundJobRunner(
     TimeProvider clock,
     ILogger<BackgroundJobRunner> logger)
 {
-    /// <summary>
-    ///     Consecutive interruptions without progress after which a resumable job fails instead of being queued again.
-    /// </summary>
-    internal const int InterruptionLimit = 3;
-
     internal static readonly BackgroundJobFailureInternal RestartFailure =
         new BackgroundJobFailureInternal(BackgroundJobErrorCodes.Interrupted, "The job was interrupted by a Worker restart.");
 
@@ -49,9 +44,9 @@ internal sealed class BackgroundJobRunner(
     private static readonly BackgroundJobFailureInternal UnexpectedFailure =
         new BackgroundJobFailureInternal(BackgroundJobErrorCodes.Unexpected, "An unexpected error occurred.");
 
-    private static readonly BackgroundJobFailureInternal StalledFailure = new BackgroundJobFailureInternal(
+    private readonly BackgroundJobFailureInternal _stalledFailure = new BackgroundJobFailureInternal(
         BackgroundJobErrorCodes.Interrupted,
-        $"The job was interrupted {InterruptionLimit} times in a row without making progress.");
+        $"The job was interrupted {options.Value.InterruptionLimit} times in a row without making progress.");
 
     private readonly HashSet<string> _resumable = [.. registrations.Where(registration => registration.Resumable).Select(registration => registration.Kind.Value)];
 
@@ -169,9 +164,9 @@ internal sealed class BackgroundJobRunner(
             job.Fail(now);
             stored = failure;
         }
-        else if (!job.Interrupt(InterruptionLimit, now))
+        else if (!job.Interrupt(options.Value.InterruptionLimit, now))
         {
-            stored = StalledFailure;
+            stored = _stalledFailure;
         }
 
         if (!await Persist(() => repository.Update(job, BackgroundJobStatus.Running, result: null, stored, CancellationToken.None), stoppingToken))

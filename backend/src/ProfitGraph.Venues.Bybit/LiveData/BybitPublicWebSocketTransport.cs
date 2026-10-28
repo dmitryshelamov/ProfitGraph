@@ -8,12 +8,10 @@ namespace ProfitGraph.Venues.Bybit.LiveData;
 
 internal sealed class BybitPublicWebSocketTransport(BybitOptions options) : IBybitPublicStreamTransport
 {
-    private const int MaxMessageBytes = 1_048_576;
-
     public async IAsyncEnumerable<string> Connect(string topic, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         using var socket = new ClientWebSocket();
-        socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+        socket.Options.KeepAliveInterval = options.StreamKeepAliveInterval;
         await socket.ConnectAsync(new Uri(options.PublicSpotStreamAddress), cancellationToken);
         byte[] subscribe = Encoding.UTF8.GetBytes($"{{\"op\":\"subscribe\",\"args\":[\"{topic}\"]}}");
         await socket.SendAsync(subscribe, WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
@@ -33,7 +31,7 @@ internal sealed class BybitPublicWebSocketTransport(BybitOptions options) : IByb
                     yield break;
                 }
 
-                if (received.MessageType != WebSocketMessageType.Text || message.Length + received.Count > MaxMessageBytes)
+                if (received.MessageType != WebSocketMessageType.Text || message.Length + received.Count > options.MaxStreamMessageBytes)
                 {
                     throw new InvalidDataException("Invalid public Spot stream message.");
                 }

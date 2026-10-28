@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Bots;
+using ProfitGraph.Application.Bots.DispatchOrderIntent;
 using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Domain.Bots;
@@ -32,6 +34,11 @@ internal static class BotsRegistration
             .Bind(configuration.GetSection(BotRuntimeOptions.SectionName))
             .Validate(options => options.IsValid(), "Bots:Runtime needs positive intervals and a lease longer than two renewals.")
             .ValidateOnStart();
+        services.AddOptions<OrderDispatchOptions>()
+            .Bind(configuration.GetSection(OrderDispatchOptions.SectionName))
+            .Validate(options => options.IsValid(), "Bots:Dispatch needs a positive candidate limit and a deferral ceiling no shorter than the floor.")
+            .ValidateOnStart();
+        services.AddScoped(provider => provider.GetRequiredService<IOptionsMonitor<OrderDispatchOptions>>().CurrentValue);
         services.AddHealthChecks().AddCheck<LiveRuntimeHealthCheck>(LiveRuntimeHealthCheck.Name, tags: [HealthTags.Ready]);
         services.AddScoped<IBotRepository, BotRepository>();
         services.AddScoped<IBotLeaseRepository, BotLeaseRepository>();

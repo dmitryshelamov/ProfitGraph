@@ -17,8 +17,9 @@ namespace ProfitGraph.Venues.TInvest.Trading;
 ///     finds the outcome in the attempts table when T-Invest no longer answers for the order. Bots of every state count: degraded,
 ///     failed, stopped or never started. It only reads: nothing is placed or cancelled, and nothing reaches the engine. A day the
 ///     schedule does not know is left alone. Reads are grouped by account; an account whose sweep cannot finish, because a read
-///     failed or the schedule could not be read, is tried again after <see cref="FirstRetryDelay" />, doubling up to
-///     <see cref="MaxRetryDelay" />, at most <see cref="MaxRetries" /> times, and then waits for its next scheduled sweep.
+///     failed or the schedule could not be read, is tried again after <see cref="TInvestOptions.ClosedSessionSweepFirstRetryDelay" />,
+///     doubling up to <see cref="TInvestOptions.ClosedSessionSweepMaxRetryDelay" />, at most
+///     <see cref="TInvestOptions.ClosedSessionSweepMaxRetries" /> times, and then waits for its next scheduled sweep.
 /// </summary>
 internal sealed class TInvestClosedSessionSweep(
     ITInvestOrderAttempts attempts,
@@ -31,23 +32,6 @@ internal sealed class TInvestClosedSessionSweep(
     TimeProvider clock,
     ILogger<TInvestClosedSessionSweep> logger) : BackgroundService
 {
-    internal const int MaxRetries = 6;
-
-    internal static readonly TimeSpan FirstRetryDelay = TimeSpan.FromSeconds(5);
-    internal static readonly TimeSpan MaxRetryDelay = TimeSpan.FromMinutes(1);
-
-    /// <summary>
-    ///     The longest pause between passes, so a new working order or a day's end is seen soon.
-    /// </summary>
-    private static readonly TimeSpan Idle = TimeSpan.FromSeconds(30);
-
-    private static readonly TimeSpan ShortestPause = TimeSpan.FromSeconds(1);
-
-    /// <summary>
-    ///     How far ahead the schedule is read to find the next session after a day's end, a weekend included.
-    /// </summary>
-    private static readonly TimeSpan Lookahead = TimeSpan.FromDays(4);
-
     private readonly Dictionary<string, TInvestSweepAccount> _accounts = new Dictionary<string, TInvestSweepAccount>(StringComparer.Ordinal);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -59,7 +43,11 @@ internal sealed class TInvestClosedSessionSweep(
 
             try
             {
-                await Task.Delay(pause < ShortestPause ? ShortestPause : pause > Idle ? Idle : pause, clock, stoppingToken);
+                await Task.Delay(
+                    pause < options.Value.ClosedSessionSweepShortestPause ? options.Value.ClosedSessionSweepShortestPause :
+                    pause > options.Value.ClosedSessionSweepIdle ? options.Value.ClosedSessionSweepIdle : pause,
+                    clock,
+                    stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -86,7 +74,7 @@ internal sealed class TInvestClosedSessionSweep(
         {
             logger.LogWarning("The T-Invest working orders could not be read for the post-session sweep: {Failure}", exception.GetType().Name);
 
-            return now + Idle;
+            return now + options.Value.ClosedSessionSweepIdle;
         }
 
         var accounts =
@@ -139,7 +127,7 @@ internal sealed class TInvestClosedSessionSweep(
             next = next is { } earliest && earliest <= account.DueAt ? earliest : account.DueAt;
         }
 
-        return next ?? now + Idle;
+        return next ?? now + options.Value.ClosedSessionSweepIdle;
     }
 
     /// <summary>
@@ -149,14 +137,14 @@ internal sealed class TInvestClosedSessionSweep(
     {
         int failures = account.Failures + 1;
 
-        if (failures > MaxRetries)
+        if (failures > options.Value.ClosedSessionSweepMaxRetries)
         {
             return new TInvestSweepAccount(now + options.Value.ClosedSessionSweepInterval, Failures: 0);
         }
 
-        TimeSpan delay = FirstRetryDelay * Math.Pow(x: 2, failures - 1);
+        TimeSpan delay = options.Value.ClosedSessionSweepFirstRetryDelay * Math.Pow(x: 2, failures - 1);
 
-        return new TInvestSweepAccount(now + (delay > MaxRetryDelay ? MaxRetryDelay : delay), failures);
+        return new TInvestSweepAccount(now + (delay > options.Value.ClosedSessionSweepMaxRetryDelay ? options.Value.ClosedSessionSweepMaxRetryDelay : delay), failures);
     }
 
     /// <summary>
@@ -179,7 +167,11 @@ internal sealed class TInvestClosedSessionSweep(
         {
             TInvestBotContext first = exchange.First().Context;
             DateTimeOffset earliest = exchange.Min(order => order.Attempt.UpdatedAt);
-            IReadOnlyList<TInvestTradingDay>? days = await schedules.DaysBetween(first, earliest.AddDays(-1), now + Lookahead, cancellationToken);
+            IReadOnlyList<TInvestTradingDay>? days = await schedules.DaysBetween(
+                first,
+                earliest.AddDays(-1),
+                now + options.Value.ClosedSessionSweepLookahead,
+                cancellationToken);
 
             if (days is null)
             {

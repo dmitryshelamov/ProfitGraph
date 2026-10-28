@@ -3,21 +3,25 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Bots.PruneBotFeed;
 
 namespace ProfitGraph.Infrastructure.Bots.Runtime;
 
 /// <summary>
-///     Removes bot feed entries older than 90 days, once an hour, in the Worker's <c>live</c> role (ADR 0021).
+///     Removes bot feed entries older than 90 days, every <see cref="BotRuntimeOptions.FeedRetentionInterval" /> (an hour by
+///     default), in the Worker's <c>live</c> role (ADR 0021).
 /// </summary>
-internal sealed class BotFeedRetentionHost(IServiceScopeFactory scopes, TimeProvider clock, ILogger<BotFeedRetentionHost> logger) : BackgroundService
+internal sealed class BotFeedRetentionHost(
+    IServiceScopeFactory scopes,
+    IOptions<BotRuntimeOptions> options,
+    TimeProvider clock,
+    ILogger<BotFeedRetentionHost> logger) : BackgroundService
 {
-    private static readonly TimeSpan Interval = TimeSpan.FromHours(1);
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(Interval, clock);
+        using var timer = new PeriodicTimer(options.Value.FeedRetentionInterval, clock);
 
         try
         {

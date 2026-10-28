@@ -3,9 +3,11 @@ using System.Threading.Channels;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 using NSubstitute;
 
+using ProfitGraph.Api.Common.Realtime;
 using ProfitGraph.Api.Optimization.Contracts;
 using ProfitGraph.Api.Optimization.Realtime;
 using ProfitGraph.Application.Optimization.Contracts;
@@ -105,6 +107,7 @@ public sealed class OptimizationProgressPublisherTests
             subscriptions,
             hub,
             services.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new RealtimeOptions()),
             NullLogger<OptimizationProgressPublisher>.Instance);
 
         await publisher.StartAsync(CancellationToken.None);
