@@ -108,7 +108,9 @@ Venues.Bybit/
   See [ADR 0004](adr/0004-explicit-live-state-machines.md).
 - **Outbox.** A transaction stores the Domain events of the aggregates it wrote in `outbox_messages`; the Worker
   delivers each to MediatR notification handlers once, in the transaction that marks it delivered. Handlers write only
-  to the database. See [ADR 0016](adr/0016-live-bot-runtime.md).
+  to the database. A message that failed `Outbox:MaxAttempts` times is parked and makes readiness Degraded; delivered
+  messages are deleted after `Outbox:Retention`. See [ADR 0016](adr/0016-live-bot-runtime.md) and
+  [ADR 0045](adr/0045-outbox-retention-and-parked-messages.md).
 - **Value objects.** Entities hold identifiers and constrained values as value objects, not primitives: typed IDs
   (`StrategyId`, `UserId`) and numbers (`StrategyVersionNumber`) are `readonly record struct`s, and constrained text
   (`StrategyName`, `UserLogin`) is a sealed record. A value object validates in its constructor, so an invalid value
