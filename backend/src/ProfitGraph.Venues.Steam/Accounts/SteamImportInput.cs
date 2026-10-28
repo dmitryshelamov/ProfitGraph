@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Venues.Steam.Confirmations;
 
 namespace ProfitGraph.Venues.Steam.Accounts;

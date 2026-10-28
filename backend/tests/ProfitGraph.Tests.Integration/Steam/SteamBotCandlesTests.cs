@@ -15,6 +15,7 @@ using ProfitGraph.Application.Bots.GetBotCandles;
 using ProfitGraph.Application.Common.Operations;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Strategies;

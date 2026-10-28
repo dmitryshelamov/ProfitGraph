@@ -14,6 +14,7 @@ using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Application.Strategies;
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Strategies;

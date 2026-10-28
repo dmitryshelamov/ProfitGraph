@@ -1,7 +1,8 @@
 using System.Globalization;
 using System.Text.Json;
 
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
+using ProfitGraph.Domain.Accounts.Snapshots;
 using ProfitGraph.Infrastructure.Accounts.Repositories.Contracts;
 
 namespace ProfitGraph.Infrastructure.Accounts.Repositories.Converters;

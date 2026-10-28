@@ -1,6 +1,7 @@
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.Common;
 
-namespace ProfitGraph.Domain.Accounts;
+namespace ProfitGraph.Domain.Accounts.BalanceStatuses;
 
 /// <summary>
 ///     How reading a credential's account balance went (Profit Fox Designer ADR 0069): the last attempt and success, the

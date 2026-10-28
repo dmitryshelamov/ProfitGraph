@@ -1,4 +1,4 @@
-namespace ProfitGraph.Domain.Accounts;
+namespace ProfitGraph.Domain.Accounts.Credentials;
 
 /// <summary>
 ///     Identifies a stored exchange credential; never empty.

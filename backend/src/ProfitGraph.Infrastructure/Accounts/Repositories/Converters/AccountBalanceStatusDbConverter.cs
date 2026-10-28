@@ -1,4 +1,5 @@
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.BalanceStatuses;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Infrastructure.Accounts.Repositories.Contracts;
 
 namespace ProfitGraph.Infrastructure.Accounts.Repositories.Converters;

@@ -1,4 +1,6 @@
-namespace ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
+
+namespace ProfitGraph.Domain.Accounts.Snapshots;
 
 public interface IAccountSnapshotRepository
 {

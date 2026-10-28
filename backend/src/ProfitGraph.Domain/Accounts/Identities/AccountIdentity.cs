@@ -1,6 +1,7 @@
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.Common;
 
-namespace ProfitGraph.Domain.Accounts;
+namespace ProfitGraph.Domain.Accounts.Identities;
 
 /// <summary>
 ///     The venue account a credential trades on as the venue last described it (ADR 0049), cached so a page never reads the

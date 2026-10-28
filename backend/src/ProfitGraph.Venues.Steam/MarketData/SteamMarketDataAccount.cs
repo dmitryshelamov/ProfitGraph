@@ -5,7 +5,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Venues.Steam.Session;
 
 namespace ProfitGraph.Venues.Steam.MarketData;

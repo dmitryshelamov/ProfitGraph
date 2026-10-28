@@ -1,6 +1,7 @@
 using MediatR;
 
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
+using ProfitGraph.Domain.Accounts.Identities;
 
 namespace ProfitGraph.Application.Accounts.RecordAccountIdentity;
 

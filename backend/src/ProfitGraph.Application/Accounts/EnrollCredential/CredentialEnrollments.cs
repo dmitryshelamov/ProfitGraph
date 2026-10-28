@@ -4,6 +4,7 @@ using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.MarketData;
 
 namespace ProfitGraph.Application.Accounts.EnrollCredential;

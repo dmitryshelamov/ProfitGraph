@@ -1,7 +1,7 @@
 using ProfitGraph.Application.Accounts;
 using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Common.Exceptions;
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.MarketData;
 
 namespace ProfitGraph.Application.MarketData;

@@ -13,6 +13,7 @@ using ProfitGraph.Application.Strategies.Contracts;
 using ProfitGraph.Application.Strategies.Converters;
 using ProfitGraph.Application.Strategies.CreateStrategy;
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Strategies;

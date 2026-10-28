@@ -1,4 +1,4 @@
-namespace ProfitGraph.Domain.Accounts;
+namespace ProfitGraph.Domain.Accounts.Credentials;
 
 /// <summary>
 ///     One secret value encrypted with authenticated encryption: the master key that encrypted it, a fresh nonce, the

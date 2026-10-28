@@ -1,6 +1,6 @@
 using MediatR;
 
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.Bots;
 
 namespace ProfitGraph.Application.Bots.RearmBotsForVenueAccount;

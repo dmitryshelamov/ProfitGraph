@@ -1,4 +1,4 @@
-namespace ProfitGraph.Domain.Accounts;
+namespace ProfitGraph.Domain.Accounts.Identities;
 
 /// <summary>
 ///     What a venue tells about the account a credential trades on (ADR 0049): the venue's account identifier, the name or

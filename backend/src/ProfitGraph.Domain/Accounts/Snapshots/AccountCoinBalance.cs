@@ -1,4 +1,4 @@
-namespace ProfitGraph.Domain.Accounts;
+namespace ProfitGraph.Domain.Accounts.Snapshots;
 
 /// <summary>
 ///     One coin of an account snapshot: its wallet balance and, when the venue values it, its USD value.

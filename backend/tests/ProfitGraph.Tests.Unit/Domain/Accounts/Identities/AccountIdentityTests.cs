@@ -1,6 +1,8 @@
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
+using ProfitGraph.Domain.Accounts.Identities;
 
-namespace ProfitGraph.Tests.Unit.Domain.Accounts;
+namespace ProfitGraph.Tests.Unit.Domain.Accounts.Identities;
 
 /// <summary>
 ///     The cached identity of a credential's account (ADR 0049): a success is read again after a day, a failure after an hour,

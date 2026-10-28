@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Accounts;
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 
 namespace ProfitGraph.Infrastructure.Accounts.Security;
 

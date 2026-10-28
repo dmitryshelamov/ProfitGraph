@@ -1,6 +1,6 @@
 using MediatR;
 
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Snapshots;
 
 namespace ProfitGraph.Application.Accounts.ThinAccountSnapshots;
 

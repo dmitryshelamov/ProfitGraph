@@ -1,4 +1,6 @@
-namespace ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
+
+namespace ProfitGraph.Domain.Accounts.BalanceStatuses;
 
 /// <summary>
 ///     A credential whose account balance is due to be read, with its owner.

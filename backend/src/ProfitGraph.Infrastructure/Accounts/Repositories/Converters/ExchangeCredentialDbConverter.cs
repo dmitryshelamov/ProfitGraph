@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Infrastructure.Accounts.Repositories.Contracts;
 
