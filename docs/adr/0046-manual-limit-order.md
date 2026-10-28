@@ -103,6 +103,7 @@ The chart is not touched: the placed order reaches it through open orders.
 - **Cancel of a manual order.** An owner action `DELETE /api/bots/{id}/manual-orders/{orderId}` processed as a root on the
   runner's queue (`CancelByTag("manual")`, then the normal cancel intent), like the manual order itself. It also covers the
   gap that a resting limit blocks further manual orders until it fills. Until then the owner cancels at the venue.
+  Built by [ADR 0048](0048-owner-cancels-an-active-order.md) as the cancel of any open order of a running bot, the manual one included.
 - Showing the manual order in the open-orders block with a "ручная" mark.
 
 ## Consequences

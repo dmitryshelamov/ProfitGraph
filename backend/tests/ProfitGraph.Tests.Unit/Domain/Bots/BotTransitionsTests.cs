@@ -564,6 +564,15 @@ public sealed class BotTransitionsTests
     }
 
     [Test]
+    public void OrderCancelsNeedARunningBot()
+    {
+        Should.NotThrow(() => BotFixture.Running().EnsureAcceptsOrderCancels());
+        Should.Throw<BotRuleException>(() => BotFixture.Started().EnsureAcceptsOrderCancels()).Code.ShouldBe(BotRuleException.NotRunning);
+        Should.Throw<BotRuleException>(() => BotFixture.FailedOnce().EnsureAcceptsOrderCancels()).Code.ShouldBe(BotRuleException.NotRunning);
+        Should.Throw<BotRuleException>(() => BotFixture.Stopped().EnsureAcceptsOrderCancels()).Code.ShouldBe(BotRuleException.NotRunning);
+    }
+
+    [Test]
     public void SubmitsNeedARunningHealthyBotAndNoHalt()
     {
         BotFixture.Running().CanSubmit(tradingHalted: false).ShouldBeTrue();
