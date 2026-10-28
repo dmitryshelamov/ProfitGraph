@@ -252,7 +252,7 @@ internal node ID or parameter-port key. Ranges belong to an optimization request
 
 A bot holds a value for every parameter of the strategy version it runs. When it switches to a version that adds a
 parameter, the bot takes that parameter's default; the value of a removed parameter is dropped. See
-[ADR 0039](docs/adr/0039-bot-values-follow-the-strategy-parameters.md).
+[ADR 0047](docs/adr/0047-bot-values-follow-the-strategy-parameters.md).
 
 ### Wire
 
@@ -368,9 +368,16 @@ A strategy-assigned semantic name identifying an order's purpose, such as `ladde
 ### Manual Order
 
 An owner-submitted market or limit order in a running live bot, outside the strategy graph (Profit Fox Designer ADR 0091,
-[ADR 0027](docs/adr/0027-manual-limit-order.md)). A limit order carries a price the engine rounds down to the tick.
+[ADR 0046](docs/adr/0046-manual-limit-order.md)). A limit order carries a price the engine rounds down to the tick.
 It enters the bot's engine account with the reserved tag `manual` and no originating block, so balances, risk limits and
 the position ledger include it, while the graph observes it only through global listeners filtered by that tag.
+
+### Owner Order Cancel
+
+The owner's request to cancel one working order of a running live bot from the bot page
+([ADR 0048](docs/adr/0048-owner-cancels-an-active-order.md)). The bot's runner takes it as a root and the engine cancels the order as it
+cancels its own, so the cancel goes out as an ordinary cancel intent; the venue's confirmation of a cancel the engine asked for does not
+resume the strategy, which may still place the order again later by its own rules. A request nobody takes within a minute expires.
 
 ### Order Lifecycle Output
 

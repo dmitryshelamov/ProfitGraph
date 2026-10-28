@@ -1,8 +1,11 @@
 import {
+  canCancelOpenOrder,
+  cancelProblemLabel,
   openOrderPrice,
   openOrderQuantity,
   openOrderState,
   openOrderStatusLabel,
+  orderCancelState,
 } from './openOrders';
 
 describe('open orders', () => {
@@ -44,5 +47,36 @@ describe('open orders', () => {
     expect(openOrderState({ engineOrderId: 2, status: 'PendingCancel' }, waiting).label).toBe(
       'Отменяется',
     );
+  });
+
+  it('offers a cancel for an order at the venue or being sent, not for one already cancelling', () => {
+    expect(canCancelOpenOrder({ status: 'Active' })).toBe(true);
+    expect(canCancelOpenOrder({ status: 'PendingSubmit' })).toBe(true);
+    expect(canCancelOpenOrder({ status: 'PendingCancel' })).toBe(false);
+  });
+
+  it('follows an owner’s cancel until the order is gone or the request is rejected', () => {
+    const cancel = { engineOrderId: 2, rejectionReason: null };
+
+    expect(orderCancelState({ ...cancel, status: 'Pending' }, [{ engineOrderId: 2 }])).toEqual({
+      text: 'Отмена ордера 2 ждёт бота…',
+      settled: false,
+    });
+    expect(
+      orderCancelState({ ...cancel, status: 'Requested' }, [{ engineOrderId: 2 }]).settled,
+    ).toBe(false);
+    expect(orderCancelState({ ...cancel, status: 'Requested' }, [{ engineOrderId: 3 }])).toEqual({
+      text: 'Ордер 2 больше не активен: биржа его отменила или он успел исполниться (см. ленту).',
+      settled: true,
+    });
+    expect(
+      orderCancelState({ engineOrderId: 2, status: 'Rejected', rejectionReason: 'expired' }, []),
+    ).toEqual({ text: 'Отмена ордера 2 отклонена: бот не взял отмену за минуту.', settled: true });
+  });
+
+  it('names why a cancel was refused, and shows an unknown code as it is', () => {
+    expect(cancelProblemLabel('order_cancel_pending')).toBe('ордер уже отменяется');
+    expect(cancelProblemLabel('bot_not_running')).toBe('бот не работает');
+    expect(cancelProblemLabel('something_new')).toBe('something_new');
   });
 });

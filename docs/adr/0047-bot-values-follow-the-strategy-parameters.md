@@ -1,7 +1,10 @@
-# ADR 0039: A Bot's Values Follow the Parameters of the Strategy Version It Runs
+# ADR 0047: A Bot's Values Follow the Parameters of the Strategy Version It Runs
 
 Status: Proposed, 2026-10-28: the owner chose this option ("вариант А") in chat. Supplements ADR 0019 and ADR 0025. Proven on the
 scripted venue and the test database only.
+
+Renumbered from ADR 0039, a number it shared with [ADR 0039](0039-venue-cancel-restores-the-strategy-orders.md); earlier pull requests and
+commits call it ADR 0039.
 
 ## Context
 

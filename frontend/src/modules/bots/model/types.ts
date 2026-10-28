@@ -11,6 +11,7 @@ export type TradingHalt = Schemas['TradingHaltResponse'];
 export type LiveImpactBot = Schemas['LiveImpactBotResponse'];
 export type BotFill = Schemas['BotFillResponse'];
 export type BotOpenOrder = Schemas['BotOpenOrderResponse'];
+export type OrderCancel = Schemas['OrderCancelResponse'];
 export type OrderStatus = Schemas['OrderStatus'];
 export type BotOrderWaiting = Schemas['BotOrderWaitingResponse'];
 export type OrderWaitingCode = Schemas['OrderWaitingCode'];
