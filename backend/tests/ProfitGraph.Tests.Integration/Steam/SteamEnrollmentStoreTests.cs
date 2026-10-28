@@ -44,7 +44,7 @@ public sealed class SteamEnrollmentStoreTests
         (await store.Transition(pending with { Step = "adding" }, "email-code", CancellationToken.None)).ShouldBeFalse();
         SteamPendingEnrollment read = (await store.Get(pending.Id, CancellationToken.None))!;
         read.Step.ShouldBe("sign-in-pending");
-        read.Payload.Ciphertext.ShouldBe(payload.Ciphertext);
+        read.Payload.ShouldBe(payload);
         await store.Delete(pending.Id, CancellationToken.None);
         (await store.Get(pending.Id, CancellationToken.None)).ShouldBeNull();
     }

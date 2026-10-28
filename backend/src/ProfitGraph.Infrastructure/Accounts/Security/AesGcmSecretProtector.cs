@@ -122,7 +122,7 @@ internal sealed class AesGcmSecretProtector : ISecretProtector
         try
         {
             using var aes = new AesGcm(key, EncryptedSecret.TagLength);
-            aes.Decrypt(secret.Nonce, secret.Ciphertext, secret.Tag, plaintext, AssociatedData(credentialId, ownerId, field));
+            aes.Decrypt(secret.Nonce.Span, secret.Ciphertext.Span, secret.Tag.Span, plaintext, AssociatedData(credentialId, ownerId, field));
 
             return Encoding.UTF8.GetString(plaintext);
         }

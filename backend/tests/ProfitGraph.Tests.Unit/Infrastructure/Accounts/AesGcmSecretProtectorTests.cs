@@ -33,9 +33,9 @@ public sealed class AesGcmSecretProtectorTests
             () => first.KeyId.ShouldBe("test-v1"),
             () => first.Nonce.Length.ShouldBe(EncryptedSecret.NonceLength),
             () => first.Tag.Length.ShouldBe(EncryptedSecret.TagLength),
-            () => first.Nonce.ShouldNotBe(second.Nonce),
-            () => first.Ciphertext.ShouldNotBe(second.Ciphertext),
-            () => Encoding.UTF8.GetString(first.Ciphertext).ShouldNotContain(Plaintext),
+            () => first.Nonce.ToArray().ShouldNotBe(second.Nonce.ToArray()),
+            () => first.Ciphertext.ToArray().ShouldNotBe(second.Ciphertext.ToArray()),
+            () => Encoding.UTF8.GetString(first.Ciphertext.Span).ShouldNotContain(Plaintext),
             () => protector.Decrypt(_credential, _owner, ExchangeCredentialFields.ApiKey, first).ShouldBe(Plaintext),
             () => protector.Decrypt(_credential, _owner, ExchangeCredentialFields.ApiKey, second).ShouldBe(Plaintext));
     }
@@ -45,12 +45,12 @@ public sealed class AesGcmSecretProtectorTests
     {
         AesGcmSecretProtector protector = Create("test-v1");
         EncryptedSecret encrypted = protector.Encrypt(_credential, _owner, ExchangeCredentialFields.ApiSecret, Plaintext);
-        var tamperedBytes = (byte[])encrypted.Ciphertext.Clone();
+        byte[] tamperedBytes = encrypted.Ciphertext.ToArray();
         tamperedBytes[0] ^= 0x40;
-        var tampered = new EncryptedSecret(encrypted.KeyId, encrypted.Nonce, tamperedBytes, encrypted.Tag);
-        var tamperedTagBytes = (byte[])encrypted.Tag.Clone();
+        var tampered = new EncryptedSecret(encrypted.KeyId, encrypted.Nonce.ToArray(), tamperedBytes, encrypted.Tag.ToArray());
+        byte[] tamperedTagBytes = encrypted.Tag.ToArray();
         tamperedTagBytes[0] ^= 0x01;
-        var tamperedTag = new EncryptedSecret(encrypted.KeyId, encrypted.Nonce, encrypted.Ciphertext, tamperedTagBytes);
+        var tamperedTag = new EncryptedSecret(encrypted.KeyId, encrypted.Nonce.ToArray(), encrypted.Ciphertext.ToArray(), tamperedTagBytes);
 
         Should.Throw<CryptographicException>(() => protector.Decrypt(_credential, _owner, ExchangeCredentialFields.ApiSecret, tampered));
         Should.Throw<CryptographicException>(() => protector.Decrypt(_credential, _owner, ExchangeCredentialFields.ApiSecret, tamperedTag));

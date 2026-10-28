@@ -17,6 +17,8 @@ using ProfitGraph.Domain.Backtesting;
 using ProfitGraph.Domain.Jobs;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Optimization;
+using ProfitGraph.Domain.Optimization.Search;
+using ProfitGraph.Domain.Optimization.WalkForward;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Compilation;
 using ProfitGraph.Engine.Graphs;

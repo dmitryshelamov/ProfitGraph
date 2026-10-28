@@ -42,11 +42,17 @@ public sealed class Bot : AggregateRoot
     public BotVenueSettings VenueSettings { get; private init; } = BotVenueSettings.None;
 
     public BotDesiredState DesiredState { get; private set; }
-    public BotRuntimeStatus RuntimeStatus { get; private set; }
-    public BotStatusReason? StatusReason { get; private set; }
+
+    /// <summary>
+    ///     What the runtime reports: status, reason and restart streak, with their transition rules.
+    /// </summary>
+    public BotRuntimeState Runtime { get; private set; } = BotRuntimeState.Created;
+
+    public BotRuntimeStatus RuntimeStatus => Runtime.Status;
+    public BotStatusReason? StatusReason => Runtime.Reason;
     public BotDiagnostics Diagnostics { get; private set; }
-    public int RestartAttempts { get; private set; }
-    public DateTimeOffset? NextRestartAt { get; private set; }
+    public int RestartAttempts => Runtime.RestartAttempts;
+    public DateTimeOffset? NextRestartAt => Runtime.NextRestartAt;
 
     /// <summary>
     ///     True once a run stored its first checkpoint; a later start resumes that run instead of starting it anew.
@@ -64,9 +70,7 @@ public sealed class Bot : AggregateRoot
     public DateTimeOffset CreatedAt { get; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    public bool IsDegraded => RuntimeStatus == BotRuntimeStatus.Degraded;
-
-    private bool HoldsSafetyReason => IsDegraded && StatusReason is { } reason && BotStatusReasons.IsSafety(reason);
+    public bool IsDegraded => Runtime.IsDegraded;
 
     private Bot(
         BotId id,
@@ -97,7 +101,6 @@ public sealed class Bot : AggregateRoot
         RiskLimits = riskLimits;
         FeeRates = feeRates;
         DesiredState = BotDesiredState.Stopped;
-        RuntimeStatus = BotRuntimeStatus.Created;
         CreatedAt = createdAt;
         UpdatedAt = createdAt;
     }
@@ -152,11 +155,8 @@ public sealed class Bot : AggregateRoot
             VenueSettings = snapshot.VenueSettings ?? BotVenueSettings.None,
             Name = snapshot.Name,
             DesiredState = snapshot.DesiredState,
-            RuntimeStatus = snapshot.RuntimeStatus,
-            StatusReason = snapshot.StatusReason,
+            Runtime = new BotRuntimeState(snapshot.RuntimeStatus, snapshot.StatusReason, snapshot.RestartAttempts, snapshot.NextRestartAt),
             Diagnostics = snapshot.Diagnostics,
-            RestartAttempts = snapshot.RestartAttempts,
-            NextRestartAt = snapshot.NextRestartAt,
             HasRun = snapshot.HasRun,
             FirstStartedAt = snapshot.FirstStartedAt,
             DayBaseline = snapshot.DayBaseline,
@@ -183,7 +183,7 @@ public sealed class Bot : AggregateRoot
             throw new BotRuleException(BotRuleException.TradingHalted, "Trading is halted; clear the global halt first.");
         }
 
-        if (DesiredState == BotDesiredState.Running && !(IsDegraded && StatusReason is { } reason && BotStatusReasons.IsRestartableByStart(reason)))
+        if (DesiredState == BotDesiredState.Running && !Runtime.IsRestartableByStart)
         {
             return false;
         }
@@ -199,16 +199,8 @@ public sealed class Bot : AggregateRoot
         }
 
         DesiredState = BotDesiredState.Running;
-
-        if (RuntimeStatus is not (BotRuntimeStatus.Starting or BotRuntimeStatus.Running))
-        {
-            RuntimeStatus = BotRuntimeStatus.Created;
-        }
-
-        StatusReason = null;
+        Runtime = Runtime.Start();
         Diagnostics = BotDiagnostics.None;
-        RestartAttempts = 0;
-        NextRestartAt = null;
         DayBaseline = null;
         UpdatedAt = now;
         AddDomainEvent(new BotStarted(Id, StrategyVersionId, now));
@@ -239,33 +231,20 @@ public sealed class Bot : AggregateRoot
     /// </summary>
     public void Kill(BotStatusReason reason, DateTimeOffset now)
     {
-        if (!BotStatusReasons.IsControl(reason))
-        {
-            throw new ArgumentException("A kill needs a control reason.", nameof(reason));
-        }
-
+        Runtime = Runtime.Kill(reason);
         DesiredState = BotDesiredState.Stopped;
-        RuntimeStatus = BotRuntimeStatus.Stopped;
-        StatusReason = reason;
         Diagnostics = BotDiagnostics.None;
-        NextRestartAt = null;
         UpdatedAt = now;
         AddDomainEvent(new BotKilled(Id, reason, now));
     }
 
     /// <summary>
     ///     Whether a runtime may take the bot's lease: it should run, and it is not waiting for the owner or for its next
-    ///     restart time. A runtime failure without a restart time, left by the former five-restart limit, is due at once
-    ///     (ADR 0050).
+    ///     restart time (<see cref="BotRuntimeState.IsLeasable" />).
     /// </summary>
     public bool CanAcquireLease(DateTimeOffset now)
     {
-        if (DesiredState != BotDesiredState.Running)
-        {
-            return false;
-        }
-
-        return !IsDegraded || (StatusReason == BotStatusReason.RuntimeFailure && (NextRestartAt is not { } next || next <= now));
+        return DesiredState == BotDesiredState.Running && Runtime.IsLeasable(now);
     }
 
     /// <summary>
@@ -278,11 +257,7 @@ public sealed class Bot : AggregateRoot
             throw new BotRuleException(BotRuleException.NotLeasable, "The bot cannot be leased now.");
         }
 
-        if (IsDegraded && RestartAttempts < BotRestartSchedule.MaxCountedAttempts)
-        {
-            RestartAttempts++;
-        }
-
+        Runtime = Runtime.LeaseAcquired();
         UpdatedAt = now;
     }
 
@@ -291,13 +266,12 @@ public sealed class Bot : AggregateRoot
     /// </summary>
     public bool MarkStarting(DateTimeOffset now)
     {
-        if (DesiredState != BotDesiredState.Running || HoldsSafetyReason)
+        if (DesiredState != BotDesiredState.Running || Runtime.MarkStarting() is not { } starting)
         {
             return false;
         }
 
-        RuntimeStatus = BotRuntimeStatus.Starting;
-        StatusReason = null;
+        Runtime = starting;
         UpdatedAt = now;
         AddDomainEvent(new BotRuntimeStarting(Id, now));
 
@@ -309,15 +283,14 @@ public sealed class Bot : AggregateRoot
     /// </summary>
     public bool MarkRunning(DateTimeOffset now)
     {
-        if (DesiredState != BotDesiredState.Running || IsDegraded)
+        if (DesiredState != BotDesiredState.Running || Runtime.MarkRunning() is not { } running)
         {
             return false;
         }
 
         bool recovered = RuntimeStatus != BotRuntimeStatus.Running && RestartAttempts > 0;
         bool changed = RuntimeStatus != BotRuntimeStatus.Running;
-        RuntimeStatus = BotRuntimeStatus.Running;
-        StatusReason = null;
+        Runtime = running;
         UpdatedAt = now;
 
         if (recovered)
@@ -334,18 +307,12 @@ public sealed class Bot : AggregateRoot
     /// </summary>
     public bool MarkRuntimeStopped(DateTimeOffset now)
     {
-        if (RuntimeStatus == BotRuntimeStatus.Stopped || HoldsSafetyReason)
+        if (Runtime.MarkStopped() is not { } stopped)
         {
             return false;
         }
 
-        RuntimeStatus = BotRuntimeStatus.Stopped;
-
-        if (StatusReason is { } reason && !BotStatusReasons.IsControl(reason))
-        {
-            StatusReason = null;
-        }
-
+        Runtime = stopped;
         UpdatedAt = now;
         AddDomainEvent(new BotRuntimeStopped(Id, now));
 
@@ -359,15 +326,13 @@ public sealed class Bot : AggregateRoot
     /// </summary>
     public bool RecordRuntimeFailure(DateTimeOffset now, string? detail = null)
     {
-        if (HoldsSafetyReason || (StatusReason is { } held && BotStatusReasons.IsControl(held)))
+        if (Runtime.RecordFailure(now) is not { } failed)
         {
             return false;
         }
 
         bool wasDegraded = IsDegraded;
-        RuntimeStatus = BotRuntimeStatus.Degraded;
-        StatusReason = BotStatusReason.RuntimeFailure;
-        NextRestartAt = BotRestartSchedule.NextRestartAt(RestartAttempts, now);
+        Runtime = failed;
         UpdatedAt = now;
 
         if (!wasDegraded)
@@ -383,19 +348,14 @@ public sealed class Bot : AggregateRoot
     /// </summary>
     public bool Degrade(BotStatusReason reason, DateTimeOffset now, string? detail = null)
     {
-        if (!BotStatusReasons.IsSafety(reason))
-        {
-            throw new ArgumentException("Degrade takes a safety reason.", nameof(reason));
-        }
+        BotRuntimeState? degraded = Runtime.Degrade(reason);
 
-        if (DesiredState != BotDesiredState.Running || (IsDegraded && StatusReason == reason))
+        if (DesiredState != BotDesiredState.Running || degraded is null)
         {
             return false;
         }
 
-        RuntimeStatus = BotRuntimeStatus.Degraded;
-        StatusReason = reason;
-        NextRestartAt = null;
+        Runtime = degraded;
         UpdatedAt = now;
         AddDomainEvent(new BotDegraded(Id, reason, now, FailureDetail.Limit(detail)));
 
@@ -408,14 +368,12 @@ public sealed class Bot : AggregateRoot
     /// </summary>
     public bool ClearVenueAccountProtection(DateTimeOffset now)
     {
-        if (DesiredState != BotDesiredState.Running || !IsDegraded || StatusReason != BotStatusReason.VenueAccountProtection)
+        if (DesiredState != BotDesiredState.Running || Runtime.Clear(BotStatusReason.VenueAccountProtection, resetRestarts: false) is not { } cleared)
         {
             return false;
         }
 
-        RuntimeStatus = BotRuntimeStatus.Created;
-        StatusReason = null;
-        NextRestartAt = null;
+        Runtime = cleared;
         UpdatedAt = now;
         AddDomainEvent(new BotRecovered(Id, now));
 
@@ -430,16 +388,13 @@ public sealed class Bot : AggregateRoot
     /// </summary>
     public bool ClearUnresolvedOrder(DateTimeOffset now)
     {
-        if (DesiredState != BotDesiredState.Running || !IsDegraded || StatusReason != BotStatusReason.UnresolvedOrder)
+        if (DesiredState != BotDesiredState.Running || Runtime.Clear(BotStatusReason.UnresolvedOrder, resetRestarts: true) is not { } cleared)
         {
             return false;
         }
 
-        RuntimeStatus = BotRuntimeStatus.Created;
-        StatusReason = null;
+        Runtime = cleared;
         Diagnostics = BotDiagnostics.None;
-        RestartAttempts = 0;
-        NextRestartAt = null;
         UpdatedAt = now;
         AddDomainEvent(new BotRecovered(Id, now));
 
@@ -470,8 +425,7 @@ public sealed class Bot : AggregateRoot
     /// </summary>
     public void ResetRestartStreak(DateTimeOffset now)
     {
-        RestartAttempts = 0;
-        NextRestartAt = null;
+        Runtime = Runtime.ResetRestartStreak();
         UpdatedAt = now;
     }
 

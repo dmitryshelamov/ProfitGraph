@@ -37,7 +37,6 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
     private readonly CancellationTokenSource _producers = new CancellationTokenSource();
     private readonly CancellationTokenSource _stopping = new CancellationTokenSource();
     private volatile bool _leaseLost;
-    private volatile bool _preserveStatus;
     private volatile bool _trading;
     private Exception? _producerFailure;
 
@@ -58,16 +57,11 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
     }
 
     /// <summary>
-    ///     Ends the runner after its current root. With <paramref name="preserveStatus" /> it leaves the bot's degraded
-    ///     status as it is instead of reporting it stopped.
+    ///     Ends the runner after its current root. It then reports the bot stopped, which leaves a bot degraded by a safety
+    ///     reason as it is.
     /// </summary>
-    public void StopAfterCurrentRoot(bool preserveStatus = false)
+    public void StopAfterCurrentRoot()
     {
-        if (preserveStatus)
-        {
-            _preserveStatus = true;
-        }
-
         _queue.Writer.TryComplete();
         _stopping.Cancel();
     }
@@ -90,11 +84,8 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
             await scope.ServiceProvider.GetRequiredService<BotGraphFollower>().ApplySettings(bot, holder, epoch, session, hostToken);
             BotReconcileResult? reconciled = await Reconcile(scope.ServiceProvider.GetRequiredService<BotReconciler>(), session, gateway, sender, hostToken);
 
-            if (reconciled is { Degradation: not null })
-            {
-                _preserveStatus = true;
-            }
-            else if (reconciled is not null)
+            // A degradation found by reconciliation holds the bot for its owner, and the stopped report below leaves it so.
+            if (reconciled is { Degradation: null })
             {
                 await Trade(scope, session, gateway, candles, sender, tasks, hostToken);
             }
@@ -107,7 +98,7 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
             {
                 throw new InvalidOperationException("A live input of the bot failed.", failure);
             }
-            else if (!_leaseLost && !_preserveStatus)
+            else if (!_leaseLost)
             {
                 await Report(sender, BotRuntimeReport.Stopped, hostToken);
             }

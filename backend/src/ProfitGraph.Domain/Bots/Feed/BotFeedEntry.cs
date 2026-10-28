@@ -4,7 +4,7 @@ namespace ProfitGraph.Domain.Bots.Feed;
 
 /// <summary>
 ///     One fact in a bot's event feed (ADR 0021), recorded from its Domain event. Details are short invariant strings by
-///     name, never credentials or venue payloads. Entries older than 90 days are removed.
+///     name, never credentials or venue payloads. Entries older than 90 days are removed. It keeps its own copy of the details.
 /// </summary>
 public sealed class BotFeedEntry : AggregateRoot
 {
@@ -18,10 +18,11 @@ public sealed class BotFeedEntry : AggregateRoot
 
     private BotFeedEntry(BotFeedEntryId id, BotId botId, BotFeedKind kind, IReadOnlyDictionary<string, string> details, DateTimeOffset occurredAt)
     {
+        ArgumentNullException.ThrowIfNull(details);
         Id = id;
         BotId = botId;
         Kind = kind;
-        Details = details;
+        Details = new Dictionary<string, string>(details, StringComparer.Ordinal).AsReadOnly();
         OccurredAt = occurredAt;
     }
 

@@ -1,6 +1,7 @@
 using ProfitGraph.Application.Backtesting.Converters;
 using ProfitGraph.Application.Optimization.Contracts;
 using ProfitGraph.Domain.Optimization;
+using ProfitGraph.Domain.Optimization.WalkForward;
 
 namespace ProfitGraph.Application.Optimization.Converters;
 

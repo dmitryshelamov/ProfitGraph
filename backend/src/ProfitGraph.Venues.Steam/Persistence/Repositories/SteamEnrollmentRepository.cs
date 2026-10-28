@@ -61,9 +61,9 @@ internal sealed class SteamEnrollmentRepository(NpgsqlDataSource dataSource) : I
             OwnerId = enrollment.OwnerId,
             Step = enrollment.Step,
             KeyId = enrollment.Payload.KeyId,
-            Nonce = enrollment.Payload.Nonce,
-            Ciphertext = enrollment.Payload.Ciphertext,
-            Tag = enrollment.Payload.Tag,
+            Nonce = enrollment.Payload.Nonce.ToArray(),
+            Ciphertext = enrollment.Payload.Ciphertext.ToArray(),
+            Tag = enrollment.Payload.Tag.ToArray(),
             ExpiresAt = enrollment.ExpiresAt,
             CreatedAt = enrollment.CreatedAt,
             UpdatedAt = enrollment.UpdatedAt

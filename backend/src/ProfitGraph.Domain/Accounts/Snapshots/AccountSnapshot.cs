@@ -7,7 +7,8 @@ namespace ProfitGraph.Domain.Accounts.Snapshots;
 ///     The value of an exchange account at one moment (Profit Fox Designer ADR 0069), in the venue's valuation currency
 ///     (USD for an exchange, a wallet currency for a marketplace; ADR 0022): its total, its
 ///     available value when the venue reports it, and its coins. A credential has at most one snapshot per UTC
-///     five-minute bucket. It includes deposits, withdrawals and price moves; it is not bot profit.
+///     five-minute bucket. It includes deposits, withdrawals and price moves; it is not bot profit. It keeps its own copy of
+///     the coins.
 /// </summary>
 public sealed class AccountSnapshot : AggregateRoot
 {
@@ -35,6 +36,7 @@ public sealed class AccountSnapshot : AggregateRoot
         decimal? availableValue,
         IReadOnlyList<AccountCoinBalance> coins)
     {
+        ArgumentNullException.ThrowIfNull(coins);
         Id = id;
         CredentialId = credentialId;
         CapturedAt = capturedAt;
@@ -43,7 +45,7 @@ public sealed class AccountSnapshot : AggregateRoot
             ? valueCurrency
             : throw new ArgumentException("A valuation currency is an upper-case code of up to eight letters.", nameof(valueCurrency));
         AvailableValue = availableValue;
-        Coins = coins;
+        Coins = [.. coins];
     }
 
     public static AccountSnapshot Capture(

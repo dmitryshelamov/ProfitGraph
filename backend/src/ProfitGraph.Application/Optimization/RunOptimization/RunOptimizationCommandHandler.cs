@@ -14,6 +14,7 @@ using ProfitGraph.Application.Optimization.Ports;
 using ProfitGraph.Domain.Backtesting;
 using ProfitGraph.Domain.Jobs;
 using ProfitGraph.Domain.Optimization;
+using ProfitGraph.Domain.Optimization.WalkForward;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Compilation;

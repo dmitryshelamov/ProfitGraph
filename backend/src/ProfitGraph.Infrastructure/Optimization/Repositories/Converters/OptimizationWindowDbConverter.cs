@@ -1,4 +1,4 @@
-using ProfitGraph.Domain.Optimization;
+using ProfitGraph.Domain.Optimization.WalkForward;
 using ProfitGraph.Engine.Evaluation;
 using ProfitGraph.Engine.Graphs;
 using ProfitGraph.Engine.Metrics;

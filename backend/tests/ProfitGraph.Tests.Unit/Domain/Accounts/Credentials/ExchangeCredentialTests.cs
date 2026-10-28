@@ -165,6 +165,33 @@ public sealed class ExchangeCredentialTests
     }
 
     [Test]
+    public void EncryptedSecretKeepsItsOwnCopyOfTheBytes()
+    {
+        var nonce = new byte[EncryptedSecret.NonceLength];
+        byte[] ciphertext = [1, 2];
+        var tag = new byte[EncryptedSecret.TagLength];
+        var secret = new EncryptedSecret("test-v1", nonce, ciphertext, tag);
+
+        nonce[0] = 9;
+        ciphertext[0] = 9;
+        tag[0] = 9;
+
+        secret.ShouldSatisfyAllConditions(
+            () => secret.Nonce.Span[0].ShouldBe((byte)0),
+            () => secret.Ciphertext.ToArray().ShouldBe([1, 2]),
+            () => secret.Tag.Span[0].ShouldBe((byte)0));
+    }
+
+    [Test]
+    public void EncryptedSecretsAreEqualByKeyAndBytes()
+    {
+        Secret(0x41).ShouldBe(Secret(0x41));
+        Secret(0x41).GetHashCode().ShouldBe(Secret(0x41).GetHashCode());
+        Secret(0x41).ShouldNotBe(Secret(0x42));
+        new EncryptedSecret("test-v2", new byte[EncryptedSecret.NonceLength], [0x41, 0x41], new byte[EncryptedSecret.TagLength]).ShouldNotBe(Secret(0x41));
+    }
+
+    [Test]
     public void EncryptedSecretPrintsOnlyItsKeyIdentifier()
     {
         Secret(0x41).ToString().ShouldBe("EncryptedSecret { KeyId = test-v1 }");
