@@ -35,7 +35,8 @@ public sealed class TelegramNotification : AggregateRoot
     public BotAlertId? AlertId { get; }
 
     /// <summary>
-    ///     What the message needs, as invariant strings: reasons by name, amounts as exact decimals.
+    ///     What the message needs, as invariant strings: reasons by name, amounts as exact decimals. The notification keeps its
+    ///     own copy.
     /// </summary>
     public IReadOnlyDictionary<string, string> Details { get; }
 
@@ -70,6 +71,8 @@ public sealed class TelegramNotification : AggregateRoot
         DateTimeOffset? sentAt,
         string? lastError)
     {
+        ArgumentNullException.ThrowIfNull(details);
+
         if (kind == TelegramNotificationKind.Alert != alertId.HasValue)
         {
             throw new ArgumentException("An alert notification names its alert, and only it does.", nameof(alertId));
@@ -80,7 +83,7 @@ public sealed class TelegramNotification : AggregateRoot
         BotId = botId;
         Kind = kind;
         AlertId = alertId;
-        Details = details;
+        Details = new Dictionary<string, string>(details, StringComparer.Ordinal).AsReadOnly();
         CreatedAt = createdAt;
         Status = status;
         Attempts = attempts;

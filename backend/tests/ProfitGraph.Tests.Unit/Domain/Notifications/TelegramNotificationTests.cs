@@ -178,6 +178,25 @@ public sealed class TelegramNotificationTests
         notification.Status.ShouldBe(TelegramNotificationStatus.Skipped);
     }
 
+    [Test]
+    public void NotificationKeepsItsOwnCopyOfTheDetails()
+    {
+        var details = new Dictionary<string, string> { ["kind"] = nameof(BotAlertKind.Degraded) };
+        TelegramNotification notification = TelegramNotification.Queue(
+            TelegramNotificationId.New(),
+            UserId.New(),
+            BotId.New(),
+            TelegramNotificationKind.Alert,
+            BotAlertId.New(),
+            details,
+            Now);
+
+        details["kind"] = "changed";
+        details["extra"] = "added";
+
+        notification.Details.ShouldBe(new Dictionary<string, string> { ["kind"] = nameof(BotAlertKind.Degraded) });
+    }
+
     private static TelegramNotification Alert()
     {
         return TelegramNotification.Queue(

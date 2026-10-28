@@ -148,6 +148,31 @@ public sealed class ManualOrderRequestTests
             Now));
     }
 
+    [Test]
+    public void RestoreChecksThatExactlyARejectionHasAReason()
+    {
+        Should.Throw<ArgumentException>(() => Resolved(ManualOrderStatus.Rejected, engineOrderId: null, rejectionReason: null));
+        Should.Throw<ArgumentException>(() => Resolved(ManualOrderStatus.Submitted, engineOrderId: 7, "expired"));
+        Resolved(ManualOrderStatus.Rejected, engineOrderId: null, "expired").RejectionReason.ShouldBe("expired");
+        Resolved(ManualOrderStatus.Submitted, engineOrderId: 7, rejectionReason: null).EngineOrderId.ShouldBe(7);
+    }
+
+    private static ManualOrderRequest Resolved(ManualOrderStatus status, long? engineOrderId, string? rejectionReason)
+    {
+        return ManualOrderRequest.Restore(
+            ManualOrderRequestId.New(),
+            BotId.New(),
+            OrderSide.Buy,
+            OrderType.Market,
+            amount: 25m,
+            limitPrice: null,
+            status,
+            engineOrderId,
+            rejectionReason,
+            Now,
+            Now);
+    }
+
     private static ManualOrderRequest Restored(OrderType type, decimal? limitPrice)
     {
         return ManualOrderRequest.Restore(

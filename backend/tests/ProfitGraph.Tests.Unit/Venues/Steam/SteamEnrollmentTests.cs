@@ -114,7 +114,7 @@ public sealed class SteamEnrollmentTests
 
         state.ShouldNotContain(MockSteamEnrollment.Password);
         state.ShouldNotContain(MockSteamEnrollment.RecoveryCode);
-        Encoding.UTF8.GetString(pending.Payload.Ciphertext).ShouldNotContain(MockSteam.SteamId);
+        Encoding.UTF8.GetString(pending.Payload.Ciphertext.Span).ShouldNotContain(MockSteam.SteamId);
         pending.ToString().ShouldNotContain(MockSteam.SteamId);
     }
 
