@@ -1,16 +1,15 @@
 using System.Text.Json;
 
+using ProfitGraph.Venues.Bybit.MarketData;
+
 namespace ProfitGraph.Venues.Bybit.Trading;
 
 /// <summary>
 ///     The offset between Bybit's public server time and this host, measured at the midpoint of a fast request and reused
 ///     for a while; a timestamp rejection (<c>10002</c>) measures it again.
 /// </summary>
-internal sealed class BybitServerClock(TimeProvider clock)
+internal sealed class BybitServerClock(BybitOptions options, TimeProvider clock)
 {
-    private static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan MaxRoundTrip = TimeSpan.FromSeconds(1);
-
     private readonly SemaphoreSlim _gate = new SemaphoreSlim(initialCount: 1, maxCount: 1);
     private (long Offset, DateTimeOffset MeasuredAt)? _offset;
 
@@ -20,13 +19,13 @@ internal sealed class BybitServerClock(TimeProvider clock)
 
         try
         {
-            if (_offset is not { } known || clock.GetUtcNow() - known.MeasuredAt > Lifetime)
+            if (_offset is not { } known || clock.GetUtcNow() - known.MeasuredAt > options.ServerClockLifetime)
             {
                 DateTimeOffset before = clock.GetUtcNow();
                 BybitRestResult result = await readServerTime(cancellationToken);
                 DateTimeOffset after = clock.GetUtcNow();
 
-                if (result.Outcome != BybitRestOutcome.Accepted || after - before > MaxRoundTrip ||
+                if (result.Outcome != BybitRestOutcome.Accepted || after - before > options.ServerClockMaxRoundTrip ||
                     !result.Body.TryGetProperty("time", out JsonElement time) || !time.TryGetInt64(out long server))
                 {
                     return null;

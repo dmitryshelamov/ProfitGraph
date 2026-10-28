@@ -25,7 +25,9 @@ public sealed class TelegramController(ISender sender, IOptions<TelegramOptions>
     {
         TelegramLinkInternal link = await sender.Send(new GetTelegramLinkQuery(UserId()), cancellationToken);
 
-        return new TelegramLinkResponse(options.Value.Enabled, link.Linked, link.LinkedAt, link.Blocked, options.Value.BotUsername);
+        string? botUsername = string.IsNullOrEmpty(options.Value.BotUsername) ? null : options.Value.BotUsername;
+
+        return new TelegramLinkResponse(options.Value.Enabled, link.Linked, link.LinkedAt, link.Blocked, botUsername);
     }
 
     [HttpPost("link-code")]

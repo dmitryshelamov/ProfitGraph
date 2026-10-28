@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
 
+using ProfitGraph.Api.Common.Realtime;
 using ProfitGraph.Api.Optimization.Contracts;
 using ProfitGraph.Api.Optimization.Converters;
 using ProfitGraph.Application.Optimization.Contracts;
@@ -20,11 +22,9 @@ public sealed class OptimizationProgressPublisher(
     OptimizationProgressSubscriptions subscriptions,
     IHubContext<OptimizationHub> hub,
     IServiceScopeFactory scopes,
+    IOptions<RealtimeOptions> options,
     ILogger<OptimizationProgressPublisher> logger) : BackgroundService
 {
-    private const int PageSize = 500;
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(1);
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -43,7 +43,7 @@ public sealed class OptimizationProgressPublisher(
             catch (Exception exception)
             {
                 logger.LogWarning(exception, "Listening for optimization progress failed; listening again.");
-                await Task.Delay(RetryDelay, stoppingToken);
+                await Task.Delay(options.Value.RetryDelay, stoppingToken);
             }
         }
     }
@@ -65,7 +65,7 @@ public sealed class OptimizationProgressPublisher(
 
         while (after is { } cursor)
         {
-            OptimizationTrialPageInternal page = await reader.Trials(id, cursor, PageSize, cancellationToken);
+            OptimizationTrialPageInternal page = await reader.Trials(id, cursor, options.Value.OptimizationProgressPageSize, cancellationToken);
 
             foreach (OptimizationTrialInternal trial in page.Items)
             {

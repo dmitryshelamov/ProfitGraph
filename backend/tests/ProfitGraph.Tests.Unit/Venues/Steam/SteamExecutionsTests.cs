@@ -316,6 +316,7 @@ public sealed class SteamExecutionsTests
             _harness.Sessions(),
             new SteamBuyOrderClient(options),
             _updates,
+            options,
             _harness.Clock);
 
         return executions.Advance(SteamSessionHarness.Owner, SteamSessionHarness.Credential, Kzt, Fees, CancellationToken.None);

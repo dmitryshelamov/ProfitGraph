@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+
 using ProfitGraph.Venues.TInvest.MarketData;
 using ProfitGraph.Venues.TInvest.Transport;
 
@@ -11,18 +13,8 @@ namespace ProfitGraph.Venues.TInvest.Trading;
 ///     cannot be paged. Every call goes through the token's <c>Operations</c> request limit. An answer that cannot be read or
 ///     cannot be complete is never taken as an empty one.
 /// </summary>
-internal sealed class TInvestOperationReads(TInvestTransport transport)
+internal sealed class TInvestOperationReads(TInvestTransport transport, IOptions<TInvestOptions> options)
 {
-    /// <summary>
-    ///     The broker's largest page.
-    /// </summary>
-    internal const int PageSize = 1000;
-
-    /// <summary>
-    ///     The most pages read for one proof; a window with more operations is left to the owner.
-    /// </summary>
-    internal const int MaxPages = 5;
-
     /// <summary>
     ///     The operations of the share between two instants: orders (executed, still executing or cancelled) and other
     ///     movements, with their trade numbers but without commissions. An operation cancelled with nothing executed counts as
@@ -41,14 +33,16 @@ internal sealed class TInvestOperationReads(TInvestTransport transport)
         var executed = 0;
         List<long> own = [];
         string? cursor = null;
+        int pageSize = options.Value.OperationPageSize;
 
-        for (var page = 1; page <= MaxPages; page++)
+        for (var page = 1; page <= options.Value.OperationMaxPages; page++)
         {
             string? at = cursor;
             GetOperationsByCursorResponse response = await transport.Unary(
                 context.Token,
                 TInvestMethodGroup.Operations,
-                (invoker, options) => new OperationsService.OperationsServiceClient(invoker).GetOperationsByCursorAsync(Request(context, from, to, at), options),
+                (invoker, options) =>
+                    new OperationsService.OperationsServiceClient(invoker).GetOperationsByCursorAsync(Request(context, from, to, at, pageSize), options),
                 cancellationToken);
 
             total += response.Items.Count;
@@ -139,7 +133,7 @@ internal sealed class TInvestOperationReads(TInvestTransport transport)
         return order;
     }
 
-    private static GetOperationsByCursorRequest Request(TInvestBotContext context, DateTimeOffset from, DateTimeOffset to, string? cursor)
+    private static GetOperationsByCursorRequest Request(TInvestBotContext context, DateTimeOffset from, DateTimeOffset to, string? cursor, int pageSize)
     {
         var request = new GetOperationsByCursorRequest
         {
@@ -147,7 +141,7 @@ internal sealed class TInvestOperationReads(TInvestTransport transport)
             InstrumentId = context.Share.Uid,
             From = from.ToTimestamp(),
             To = to.ToTimestamp(),
-            Limit = PageSize,
+            Limit = pageSize,
             WithoutCommissions = true,
             WithoutTrades = false
         };

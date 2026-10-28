@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Sockets;
 
+using Microsoft.Extensions.Options;
+
 namespace ProfitGraph.Api.Common.Authentication;
 
 /// <summary>
@@ -9,15 +11,8 @@ namespace ProfitGraph.Api.Common.Authentication;
 ///     address that has signed in to the login before is held only by its own failures, so a stranger who fails on the
 ///     login cannot lock its owner out of the addresses the owner uses. The state lives in this process.
 /// </summary>
-public sealed class SignInThrottle(TimeProvider clock)
+public sealed class SignInThrottle(IOptions<AuthOptions> options, TimeProvider clock)
 {
-    internal const int FreeFailures = 5;
-    private const int KnownAddressesPerLogin = 4;
-    private static readonly TimeSpan FirstLockout = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan MaximumLockout = TimeSpan.FromMinutes(15);
-    private static readonly TimeSpan ForgetAfter = TimeSpan.FromHours(1);
-    private static readonly TimeSpan SweepInterval = TimeSpan.FromMinutes(1);
-
     private readonly Lock _gate = new Lock();
     private readonly Dictionary<(string Login, string? Address), SignInFailures> _failures = new Dictionary<(string Login, string? Address), SignInFailures>();
     private readonly Dictionary<string, List<string>> _knownAddresses = new Dictionary<string, List<string>>(StringComparer.Ordinal);
@@ -79,19 +74,19 @@ public sealed class SignInThrottle(TimeProvider clock)
             addresses.Remove(source);
             addresses.Insert(index: 0, source);
 
-            if (addresses.Count > KnownAddressesPerLogin)
+            if (addresses.Count > options.Value.KnownAddressesPerLogin)
             {
                 addresses.RemoveAt(addresses.Count - 1);
             }
         }
     }
 
-    internal static TimeSpan Lockout(int failures)
+    internal static TimeSpan Lockout(int failures, AuthOptions options)
     {
-        int doublings = Math.Min(failures - FreeFailures, val2: 16);
-        TimeSpan lockout = FirstLockout * Math.Pow(x: 2, doublings);
+        int doublings = Math.Min(failures - options.FreeFailures, val2: 16);
+        TimeSpan lockout = options.FirstLockout * Math.Pow(x: 2, doublings);
 
-        return lockout < MaximumLockout ? lockout : MaximumLockout;
+        return lockout < options.MaximumLockout ? lockout : options.MaximumLockout;
     }
 
     private static string Normalize(string login)
@@ -138,7 +133,7 @@ public sealed class SignInThrottle(TimeProvider clock)
             _failures[key] = failures;
         }
 
-        failures.Fail(now);
+        failures.Fail(now, options.Value);
     }
 
     /// <summary>
@@ -146,7 +141,7 @@ public sealed class SignInThrottle(TimeProvider clock)
     /// </summary>
     private void Sweep(DateTimeOffset now)
     {
-        if (now - _sweptAt < SweepInterval)
+        if (now - _sweptAt < options.Value.FailureSweepInterval)
         {
             return;
         }
@@ -155,7 +150,7 @@ public sealed class SignInThrottle(TimeProvider clock)
 
         foreach (((string Login, string? Address) key, SignInFailures failures) in _failures.ToArray())
         {
-            if (failures.Remaining(now) == TimeSpan.Zero && now - failures.LastFailureAt >= ForgetAfter)
+            if (failures.Remaining(now) == TimeSpan.Zero && now - failures.LastFailureAt >= options.Value.ForgetFailuresAfter)
             {
                 _failures.Remove(key);
             }

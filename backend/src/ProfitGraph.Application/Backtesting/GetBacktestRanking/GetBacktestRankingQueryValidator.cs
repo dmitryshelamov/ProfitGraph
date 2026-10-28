@@ -1,5 +1,6 @@
 using FluentValidation;
 
+using ProfitGraph.Application.Common.Queries;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Market;
 
@@ -7,7 +8,7 @@ namespace ProfitGraph.Application.Backtesting.GetBacktestRanking;
 
 internal sealed class GetBacktestRankingQueryValidator : AbstractValidator<GetBacktestRankingQuery>
 {
-    public GetBacktestRankingQueryValidator()
+    public GetBacktestRankingQueryValidator(QueryLimitOptions limits)
     {
         RuleFor(query => query.Quote).Matches("^[A-Z0-9]{1,32}$").WithErrorCode("invalid_quote").WithMessage("Give an upper-case quote asset.");
         RuleFor(query => query.Symbol).MaximumLength(InstrumentSymbol.MaxLength).When(query => query.Symbol is not null);
@@ -17,7 +18,7 @@ internal sealed class GetBacktestRankingQueryValidator : AbstractValidator<GetBa
             .WithErrorCode("unsupported_timeframe")
             .WithMessage("The timeframe is not supported.");
         RuleFor(query => query.Sort).IsInEnum();
-        RuleFor(query => query.Limit).InclusiveBetween(from: 1, GetBacktestRankingQuery.MaxLimit);
+        RuleFor(query => query.Limit).InclusiveBetween(from: 1, limits.BacktestRanking);
     }
 
     private static bool IsSupported(string? timeframe)

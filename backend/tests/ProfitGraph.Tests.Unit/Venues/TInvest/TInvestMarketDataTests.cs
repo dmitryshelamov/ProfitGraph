@@ -253,7 +253,7 @@ public sealed class TInvestMarketDataTests
 
     private TInvestShares Shares()
     {
-        return new TInvestShares(Transport(), new FakeTimeProvider(Monday));
+        return new TInvestShares(Transport(), Options.Create(new TInvestOptions()), new FakeTimeProvider(Monday));
     }
 
     private TInvestTransport Transport()

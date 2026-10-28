@@ -33,7 +33,6 @@ internal sealed class SteamAccountSession(
     IOptions<SteamOptions> options,
     TimeProvider clock)
 {
-    private const int MaximumPageRedirects = 3;
     private const string EligibilityCheckPath = "/market/eligibilitycheck/";
 
     private readonly SteamPageCookies _pageCookies = new SteamPageCookies();
@@ -108,7 +107,7 @@ internal sealed class SteamAccountSession(
                 return result;
             }
 
-            if (redirects == MaximumPageRedirects)
+            if (redirects == options.Value.MaximumPageRedirects)
             {
                 return new SteamRequestResult(SteamRequestOutcome.InvalidResponse);
             }

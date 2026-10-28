@@ -24,20 +24,17 @@ const shared = [
 const api = [
   'ASPNETCORE_ENVIRONMENT=Testing',
   ...shared,
-  'Postgres__RunMigrationsOnStartup=true',
   'Auth__BootstrapOwner__Login=e2e-owner',
   `Auth__BootstrapOwner__Password="$PROFITGRAPH_E2E_PASSWORD"`,
   `dotnet run --no-launch-profile --project ../backend/src/ProfitGraph.Api --urls http://127.0.0.1:${apiPort}`,
 ].join(' ');
-// The Worker starts once the API has applied the migrations, and polls quickly so runs finish within a test.
+// The Worker starts once the API has applied the migrations. Its appsettings.Testing.json polls quickly, so runs finish
+// within a test, and lets bots trade against the in-memory simulation: trading itself stays disabled and nothing leaves
+// the process.
 const worker = [
   `until curl -sf http://127.0.0.1:${apiPort}/api/health > /dev/null; do sleep 1; done;`,
   'DOTNET_ENVIRONMENT=Testing',
   ...shared,
-  'BackgroundJobs__PollingInterval=00:00:00.200',
-  // Bots trade against the Worker's in-memory simulation; trading itself stays disabled and nothing leaves the process.
-  'Live__Simulation__Enabled=true',
-  'Live__Simulation__MarketPrice=100',
   'dotnet run --no-launch-profile --project ../backend/src/ProfitGraph.Worker',
 ].join(' ');
 

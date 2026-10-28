@@ -11,6 +11,7 @@ using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Venues.Bybit;
+using ProfitGraph.Venues.Bybit.MarketData;
 using ProfitGraph.Venues.Bybit.Trading;
 
 namespace ProfitGraph.Tests.Unit.Venues.Bybit;
@@ -210,7 +211,9 @@ public sealed class BybitOrderGatewayTests
     [Test]
     public void ReadClientCannotWriteOrders()
     {
-        var read = new BybitReadClient(new HttpClient(_harness.Exchange) { BaseAddress = new Uri("https://bybit.invalid/") }, new BybitServerClock(TimeProvider.System));
+        var read = new BybitReadClient(
+            new HttpClient(_harness.Exchange) { BaseAddress = new Uri("https://bybit.invalid/") },
+            new BybitServerClock(new BybitOptions(), TimeProvider.System));
         var credential = new ExchangeCredentialSecretsInternal(Guid.NewGuid(), "bybit", MockBybitExchange.ApiKey, MockBybitExchange.ApiSecret);
 
         Should.Throw<ArgumentException>(() => read.Get(credential, "/v5/order/create", "category=spot", CancellationToken.None));
@@ -281,7 +284,7 @@ public sealed class BybitOrderGatewayTests
         _harness.Exchange.Requests.ShouldContain(request => request.Path == "/v5/execution/list");
     }
 
-    [TestCase(23, "SettleDelayNotPassed")]
+    [TestCase(arg1: 23, "SettleDelayNotPassed")]
     [TestCase(24 * 7, "OrderTooOld")]
     public async Task ASubmitTooYoungOrTooOldIsLeftToTheOwner(int placedHoursAgo, string failed)
     {

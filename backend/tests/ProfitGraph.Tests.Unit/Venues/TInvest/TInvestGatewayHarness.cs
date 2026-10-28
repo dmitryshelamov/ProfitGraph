@@ -88,8 +88,8 @@ internal sealed class TInvestGatewayHarness
             exchange);
         Context = new TInvestBotContext(Bot, new TInvestToken("t.invented-token"), AccountId, share);
         var contexts = new FixedTInvestBotContexts(Context);
-        var schedules = new TInvestSchedules(transport, Clock, NullLogger<TInvestSchedules>.Instance);
-        var operations = new TInvestOperationReads(transport);
+        var schedules = new TInvestSchedules(transport, options, Clock, NullLogger<TInvestSchedules>.Instance);
+        var operations = new TInvestOperationReads(transport, options);
         Positions = new FixedTInvestBotPositions(Bot);
         var coverage = new TInvestPositionCoverage(operations, Positions, NullLogger<TInvestPositionCoverage>.Instance);
         Progress = new TInvestOrderProgress(Attempts, Waits, schedules, coverage, Clock);
@@ -126,7 +126,7 @@ internal sealed class TInvestGatewayHarness
             Updates,
             new TInvestPrices(transport),
             new TInvestTradingStatuses(transport),
-            new TInvestPriceBands(transport, Clock),
+            new TInvestPriceBands(transport, options, Clock),
             schedules,
             Waits,
             Progress,

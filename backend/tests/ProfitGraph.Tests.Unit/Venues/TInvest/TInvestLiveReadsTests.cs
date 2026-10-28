@@ -178,7 +178,11 @@ public sealed class TInvestLiveReadsTests
     {
         TInvestTransport transport = Transport();
 
-        return new TInvestFeeRateReader(new TInvestShares(transport, _clock), new TInvestPrices(transport), transport, Options.Create(new TInvestOptions()));
+        return new TInvestFeeRateReader(
+            new TInvestShares(transport, Options.Create(new TInvestOptions()), _clock),
+            new TInvestPrices(transport),
+            transport,
+            Options.Create(new TInvestOptions()));
     }
 
     private TInvestLiveCandleSource Live()
@@ -187,7 +191,7 @@ public sealed class TInvestLiveReadsTests
         IOptions<TInvestOptions> options = Options.Create(new TInvestOptions());
 
         return new TInvestLiveCandleSource(
-            new TInvestHistoricalCandleSource(new TInvestShares(transport, _clock), new TInvestCandleReader(transport), options),
+            new TInvestHistoricalCandleSource(new TInvestShares(transport, Options.Create(new TInvestOptions()), _clock), new TInvestCandleReader(transport), options),
             options,
             _clock);
     }

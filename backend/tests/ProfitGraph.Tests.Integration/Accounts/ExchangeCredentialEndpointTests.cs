@@ -218,6 +218,7 @@ public sealed class ExchangeCredentialEndpointTests
         {
             settings["Serilog:MinimumLevel:Default"] = "Verbose";
             settings["Serilog:MinimumLevel:Override:Microsoft.AspNetCore"] = "Verbose";
+            settings["Serilog:MinimumLevel:Override:ProfitGraph"] = "Verbose";
         }
 
         return new ProfitGraphApiFactory(settings);

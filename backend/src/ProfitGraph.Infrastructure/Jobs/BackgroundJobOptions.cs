@@ -14,8 +14,13 @@ internal sealed class BackgroundJobOptions
     /// </summary>
     public TimeSpan PollingInterval { get; init; } = TimeSpan.FromSeconds(1);
 
+    /// <summary>
+    ///     Consecutive interruptions without progress after which a resumable job fails instead of being queued again.
+    /// </summary>
+    public int InterruptionLimit { get; init; } = 3;
+
     public bool IsValid()
     {
-        return PollingInterval > TimeSpan.Zero;
+        return PollingInterval > TimeSpan.Zero && InterruptionLimit > 0;
     }
 }

@@ -9,6 +9,7 @@ using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.GetBotOrdersToRefresh;
 using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Venues.Bybit.MarketData;
 
 namespace ProfitGraph.Venues.Bybit.Trading;
 
@@ -27,11 +28,10 @@ internal sealed class BybitPrivateStreams(
     BybitOrderUpdates updates,
     IServiceScopeFactory scopes,
     PrivateStreamReconnectPolicy policy,
+    BybitOptions options,
     TimeProvider clock,
     ILogger<BybitPrivateStreams> logger)
 {
-    private static readonly TimeSpan AuthLifetime = TimeSpan.FromSeconds(10);
-
     private readonly ConcurrentDictionary<BotId, BybitPrivateStream> _streams = new ConcurrentDictionary<BotId, BybitPrivateStream>();
 
     /// <summary>
@@ -60,7 +60,7 @@ internal sealed class BybitPrivateStreams(
     {
         long serverTime = await read.ServerTime(cancellationToken) ?? throw new BybitOrderUnresolvedException();
 
-        return await transport.Connect(context.Credential, serverTime + (long)AuthLifetime.TotalMilliseconds, cancellationToken);
+        return await transport.Connect(context.Credential, serverTime + (long)options.PrivateStreamAuthLifetime.TotalMilliseconds, cancellationToken);
     }
 
     /// <summary>

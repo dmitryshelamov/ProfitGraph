@@ -16,14 +16,13 @@ internal sealed class BybitLiveCandleFeed(
     InstrumentSymbol symbol,
     Timeframe timeframe,
     TimeSpan stallAfter,
+    TimeSpan reconnectDelay,
     IBybitPublicStreamTransport transport,
     BybitLiveHistory history,
     Func<bool, CancellationToken, Task> reportStale,
     TimeProvider clock,
     ILogger logger)
 {
-    private static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(1);
-
     private readonly CancellationTokenSource _stopping = new CancellationTokenSource();
     private readonly HashSet<ChannelWriter<Candle>> _subscribers = [];
     private DateTimeOffset? _lastOpen;
@@ -112,7 +111,7 @@ internal sealed class BybitLiveCandleFeed(
                         exception.GetType().Name);
                 }
 
-                await Task.Delay(ReconnectDelay, clock, _stopping.Token);
+                await Task.Delay(reconnectDelay, clock, _stopping.Token);
             }
         }
         catch (OperationCanceledException) when (_stopping.IsCancellationRequested)

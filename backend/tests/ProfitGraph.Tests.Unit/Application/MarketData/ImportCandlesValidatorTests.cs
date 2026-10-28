@@ -1,5 +1,6 @@
 using FluentValidation.Results;
 
+using ProfitGraph.Application.Common.Queries;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Application.MarketData.GetCandles;
@@ -35,7 +36,7 @@ public sealed class ImportCandlesValidatorTests
     {
         var query = new GetCandlesQuery("test", "abc", "1h", DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddHours(1), Limit: 100);
 
-        new GetCandlesQueryValidator(_venues).Validate(query).Errors.Select(error => error.ErrorCode).ShouldBe(["invalid_symbol"]);
+        new GetCandlesQueryValidator(_venues, new QueryLimitOptions()).Validate(query).Errors.Select(error => error.ErrorCode).ShouldBe(["invalid_symbol"]);
     }
 
     [TestCase(0)]
@@ -44,7 +45,7 @@ public sealed class ImportCandlesValidatorTests
     {
         var query = new GetCandlesQuery("test", "ABC", "1h", DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddHours(1), limit);
 
-        new GetCandlesQueryValidator(_venues).Validate(query).IsValid.ShouldBeFalse();
+        new GetCandlesQueryValidator(_venues, new QueryLimitOptions()).Validate(query).IsValid.ShouldBeFalse();
     }
 
     [Test]
@@ -52,8 +53,9 @@ public sealed class ImportCandlesValidatorTests
     {
         DateTimeOffset local = DateTimeOffset.UnixEpoch.ToOffset(TimeSpan.FromHours(3));
 
-        new GetCandlesQueryValidator(_venues).Validate(new GetCandlesQuery("test", "ABC", "1h", local, local.AddHours(1), Limit: 1)).IsValid.ShouldBeFalse();
-        new GetCandlesQueryValidator(_venues)
+        new GetCandlesQueryValidator(_venues, new QueryLimitOptions()).Validate(new GetCandlesQuery("test", "ABC", "1h", local, local.AddHours(1), Limit: 1))
+            .IsValid.ShouldBeFalse();
+        new GetCandlesQueryValidator(_venues, new QueryLimitOptions())
             .Validate(new GetCandlesQuery("test", "ABC", "1h", DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, Limit: 1))
             .IsValid.ShouldBeFalse();
     }

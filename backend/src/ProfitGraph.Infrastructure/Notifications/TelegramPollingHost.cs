@@ -19,8 +19,6 @@ namespace ProfitGraph.Infrastructure.Notifications;
 internal sealed class TelegramPollingHost(IServiceScopeFactory scopes, IOptions<TelegramOptions> options, TimeProvider clock, ILogger<TelegramPollingHost> logger)
     : BackgroundService
 {
-    private static readonly TimeSpan LeaseDuration = TimeSpan.FromSeconds(60);
-
     private readonly Guid _holder = Guid.NewGuid();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -66,7 +64,7 @@ internal sealed class TelegramPollingHost(IServiceScopeFactory scopes, IOptions<
         var leases = scope.ServiceProvider.GetRequiredService<ITelegramPollerLeaseRepository>();
         var telegram = scope.ServiceProvider.GetRequiredService<ITelegramClient>();
 
-        if (await leases.Acquire(_holder, clock.GetUtcNow(), LeaseDuration, stoppingToken) is not { } offset)
+        if (await leases.Acquire(_holder, clock.GetUtcNow(), options.Value.PollerLeaseDuration, stoppingToken) is not { } offset)
         {
             return false;
         }

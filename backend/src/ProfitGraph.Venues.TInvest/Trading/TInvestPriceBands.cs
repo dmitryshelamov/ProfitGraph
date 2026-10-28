@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 
+using Microsoft.Extensions.Options;
+
 using ProfitGraph.Venues.TInvest.MarketData;
 using ProfitGraph.Venues.TInvest.Transport;
 
@@ -11,10 +13,8 @@ namespace ProfitGraph.Venues.TInvest.Trading;
 ///     The share's price band from <c>MarketDataService/GetOrderBook</c> at depth 1, kept for five seconds per share (ADR
 ///     0023). A missing or inverted band is null: it never means that every price is allowed.
 /// </summary>
-internal sealed class TInvestPriceBands(TInvestTransport transport, TimeProvider clock)
+internal sealed class TInvestPriceBands(TInvestTransport transport, IOptions<TInvestOptions> options, TimeProvider clock)
 {
-    private static readonly TimeSpan Lifetime = TimeSpan.FromSeconds(5);
-
     private readonly ConcurrentDictionary<string, (TInvestPriceBand? Band, DateTimeOffset ReadAt)> _bands =
         new ConcurrentDictionary<string, (TInvestPriceBand? Band, DateTimeOffset ReadAt)>(StringComparer.Ordinal);
 
@@ -22,7 +22,7 @@ internal sealed class TInvestPriceBands(TInvestTransport transport, TimeProvider
     {
         DateTimeOffset now = clock.GetUtcNow();
 
-        if (_bands.TryGetValue(context.Share.Uid, out (TInvestPriceBand? Band, DateTimeOffset ReadAt) cached) && now - cached.ReadAt < Lifetime)
+        if (_bands.TryGetValue(context.Share.Uid, out (TInvestPriceBand? Band, DateTimeOffset ReadAt) cached) && now - cached.ReadAt < options.Value.PriceBandLifetime)
         {
             return cached.Band;
         }

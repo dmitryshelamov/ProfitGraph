@@ -3,6 +3,7 @@ using MediatR;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Application.Common.Exceptions;
+using ProfitGraph.Application.Common.Queries;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Application.MarketData.Converters;
@@ -28,15 +29,9 @@ internal sealed class GetBotCandlesQueryHandler(
     CandleDownloadService downloads,
     ICandleRepository candles,
     VenuePorts<IHistoricalCandleSource> sources,
+    QueryLimitOptions limits,
     TimeProvider clock) : IRequestHandler<GetBotCandlesQuery, BotCandlesInternal>
 {
-    /// <summary>
-    ///     The most candles one page covers: one venue read of history per page at most.
-    /// </summary>
-    public const int MaxCandles = 1000;
-
-    public const int MaxFills = 1000;
-
     public async Task<BotCandlesInternal> Handle(GetBotCandlesQuery query, CancellationToken cancellationToken)
     {
         Bot bot = await bots.GetOwned(query.BotId, query.OwnerId, cancellationToken);
@@ -48,9 +43,10 @@ internal sealed class GetBotCandlesQueryHandler(
         DateTimeOffset end = timeframe.FloorToGrid(query.To);
         DateTimeOffset to = Min(end == query.To ? end : end + timeframe.Duration, latest);
 
-        if ((to.UtcTicks - from.UtcTicks) / timeframe.Duration.Ticks > MaxCandles)
+        if ((to.UtcTicks - from.UtcTicks) / timeframe.Duration.Ticks > limits.BotChartCandles)
         {
-            throw new ApplicationValidationException([new InputError("invalid_value", "To", $"A page covers at most {MaxCandles} candles of the bot's timeframe.")]);
+            throw new ApplicationValidationException(
+                [new InputError("invalid_value", "To", $"A page covers at most {limits.BotChartCandles} candles of the bot's timeframe.")]);
         }
 
         if (to <= from)
@@ -59,13 +55,13 @@ internal sealed class GetBotCandlesQueryHandler(
         }
 
         (BotCandleHistoryStatus status, string? errorCode, IReadOnlyList<Candle> page) = await Read(bot, from, to, observedAt, latest, cancellationToken);
-        IReadOnlyList<BotFill> made = await fills.ListFilled(bot.Id, from, to, MaxFills + 1, cancellationToken);
+        IReadOnlyList<BotFill> made = await fills.ListFilled(bot.Id, from, to, limits.BotChartFills + 1, cancellationToken);
         BotChartFillInternal[] marked =
         [
-            .. made.Take(MaxFills).Select(fill => new BotChartFillInternal(fill.Id.Value, fill.FilledAt, fill.Side, fill.Price, fill.GrossBase, fill.Tag))
+            .. made.Take(limits.BotChartFills).Select(fill => new BotChartFillInternal(fill.Id.Value, fill.FilledAt, fill.Side, fill.Price, fill.GrossBase, fill.Tag))
         ];
 
-        return Page(bot, from, to, latest, status, errorCode, [.. page.Select(candle => candle.ToInternal())], marked, made.Count > MaxFills);
+        return Page(bot, from, to, latest, status, errorCode, [.. page.Select(candle => candle.ToInternal())], marked, made.Count > limits.BotChartFills);
     }
 
     private static BotCandlesInternal Page(

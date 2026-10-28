@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Bots.RecheckUnresolvedOrders;
 using ProfitGraph.Domain.Bots;
@@ -10,17 +11,20 @@ using ProfitGraph.Domain.Bots;
 namespace ProfitGraph.Infrastructure.Bots.Runtime;
 
 /// <summary>
-///     Every five minutes, in the Worker's <c>live</c> role, checks again the bots that should run and stopped on an unresolved
+///     Every <see cref="BotRuntimeOptions.UnresolvedOrderRecheckInterval" /> (five minutes by default), in the Worker's <c>live</c> role, checks again the bots that should run and
+///     stopped on an unresolved
 ///     order (ADR 0030). A bot whose venue can now prove every such order absent returns to the runtime, whose reconciliation
 ///     closes them; every other bot stays stopped for the owner. A failure is logged by kind only and tried again.
 /// </summary>
-internal sealed class UnresolvedOrderRecheckHost(IServiceScopeFactory scopes, TimeProvider clock, ILogger<UnresolvedOrderRecheckHost> logger) : BackgroundService
+internal sealed class UnresolvedOrderRecheckHost(
+    IServiceScopeFactory scopes,
+    IOptions<BotRuntimeOptions> options,
+    TimeProvider clock,
+    ILogger<UnresolvedOrderRecheckHost> logger) : BackgroundService
 {
-    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(5);
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(Interval, clock);
+        using var timer = new PeriodicTimer(options.Value.UnresolvedOrderRecheckInterval, clock);
 
         try
         {

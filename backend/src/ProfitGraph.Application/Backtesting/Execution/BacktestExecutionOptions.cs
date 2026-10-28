@@ -19,9 +19,14 @@ public sealed class BacktestExecutionOptions
 
     public TimeSpan CompactionInterval { get; init; } = TimeSpan.FromSeconds(30);
 
+    /// <summary>
+    ///     How many finished runs one compaction pass handles at most.
+    /// </summary>
+    public int CompactionRunsPerPass { get; init; } = 10;
+
     public bool IsValid()
     {
         return BatchSize is > 0 and <= 10_000 && ChannelCapacity >= BatchSize && ChannelCapacity <= 1_000_000 &&
-            CompactAfter >= TimeSpan.Zero && CompactionInterval > TimeSpan.Zero;
+            CompactAfter >= TimeSpan.Zero && CompactionInterval > TimeSpan.Zero && CompactionRunsPerPass > 0;
     }
 }

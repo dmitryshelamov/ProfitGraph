@@ -10,17 +10,16 @@ using ProfitGraph.Application.Common.Outbox.PruneOutbox;
 namespace ProfitGraph.Infrastructure.Common.Outbox;
 
 /// <summary>
-///     Deletes messages delivered longer than <see cref="OutboxOptions.Retention" /> ago, once an hour, in bounded batches of
-///     one transaction each, in the Worker's <c>live</c> role (ADR 0045). Undelivered and parked messages stay.
+///     Deletes messages delivered longer than <see cref="OutboxOptions.Retention" /> ago, every
+///     <see cref="OutboxOptions.RetentionInterval" /> (an hour by default), in bounded batches of one transaction each, in the
+///     Worker's <c>live</c> role (ADR 0045). Undelivered and parked messages stay.
 /// </summary>
 internal sealed class OutboxRetentionHost(IServiceScopeFactory scopes, IOptions<OutboxOptions> options, TimeProvider clock, ILogger<OutboxRetentionHost> logger)
     : BackgroundService
 {
-    private static readonly TimeSpan Interval = TimeSpan.FromHours(1);
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(Interval, clock);
+        using var timer = new PeriodicTimer(options.Value.RetentionInterval, clock);
 
         try
         {

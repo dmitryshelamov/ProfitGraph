@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.Ports;
@@ -15,17 +16,17 @@ namespace ProfitGraph.Infrastructure.Bots.Runtime;
 ///     (S5-19) and stores at most one observation per instrument a second; storing signals <c>live_mark_price</c>. A lost
 ///     subscription is opened again after a pause.
 /// </summary>
-internal sealed class LiveMarkPricePublisher(IServiceScopeFactory scopes, TimeProvider clock, ILogger<LiveMarkPricePublisher> logger) : BackgroundService
+internal sealed class LiveMarkPricePublisher(
+    IServiceScopeFactory scopes,
+    IOptions<BotRuntimeOptions> options,
+    TimeProvider clock,
+    ILogger<LiveMarkPricePublisher> logger) : BackgroundService
 {
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan StoreInterval = TimeSpan.FromSeconds(1);
-    private static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(5);
-
     private readonly Dictionary<LiveInstrument, (CancellationTokenSource Stop, Task Work)> _subscriptions = [];
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(RefreshInterval, clock);
+        using var timer = new PeriodicTimer(options.Value.MarkPriceRefreshInterval, clock);
 
         try
         {
@@ -94,7 +95,7 @@ internal sealed class LiveMarkPricePublisher(IServiceScopeFactory scopes, TimePr
             {
                 await foreach (LiveMarkPriceInternal price in source.Subscribe(instrument.Symbol, cancellationToken))
                 {
-                    if (clock.GetUtcNow() - lastStored < StoreInterval)
+                    if (clock.GetUtcNow() - lastStored < options.Value.MarkPriceStoreInterval)
                     {
                         continue;
                     }
@@ -116,7 +117,7 @@ internal sealed class LiveMarkPricePublisher(IServiceScopeFactory scopes, TimePr
 
             try
             {
-                await Task.Delay(ReconnectDelay, clock, cancellationToken);
+                await Task.Delay(options.Value.MarkPriceReconnectDelay, clock, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

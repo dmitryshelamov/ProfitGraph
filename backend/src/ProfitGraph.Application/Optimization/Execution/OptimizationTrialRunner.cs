@@ -20,7 +20,6 @@ namespace ProfitGraph.Application.Optimization.Execution;
 /// </summary>
 public sealed class OptimizationTrialRunner
 {
-    private static readonly TimeSpan FlushInterval = TimeSpan.FromSeconds(1);
     private readonly TimeProvider _clock;
     private readonly OptimizationTrialRunnerOptions _options;
 
@@ -39,7 +38,10 @@ public sealed class OptimizationTrialRunner
     /// <param name="sink">Receives every delivered trial on one consumer, template rejections included.</param>
     /// <param name="progress">Executed trials against the planned total, reported after each delivered execution.</param>
     /// <param name="cancellationToken">Stops new trials; results already produced are still delivered.</param>
-    /// <param name="idleFlush">Called on the same consumer at least once a second, so a receiver can commit a partial batch.</param>
+    /// <param name="idleFlush">
+    ///     Called on the same consumer at least once per <see cref="OptimizationTrialRunnerOptions.FlushInterval" />, so a
+    ///     receiver can commit a partial batch.
+    /// </param>
     /// <param name="persistedTrials">Trials an earlier attempt stored; they are restored, counted and ranked but not delivered.</param>
     public async Task<OptimizationRunResultInternal> RunAsync(
         OptimizationRunInputInternal input,
@@ -93,7 +95,7 @@ public sealed class OptimizationTrialRunner
 
         try
         {
-            await foreach (OptimizationTrialResult result in OptimizationResultStream.Read(channel.Reader, idleFlush, FlushInterval, _clock))
+            await foreach (OptimizationTrialResult result in OptimizationResultStream.Read(channel.Reader, idleFlush, _options.FlushInterval, _clock))
             {
                 bool restored = persisted.ContainsKey(result.Trial.Index);
 

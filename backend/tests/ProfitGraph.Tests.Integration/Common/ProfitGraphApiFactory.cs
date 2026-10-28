@@ -10,7 +10,8 @@ using ProfitGraph.Tests.Integration.MarketData;
 namespace ProfitGraph.Tests.Integration.Common;
 
 /// <summary>
-///     Hosts the API in the Testing environment against this run's disposable database, applying migrations on startup.
+///     Hosts the API in the Testing environment (<c>appsettings.Testing.json</c>: migrations on startup, quiet logs) against
+///     this run's disposable database.
 ///     The test kind of background work and the test history venues are registered next to the real ones, and a test may
 ///     add or replace services, such as a venue's mock transport.
 /// </summary>
@@ -28,7 +29,6 @@ public sealed class ProfitGraphApiFactory(
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Postgres", TestDatabase.ConnectionString);
-        builder.UseSetting("Postgres:RunMigrationsOnStartup", "true");
 
         foreach ((string key, string value) in settings ?? new Dictionary<string, string>())
         {

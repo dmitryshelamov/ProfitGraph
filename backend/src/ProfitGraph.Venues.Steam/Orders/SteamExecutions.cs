@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Venues.Steam.History;
 using ProfitGraph.Venues.Steam.Session;
@@ -26,14 +28,9 @@ internal sealed class SteamExecutions(
     SteamAccountSessions sessions,
     SteamBuyOrderClient buyOrders,
     SteamOrderUpdates updates,
+    IOptions<SteamOptions> options,
     TimeProvider clock)
 {
-    /// <summary>
-    ///     How much earlier than its place request a purchase may be stamped by Steam and still be the buy's (Profit Fox
-    ///     Designer's fixed local tolerance).
-    /// </summary>
-    private static readonly TimeSpan Skew = TimeSpan.FromSeconds(60);
-
     /// <summary>
     ///     One round for an account. False when its history is unknown now, so nothing was decided.
     /// </summary>
@@ -94,7 +91,7 @@ internal sealed class SteamExecutions(
                 [
                     .. round.Free.Where(receipt =>
                         receipt.Kind == SteamMarketReceiptKind.Listed && receipt.AppId == reservation.AppId && receipt.ContextId == reservation.ContextId &&
-                        receipt.AssetId == reservation.AssetId && receipt.At >= reservation.CreatedAt - Skew)
+                        receipt.AssetId == reservation.AssetId && receipt.At >= reservation.CreatedAt - options.Value.ReceiptClockSkew)
                 ];
 
                 if (listed.Length == 1 && await Attribute(credentialId, round, entry, listed, cancellationToken))
@@ -164,7 +161,7 @@ internal sealed class SteamExecutions(
             [
                 .. round.Free.Where(receipt =>
                     receipt.Kind == SteamMarketReceiptKind.Bought && receipt.AppId == instrument.AppId && receipt.MarketHashName == instrument.MarketHashName &&
-                    receipt.At >= entry.PlaceStartedAt!.Value - Skew && receipt.BuyerPaysMinorUnits <= entry.PriceMinorUnits * receipt.Quantity)
+                    receipt.At >= entry.PlaceStartedAt!.Value - options.Value.ReceiptClockSkew && receipt.BuyerPaysMinorUnits <= entry.PriceMinorUnits * receipt.Quantity)
             ];
 
             if (candidates.Length == 0 && entry.State != SteamOrderJournalState.Cancelling)

@@ -22,8 +22,6 @@ namespace ProfitGraph.Venues.TInvest.LiveData;
 /// </summary>
 internal sealed class TInvestLiveCandleSource(TInvestHistoricalCandleSource history, IOptions<TInvestOptions> options, TimeProvider clock) : ILiveCandleSource
 {
-    private const int RememberedQuietCandles = 120;
-
     public VenueId Venue => TInvestVenue.VenueId;
 
     public async IAsyncEnumerable<Candle> Subscribe(
@@ -64,7 +62,7 @@ internal sealed class TInvestLiveCandleSource(TInvestHistoricalCandleSource hist
 
                 cursor = settled;
 
-                while (quiet.Count > RememberedQuietCandles)
+                while (quiet.Count > options.Value.LiveRememberedQuietCandles)
                 {
                     quiet.Remove(quiet.Min);
                 }

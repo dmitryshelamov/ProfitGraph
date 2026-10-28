@@ -54,7 +54,7 @@ internal sealed class SteamLiveCandleSource(SteamMarketDataAccount account, IOpt
             }
 
             TimeSpan wait = end + timeframe.Duration + delay - clock.GetUtcNow();
-            await Task.Delay(wait > TimeSpan.Zero ? wait : TimeSpan.FromSeconds(1), clock, cancellationToken);
+            await Task.Delay(wait > TimeSpan.Zero ? wait : options.Value.LiveCandleRetryPause, clock, cancellationToken);
         }
     }
 }

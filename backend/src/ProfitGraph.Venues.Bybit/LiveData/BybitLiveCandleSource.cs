@@ -83,6 +83,7 @@ internal sealed class BybitLiveCandleSource(
                     symbol,
                     timeframe,
                     timeframe.Duration + options.LiveFeedStallMargin,
+                    options.LiveFeedReconnectDelay,
                     transport,
                     new BybitLiveHistory(ReadHistory),
                     (stale, token) => ReportStale(symbol, timeframe, stale, token),

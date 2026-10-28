@@ -3,11 +3,13 @@ using System.Threading.Channels;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 using NSubstitute;
 
 using ProfitGraph.Api.Backtesting.Contracts;
 using ProfitGraph.Api.Backtesting.Realtime;
+using ProfitGraph.Api.Common.Realtime;
 using ProfitGraph.Application.Backtesting.Contracts;
 using ProfitGraph.Application.Backtesting.Ports;
 using ProfitGraph.Domain.Backtesting;
@@ -80,6 +82,7 @@ public sealed class BacktestProgressPublisherTests
             subscriptions,
             hub,
             services.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new RealtimeOptions()),
             NullLogger<BacktestProgressPublisher>.Instance);
 
         await publisher.StartAsync(CancellationToken.None);

@@ -6,18 +6,12 @@ namespace ProfitGraph.Application.Bots.DispatchOrderIntent;
 /// </summary>
 internal static class OrderDeferralSchedule
 {
-    internal static readonly TimeSpan Floor = TimeSpan.FromSeconds(5);
-    internal static readonly TimeSpan Ceiling = TimeSpan.FromMinutes(15);
-
-    /// <summary>
-    ///     The wait before an unreadable answer is asked again.
-    /// </summary>
-    internal static readonly TimeSpan UnknownRetry = TimeSpan.FromSeconds(30);
-
-    public static DateTimeOffset NextCheck(DateTimeOffset? recheckAt, DateTimeOffset? until, DateTimeOffset now)
+    public static DateTimeOffset NextCheck(DateTimeOffset? recheckAt, DateTimeOffset? until, DateTimeOffset now, OrderDispatchOptions options)
     {
-        DateTimeOffset wanted = recheckAt ?? until ?? now + Ceiling;
+        DateTimeOffset floor = now + options.DeferralFloor;
+        DateTimeOffset ceiling = now + options.DeferralCeiling;
+        DateTimeOffset wanted = recheckAt ?? until ?? ceiling;
 
-        return wanted < now + Floor ? now + Floor : wanted > now + Ceiling ? now + Ceiling : wanted;
+        return wanted < floor ? floor : wanted > ceiling ? ceiling : wanted;
     }
 }

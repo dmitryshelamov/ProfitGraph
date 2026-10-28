@@ -34,7 +34,10 @@ public static class TInvestRegistration
         services.AddSingleton<ITInvestCallInvokers, TInvestChannelInvokers>();
         services.AddSingleton(provider => new TInvestRequestLimiter(provider.GetRequiredService<IOptions<TInvestOptions>>().Value.Limits, TimeProvider.System));
         services.AddSingleton<TInvestTransport>();
-        services.AddSingleton(provider => new TInvestShares(provider.GetRequiredService<TInvestTransport>(), TimeProvider.System));
+        services.AddSingleton(provider => new TInvestShares(
+            provider.GetRequiredService<TInvestTransport>(),
+            provider.GetRequiredService<IOptions<TInvestOptions>>(),
+            TimeProvider.System));
         services.AddSingleton<TInvestCandleReader>();
         services.AddSingleton<TInvestHistoricalCandleSource>();
         services.AddSingleton<IHistoricalCandleSource>(provider => provider.GetRequiredService<TInvestHistoricalCandleSource>());
@@ -77,10 +80,14 @@ public static class TInvestRegistration
         services.TryAddSingleton(new PrivateStreamReconnectPolicy());
         services.AddSingleton(provider => ActivatorUtilities.CreateInstance<TInvestOrderStreams>(provider, TimeProvider.System));
         services.AddSingleton<TInvestTradingStatuses>();
-        services.AddSingleton(provider => new TInvestPriceBands(provider.GetRequiredService<TInvestTransport>(), TimeProvider.System));
+        services.AddSingleton(provider => new TInvestPriceBands(
+            provider.GetRequiredService<TInvestTransport>(),
+            provider.GetRequiredService<IOptions<TInvestOptions>>(),
+            TimeProvider.System));
         services.AddSingleton<ITInvestOrderWaits, TInvestOrderWaits>();
         services.AddSingleton(provider => new TInvestSchedules(
             provider.GetRequiredService<TInvestTransport>(),
+            provider.GetRequiredService<IOptions<TInvestOptions>>(),
             TimeProvider.System,
             provider.GetRequiredService<ILogger<TInvestSchedules>>()));
         services.AddSingleton<TInvestOperationReads>();

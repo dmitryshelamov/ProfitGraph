@@ -52,11 +52,6 @@ internal sealed class TInvestAbsenceProofs(
     ILogger<TInvestAbsenceProofs> logger)
 {
     /// <summary>
-    ///     How far ahead of this process's clock the last recorded instant of an attempt may lie before the calendar proof refuses it.
-    /// </summary>
-    private static readonly TimeSpan FutureSkew = TimeSpan.FromMinutes(5);
-
-    /// <summary>
     ///     The caller has already read the order by its request ID and got no answer, which is the proof's first check.
     /// </summary>
     public async Task<TInvestAbsenceProof> Evaluate(
@@ -187,7 +182,7 @@ internal sealed class TInvestAbsenceProofs(
     {
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{TInvestAbsenceChecks.OwnExecutionsExcluded}:{orders.Count}:{string.Join('+', orders.Distinct().Order())}");
+            $"{TInvestAbsenceChecks.OwnExecutionsExcluded}:{orders.Count}:{string.Join(separator: '+', orders.Distinct().Order())}");
     }
 
     /// <summary>
@@ -212,7 +207,8 @@ internal sealed class TInvestAbsenceProofs(
                 continue;
             }
 
-            if (await orders.ByExchangeOrderId(context, exchangeOrderId, cancellationToken) is not { } state || state.Stages.Sum(stage => stage.Quantity) != other.ExecutedLots)
+            if (await orders.ByExchangeOrderId(context, exchangeOrderId, cancellationToken) is not { } state ||
+                state.Stages.Sum(stage => stage.Quantity) != other.ExecutedLots)
             {
                 continue;
             }
@@ -264,7 +260,7 @@ internal sealed class TInvestAbsenceProofs(
 
     private string? CalendarDayEnded(TInvestBotContext context, DateTimeOffset placed, DateTimeOffset now)
     {
-        if (!TInvestMoscowCalendar.Covers(context.Share.Exchange) || placed > now + FutureSkew)
+        if (!TInvestMoscowCalendar.Covers(context.Share.Exchange) || placed > now + options.Value.AbsenceFutureSkew)
         {
             return TInvestAbsenceChecks.TradingDayUnknown;
         }

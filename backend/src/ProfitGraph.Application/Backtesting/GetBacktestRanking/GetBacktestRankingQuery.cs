@@ -16,7 +16,4 @@ public sealed record GetBacktestRankingQuery(
     int Limit,
     BacktestRankingSort Sort = BacktestRankingSort.ReturnPercent,
     bool Ascending = false)
-    : IQuery<BacktestSummaryPageInternal>
-{
-    public const int MaxLimit = 100;
-}
+    : IQuery<BacktestSummaryPageInternal>;
