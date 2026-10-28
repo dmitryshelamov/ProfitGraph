@@ -54,6 +54,13 @@ else, including `//host`, `/\host`, absolute URLs and `javascript:`, returns to 
   a block missed ends on its next call; the call fails with `account_inactive` or with the closed connection.
 - New connections are refused like any other request of a blocked account: negotiation requires an active session.
 
+### Blocked accounts lose their Telegram channel
+
+- Telegram (ADR 0042) is a channel of its own that no session guards, so it checks the account itself. A one-time code
+  of a blocked account links no chat, an alert's «Принято» from a blocked account's chat finds no alert, no notification
+  is queued for a blocked account, and one queued before the block is `ChatUnavailable` when claimed.
+- The link itself stays: blocking changes nothing in `telegram_links`, and the checks read the account's current status.
+
 ## Consequences
 
 - **One process.** The throttle state and the connection registry live in the API process. A restart forgets failures,
@@ -67,4 +74,5 @@ else, including `//host`, `/\host`, absolute URLs and `javascript:`, returns to 
   that are already open. Two-factor sign-in would let the counters be looser; it is the owner's decision.
 - **Shared addresses.** Clients behind one address, such as one office NAT, share the per-address counter and the
   known-address exemption.
-- Each hub connection and hub method call reads the account once.
+- Each hub connection and hub method call reads the account once; so does each Telegram link, acknowledgement, queued and
+  claimed notification.

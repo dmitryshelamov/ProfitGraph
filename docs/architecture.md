@@ -148,8 +148,8 @@ Venues.Bybit/
 - **Authentication.** Invite-only accounts with cookie sessions (`profitgraph.session`, HttpOnly, SameSite=Strict, Secure
   outside Development and Testing, 7 days sliding). Every endpoint requires a signed-in active account unless it opts
   out with `AllowAnonymous`, including unknown routes; each request re-checks that the account is still active, so
-  blocking ends existing sessions; blocking also closes the account's realtime connections, and every hub connection
-  and hub method call re-checks the account. Sign-in is limited to 20 attempts per minute per client address; after 5
+  blocking ends existing sessions; blocking also closes the account's realtime connections and cuts its Telegram
+  channel, and every hub connection and hub method call re-checks the account. Sign-in is limited to 20 attempts per minute per client address; after 5
   consecutive failures a login is locked out for 30 s, doubling to 15 min, until a successful sign-in, except on client
   addresses it signed in from before (in-memory, one API process). An unknown or blocked login is counted the same way
   and costs the same password verification as a wrong password. See

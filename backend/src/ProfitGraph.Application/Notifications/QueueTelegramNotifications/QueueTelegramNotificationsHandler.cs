@@ -14,10 +14,14 @@ namespace ProfitGraph.Application.Notifications.QueueTelegramNotifications;
 /// <summary>
 ///     Queues a Telegram notification when the outbox delivers an event its owner should hear about (ADR 0042): an alert, a
 ///     start, a stop, a recovery, spent restarts, a closed position and a filled order. Only while the owner has a linked chat
-///     that is not blocked. The outbox delivers each event once, inside the transaction that stores the notification.
-///     Details are invariant strings: names and exact decimals.
+///     that is not blocked, and only for an active account (ADR 0043). The outbox delivers each event once, inside the
+///     transaction that stores the notification. Details are invariant strings: names and exact decimals.
 /// </summary>
-internal sealed class QueueTelegramNotificationsHandler(IBotRepository bots, ITelegramLinkRepository links, ITelegramNotificationRepository notifications)
+internal sealed class QueueTelegramNotificationsHandler(
+    IBotRepository bots,
+    ITelegramLinkRepository links,
+    IUserRepository users,
+    ITelegramNotificationRepository notifications)
     : INotificationHandler<BotAlertRaised>,
         INotificationHandler<BotStarted>,
         INotificationHandler<BotStopped>,
@@ -121,7 +125,7 @@ internal sealed class QueueTelegramNotificationsHandler(IBotRepository bots, ITe
         DateTimeOffset at,
         CancellationToken cancellationToken)
     {
-        if (await links.Get(ownerId, cancellationToken) is { BlockedAt: null })
+        if (await links.Get(ownerId, cancellationToken) is { BlockedAt: null } && await users.GetById(ownerId, cancellationToken) is { IsActive: true })
         {
             await notifications.Add(TelegramNotification.Queue(TelegramNotificationId.New(), ownerId, botId, kind, alertId, details, at), cancellationToken);
         }
