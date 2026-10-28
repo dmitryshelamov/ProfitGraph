@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.SignalR;
 
 using ProfitGraph.Application.Accounts.BootstrapOwner;
 using ProfitGraph.Application.Accounts.Contracts;
@@ -19,7 +20,8 @@ namespace ProfitGraph.Api.Common.Authentication;
 
 /// <summary>
 ///     Cookie sessions for invite-only accounts: every API endpoint requires a signed-in active account unless it opts out,
-///     sign-in is rate limited per client address and per login, and the first Owner can come from private configuration.
+///     sign-in is rate limited per client address and locked out per login after failures, blocking an account ends its
+///     sessions and realtime connections, and the first Owner can come from private configuration.
 /// </summary>
 internal static class AuthenticationSetup
 {
@@ -59,12 +61,10 @@ internal static class AuthenticationSetup
                     context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         });
-        builder.Services.AddSingleton(
-            new SignInLoginLimiter(
-                PartitionedRateLimiter.Create<string, string>(login =>
-                    RateLimitPartition.GetFixedWindowLimiter(
-                        login,
-                        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }))));
+        builder.Services.AddSingleton<SignInThrottle>();
+        builder.Services.AddSingleton<AccountConnections>();
+        builder.Services.AddSingleton<ActiveAccountHubFilter>();
+        builder.Services.Configure<HubOptions>(options => options.AddFilter<ActiveAccountHubFilter>());
         ConfigureKnownProxies(builder);
     }
 

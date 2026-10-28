@@ -45,6 +45,11 @@ internal sealed class MockBybitExchange : HttpMessageHandler
     public bool KeyCanWithdraw { get; set; }
 
     /// <summary>
+    ///     The retCode <c>/v5/user/query-api</c> answers with instead of the key, or null to describe it.
+    /// </summary>
+    public int? KeyCode { get; set; }
+
+    /// <summary>
     ///     Client order IDs of executions on the symbol, as <c>/v5/execution/list</c> reports them.
     /// </summary>
     public List<string> Executions { get; } = [];
@@ -102,12 +107,20 @@ internal sealed class MockBybitExchange : HttpMessageHandler
             "/v5/order/realtime" => Lookup(query, open: true),
             "/v5/execution/list" when ListUnavailable => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
             "/v5/execution/list" => Json(new { retCode = 0, result = new { list = Executions.Select(id => new { orderLinkId = id, symbol = "BTCUSDT" }).ToArray() } }),
+            "/v5/user/query-api" when KeyCode is { } code => Json(new { retCode = code, retMsg = "refused" }),
             "/v5/user/query-api" => Json(
                 new
                 {
                     retCode = 0,
                     result = new
                     {
+                        id = "13770661",
+                        note = "invented bot key",
+                        apiKey = ApiKey,
+                        secret = string.Empty,
+                        userID = 24617703,
+                        isMaster = true,
+                        expiredAt = "2027-01-24T00:00:00Z",
                         readOnly = KeyReadOnly ? 1 : 0,
                         ips = new[] { "*" },
                         permissions = new

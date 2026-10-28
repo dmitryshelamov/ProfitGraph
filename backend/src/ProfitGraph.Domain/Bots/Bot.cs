@@ -545,7 +545,7 @@ public sealed class Bot : AggregateRoot
     }
 
     /// <summary>
-    ///     The bot now runs a strategy version that names other parameters (ADR 0039): a value of a removed parameter is dropped
+    ///     The bot now runs a strategy version that names other parameters (ADR 0047): a value of a removed parameter is dropped
     ///     and a new parameter takes its default, so the bot's values stay those its run applies. It happens with the version
     ///     switch, also while the bot runs. Returns whether the values changed.
     /// </summary>
@@ -741,6 +741,18 @@ public sealed class Bot : AggregateRoot
         if (DesiredState != BotDesiredState.Running || RuntimeStatus != BotRuntimeStatus.Running)
         {
             throw new BotRuleException(BotRuleException.NotRunning, "A manual order needs a running bot.");
+        }
+    }
+
+    /// <summary>
+    ///     An owner's cancel of one of the bot's orders (ADR 0048) is accepted only while the bot should run and runs: a stopped bot
+    ///     has no runner to turn it into the engine's cancel, and its strategy would restore the order at the next start.
+    /// </summary>
+    public void EnsureAcceptsOrderCancels()
+    {
+        if (DesiredState != BotDesiredState.Running || RuntimeStatus != BotRuntimeStatus.Running)
+        {
+            throw new BotRuleException(BotRuleException.NotRunning, "Cancelling an order of the bot needs a running bot.");
         }
     }
 

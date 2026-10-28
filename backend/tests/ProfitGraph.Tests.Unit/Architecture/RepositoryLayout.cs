@@ -6,6 +6,8 @@ internal static class RepositoryLayout
 
     public static string SourceDirectory => Path.Combine(Root.Value, "backend", "src");
 
+    public static string AdrDirectory => Path.Combine(Root.Value, "docs", "adr");
+
     private static string TestDirectory => Path.Combine(Root.Value, "backend", "tests");
 
     public static IEnumerable<string> SourceProjects()
