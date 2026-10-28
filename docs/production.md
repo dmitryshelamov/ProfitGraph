@@ -102,7 +102,7 @@ Done once; the steps that need `sudo` are the owner's. The production host runs 
    with the host's key in `~/.ssh/known_hosts`, checked against its fingerprint. On the host, its public key in
    `~/.ssh/authorized_keys` behind `from="192.168.8.142",no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty`.
 5. GitHub settings: the `production` environment with the owner as required reviewer and deployments from `main` only;
-   **Settings → Actions → General → Approval for running fork pull request workflows** set to all outside collaborators.
+   **Settings → Actions → General → Approval for running fork pull request workflows from contributors** set to **Require approval for all external contributors**.
 6. The first deployment through the workflow. The Bootstrap Owner from `.env` is created on the empty database; sign in,
    then clear `BOOTSTRAP_OWNER_PASSWORD` in `.env`.
 7. Trust Caddy's root certificate on each device that opens the site:
