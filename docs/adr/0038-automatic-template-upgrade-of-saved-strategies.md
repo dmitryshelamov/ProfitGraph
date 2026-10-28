@@ -1,7 +1,7 @@
 # ADR 0038: Saved Strategies Are Brought Forward to Their Template Automatically
 
-Status: Proposed, 2026-10-28. Supplements ADR 0019, ADR 0025 and ADR 0037; amended by ADR 0040; proven on the test database only. The
-owner reviews it in the pull request.
+Status: Proposed, 2026-10-28. Supplements ADR 0019, ADR 0025 and ADR 0037; amended by ADR 0040 and ADR 0052 (a resume event under
+another id counts as the Ladder's resume); proven on the test database only. The owner reviews it in the pull request.
 
 ## Context
 

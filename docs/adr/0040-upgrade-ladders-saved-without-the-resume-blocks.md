@@ -1,7 +1,8 @@
 # ADR 0040: Ladders Saved Without the Resume Blocks Get Them
 
 Status: Proposed, 2026-10-28. Supplements ADR 0035, ADR 0038 and ADR 0039, and replaces ADR 0038's rule that a Ladder without resume is
-left as it is; proven on unit and integration tests only. The owner reviews it in the pull request.
+left as it is; amended by ADR 0052 (a Ladder with an `OnResume` event under another id gets the manual-fill reaction); proven on unit and
+integration tests only. The owner reviews it in the pull request.
 
 ## Context
 
