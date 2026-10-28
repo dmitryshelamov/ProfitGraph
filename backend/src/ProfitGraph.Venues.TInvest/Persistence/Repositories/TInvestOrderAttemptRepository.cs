@@ -2,7 +2,7 @@ using Dapper;
 
 using Npgsql;
 
-using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderWaiting;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Venues.TInvest.Persistence.Repositories.Contracts;
 using ProfitGraph.Venues.TInvest.Persistence.Repositories.Queries;

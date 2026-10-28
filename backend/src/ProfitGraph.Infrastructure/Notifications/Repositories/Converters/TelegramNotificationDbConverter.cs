@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Alerts;
 using ProfitGraph.Domain.Notifications;
 using ProfitGraph.Infrastructure.Notifications.Repositories.Contracts;
 

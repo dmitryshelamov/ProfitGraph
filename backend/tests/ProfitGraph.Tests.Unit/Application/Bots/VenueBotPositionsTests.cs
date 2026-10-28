@@ -5,6 +5,7 @@ using NSubstitute;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.GetVenueBotPositions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Checkpoints;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Dispatch;
 using ProfitGraph.Engine.Market;

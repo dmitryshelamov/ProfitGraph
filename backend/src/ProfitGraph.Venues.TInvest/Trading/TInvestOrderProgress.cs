@@ -1,5 +1,6 @@
 using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderWaiting;
 using ProfitGraph.Engine.Accounting;
 
 using Tinkoff.InvestApi.V1;

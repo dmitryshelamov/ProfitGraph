@@ -2,6 +2,7 @@ using MediatR;
 
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Checkpoints;
 using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Application.Bots.GetBotOpenOrders;

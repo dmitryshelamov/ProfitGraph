@@ -9,6 +9,7 @@ using ProfitGraph.Application.MarketData.Converters;
 using ProfitGraph.Application.MarketData.DownloadCandles;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Fills;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Market;
 

@@ -2,6 +2,7 @@ using MediatR;
 
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Feed;
 
 namespace ProfitGraph.Application.Bots.GetBotFeed;
 

@@ -1,4 +1,4 @@
-using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.MarkPrices;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Infrastructure.Bots.Repositories.Contracts;
 

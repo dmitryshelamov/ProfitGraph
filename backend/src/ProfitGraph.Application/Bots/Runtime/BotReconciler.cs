@@ -4,6 +4,8 @@ using ProfitGraph.Application.Bots.ApplyBotReconciliation;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Leases;
+using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Application.Bots.Runtime;

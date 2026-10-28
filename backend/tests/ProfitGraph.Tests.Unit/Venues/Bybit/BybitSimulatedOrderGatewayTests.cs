@@ -1,5 +1,6 @@
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Venues.Bybit.Simulation;
 using ProfitGraph.Venues.Bybit.Trading;

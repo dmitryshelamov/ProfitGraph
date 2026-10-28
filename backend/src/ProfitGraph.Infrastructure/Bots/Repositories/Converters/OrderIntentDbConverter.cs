@@ -3,6 +3,8 @@ using System.Text.Json.Serialization;
 
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderIntents;
+using ProfitGraph.Domain.Bots.OrderWaiting;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Infrastructure.Bots.Repositories.Contracts;
 

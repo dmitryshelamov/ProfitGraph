@@ -11,6 +11,8 @@ using ProfitGraph.Application.Bots.KillBot;
 using ProfitGraph.Application.Bots.RecordOrderWaiting;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Feed;
+using ProfitGraph.Domain.Bots.OrderWaiting;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Infrastructure.Common.Outbox;
 using ProfitGraph.Tests.Integration.Common;

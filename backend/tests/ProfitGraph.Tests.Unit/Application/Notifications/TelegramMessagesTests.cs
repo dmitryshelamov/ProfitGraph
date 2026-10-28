@@ -2,6 +2,7 @@ using ProfitGraph.Application.Notifications;
 using ProfitGraph.Application.Notifications.Contracts;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Alerts;
 using ProfitGraph.Domain.Notifications;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Unit.Domain.Bots;

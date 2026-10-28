@@ -4,6 +4,7 @@ using Npgsql;
 
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Alerts;
 using ProfitGraph.Infrastructure.Bots.Repositories.Contracts;
 using ProfitGraph.Infrastructure.Bots.Repositories.Converters;
 using ProfitGraph.Infrastructure.Bots.Repositories.Queries;

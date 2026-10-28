@@ -2,6 +2,7 @@ using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.Converters;
 using ProfitGraph.Application.Bots.SubmitManualOrder;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.ManualOrders;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Unit.Domain.Bots;
 

@@ -10,6 +10,8 @@ using Npgsql;
 using ProfitGraph.Application.Bots.PruneBotFeed;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Feed;
+using ProfitGraph.Domain.Bots.Fills;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Infrastructure.Common.Outbox;
 using ProfitGraph.Tests.Integration.Common;

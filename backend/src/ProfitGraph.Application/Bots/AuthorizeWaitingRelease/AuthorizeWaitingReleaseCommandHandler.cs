@@ -1,6 +1,8 @@
 using MediatR;
 
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Leases;
+using ProfitGraph.Domain.Trading;
 
 namespace ProfitGraph.Application.Bots.AuthorizeWaitingRelease;
 

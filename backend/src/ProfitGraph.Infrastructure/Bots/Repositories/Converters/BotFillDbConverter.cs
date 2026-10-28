@@ -1,4 +1,5 @@
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Fills;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Infrastructure.Bots.Repositories.Contracts;
 

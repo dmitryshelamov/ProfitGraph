@@ -6,6 +6,7 @@ using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.MarkPrices;
 
 namespace ProfitGraph.Infrastructure.Bots.Runtime;
 

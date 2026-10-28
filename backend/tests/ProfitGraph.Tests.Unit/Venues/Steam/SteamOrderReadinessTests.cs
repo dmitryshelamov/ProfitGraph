@@ -3,6 +3,8 @@ using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderIntents;
+using ProfitGraph.Domain.Bots.OrderWaiting;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Venues.Steam;
 using ProfitGraph.Venues.Steam.Orders;

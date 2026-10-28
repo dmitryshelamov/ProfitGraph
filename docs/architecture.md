@@ -31,13 +31,18 @@ to this table.
 Inside a project, the first folder level is a **feature**, never a technical type. Everything one feature needs in a
 layer lives in that feature's folder. Shared base types and cross-cutting mechanisms live in `Common/`.
 
-Features: `Strategies`, `Backtesting`, `Optimization`, `MarketData`, `Bots`, `Accounts`, `Notifications`. Add a new
-feature folder only for a new product area, and list it here.
+Features: `Strategies`, `Backtesting`, `Optimization`, `MarketData`, `Bots`, `Trading`, `Accounts`, `Notifications`,
+`Jobs`. Add a new feature folder only for a new product area, and list it here. In Domain, a feature with several
+aggregates keeps the main aggregate at its root and gives each other aggregate a subfolder with its identifier,
+values, events and repository contract (`Domain/Bots/OrderIntents/`); the subfolder is named after the aggregate,
+never after a technical type.
 
 ```text
 Domain/
   Common/                     AggregateRoot, IDomainEvent, DomainException
   Strategies/                 Strategy.cs, StrategyVersion.cs, StrategyId.cs, StrategyName.cs, IStrategyRepository.cs, ...
+  Bots/                       Bot.cs, BotId.cs, BotStarted.cs, IBotRepository.cs, ...
+    OrderIntents/             OrderIntent.cs, OrderIntentId.cs, OrderIntentRejected.cs, IOrderIntentRepository.cs, ...
 Application/
   Common/                     Messaging (ICommand, IQuery), Exceptions, Transactions
   Strategies/

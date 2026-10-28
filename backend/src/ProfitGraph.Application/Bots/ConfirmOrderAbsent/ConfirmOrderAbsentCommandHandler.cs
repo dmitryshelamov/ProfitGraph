@@ -5,6 +5,8 @@ using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Checkpoints;
+using ProfitGraph.Domain.Bots.OrderIntents;
 
 namespace ProfitGraph.Application.Bots.ConfirmOrderAbsent;
 

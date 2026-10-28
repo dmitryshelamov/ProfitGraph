@@ -1,5 +1,6 @@
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Alerts;
 using ProfitGraph.Infrastructure.Bots.Repositories.Contracts;
 
 namespace ProfitGraph.Infrastructure.Bots.Repositories.Converters;

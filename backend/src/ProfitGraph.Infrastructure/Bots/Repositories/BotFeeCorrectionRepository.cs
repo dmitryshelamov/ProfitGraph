@@ -2,7 +2,7 @@ using Dapper;
 
 using Npgsql;
 
-using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.FeeCorrections;
 using ProfitGraph.Infrastructure.Bots.Repositories.Converters;
 using ProfitGraph.Infrastructure.Bots.Repositories.Queries;
 using ProfitGraph.Infrastructure.Common.Postgres;

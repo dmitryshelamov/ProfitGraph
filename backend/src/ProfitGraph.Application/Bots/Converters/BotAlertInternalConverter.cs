@@ -1,5 +1,5 @@
 using ProfitGraph.Application.Bots.Contracts;
-using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Alerts;
 
 namespace ProfitGraph.Application.Bots.Converters;
 

@@ -8,6 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 using ProfitGraph.Api.Bots.Contracts;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Checkpoints;
+using ProfitGraph.Domain.Bots.OrderCancels;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Integration.Common;
 

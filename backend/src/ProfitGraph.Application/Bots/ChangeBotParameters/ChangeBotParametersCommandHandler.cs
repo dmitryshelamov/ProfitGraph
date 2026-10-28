@@ -5,6 +5,7 @@ using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.Converters;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Checkpoints;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Accounting;
 

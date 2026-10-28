@@ -4,6 +4,7 @@ using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.Converters;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderCancels;
 
 namespace ProfitGraph.Application.Bots.GetOrderCancel;
 

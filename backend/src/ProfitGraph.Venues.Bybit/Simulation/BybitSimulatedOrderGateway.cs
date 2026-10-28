@@ -5,6 +5,7 @@ using System.Threading.Channels;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Venues.Bybit.Trading;

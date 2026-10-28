@@ -1,4 +1,5 @@
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Leases;
 using ProfitGraph.Infrastructure.Bots.Repositories.Contracts;
 
 namespace ProfitGraph.Infrastructure.Bots.Repositories.Converters;

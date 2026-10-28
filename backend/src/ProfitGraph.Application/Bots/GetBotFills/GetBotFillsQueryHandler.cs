@@ -2,6 +2,8 @@ using MediatR;
 
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Checkpoints;
+using ProfitGraph.Domain.Bots.Fills;
 
 namespace ProfitGraph.Application.Bots.GetBotFills;
 

@@ -1,4 +1,4 @@
-using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.ManualOrders;
 using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Api.Bots.Contracts;

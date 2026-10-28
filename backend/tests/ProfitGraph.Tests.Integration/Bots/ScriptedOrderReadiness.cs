@@ -1,6 +1,6 @@
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.Ports;
-using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderWaiting;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Tests.Integration.MarketData;
 

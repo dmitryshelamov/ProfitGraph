@@ -15,6 +15,7 @@ using ProfitGraph.Application.Bots.ReleaseBotLease;
 using ProfitGraph.Application.Bots.ReportBotRuntime;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Leases;
 
 namespace ProfitGraph.Infrastructure.Bots.Runtime;
 

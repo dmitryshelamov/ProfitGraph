@@ -1,6 +1,6 @@
 using MediatR;
 
-using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Alerts;
 using ProfitGraph.Domain.Notifications;
 
 namespace ProfitGraph.Application.Notifications.AcknowledgeTelegramAlert;

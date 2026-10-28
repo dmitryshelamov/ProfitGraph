@@ -1,5 +1,6 @@
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Alerts;
 using ProfitGraph.Domain.Notifications;
 
 namespace ProfitGraph.Tests.Unit.Domain.Notifications;

@@ -2,6 +2,9 @@ using Microsoft.Extensions.Hosting;
 
 using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Checkpoints;
+using ProfitGraph.Domain.Bots.Feed;
+using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Market;
 using ProfitGraph.Tests.Integration.Common;

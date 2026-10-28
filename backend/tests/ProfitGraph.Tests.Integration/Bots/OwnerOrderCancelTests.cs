@@ -10,6 +10,10 @@ using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.GetOrderCancel;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Feed;
+using ProfitGraph.Domain.Bots.OrderCancels;
+using ProfitGraph.Domain.Bots.OrderIntents;
+using ProfitGraph.Domain.Bots.OrderWaiting;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Integration.Common;
 

@@ -17,6 +17,11 @@ using ProfitGraph.Application.Accounts.RecordAccountBalance;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Alerts;
+using ProfitGraph.Domain.Bots.Feed;
+using ProfitGraph.Domain.Bots.Fills;
+using ProfitGraph.Domain.Bots.ManualOrders;
+using ProfitGraph.Domain.Bots.Positions;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Integration.Common;
 

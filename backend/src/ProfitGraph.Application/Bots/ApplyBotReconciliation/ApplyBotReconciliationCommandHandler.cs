@@ -1,6 +1,8 @@
 using MediatR;
 
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Leases;
+using ProfitGraph.Domain.Bots.OrderIntents;
 
 namespace ProfitGraph.Application.Bots.ApplyBotReconciliation;
 

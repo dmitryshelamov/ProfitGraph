@@ -20,6 +20,7 @@ using ProfitGraph.Application.Notifications.Ports;
 using ProfitGraph.Application.Notifications.RecordTelegramDelivery;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Alerts;
 using ProfitGraph.Domain.Notifications;
 using ProfitGraph.Infrastructure.Common.Outbox;
 using ProfitGraph.Infrastructure.Notifications;

@@ -1,6 +1,6 @@
 using MediatR;
 
-using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Feed;
 
 namespace ProfitGraph.Application.Bots.PruneBotFeed;
 
