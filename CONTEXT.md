@@ -130,6 +130,13 @@ as a T-Invest brokerage account, the account is chosen from the venue's list whe
 account has at most one credential. A credential belongs to its owner, and another user's credential is reported as
 missing. See [ADR 0015](docs/adr/0015-exchange-credentials.md).
 
+### Account Identity
+
+The exchange account a credential trades on as its venue last described it: the account's identifier (a Bybit UID, a
+T-Invest account number), its name or the key's note, its kind, the key's access level, permissions and expiry. The Worker
+reads it once a day for every credential with a bot and keeps the last success through failures; the bot page shows it from
+that cache and never asks the venue. It holds no secret. See [ADR 0049](docs/adr/0049-bot-page-account-summary.md).
+
 ### Bot
 
 A strategy running live on one venue series through one of its owner's exchange credentials. The owner sets its desired
@@ -195,6 +202,18 @@ that account and share hold. Not an equality, because the owner may hold shares 
 A per-bot control, or the global trading halt, that stops bots at once, cancels their open orders and rejects
 submits that never left the process. It never sells a position.
 
+### Telegram Notification
+
+A message for a bot's owner in their linked Telegram chat: an alert with the «Принято» button, a start or stop, a recovery,
+a bot that waits for its owner, a closed position or a filled order. Outbox handlers queue it only while the owner has a
+chat; it is sent at least once, retried while Telegram is unavailable and skipped once it is too old. See
+[ADR 0042](docs/adr/0042-telegram-notifications.md).
+
+### Filled Order
+
+A bot's order that the venue executed completely. It sends one Telegram message with the order's totals, whatever number
+of fills it took; an order cancelled after a partial fill is not a filled order.
+
 ### Composition Root
 
 A host project that wires the application together: `ProfitGraph.Api` for HTTP and `ProfitGraph.Worker` for the
@@ -245,7 +264,7 @@ internal node ID or parameter-port key. Ranges belong to an optimization request
 
 A bot holds a value for every parameter of the strategy version it runs. When it switches to a version that adds a
 parameter, the bot takes that parameter's default; the value of a removed parameter is dropped. See
-[ADR 0039](docs/adr/0039-bot-values-follow-the-strategy-parameters.md).
+[ADR 0047](docs/adr/0047-bot-values-follow-the-strategy-parameters.md).
 
 ### Wire
 
@@ -361,9 +380,16 @@ A strategy-assigned semantic name identifying an order's purpose, such as `ladde
 ### Manual Order
 
 An owner-submitted market or limit order in a running live bot, outside the strategy graph (Profit Fox Designer ADR 0091,
-[ADR 0027](docs/adr/0027-manual-limit-order.md)). A limit order carries a price the engine rounds down to the tick.
+[ADR 0046](docs/adr/0046-manual-limit-order.md)). A limit order carries a price the engine rounds down to the tick.
 It enters the bot's engine account with the reserved tag `manual` and no originating block, so balances, risk limits and
 the position ledger include it, while the graph observes it only through global listeners filtered by that tag.
+
+### Owner Order Cancel
+
+The owner's request to cancel one working order of a running live bot from the bot page
+([ADR 0048](docs/adr/0048-owner-cancels-an-active-order.md)). The bot's runner takes it as a root and the engine cancels the order as it
+cancels its own, so the cancel goes out as an ordinary cancel intent; the venue's confirmation of a cancel the engine asked for does not
+resume the strategy, which may still place the order again later by its own rules. A request nobody takes within a minute expires.
 
 ### Order Lifecycle Output
 

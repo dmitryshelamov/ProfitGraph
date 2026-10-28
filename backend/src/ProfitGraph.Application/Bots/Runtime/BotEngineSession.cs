@@ -248,9 +248,11 @@ public sealed class BotEngineSession
         _dispatcher.Drain(cancellationToken);
 
         // An order the venue cancelled without the engine asking (the owner's cancel at the broker) leaves the strategy's grid short of
-        // an order: one more resume lets the strategy restore it (ADR 0039). The engine's own cancels also complete a pending cancel.
+        // an order: one more resume lets the strategy restore it (ADR 0039). The engine's own cancels also complete a pending cancel, and
+        // an order that awaited cancellation before the update was cancelled at the engine's request, such as the owner's cancel in
+        // the app, which the strategy must not undo at once (ADR 0048).
         if (resumeAfterVenueCancel &&
-            occurrences.Any(occurrence => occurrence.Kind == EventKind.Cancelled) &&
+            occurrences.Any(occurrence => occurrence.Kind == EventKind.Cancelled && !AwaitedCancellation(occurrence)) &&
             occurrences.All(occurrence => occurrence.Kind != EventKind.CancelCompleted))
         {
             _dispatcher.ResumeRestartAndDrain(LastCandle.OpenTime + _timeframe.Duration, cancellationToken);
@@ -264,7 +266,7 @@ public sealed class BotEngineSession
     ///     unchanged keep their state, the others warm on <paramref name="closedHistory" />, orders of removed blocks are
     ///     cancelled and one <c>Resume(GraphChanged)</c> is drained; the root is committed. <paramref name="applied" /> are the
     ///     run's values fitted to the candidate's <paramref name="parameters" />, and the bot's values follow them in the same
-    ///     commit (ADR 0039). Returns null when it switched, or the reason the engine refused the candidate, in which case
+    ///     commit (ADR 0047). Returns null when it switched, or the reason the engine refused the candidate, in which case
     ///     nothing changed.
     /// </summary>
     internal async Task<string?> ChangeGraph(
@@ -295,7 +297,7 @@ public sealed class BotEngineSession
 
     /// <summary>
     ///     Gives a stored run the bot's current values and allocation (ADR 0025) on <paramref name="target" />, the strategy's
-    ///     latest version, in one root (ADR 0039): the engine switches to it compiled with <paramref name="applied" />, the
+    ///     latest version, in one root (ADR 0047): the engine switches to it compiled with <paramref name="applied" />, the
     ///     account's capital becomes <paramref name="allocationCap" /> (the difference moves the quote balance), and one
     ///     <c>Resume(GraphChanged)</c> is drained; the root is committed. Returns null when it applied, or the reason it was
     ///     refused, in which case nothing changed.
@@ -353,6 +355,30 @@ public sealed class BotEngineSession
         return true;
     }
 
+    /// <summary>
+    ///     Asks the engine to cancel the order of an owner's cancel request (ADR 0048) and commits the request's resolution with the
+    ///     root. The engine cancels it as it cancels its own orders: the order awaits cancellation, the root's commit adds the cancel
+    ///     intent, and the venue's confirmation ends it without a resume. An order that is not working, or that already awaits
+    ///     cancellation, rejects the request. Returns false when the engine has no candle yet and the request was left alone.
+    /// </summary>
+    public async Task<bool> ProcessOrderCancel(OrderCancelRequest request, CancellationToken cancellationToken)
+    {
+        if (Checkpoint is null || LastCandle is null)
+        {
+            return false;
+        }
+
+        string? rejection = _dispatcher.RequestOrderCancel(request.EngineOrderId) switch
+        {
+            ExternalCancelDisposition.Pending => null,
+            ExternalCancelDisposition.AlreadyPending => OrderCancelRequests.AlreadyCancellingCode,
+            _ => OrderCancelRequests.NotOpenCode
+        };
+        await Save(liveCandle: false, cancellationToken, orderCancel: new BotRootOrderCancel(request.Id, rejection));
+
+        return true;
+    }
+
     private async Task StartAt(Candle candle, int index, CancellationToken cancellationToken)
     {
         _dispatcher.StartAndDrain(new ReachedMarketContext(candle, index, candle.OpenTime + _timeframe.Duration, PricePhase.Open, candle.Open, index));
@@ -381,10 +407,25 @@ public sealed class BotEngineSession
         }
     }
 
-    private async Task Save(bool liveCandle, CancellationToken cancellationToken, BotRootManualOrder? manualOrder = null, ExternalOrderUpdate? update = null)
+    /// <summary>
+    ///     Whether a cancelled order awaited cancellation in the last committed state, so the engine had asked to cancel it.
+    /// </summary>
+    private bool AwaitedCancellation(EventOccurrence occurrence)
+    {
+        return occurrence.Payload is OrderPayload { Order.Id: var orderId } &&
+            Checkpoint!.Account.Orders.Any(order => order.Id == orderId && order.Status == OrderStatus.PendingCancel);
+    }
+
+    private async Task Save(
+        bool liveCandle,
+        CancellationToken cancellationToken,
+        BotRootManualOrder? manualOrder = null,
+        ExternalOrderUpdate? update = null,
+        BotRootOrderCancel? orderCancel = null)
     {
         DateTimeOffset now = _clock.GetUtcNow();
         GraphEngineCheckpoint current = _dispatcher.CaptureCheckpoint(_version.Value.ToString("D"), LastCandle!.OpenTime + _timeframe.Duration);
+        BotOrderFill? filled = BotRootAccounting.OrderFilled(Checkpoint, current, update, _dispatcher.Account.Rules);
         await _committer.Commit(
             new BotRootCommit(
                 _botId,
@@ -396,10 +437,16 @@ public sealed class BotEngineSession
                 manualOrder,
                 BotRootAccounting.Fills(_botId, Checkpoint, current, update, _dispatcher.Account.Rules.BuyFeeAsset, now),
                 BotRootAccounting.Position(Checkpoint, current, now),
-                BotRootAccounting.FeeCorrections(_botId, Checkpoint, current, update, now)),
+                BotRootAccounting.FeeCorrections(_botId, Checkpoint, current, update, now),
+                orderCancel),
             bot =>
             {
                 bot.ApplyStrategyVersion(_version, now);
+
+                if (filled is not null)
+                {
+                    bot.RecordOrderFilled(filled, now);
+                }
 
                 if (_switchedParameters is { } parameters)
                 {

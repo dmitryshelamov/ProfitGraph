@@ -65,7 +65,7 @@ test('a bot is created with a key, trades, is stopped and reported', async ({ pa
   await expect(fills.getByRole('cell', { name: '0.0001 BTC', exact: true })).toBeVisible();
   await expect(page.getByLabel('Цена для отображения')).toHaveText('104 USDT', { timeout: 20_000 });
   await expect(page.getByText(/^тикер биржи/)).toBeVisible();
-  await expect(page.getByLabel('Нереализованная прибыль')).toHaveText('0.3896 USDT');
+  await expect(page.getByLabel('Нереализованная прибыль')).toHaveText('+0.3896 USDT');
   const feed = page.getByRole('list', { name: 'Лента бота' });
   await expect(feed.getByText('Запущен', { exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(feed.getByText(/^Исполнение: покупка 0\.1 на 10/)).toBeVisible({ timeout: 20_000 });
@@ -75,5 +75,5 @@ test('a bot is created with a key, trades, is stopped and reported', async ({ pa
     timeout: 20_000,
   });
   await expect(feed.getByText('Остановлен', { exact: true })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText('Базовый актив')).toBeVisible();
+  await expect(page.getByText('Объём', { exact: true })).toBeVisible();
 });

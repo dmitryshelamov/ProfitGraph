@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import {
   AlertsList,
+  BotAccountCard,
   BotAssetCard,
   BotChart,
   BotControls,
@@ -37,7 +38,7 @@ import { PageHeader } from '@/shared/ui/PageHeader';
 import { RenameForm } from '@/shared/ui/RenameForm';
 
 /**
- * One bot: its asset, its chart of closed candles with its fills, its state and controls, position at a live price,
+ * One bot: the exchange account it trades on, its asset, its chart of closed candles with its fills, its state and controls, position at a live price,
  * limits, parameters, foreign orders, alerts, manual order, event feed and fills.
  */
 export function BotPage() {
@@ -109,6 +110,7 @@ export function BotPage() {
         }
         meta={`${venues.data?.find((venue) => venue.id === current.venue)?.name ?? current.venue} · комиссии: лимитные ${fractionLabel(current.limitFeeRate)}, рыночные ${fractionLabel(current.marketFeeRate)}`}
       />
+      <BotAccountCard botId={current.id} quoteAsset={display.quoteAsset} />
       <p className="text-sm text-text-secondary">
         Стратегия:{' '}
         <Link
@@ -175,7 +177,7 @@ export function BotPage() {
       </Card>
       <BotUnresolvedOrders botId={current.id} />
       <Card title="Активные ордера">
-        <BotOpenOrders botId={current.id} display={display} />
+        <BotOpenOrders bot={current} display={display} />
       </Card>
       <BotWaitingOrders botId={current.id} />
       <Card title="Алерты">

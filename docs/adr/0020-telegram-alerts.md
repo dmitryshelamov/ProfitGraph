@@ -1,6 +1,7 @@
 # ADR 0020: Telegram Alerts
 
-Status: Accepted, 2026-10-25.
+Status: Accepted, 2026-10-25. [ADR 0042](0042-telegram-notifications.md) proposes to replace its delivery, texts and
+update handling.
 
 ## Context
 

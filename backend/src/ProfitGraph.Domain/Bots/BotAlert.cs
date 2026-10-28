@@ -35,7 +35,10 @@ public sealed class BotAlert : AggregateRoot
 
     public static BotAlert Raise(BotAlertId id, BotId botId, UserId ownerId, BotAlertKind kind, string? reason, DateTimeOffset now)
     {
-        return new BotAlert(id, botId, ownerId, kind, reason, now, acknowledgedAt: null);
+        var alert = new BotAlert(id, botId, ownerId, kind, reason, now, acknowledgedAt: null);
+        alert.AddDomainEvent(new BotAlertRaised(id, botId, ownerId, kind, reason, now));
+
+        return alert;
     }
 
     public static BotAlert Restore(

@@ -1,5 +1,4 @@
 using ProfitGraph.Domain.Accounts;
-using ProfitGraph.Domain.Bots;
 
 namespace ProfitGraph.Domain.Notifications;
 
@@ -27,11 +26,4 @@ public interface ITelegramLinkRepository
     ///     Removes and returns the code with this hash, so it is used at most once.
     /// </summary>
     Task<TelegramLinkCode?> TakeCode(string codeHash, CancellationToken cancellationToken);
-
-    /// <summary>
-    ///     Alerts raised after their owner's chat was linked, not yet sent, for chats that are not blocked; oldest first.
-    /// </summary>
-    Task<IReadOnlyList<TelegramAlertDelivery>> ListUndelivered(int limit, CancellationToken cancellationToken);
-
-    Task MarkDelivered(BotAlertId alertId, DateTimeOffset now, CancellationToken cancellationToken);
 }

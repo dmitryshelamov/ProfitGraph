@@ -248,3 +248,10 @@ gateway amend it in later stage 5 pull requests.
   and a live lease with an open submit gate. The lease and the bot are read under their locks in one transaction.
 - `GET /api/bots/{id}/waiting-orders` lists them for the owner; the bot page shows them with fixed texts such as
   «Ждёт ценового коридора (коридор 90–110)» or «Перенос на следующую торговую сессию».
+
+## Amendment: outbox retention and parked messages (ADR 0045)
+
+- A message that failed `Outbox:MaxAttempts` times (default 10), an unknown type included, is parked with its last error
+  and no longer tried; a warning without payload is logged and `/api/health/ready` reports Degraded until the operator
+  releases it. The Worker's `live` role deletes messages delivered more than `Outbox:Retention` (default 14 days) ago,
+  in batches of `Outbox:RetentionBatchSize`, every hour.

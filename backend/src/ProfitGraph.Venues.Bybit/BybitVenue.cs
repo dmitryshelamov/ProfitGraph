@@ -19,6 +19,8 @@ internal sealed class BybitVenue : IVenueDescriptor
 
     public string Name => "Bybit";
 
+    public string? Market => "Spot";
+
     /// <summary>
     ///     Spot kline intervals that the engine's timeframe grid also supports.
     /// </summary>

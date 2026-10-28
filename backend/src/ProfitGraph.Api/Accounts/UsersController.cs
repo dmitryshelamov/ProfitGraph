@@ -15,7 +15,7 @@ namespace ProfitGraph.Api.Accounts;
 [ApiController]
 [Authorize(Roles = AuthenticationSetup.OwnerRole)]
 [Route("api/users")]
-public sealed class UsersController(ISender sender) : ControllerBase
+public sealed class UsersController(ISender sender, AccountConnections connections) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<UserResponse>> Create(CreateUserRequest request, CancellationToken cancellationToken)
@@ -30,6 +30,9 @@ public sealed class UsersController(ISender sender) : ControllerBase
     {
         Guid actorId = AuthenticationSetup.UserId(User) ?? throw new InvalidOperationException("An authorized request has no user identifier.");
         await sender.Send(new BlockUserCommand(actorId, id), cancellationToken);
+
+        // HTTP requests re-check the account on their own; open realtime connections would outlive the block.
+        connections.Abort(id);
 
         return NoContent();
     }

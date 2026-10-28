@@ -8,6 +8,7 @@ using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.Ports;
 using ProfitGraph.Application.Accounts.ReadExchangeCredentialSecrets;
 using ProfitGraph.Application.Accounts.RecordAccountBalance;
+using ProfitGraph.Application.Accounts.RecordAccountIdentity;
 using ProfitGraph.Application.Accounts.ThinAccountSnapshots;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Domain.Accounts;
@@ -19,7 +20,8 @@ namespace ProfitGraph.Infrastructure.Accounts;
 ///     The Worker's <c>live</c> role reads the account value of every credential with a bot, stopped or running and even
 ///     while trading is halted (Profit Fox Designer ADR 0069): a credential is due five minutes after a success, and after
 ///     a failure 5, 10, 20, 40 and then 60 minutes later. Failures stay per credential. No transaction spans a venue read.
-///     History older than seven days is thinned to hourly once an hour.
+///     History older than seven days is thinned to hourly once an hour. The account's identity, on a venue that describes
+///     it, is read once a day and an hour after a failure (ADR 0049), never on a page view.
 /// </summary>
 internal sealed class AccountSnapshotHost(IServiceScopeFactory scopes, TimeProvider clock, ILogger<AccountSnapshotHost> logger) : BackgroundService
 {
@@ -38,6 +40,7 @@ internal sealed class AccountSnapshotHost(IServiceScopeFactory scopes, TimeProvi
                 try
                 {
                     await ReadDue(stoppingToken);
+                    await ReadDueIdentities(stoppingToken);
 
                     if (clock.GetUtcNow() - thinnedAt >= ThinInterval)
                     {
@@ -83,6 +86,57 @@ internal sealed class AccountSnapshotHost(IServiceScopeFactory scopes, TimeProvi
             {
                 logger.LogInformation("Stored the account value of credential {CredentialId}.", credential.CredentialId.Value);
             }
+        }
+    }
+
+    private async Task ReadDueIdentities(CancellationToken stoppingToken)
+    {
+        IReadOnlyList<DueAccountIdentity> due;
+
+        using (IServiceScope scope = scopes.CreateScope())
+        {
+            IReadOnlyList<VenueId> venues = scope.ServiceProvider.GetRequiredService<VenuePorts<IVenueAccountIdentityReader>>().Venues;
+            due = await scope.ServiceProvider.GetRequiredService<IAccountIdentityRepository>().ListDue(venues, clock.GetUtcNow(), stoppingToken);
+        }
+
+        foreach (DueAccountIdentity credential in due)
+        {
+            using IServiceScope scope = scopes.CreateScope();
+            var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+            AccountIdentityReadInternal read = await ReadIdentity(scope.ServiceProvider, sender, credential, stoppingToken);
+            await sender.Send(new RecordAccountIdentityCommand(credential.CredentialId.Value, read), stoppingToken);
+
+            if (read.Identity is null)
+            {
+                logger.LogWarning("Reading the account identity of credential {CredentialId} failed: {Reason}.", credential.CredentialId.Value, read.FailureReason);
+            }
+            else
+            {
+                logger.LogInformation("Stored the account identity of credential {CredentialId}.", credential.CredentialId.Value);
+            }
+        }
+    }
+
+    private static async Task<AccountIdentityReadInternal> ReadIdentity(
+        IServiceProvider services,
+        ISender sender,
+        DueAccountIdentity due,
+        CancellationToken stoppingToken)
+    {
+        try
+        {
+            ExchangeCredentialSecretsInternal secrets = await sender.Send(
+                new ReadExchangeCredentialSecretsQuery(due.OwnerId.Value, due.CredentialId.Value),
+                stoppingToken);
+            IVenueAccountIdentityReader? reader = services.GetRequiredService<VenuePorts<IVenueAccountIdentityReader>>().Find(new VenueId(secrets.Venue));
+
+            return reader is null
+                ? AccountIdentityReadInternal.Failed("venue_unsupported")
+                : await reader.Read(secrets, stoppingToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return AccountIdentityReadInternal.Failed("credential_unavailable", exception.GetType().Name);
         }
     }
 

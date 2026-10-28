@@ -1,0 +1,29 @@
+namespace ProfitGraph.Domain.Notifications;
+
+/// <summary>
+///     Identifies a queued Telegram notification; never empty.
+/// </summary>
+public readonly record struct TelegramNotificationId
+{
+    public Guid Value { get; }
+
+    public TelegramNotificationId(Guid value)
+    {
+        if (value == Guid.Empty)
+        {
+            throw new ArgumentException("An identifier cannot be empty.", nameof(value));
+        }
+
+        Value = value;
+    }
+
+    public static TelegramNotificationId New()
+    {
+        return new TelegramNotificationId(Guid.NewGuid());
+    }
+
+    public override string ToString()
+    {
+        return Value.ToString();
+    }
+}

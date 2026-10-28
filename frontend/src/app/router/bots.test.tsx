@@ -290,21 +290,27 @@ describe('bots', () => {
 
         return json(order, 202);
       },
+      'GET /api/market-data/instruments': () =>
+        json([{ venue: bot.venue, symbol: bot.symbol, baseAsset: 'BTC', quoteAsset: 'USDT' }]),
       [`GET ${botPath}/manual-orders/${order.id}`]: () =>
         json({ ...order, status: 'Rejected', rejectionReason: 'TagActive' }),
     });
     renderApp(`/bots/${bot.id}`);
 
-    expect(screen.queryByLabelText('Цена')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Цена/)).not.toBeInTheDocument();
     await userEvent.selectOptions(await screen.findByLabelText('Тип заявки'), 'Limit');
-    await userEvent.type(screen.getByLabelText('Сумма'), '3000');
-    await userEvent.type(screen.getByLabelText('Цена'), '150.255');
+    await userEvent.selectOptions(screen.getByLabelText('Сторона'), 'Sell');
+
+    expect(await screen.findByLabelText('Количество, BTC')).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('Сторона'), 'Buy');
+    await userEvent.type(screen.getByLabelText('Сумма, USDT'), '3000');
+    await userEvent.type(screen.getByLabelText('Цена за 1 шт., USDT'), '150.255');
 
     expect(await screen.findByText('Цена должна быть кратна шагу цены 0.01.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Отправить заявку' })).toBeDisabled();
 
-    await userEvent.clear(screen.getByLabelText('Цена'));
-    await userEvent.type(screen.getByLabelText('Цена'), '150.25');
+    await userEvent.clear(screen.getByLabelText('Цена за 1 шт., USDT'));
+    await userEvent.type(screen.getByLabelText('Цена за 1 шт., USDT'), '150.25');
 
     expect(await screen.findByText('Будет выставлено количество: 10')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
@@ -334,7 +340,7 @@ describe('bots', () => {
 
     await userEvent.selectOptions(await screen.findByLabelText('Тип заявки'), 'Limit');
     await userEvent.type(screen.getByLabelText('Сумма'), '10');
-    await userEvent.type(screen.getByLabelText('Цена'), '4');
+    await userEvent.type(screen.getByLabelText('Цена за 1 шт.'), '4');
     await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Назад' }));
 

@@ -15,6 +15,7 @@ public sealed class BotRootCommitter(
     IBotCheckpointRepository checkpoints,
     IOrderIntentRepository intents,
     IManualOrderRequestRepository manualOrders,
+    IOrderCancelRequestRepository orderCancels,
     IBotFillRepository fills,
     IBotFeeCorrectionRepository feeCorrections,
     IBotOrderWaitingRepository waiting,
@@ -56,6 +57,11 @@ public sealed class BotRootCommitter(
                 if (commit.ManualOrder is { } manual)
                 {
                     await Resolve(manual, now, cancellationToken);
+                }
+
+                if (commit.OrderCancel is { } cancel)
+                {
+                    await Resolve(cancel, now, cancellationToken);
                 }
 
                 foreach (BotFill fill in commit.Fills ?? [])
@@ -107,6 +113,28 @@ public sealed class BotRootCommitter(
         }
 
         await manualOrders.Update(request, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Resolves the owner's order cancel the root processed (ADR 0048). A request that is no longer pending, because it expired
+    ///     while it waited, fails the commit, so the engine restarts from its stored state without the cancel.
+    /// </summary>
+    private async Task Resolve(BotRootOrderCancel cancel, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        OrderCancelRequest request = await orderCancels.GetForUpdate(cancel.RequestId, cancellationToken) is { Status: OrderCancelStatus.Pending } pending
+            ? pending
+            : throw new BotRuleException(BotRuleException.OrderCancelResolved, "The order cancel is no longer pending.");
+
+        if (cancel.RejectionReason is { } reason)
+        {
+            request.Reject(reason, now);
+        }
+        else
+        {
+            request.MarkRequested(now);
+        }
+
+        await orderCancels.Update(request, cancellationToken);
     }
 
     /// <summary>

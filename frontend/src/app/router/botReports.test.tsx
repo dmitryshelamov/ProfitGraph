@@ -178,11 +178,13 @@ describe('bot reports', () => {
 
     const price = await screen.findByLabelText('Цена для отображения');
     expect(price).toHaveTextContent('61000');
-    expect(screen.getByLabelText('Нереализованная прибыль')).toHaveTextContent('0.94');
+    expect(screen.getByLabelText('Нереализованная прибыль')).toHaveTextContent('+0.94');
     expect(screen.getByText(/закрытие последней свечи/)).toBeInTheDocument();
     expect(screen.getByText('60060.06')).toBeInTheDocument();
+    expect(screen.getByLabelText('Реализованная прибыль')).toHaveTextContent('—');
+    expect(screen.getByText('продаж ещё не было')).toBeInTheDocument();
     expect(
-      within(screen.getByRole('table', { name: 'Циклы позиции' })).getByText('открыта'),
+      within(screen.getByRole('table', { name: 'Циклы позиции' })).getByText('открыт'),
     ).toBeInTheDocument();
     await waitFor(() => expect(hub.subscriptions).toContain(bot.id));
 
@@ -197,6 +199,33 @@ describe('bot reports', () => {
     expect(screen.getByText(/тикер биржи/)).toBeInTheDocument();
     // 0.000999 × 61500 − 60, exactly.
     expect(screen.getByLabelText('Нереализованная прибыль')).toHaveTextContent('1.4385');
+  });
+
+  it('shows realized profit once a cycle closed', async () => {
+    fakeApi(
+      routes({
+        [`GET ${botPath}/position?cycles=20`]: () =>
+          json({
+            ...openPosition,
+            realizedPnl: '-1.5',
+            cycles: [
+              ...openPosition.cycles,
+              {
+                id: 'c0',
+                openedAt: '2026-10-23T09:00:00Z',
+                closedAt: '2026-10-23T12:00:00Z',
+                realizedPnl: '-1.5',
+              },
+            ],
+          }),
+      }),
+    );
+    renderApp(`/bots/${bot.id}`);
+
+    expect(await screen.findByLabelText('Реализованная прибыль')).toHaveTextContent('−1.5');
+    expect(
+      within(screen.getByRole('table', { name: 'Циклы позиции' })).getByText('−1.5'),
+    ).toBeInTheDocument();
   });
 
   it('keeps the stored price when a live ticker is older', async () => {

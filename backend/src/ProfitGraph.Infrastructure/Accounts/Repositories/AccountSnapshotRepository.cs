@@ -33,6 +33,14 @@ internal sealed class AccountSnapshotRepository(NpgsqlConnection connection, Pos
         return [.. rows.Select(row => row.ToDomain())];
     }
 
+    public async Task<AccountSnapshot?> Latest(ExchangeCredentialId credentialId, CancellationToken cancellationToken)
+    {
+        var row = await connection.QuerySingleOrDefaultAsync<AccountSnapshotDb>(
+            Command(AccountSnapshotQueries.Latest, new { credentialId = credentialId.Value }, cancellationToken));
+
+        return row?.ToDomain();
+    }
+
     public Task<int> ThinToHourly(DateTimeOffset before, CancellationToken cancellationToken)
     {
         return connection.ExecuteAsync(Command(AccountSnapshotQueries.ThinToHourly, new { before }, cancellationToken));

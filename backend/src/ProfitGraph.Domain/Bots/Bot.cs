@@ -340,7 +340,8 @@ public sealed class Bot : AggregateRoot
     }
 
     /// <summary>
-    ///     A runtime failure degrades the bot and schedules an automatic restart, unless a safety reason already holds it.
+    ///     A runtime failure degrades the bot and schedules an automatic restart, unless a safety reason already holds it; once
+    ///     the restarts are spent the bot waits for its owner (<see cref="BotRestartsExhausted" />).
     ///     <paramref name="detail" /> is a short text that is safe to show to the owner (ADR 0029).
     /// </summary>
     public bool RecordRuntimeFailure(DateTimeOffset now, string? detail = null)
@@ -351,6 +352,7 @@ public sealed class Bot : AggregateRoot
         }
 
         bool wasDegraded = IsDegraded;
+        DateTimeOffset? previousRestartAt = NextRestartAt;
         RuntimeStatus = BotRuntimeStatus.Degraded;
         StatusReason = BotStatusReason.RuntimeFailure;
         NextRestartAt = BotRestartSchedule.NextRestartAt(RestartAttempts, now);
@@ -359,6 +361,11 @@ public sealed class Bot : AggregateRoot
         if (!wasDegraded)
         {
             AddDomainEvent(new BotDegraded(Id, BotStatusReason.RuntimeFailure, now, FailureDetail.Limit(detail)));
+        }
+
+        if (NextRestartAt is null && (!wasDegraded || previousRestartAt is not null))
+        {
+            AddDomainEvent(new BotRestartsExhausted(Id, now));
         }
 
         return true;
@@ -439,6 +446,16 @@ public sealed class Bot : AggregateRoot
     {
         UpdatedAt = now;
         AddDomainEvent(new BotHistoryRestated(Id, openTime, previousClose, restatedClose, now));
+    }
+
+    /// <summary>
+    ///     Records that the venue executed one of the bot's orders completely (ADR 0042).
+    /// </summary>
+    public void RecordOrderFilled(BotOrderFill fill, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(fill);
+        UpdatedAt = now;
+        AddDomainEvent(new BotOrderFilled(Id, fill, now));
     }
 
     /// <summary>
@@ -528,7 +545,7 @@ public sealed class Bot : AggregateRoot
     }
 
     /// <summary>
-    ///     The bot now runs a strategy version that names other parameters (ADR 0039): a value of a removed parameter is dropped
+    ///     The bot now runs a strategy version that names other parameters (ADR 0047): a value of a removed parameter is dropped
     ///     and a new parameter takes its default, so the bot's values stay those its run applies. It happens with the version
     ///     switch, also while the bot runs. Returns whether the values changed.
     /// </summary>
@@ -724,6 +741,18 @@ public sealed class Bot : AggregateRoot
         if (DesiredState != BotDesiredState.Running || RuntimeStatus != BotRuntimeStatus.Running)
         {
             throw new BotRuleException(BotRuleException.NotRunning, "A manual order needs a running bot.");
+        }
+    }
+
+    /// <summary>
+    ///     An owner's cancel of one of the bot's orders (ADR 0048) is accepted only while the bot should run and runs: a stopped bot
+    ///     has no runner to turn it into the engine's cancel, and its strategy would restore the order at the next start.
+    /// </summary>
+    public void EnsureAcceptsOrderCancels()
+    {
+        if (DesiredState != BotDesiredState.Running || RuntimeStatus != BotRuntimeStatus.Running)
+        {
+            throw new BotRuleException(BotRuleException.NotRunning, "Cancelling an order of the bot needs a running bot.");
         }
     }
 

@@ -46,14 +46,22 @@ internal sealed class TInvestAccountDirectory(TInvestTransport transport) : IVen
         return [.. response.Accounts.Where(account => !string.IsNullOrEmpty(account.Id)).Select(ToInternal)];
     }
 
-    private static VenueAccountInternal ToInternal(Account account)
+    /// <summary>
+    ///     The account's kind by its type: a brokerage account, an IIS or any other.
+    /// </summary>
+    internal static string Kind(AccountType type)
     {
-        string kind = account.Type switch
+        return type switch
         {
             AccountType.Tinkoff => "broker",
             AccountType.TinkoffIis => "iis",
             _ => "other"
         };
+    }
+
+    private static VenueAccountInternal ToInternal(Account account)
+    {
+        string kind = Kind(account.Type);
         string? ineligibility = (account.Status, account.AccessLevel, kind) switch
         {
             (not AccountStatus.Open, _, _) => "not_open",

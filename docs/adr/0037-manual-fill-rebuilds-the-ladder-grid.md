@@ -1,12 +1,12 @@
 # ADR 0037: A Manual Fill Rebuilds the Ladder's Grid
 
-Status: Proposed, 2026-10-28. Supplements ADR 0016 and ADR 0027; follows Profit Fox (`LadderStrategy.RebuildGridAfterBuy`: "a manual
+Status: Proposed, 2026-10-28. Supplements ADR 0016 and ADR 0046; follows Profit Fox (`LadderStrategy.RebuildGridAfterBuy`: "a manual
 market fill changes the reference for both grid legs"); proven on the scripted venue only. The owner reviews it in the pull request.
 
 ## Context
 
-The owner buys by hand through the bot's manual order block (ADR 0016, ADR 0027): the order is a bot order with the tag `manual` and
-the origin `$manual`. ADR 0027 said the strategy is not consulted by it. In the real GAZP bot (2026-10-28) a manual market buy of 30
+The owner buys by hand through the bot's manual order block (ADR 0016, ADR 0046): the order is a bot order with the tag `manual` and
+the origin `$manual`. ADR 0046 said the strategy is not consulted by it. In the real GAZP bot (2026-10-28) a manual market buy of 30
 shares raised the position to 50 shares at an average of 116.33, but the exit stayed a sale of 20 shares at 122.82 (the old position's
 price) and the averaging order stayed as it was: the strategy re-prices its exit only when its own entry or averaging order fills
 (`entry filled → cancelExit`, `average filled → cancelExit`), and a manual fill reaches no order node. In Profit Fox a manual
@@ -33,7 +33,7 @@ is right after the exit filled and wrong while the position is open.
 A manual order rebuilds the grid when it is filled, whatever its side or type: the engine emits the fill event when an order is
 completely filled, and a partial fill only accumulates, as with the strategy's own orders and in Profit Fox (the rebuild follows the
 filled order). A manual limit order that fills in parts therefore rebuilds the grid once, at its last part, on the whole position. A
-manual sale needs free base (ADR 0027), so while the exit holds all of it the owner sells only what the exit leaves free; a sale that
+manual sale needs free base (ADR 0046), so while the exit holds all of it the owner sells only what the exit leaves free; a sale that
 closes the position starts a new cycle by the template's own entry rules.
 
 ## Consequences

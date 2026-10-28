@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Time.Testing;
 
 using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Bots.Contracts;
@@ -19,7 +18,7 @@ public sealed class FormingCandleFeedsTests
 
     private FakeFormingCandleSource _source = null!;
     private RecordingFormingCandleSink _sink = null!;
-    private FakeTimeProvider _clock = null!;
+    private TimerCountingTimeProvider _clock = null!;
     private FormingCandleFeeds _feeds = null!;
 
     [SetUp]
@@ -27,7 +26,7 @@ public sealed class FormingCandleFeedsTests
     {
         _source = new FakeFormingCandleSource();
         _sink = new RecordingFormingCandleSink();
-        _clock = new FakeTimeProvider(Minute);
+        _clock = new TimerCountingTimeProvider(Minute);
         _feeds = new FormingCandleFeeds([_source], _sink, new FormingCandleOptions(), _clock, NullLogger<FormingCandleFeeds>.Instance);
     }
 
@@ -125,6 +124,8 @@ public sealed class FormingCandleFeedsTests
         await Until(() => _sink.Statuses.Count == 2);
         _sink.Statuses.ShouldBe([FormingFeedStatus.Live, FormingFeedStatus.NoData]);
 
+        // The throttle's ticks are the feed's first timer; each backoff is another, created once the feed waits it out.
+        await Until(() => _clock.Timers == 2);
         _clock.Advance(TimeSpan.FromMilliseconds(999));
         await Task.Delay(50);
         _source.Subscriptions.ShouldBe(1);
@@ -132,7 +133,7 @@ public sealed class FormingCandleFeedsTests
         _clock.Advance(TimeSpan.FromMilliseconds(1));
         await Until(() => _source.Subscriptions == 2);
         _source.Fail();
-        await Until(() => _source.Open == 0);
+        await Until(() => _source.Open == 0 && _clock.Timers == 3);
 
         // The second failure in a row waits twice as long.
         _clock.Advance(TimeSpan.FromSeconds(1));

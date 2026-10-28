@@ -1,7 +1,7 @@
 namespace ProfitGraph.Infrastructure.Notifications;
 
 /// <summary>
-///     Section <c>Telegram</c> (ADR 0020). Every committed setting keeps <see cref="Enabled" /> false; the bot token
+///     Section <c>Telegram</c> (ADR 0020, ADR 0042). Every committed setting keeps <see cref="Enabled" /> false; the bot token
 ///     comes from private configuration and never reaches a log.
 /// </summary>
 public sealed class TelegramOptions
@@ -30,6 +30,11 @@ public sealed class TelegramOptions
     public TimeSpan RetryDelay { get; init; } = TimeSpan.FromSeconds(5);
 
     /// <summary>
+    ///     How often the delivery host looks for due notifications while none was due (ADR 0042).
+    /// </summary>
+    public TimeSpan DeliveryInterval { get; init; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>
     ///     The <c>t.me</c> link that starts the bot with <paramref name="code" />, when the bot's username is known.
     /// </summary>
     public string? StartLink(string code)
@@ -41,6 +46,6 @@ public sealed class TelegramOptions
     {
         return !Enabled || (!string.IsNullOrWhiteSpace(BotToken) && Uri.TryCreate(BaseAddress, UriKind.Absolute, out Uri? address) &&
             address.Scheme is "https" or "http" &&
-            PollTimeout >= TimeSpan.Zero && RetryDelay > TimeSpan.Zero);
+            PollTimeout >= TimeSpan.Zero && RetryDelay > TimeSpan.Zero && DeliveryInterval > TimeSpan.Zero);
     }
 }
