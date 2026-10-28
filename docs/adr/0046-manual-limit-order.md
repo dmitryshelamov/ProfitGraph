@@ -1,7 +1,10 @@
-# ADR 0027: Manual Limit Order
+# ADR 0046: Manual Limit Order
 
 Status: Proposed, 2026-10-26. Built with this pull request for all three venues. The owner delegated the decisions below
 while away and reviews them in the pull request.
+
+Renumbered from ADR 0027, a number it shared with [ADR 0027](0027-forming-candle.md); earlier pull requests and
+commits call it ADR 0027.
 
 ## Context
 

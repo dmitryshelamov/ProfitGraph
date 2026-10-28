@@ -2,6 +2,7 @@ using Dapper;
 
 using MediatR;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Npgsql;
@@ -15,7 +16,8 @@ namespace ProfitGraph.Infrastructure.Common.Outbox;
 /// <summary>
 ///     Delivers one stored event to its MediatR handlers inside one transaction that also marks it delivered. Handlers
 ///     only write to the database, so a crash before commit rolls back both and the event is delivered again: each event
-///     takes effect once. A failed delivery waits with exponential backoff.
+///     takes effect once. A failed delivery waits with exponential backoff; one that failed <see cref="OutboxOptions.MaxAttempts" />
+///     times is parked and no longer tried (ADR 0045).
 /// </summary>
 internal sealed class OutboxDelivery(
     NpgsqlConnection connection,
@@ -24,7 +26,8 @@ internal sealed class OutboxDelivery(
     OutboxEventTypes types,
     IPublisher publisher,
     IOptions<OutboxOptions> options,
-    TimeProvider clock)
+    TimeProvider clock,
+    ILogger<OutboxDelivery> logger)
 {
     internal const string UnknownTypeError = "unknown_event_type";
 
@@ -91,11 +94,27 @@ internal sealed class OutboxDelivery(
     private async Task RecordFailure(OutboxMessageDb message, string error, CancellationToken cancellationToken)
     {
         double seconds = Math.Min(Math.Pow(x: 2, Math.Min(message.Attempts, val2: 30)), options.Value.MaxRetryDelay.TotalSeconds);
-        DateTimeOffset nextAttemptAt = clock.GetUtcNow().AddSeconds(seconds);
-        await executor.ExecuteAsync(
-            () => connection.ExecuteAsync(
-                Command(OutboxQueries.RecordFailure, new { id = message.Id, nextAttemptAt, error = error[..Math.Min(error.Length, val2: 200)] }, cancellationToken)),
+        DateTimeOffset now = clock.GetUtcNow();
+        DateTimeOffset nextAttemptAt = now.AddSeconds(seconds);
+        string lastError = error[..Math.Min(error.Length, val2: 200)];
+        bool parked = await executor.ExecuteAsync(
+            () => connection.ExecuteScalarAsync<bool>(
+                Command(
+                    OutboxQueries.RecordFailure,
+                    new { id = message.Id, nextAttemptAt, error = lastError, maxAttempts = options.Value.MaxAttempts, now },
+                    cancellationToken)),
             cancellationToken);
+
+        if (parked)
+        {
+            // The payload stays out of the log: it may carry account details.
+            logger.LogWarning(
+                "Outbox message {MessageId} of type {EventType} failed {Attempts} times and is parked; last error {Error}.",
+                message.Id,
+                message.Type,
+                options.Value.MaxAttempts,
+                lastError);
+        }
     }
 
     private CommandDefinition Command(string sql, object? parameters, CancellationToken cancellationToken)

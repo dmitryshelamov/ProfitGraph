@@ -33,7 +33,7 @@ public sealed class StrategyTemplateEndpointTests
         using HttpClient client = await application.CreateSignedInClient();
         var templates = (await client.GetFromJsonAsync<JsonArray>("/api/strategy-templates"))!;
         templates.Select(template => template!["kind"]!.GetValue<string>())
-            .ShouldBe(["SmaCrossover", "Ladder", "LadderV2", "LadderProfitFox", "LadderSma", "CapitulationDip", "VolumeMomentum", "LadderPlus", "DcaProfitFox"]);
+            .ShouldBe(["SmaCrossover", "Ladder", "LadderProfitFox", "LadderSma", "CapitulationDip", "VolumeMomentum", "LadderPlus", "DcaProfitFox"]);
         using IServiceScope scope = application.Services.CreateScope();
         var registry = scope.ServiceProvider.GetRequiredService<INodeTypeRegistry>();
         var repository = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
@@ -85,7 +85,7 @@ public sealed class StrategyTemplateEndpointTests
                 "LadderSma" => LadderSmaStrategyBlockFactory.Create(),
                 "LadderProfitFox" => ProfitFoxLadderStrategyBlockFactory.Create(),
                 "SmaCrossover" => SmaStrategyBlockFactory.Create(),
-                _ => LadderStrategyBlockFactory.Create()
+                _ => LadderResumeStrategyBlockFactory.Create()
             };
             StrategyGraph original = new StrategyDefinitionLowerer(registry.GetAll()).Lower(expectedDefinition).Graph;
             string expected = JsonSerializer.Serialize(Replay(original, registry));
@@ -109,27 +109,28 @@ public sealed class StrategyTemplateEndpointTests
         using HttpClient client = await application.CreateSignedInClient();
         var templates = (await client.GetFromJsonAsync<JsonArray>("/api/strategy-templates"))!;
         templates[0]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(5);
+        templates[1]!["name"]!.GetValue<string>().ShouldBe("Ladder");
+        templates[1]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("Ladder");
         templates[1]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(17);
+        templates[2]!["name"]!.GetValue<string>().ShouldBe("Ladder (как в Profit Fox)");
+        templates[2]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("LadderV2");
         templates[2]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(17);
-        templates[3]!["name"]!.GetValue<string>().ShouldBe("Ladder (как в Profit Fox)");
-        templates[3]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("LadderV2");
-        templates[3]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(17);
-        templates[4]!["name"]!.GetValue<string>().ShouldBe("Ladder SMA");
-        templates[4]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("LadderSma");
-        templates[4]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(18);
+        templates[3]!["name"]!.GetValue<string>().ShouldBe("Ladder SMA");
+        templates[3]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("LadderSma");
+        templates[3]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(18);
 
-        templates[5]!["name"]!.GetValue<string>().ShouldBe("Откуп капитуляции");
-        templates[5]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("CapitulationDip");
+        templates[4]!["name"]!.GetValue<string>().ShouldBe("Откуп капитуляции");
+        templates[4]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("CapitulationDip");
+        templates[4]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(6);
+        templates[5]!["name"]!.GetValue<string>().ShouldBe("Импульс на объёме");
+        templates[5]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("VolumeMomentum");
         templates[5]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(6);
-        templates[6]!["name"]!.GetValue<string>().ShouldBe("Импульс на объёме");
-        templates[6]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("VolumeMomentum");
-        templates[6]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(6);
-        templates[7]!["name"]!.GetValue<string>().ShouldBe("Ladder+");
-        templates[7]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("LadderPlus");
-        templates[7]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(23);
-        templates[8]!["name"]!.GetValue<string>().ShouldBe("DCA (как в Profit Fox)");
-        templates[8]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("DcaProfitFox");
-        templates[8]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(6);
+        templates[6]!["name"]!.GetValue<string>().ShouldBe("Ladder+");
+        templates[6]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("LadderPlus");
+        templates[6]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(23);
+        templates[7]!["name"]!.GetValue<string>().ShouldBe("DCA (как в Profit Fox)");
+        templates[7]!["definition"]!["templateKind"]!.GetValue<string>().ShouldBe("DcaProfitFox");
+        templates[7]!["definition"]!["blocks"]!.AsArray().Count.ShouldBe(6);
 
         foreach (JsonNode? template in templates)
         {
