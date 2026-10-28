@@ -128,3 +128,12 @@ Corrections to the outbox of [ADR 0016](adr/0016-live-bot-runtime.md) found in r
 | Step | Scope | Done when | Status |
 |---|---|---|---|
 | 1. Retention and parked messages | [ADR 0045](adr/0045-outbox-retention-and-parked-messages.md): the Worker's `live` role deletes delivered messages older than 14 days in batches every hour; a message that failed 10 times is parked with its last error, logged without payload and reported by `/api/health/ready` as Degraded; `outbox_messages.parked_at` | Integration tests park a failing message with Degraded readiness and delete only expired delivered messages, batch by batch | Done |
+
+## Sign-in and sessions
+
+Corrections to stage 2 sign-in found in review.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Throttling and session end | [ADR 0043](adr/0043-sign-in-throttling-and-session-end.md): only failed sign-ins count, with a lockout per login that doubles from 30 s to 15 min and ends on success, except on client addresses the login signed in from; `returnTo` accepted only on the same origin; blocking closes the account's SignalR connections and hub calls re-check the account | Integration tests lock a login out and release it, keep the owner's known address open, close a blocked account's WebSocket connections on all four hubs; unit tests reject `//x`, `/\x`, `https://x` and `javascript:` as return paths | Done |
+| 2. Two-factor sign-in | Second factor for the owner | | Awaiting the owner's decision |
