@@ -101,7 +101,7 @@ internal sealed class BotRuntimeHost(
 
             if (bot is { IsDegraded: true, StatusReason: { } reason } && BotStatusReasons.IsSafety(reason))
             {
-                runner.StopAfterCurrentRoot(preserveStatus: true);
+                runner.StopAfterCurrentRoot();
                 await runner.Completion;
                 _runners.Remove(id);
             }
