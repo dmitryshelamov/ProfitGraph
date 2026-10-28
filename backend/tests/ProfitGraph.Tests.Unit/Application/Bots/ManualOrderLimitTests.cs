@@ -8,7 +8,7 @@ using ProfitGraph.Tests.Unit.Domain.Bots;
 namespace ProfitGraph.Tests.Unit.Application.Bots;
 
 /// <summary>
-///     The limit variant of the owner's manual order (ADR 0027): its command is checked and its request reads back with the price.
+///     The limit variant of the owner's manual order (ADR 0046): its command is checked and its request reads back with the price.
 /// </summary>
 public sealed class ManualOrderLimitTests
 {

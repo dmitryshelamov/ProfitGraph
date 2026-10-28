@@ -264,7 +264,7 @@ public sealed class BotEngineSession
     ///     unchanged keep their state, the others warm on <paramref name="closedHistory" />, orders of removed blocks are
     ///     cancelled and one <c>Resume(GraphChanged)</c> is drained; the root is committed. <paramref name="applied" /> are the
     ///     run's values fitted to the candidate's <paramref name="parameters" />, and the bot's values follow them in the same
-    ///     commit (ADR 0039). Returns null when it switched, or the reason the engine refused the candidate, in which case
+    ///     commit (ADR 0047). Returns null when it switched, or the reason the engine refused the candidate, in which case
     ///     nothing changed.
     /// </summary>
     internal async Task<string?> ChangeGraph(
@@ -295,7 +295,7 @@ public sealed class BotEngineSession
 
     /// <summary>
     ///     Gives a stored run the bot's current values and allocation (ADR 0025) on <paramref name="target" />, the strategy's
-    ///     latest version, in one root (ADR 0039): the engine switches to it compiled with <paramref name="applied" />, the
+    ///     latest version, in one root (ADR 0047): the engine switches to it compiled with <paramref name="applied" />, the
     ///     account's capital becomes <paramref name="allocationCap" /> (the difference moves the quote balance), and one
     ///     <c>Resume(GraphChanged)</c> is drained; the root is committed. Returns null when it applied, or the reason it was
     ///     refused, in which case nothing changed.

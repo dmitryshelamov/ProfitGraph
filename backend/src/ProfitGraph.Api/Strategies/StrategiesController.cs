@@ -76,7 +76,7 @@ public sealed class StrategiesController(ISender sender) : ControllerBase
 
     /// <summary>
     ///     The running bots a save would switch to the new version (ADR 0019) with their values, so the editor shows which new
-    ///     parameters take their default (ADR 0039); a save while any exists needs <c>confirmLiveImpact</c> and otherwise answers
+    ///     parameters take their default (ADR 0047); a save while any exists needs <c>confirmLiveImpact</c> and otherwise answers
     ///     409 <c>live_impact</c>.
     /// </summary>
     [HttpGet("{id:guid}/live-impact")]

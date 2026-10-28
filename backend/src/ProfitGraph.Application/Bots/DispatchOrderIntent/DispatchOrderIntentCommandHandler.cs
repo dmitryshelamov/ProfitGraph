@@ -234,10 +234,6 @@ internal sealed class DispatchOrderIntentCommandHandler(
     }
 
     /// <summary>
-    ///     What a submit commits in quote: a market buy its budget, a limit buy its price times quantity, a sell its
-    ///     quantity at its limit or at the last closed candle (Profit Fox Designer ADR 0056).
-    /// </summary>
-    /// <summary>
     ///     Why a submit breaks the bot's risk limits (ADR 0018), or null: a buy above the per-order limit, or a limit sell below
     ///     the price floor.
     /// </summary>

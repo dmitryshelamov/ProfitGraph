@@ -21,7 +21,7 @@ const statusLabels = {
 const sideLabels: Record<OrderSide, string> = { Buy: 'купить', Sell: 'продать' };
 
 /**
- * An owner order in a running bot, market or limit (ADR 0027): a buy is sized in quote, a sell in base. The bot takes it
+ * An owner order in a running bot, market or limit (ADR 0046): a buy is sized in quote, a sell in base. The bot takes it
  * within a minute; the strategy sees it only through its global order listeners. A limit order is confirmed before it is
  * sent, because it rests on the venue until it fills and the system cannot cancel it yet.
  */
@@ -53,6 +53,8 @@ export function ManualOrderForm({ bot }: { bot: Bot }) {
   const complete = amount.trim() !== '' && (!limit || price.trim() !== '');
   const canSend = running && complete && check.error === null && !waiting;
   const amountAsset = side === 'Buy' ? display.quoteAsset : display.baseAsset;
+  const amountLabel = withAsset(side === 'Buy' ? 'Сумма' : 'Количество', amountAsset);
+  const priceLabel = withAsset('Цена за 1 шт.', display.quoteAsset);
 
   function send(event: FormEvent) {
     event.preventDefault();
@@ -94,11 +96,11 @@ export function ManualOrderForm({ bot }: { bot: Bot }) {
             value={side}
             onChange={(event) => change(() => setSide(event.target.value as OrderSide))}
           >
-            <option value="Buy">Купить (сумма в котируемой валюте)</option>
-            <option value="Sell">Продать (количество в базовой валюте)</option>
+            <option value="Buy">Купить</option>
+            <option value="Sell">Продать</option>
           </select>
         </Field>
-        <Field label="Сумма">
+        <Field label={amountLabel}>
           <Input
             value={amount}
             onChange={(event) => change(() => setAmount(event.target.value))}
@@ -107,7 +109,7 @@ export function ManualOrderForm({ bot }: { bot: Bot }) {
           />
         </Field>
         {limit && (
-          <Field label="Цена">
+          <Field label={priceLabel}>
             <Input
               value={price}
               onChange={(event) => change(() => setPrice(event.target.value))}
@@ -165,4 +167,9 @@ export function ManualOrderForm({ bot }: { bot: Bot }) {
       )}
     </form>
   );
+}
+
+/** A field label with the asset its value is in, when the asset is known: «Сумма, RUB». */
+function withAsset(label: string, asset: string | null): string {
+  return asset ? `${label}, ${asset}` : label;
 }
