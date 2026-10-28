@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Infrastructure.Accounts.Security;
 using ProfitGraph.Venues.Steam;
 using ProfitGraph.Venues.Steam.Accounts;

@@ -9,6 +9,7 @@ using NSubstitute;
 using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.ReadExchangeCredentialSecrets;
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Venues.Steam;
 using ProfitGraph.Venues.Steam.Accounts;

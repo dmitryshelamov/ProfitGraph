@@ -3,6 +3,8 @@ using Dapper;
 using Npgsql;
 
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.BalanceStatuses;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Infrastructure.Accounts.Repositories.Contracts;
 using ProfitGraph.Infrastructure.Accounts.Repositories.Converters;
 using ProfitGraph.Infrastructure.Accounts.Repositories.Queries;

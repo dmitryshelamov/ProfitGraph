@@ -3,6 +3,7 @@ using MediatR;
 using ProfitGraph.Application.Bots;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.Bots;
 
 namespace ProfitGraph.Application.Accounts.DeleteExchangeCredential;

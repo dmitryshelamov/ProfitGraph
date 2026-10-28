@@ -11,7 +11,7 @@ using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.Ports;
 using ProfitGraph.Application.Accounts.RecordAccountBalance;
 using ProfitGraph.Application.Accounts.ThinAccountSnapshots;
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Snapshots;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Tests.Integration.Common;
 

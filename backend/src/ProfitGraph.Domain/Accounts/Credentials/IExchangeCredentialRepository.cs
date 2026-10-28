@@ -1,6 +1,6 @@
 using ProfitGraph.Domain.MarketData;
 
-namespace ProfitGraph.Domain.Accounts;
+namespace ProfitGraph.Domain.Accounts.Credentials;
 
 public interface IExchangeCredentialRepository
 {

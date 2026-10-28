@@ -1,9 +1,10 @@
 using System.Collections.Immutable;
 
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.MarketData;
 
-namespace ProfitGraph.Tests.Unit.Domain.Accounts;
+namespace ProfitGraph.Tests.Unit.Domain.Accounts.Credentials;
 
 public sealed class ExchangeCredentialTests
 {

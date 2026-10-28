@@ -1,4 +1,4 @@
-namespace ProfitGraph.Domain.Accounts;
+namespace ProfitGraph.Domain.Accounts.Credentials;
 
 /// <summary>
 ///     The final four characters of an API key, kept in plain text so the owner can tell keys apart.

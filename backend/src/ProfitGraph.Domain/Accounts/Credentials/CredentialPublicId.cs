@@ -1,4 +1,4 @@
-namespace ProfitGraph.Domain.Accounts;
+namespace ProfitGraph.Domain.Accounts.Credentials;
 
 /// <summary>
 ///     The part of a credential its owner may see in full: a non-secret identifier such as an account number, a login or an

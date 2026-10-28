@@ -5,7 +5,10 @@ using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.Ports;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.MarketData;
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.BalanceStatuses;
+using ProfitGraph.Domain.Accounts.Credentials;
+using ProfitGraph.Domain.Accounts.Identities;
+using ProfitGraph.Domain.Accounts.Snapshots;
 using ProfitGraph.Domain.Bots;
 
 namespace ProfitGraph.Application.Bots.GetBotAccount;

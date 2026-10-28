@@ -1,7 +1,9 @@
 using MediatR;
 
 using ProfitGraph.Application.Accounts.Contracts;
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.BalanceStatuses;
+using ProfitGraph.Domain.Accounts.Credentials;
+using ProfitGraph.Domain.Accounts.Snapshots;
 
 namespace ProfitGraph.Application.Accounts.GetAccountHistory;
 

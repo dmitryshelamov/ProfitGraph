@@ -5,6 +5,7 @@ using ProfitGraph.Application.Accounts.Converters;
 using ProfitGraph.Application.Accounts.Ports;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 
 namespace ProfitGraph.Application.Accounts.GetExchangeCredentials;
 

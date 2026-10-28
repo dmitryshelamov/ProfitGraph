@@ -1,6 +1,7 @@
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.MarketData;
 
-namespace ProfitGraph.Domain.Accounts;
+namespace ProfitGraph.Domain.Accounts.Identities;
 
 public interface IAccountIdentityRepository
 {

@@ -2,7 +2,7 @@ using Dapper;
 
 using Npgsql;
 
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Venues.Steam.Enrollment;
 using ProfitGraph.Venues.Steam.Persistence.Repositories.Contracts;
 using ProfitGraph.Venues.Steam.Persistence.Repositories.Queries;

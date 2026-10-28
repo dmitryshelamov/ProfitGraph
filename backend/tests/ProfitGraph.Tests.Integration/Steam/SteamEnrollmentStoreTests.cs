@@ -1,6 +1,6 @@
 using Npgsql;
 
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Tests.Integration.Bots;
 using ProfitGraph.Tests.Integration.Common;
 using ProfitGraph.Venues.Steam.Enrollment;

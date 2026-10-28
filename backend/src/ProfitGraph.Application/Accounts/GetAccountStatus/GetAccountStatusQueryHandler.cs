@@ -4,7 +4,7 @@ using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.Ports;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.MarketData;
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 
 namespace ProfitGraph.Application.Accounts.GetAccountStatus;
 

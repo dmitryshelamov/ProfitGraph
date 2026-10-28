@@ -1,4 +1,4 @@
-namespace ProfitGraph.Domain.Accounts;
+namespace ProfitGraph.Domain.Accounts.Credentials;
 
 /// <summary>
 ///     The owner's name for a credential: trimmed, 1 to <see cref="MaxLength" /> characters.

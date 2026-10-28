@@ -1,6 +1,8 @@
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.BalanceStatuses;
+using ProfitGraph.Domain.Accounts.Credentials;
+using ProfitGraph.Domain.Accounts.Snapshots;
 
-namespace ProfitGraph.Tests.Unit.Domain.Accounts;
+namespace ProfitGraph.Tests.Unit.Domain.Accounts.BalanceStatuses;
 
 /// <summary>
 ///     Balance reads are retried with backoff per credential and a failure never discards the last success (Profit Fox

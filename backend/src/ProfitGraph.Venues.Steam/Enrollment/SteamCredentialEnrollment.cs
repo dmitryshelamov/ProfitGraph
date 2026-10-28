@@ -7,6 +7,7 @@ using ProfitGraph.Application.Accounts;
 using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.Ports;
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Venues.Steam.Accounts;
 

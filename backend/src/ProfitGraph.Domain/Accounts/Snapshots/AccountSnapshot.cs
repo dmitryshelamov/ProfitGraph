@@ -1,6 +1,7 @@
+using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.Common;
 
-namespace ProfitGraph.Domain.Accounts;
+namespace ProfitGraph.Domain.Accounts.Snapshots;
 
 /// <summary>
 ///     The value of an exchange account at one moment (Profit Fox Designer ADR 0069), in the venue's valuation currency

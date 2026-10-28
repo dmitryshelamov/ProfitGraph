@@ -1,4 +1,4 @@
-namespace ProfitGraph.Domain.Accounts;
+namespace ProfitGraph.Domain.Accounts.Snapshots;
 
 /// <summary>
 ///     Identifies an account value snapshot; never empty.

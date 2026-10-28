@@ -1,4 +1,5 @@
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.Credentials;
 
 namespace ProfitGraph.Application.Accounts;
 

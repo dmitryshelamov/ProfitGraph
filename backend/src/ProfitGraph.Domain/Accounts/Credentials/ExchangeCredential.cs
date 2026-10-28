@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 using ProfitGraph.Domain.Common;
 using ProfitGraph.Domain.MarketData;
 
-namespace ProfitGraph.Domain.Accounts;
+namespace ProfitGraph.Domain.Accounts.Credentials;
 
 /// <summary>
 ///     A user's secrets for one venue (ADR 0015): named values the venue declares, such as an API key and secret, each

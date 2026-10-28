@@ -11,7 +11,8 @@ using ProfitGraph.Application.Accounts.RecordAccountBalance;
 using ProfitGraph.Application.Accounts.RecordAccountIdentity;
 using ProfitGraph.Application.Accounts.ThinAccountSnapshots;
 using ProfitGraph.Application.MarketData;
-using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Accounts.BalanceStatuses;
+using ProfitGraph.Domain.Accounts.Identities;
 using ProfitGraph.Domain.MarketData;
 
 namespace ProfitGraph.Infrastructure.Accounts;
