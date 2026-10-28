@@ -4,6 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using Npgsql;
+
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Jobs;
 using ProfitGraph.Application.Jobs.Contracts;
@@ -17,7 +19,9 @@ namespace ProfitGraph.Infrastructure.Jobs;
 
 /// <summary>
 ///     Claims the oldest queued job and runs its request in this DI scope (ADR 0011). The transaction lasts only for the
-///     claim; the outcome is written by a conditional update from Running.
+///     claim; the outcome is written by a conditional update from Running. A transient database failure while the outcome is
+///     written is retried on every polling interval until the Worker stops, so a running Worker never leaves a finished job
+///     Running.
 /// </summary>
 internal sealed class BackgroundJobRunner(
     BackgroundJobRepository repository,
@@ -90,7 +94,8 @@ internal sealed class BackgroundJobRunner(
     {
         using var work = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         using var watcherStop = new CancellationTokenSource();
-        Task watcher = WatchStopRequests(job.Id, work, watcherStop.Token);
+        Task watcher = new BackgroundJobStopWatcher(token => StopRequest(job.Id, token), options.Value.PollingInterval, clock, logger)
+            .Watch(work, watcherStop.Token);
         progress.Attach(job);
         IBackgroundJobResult? result = null;
         BackgroundJobFailureInternal? failure = null;
@@ -120,7 +125,7 @@ internal sealed class BackgroundJobRunner(
         else if (result is null)
         {
             // Stopped without a result: decide on the stored requests, which the watcher may not have seen yet.
-            BackgroundJob current = await repository.Get(job.Id, CancellationToken.None) ?? job;
+            BackgroundJob current = await Persist(() => repository.Get(job.Id, CancellationToken.None), stoppingToken) ?? job;
 
             if (current.CancelRequested)
             {
@@ -132,7 +137,7 @@ internal sealed class BackgroundJobRunner(
             }
             else
             {
-                await Interrupt(current, ShutdownFailure);
+                await Interrupt(current, ShutdownFailure, stoppingToken);
 
                 return;
             }
@@ -144,7 +149,7 @@ internal sealed class BackgroundJobRunner(
             job.Complete(now);
         }
 
-        if (!await repository.Update(job, BackgroundJobStatus.Running, result, failure, CancellationToken.None))
+        if (!await Persist(() => repository.Update(job, BackgroundJobStatus.Running, result, failure, CancellationToken.None), stoppingToken))
         {
             logger.LogWarning("The job outcome was not saved because another transition won. Status={Status}.", job.Status);
         }
@@ -154,7 +159,7 @@ internal sealed class BackgroundJobRunner(
     ///     Records that a stopped Worker interrupted a running job: a resumable job is queued again unless it stalled, any
     ///     other job fails with <paramref name="failure" />.
     /// </summary>
-    internal async Task Interrupt(BackgroundJob job, BackgroundJobFailureInternal failure)
+    internal async Task Interrupt(BackgroundJob job, BackgroundJobFailureInternal failure, CancellationToken stoppingToken)
     {
         DateTimeOffset now = clock.GetUtcNow();
         BackgroundJobFailureInternal? stored = null;
@@ -169,42 +174,40 @@ internal sealed class BackgroundJobRunner(
             stored = StalledFailure;
         }
 
-        if (!await repository.Update(job, BackgroundJobStatus.Running, result: null, stored, CancellationToken.None))
+        if (!await Persist(() => repository.Update(job, BackgroundJobStatus.Running, result: null, stored, CancellationToken.None), stoppingToken))
         {
             logger.LogWarning("The interruption of job {JobId} was not saved because another transition won.", job.Id.Value);
         }
     }
 
     /// <summary>
-    ///     Polls the stop requests in its own scope, because the work uses this scope's connection meanwhile, and stops the
-    ///     work on a cancellation or pause request.
+    ///     Reads the stop requests in its own scope, because the work uses this scope's connection meanwhile.
     /// </summary>
-    private async Task WatchStopRequests(BackgroundJobId id, CancellationTokenSource work, CancellationToken stop)
+    private async Task<(bool Cancel, bool Pause)> StopRequest(BackgroundJobId id, CancellationToken cancellationToken)
     {
-        try
-        {
-            using var timer = new PeriodicTimer(options.Value.PollingInterval, clock);
+        using IServiceScope scope = scopes.CreateScope();
 
-            while (await timer.WaitForNextTickAsync(stop))
+        return await scope.ServiceProvider.GetRequiredService<BackgroundJobRepository>().StopRequest(id, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Writes the job's state, retrying on every polling interval while the database fails transiently. A stopping Worker
+    ///     gives up after the attempt in progress; its next start recovers a job left Running.
+    /// </summary>
+    private async Task<T> Persist<T>(Func<Task<T>> write, CancellationToken stoppingToken)
+    {
+        while (true)
+        {
+            try
             {
-                using IServiceScope scope = scopes.CreateScope();
-                (bool cancel, bool pause) = await scope.ServiceProvider.GetRequiredService<BackgroundJobRepository>().StopRequest(id, stop);
-
-                if (cancel || pause)
-                {
-                    await work.CancelAsync();
-
-                    return;
-                }
+                return await write();
             }
-        }
-        catch (OperationCanceledException) when (stop.IsCancellationRequested)
-        {
-            // The work finished first.
-        }
-        catch (Exception exception)
-        {
-            logger.LogError(exception, "Checking job stop requests failed; the job continues.");
+            catch (NpgsqlException exception) when (exception.IsTransient && !stoppingToken.IsCancellationRequested)
+            {
+                logger.LogWarning("Saving the job's state failed with {ExceptionType}; it is retried.", exception.GetType().Name);
+            }
+
+            await Task.Delay(options.Value.PollingInterval, clock, stoppingToken);
         }
     }
 

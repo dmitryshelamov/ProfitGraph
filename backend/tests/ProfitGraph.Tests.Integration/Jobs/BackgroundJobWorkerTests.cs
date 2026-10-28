@@ -112,6 +112,45 @@ public sealed class BackgroundJobWorkerTests
     }
 
     [Test]
+    public async Task ATransientFailureWhileSavingTheOutcomeIsRetried()
+    {
+        Guid id = await JobScenario.Queue(_application, _userId, new TestJobRequest(Steps: 1, StepMilliseconds: 1));
+        var name = $"fail_job_outcome_{id:N}";
+
+        // A sequence is not rolled back, so the trigger fails the first completion only, as a serialization failure would.
+        await Execute(
+            $"""
+             CREATE SEQUENCE {name};
+             CREATE FUNCTION {name}() RETURNS trigger LANGUAGE plpgsql AS $$
+             BEGIN
+                 IF nextval('{name}') = 1 THEN
+                     RAISE EXCEPTION 'injected failure' USING ERRCODE = 'serialization_failure';
+                 END IF;
+                 RETURN NEW;
+             END $$;
+             CREATE TRIGGER {name} BEFORE UPDATE ON background_jobs
+                 FOR EACH ROW WHEN (NEW.id = '{id}' AND NEW.status = 'Completed') EXECUTE FUNCTION {name}();
+             """,
+            parameters: null);
+
+        try
+        {
+            using IHost worker = WorkerHost.Create();
+            await worker.StartAsync();
+
+            JsonNode job = await JobScenario.WaitFor(_client, id, JobScenario.Status("Completed"));
+            await worker.StopAsync();
+
+            job["result"]!["steps"]!.GetValue<int>().ShouldBe(1);
+            (await Scalar<long>($"SELECT last_value FROM {name}")).ShouldBe(2);
+        }
+        finally
+        {
+            await Execute($"DROP TRIGGER {name} ON background_jobs; DROP FUNCTION {name}(); DROP SEQUENCE {name};", parameters: null);
+        }
+    }
+
+    [Test]
     public async Task JobsLeftRunningByAStoppedWorkerFailOnStart()
     {
         Guid id = await JobScenario.Queue(_application, _userId, new TestJobRequest(Steps: 1, StepMilliseconds: 1));

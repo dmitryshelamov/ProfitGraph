@@ -173,12 +173,19 @@ internal sealed class RuntimeScenario
     }
 
     /// <summary>
-    ///     Stops every bot of this run's database, so a runtime host in the next scenario runs only that scenario's bots.
+    ///     Stops every bot of this run's database, so a runtime host in the next scenario runs only that scenario's bots. A stopped
+    ///     bot's cancels still go out through any runtime, so the undelivered cancels earlier scenarios left are settled too: the
+    ///     next scenario's gateway would otherwise receive them.
     /// </summary>
     public static async Task StopEveryBot()
     {
         await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
-        await connection.ExecuteAsync("UPDATE bots SET desired_state = 'Stopped' WHERE desired_state = 'Running'");
+        await connection.ExecuteAsync(
+            """
+            UPDATE bots SET desired_state = 'Stopped' WHERE desired_state = 'Running';
+            UPDATE bot_order_intents SET status = 'Sent', sent_at = now(), claimed_at = NULL, next_attempt_at = NULL
+            WHERE kind = 'Cancel' AND status IN ('Pending', 'Sending');
+            """);
     }
 
     public static async Task<Bot> Read(IHost host, BotId id)
