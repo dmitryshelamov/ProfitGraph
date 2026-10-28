@@ -251,7 +251,7 @@ withdrawals); and that the endpoint certificate is still issued by the Russian T
 - **Reconciliation.** The token must still have full access to the open account (`GetAccounts`), otherwise
   `KeyPermissions`. The order state stream is subscribed before the lookups. An active order on the bot's share whose
   request ID is not one of the bot's attempts is `ForeignOrder` unless the bot allows them; foreign trades are checked
-  with the operations cursor in T13.
+  with the operations cursor in T13. A lost order state stream is subscribed again inside the running bot (ADR 0044).
 
 ## Amendment: waiting for the session and the band (T12a)
 

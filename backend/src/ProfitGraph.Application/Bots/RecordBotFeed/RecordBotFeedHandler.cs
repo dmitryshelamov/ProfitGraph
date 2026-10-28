@@ -30,6 +30,7 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
         INotificationHandler<OrderIntentFailed>,
         INotificationHandler<OrderIntentAbsenceConfirmed>,
         INotificationHandler<OrderIntentAbsenceProven>,
+        INotificationHandler<OrderCancelRequested>,
         INotificationHandler<BotFillRecorded>,
         INotificationHandler<BotPositionOpened>,
         INotificationHandler<BotPositionClosed>,
@@ -189,7 +190,7 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
     }
 
     /// <summary>
-    ///     The values followed a new strategy version (ADR 0039): <c>added</c> lists <c>name=default</c> pairs, <c>removed</c> names.
+    ///     The values followed a new strategy version (ADR 0047): <c>added</c> lists <c>name=default</c> pairs, <c>removed</c> names.
     /// </summary>
     public Task Handle(BotParametersFitted notification, CancellationToken cancellationToken)
     {
@@ -263,6 +264,16 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
     public Task Handle(BotSubmitHeld notification, CancellationToken cancellationToken)
     {
         return Record(notification.BotId, BotFeedKind.SubmitHeld, notification.At, cancellationToken);
+    }
+
+    public Task Handle(OrderCancelRequested notification, CancellationToken cancellationToken)
+    {
+        return Record(
+            notification.BotId,
+            BotFeedKind.OrderCancelRequested,
+            notification.At,
+            cancellationToken,
+            ("engineOrderId", Number(notification.EngineOrderId)));
     }
 
     public Task Handle(OrderIntentAbsenceConfirmed notification, CancellationToken cancellationToken)

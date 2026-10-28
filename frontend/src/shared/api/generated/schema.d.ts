@@ -1867,6 +1867,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bots/{id}/open-orders/{engineOrderId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    engineOrderId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["OrderCancelResponse"];
+                        "application/json": components["schemas"]["OrderCancelResponse"];
+                        "text/json": components["schemas"]["OrderCancelResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}/order-cancels/{cancelId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    cancelId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["OrderCancelResponse"];
+                        "application/json": components["schemas"]["OrderCancelResponse"];
+                        "text/json": components["schemas"]["OrderCancelResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bots/{id}/unresolved-orders": {
         parameters: {
             query?: never;
@@ -2013,6 +2093,45 @@ export interface paths {
                         "text/plain": components["schemas"]["BotPositionResponse"];
                         "application/json": components["schemas"]["BotPositionResponse"];
                         "text/json": components["schemas"]["BotPositionResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bots/{id}/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotAccountResponse"];
+                        "application/json": components["schemas"]["BotAccountResponse"];
+                        "text/json": components["schemas"]["BotAccountResponse"];
                     };
                 };
             };
@@ -3560,6 +3679,40 @@ export interface components {
             orderKinds: components["schemas"]["BlockCatalogEntryResponse"][];
             valueSources: components["schemas"]["BlockCatalogEntryResponse"][];
         };
+        BotAccountIdentityResponse: {
+            accountId: null | string;
+            name: null | string;
+            kind: null | string;
+            accessLevel: null | string;
+            readOnly: null | boolean;
+            permissions: string[];
+            /** Format: date-time */
+            expiresAt: null | string;
+            /** Format: date-time */
+            readAt: string;
+        };
+        BotAccountResponse: {
+            /** Format: uuid */
+            credentialId: string;
+            venue: string;
+            credentialLabel: string;
+            apiKeyLast4: string;
+            accountPublicId: null | string;
+            identity: null | components["schemas"]["BotAccountIdentityResponse"];
+            identityFailureReason: null | string;
+            snapshot: null | components["schemas"]["AccountSnapshotResponse"];
+            /** Format: date-time */
+            lastAttemptAt: null | string;
+            /** Format: date-time */
+            lastSuccessAt: null | string;
+            failureReason: null | string;
+            /** Format: date-time */
+            nextAttemptAt: null | string;
+            venueStatus: null | components["schemas"]["AccountStatusResponse"];
+            protection: components["schemas"]["AccountProtectionResponse"];
+            allocationCap: string;
+            otherRunningBots: components["schemas"]["BotAllocationResponse"][];
+        };
         /** @enum {unknown} */
         BotAlertKind: "Degraded" | "Killed" | "RiskRejection" | "ExchangeUnavailable" | "GraphChangeRejected";
         BotAlertResponse: {
@@ -3573,6 +3726,14 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             acknowledgedAt: null | string;
+        };
+        BotAllocationResponse: {
+            /** Format: uuid */
+            botId: string;
+            name: null | string;
+            symbol: string;
+            allocationCap: string;
+            runtimeStatus: components["schemas"]["BotRuntimeStatus"];
         };
         /** @enum {unknown} */
         BotCandleHistoryStatus: "Complete" | "Partial" | "Unavailable";
@@ -3617,7 +3778,7 @@ export interface components {
             occurredAt: string;
         };
         /** @enum {unknown} */
-        BotFeedKind: "Started" | "Stopped" | "Killed" | "Degraded" | "Recovered" | "RuntimeStopped" | "RunRestarted" | "GraphVersionApplied" | "GraphChangeRejected" | "FeedStalled" | "FeedRecovered" | "ExchangeUnavailable" | "SubmitHeld" | "OrderPlaced" | "OrderRejected" | "OrderFailed" | "OrderAbsenceConfirmed" | "Fill" | "PositionOpened" | "PositionClosed" | "SettingsChanged" | "FeeCorrected" | "OrderWaiting" | "OrderWaitingEnded" | "HistoryRestated" | "OrderAbsenceProven";
+        BotFeedKind: "Started" | "Stopped" | "Killed" | "Degraded" | "Recovered" | "RuntimeStopped" | "RunRestarted" | "GraphVersionApplied" | "GraphChangeRejected" | "FeedStalled" | "FeedRecovered" | "ExchangeUnavailable" | "SubmitHeld" | "OrderPlaced" | "OrderRejected" | "OrderFailed" | "OrderAbsenceConfirmed" | "Fill" | "PositionOpened" | "PositionClosed" | "SettingsChanged" | "FeeCorrected" | "OrderWaiting" | "OrderWaitingEnded" | "HistoryRestated" | "OrderAbsenceProven" | "OrderCancelRequested";
         BotFeedPageResponse: {
             items: components["schemas"]["BotFeedEntryResponse"][];
             /** Format: int64 */
@@ -4108,6 +4269,22 @@ export interface components {
             diagnostics: components["schemas"]["WalkForwardDiagnosticResponse"][];
             equity: components["schemas"]["WalkForwardEquityPointResponse"][];
         };
+        OrderCancelResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            botId: string;
+            /** Format: int64 */
+            engineOrderId: number;
+            status: components["schemas"]["OrderCancelStatus"];
+            rejectionReason: null | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            resolvedAt: null | string;
+        };
+        /** @enum {unknown} */
+        OrderCancelStatus: "Pending" | "Requested" | "Rejected";
         /** @enum {unknown} */
         OrderSide: "Buy" | "Sell";
         /** @enum {unknown} */

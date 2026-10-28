@@ -6,7 +6,7 @@ export interface DraftParameter {
   readonly defaultValue: string;
 }
 
-/** How a running bot's values follow the saved version (ADR 0039). */
+/** How a running bot's values follow the saved version (ADR 0047). */
 export interface ParameterFit {
   /** New parameters with the default each bot takes. */
   readonly added: readonly DraftParameter[];

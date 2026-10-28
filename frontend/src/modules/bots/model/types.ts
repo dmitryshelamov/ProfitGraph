@@ -11,6 +11,7 @@ export type TradingHalt = Schemas['TradingHaltResponse'];
 export type LiveImpactBot = Schemas['LiveImpactBotResponse'];
 export type BotFill = Schemas['BotFillResponse'];
 export type BotOpenOrder = Schemas['BotOpenOrderResponse'];
+export type OrderCancel = Schemas['OrderCancelResponse'];
 export type OrderStatus = Schemas['OrderStatus'];
 export type BotOrderWaiting = Schemas['BotOrderWaitingResponse'];
 export type OrderWaitingCode = Schemas['OrderWaitingCode'];
@@ -20,6 +21,7 @@ export type BotPosition = Schemas['BotPositionResponse'];
 export type BotCandlesPage = Schemas['BotCandlesResponse'];
 export type BotChartFill = Schemas['BotChartFillResponse'];
 export type BotCandleHistoryStatus = Schemas['BotCandleHistoryStatus'];
+export type BotAccount = Schemas['BotAccountResponse'];
 
 /** A `LivePrice` hub message (not in the HTTP schema): a venue's display price of an instrument. */
 export interface LivePrice {

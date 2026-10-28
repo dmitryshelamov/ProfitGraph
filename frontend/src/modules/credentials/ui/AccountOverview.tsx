@@ -3,14 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { DateTime } from '@/shared/ui/DateTime';
 
 import { accountHistoryQuery } from '../api/credentialsApi';
-
-const failureLabels: Record<string, string> = {
-  venue_unavailable: 'биржа не отвечает',
-  venue_rejected: 'биржа отклонила запрос',
-  unsupported_response: 'непонятный ответ биржи',
-  credential_unavailable: 'ключ недоступен',
-  venue_unsupported: 'биржа не поддерживается',
-};
+import { accountReadFailureLabel } from '../model/accountRead';
 
 /**
  * The value of a key's exchange account, read every five minutes while a bot uses the key. It includes deposits,
@@ -64,7 +57,7 @@ export function AccountOverview({ credentialId }: { credentialId: string }) {
       )}
       {failureReason && (
         <p className="text-danger-text">
-          Последнее чтение не удалось: {failureLabels[failureReason] ?? failureReason}
+          Последнее чтение не удалось: {accountReadFailureLabel(failureReason)}
           {lastSuccessAt && (
             <>
               ; последний успешный снимок <DateTime value={lastSuccessAt} />

@@ -609,6 +609,33 @@ public sealed class CausalDispatcher
         }
     }
 
+    /// <summary>
+    ///     The owner asks to cancel one working order (ADR 0048), whatever node or tag owns it. The order awaits cancellation as
+    ///     when the strategy cancels it, so the venue's confirmation ends it; no node waits for the result, so no event is
+    ///     published now and none completes later. Returns <see cref="ExternalCancelDisposition.NoTarget" /> for an order that is
+    ///     not working and <see cref="ExternalCancelDisposition.AlreadyPending" /> for one already awaiting cancellation.
+    /// </summary>
+    public ExternalCancelDisposition RequestOrderCancel(long orderId)
+    {
+        EnsureIdle();
+
+        if (Account is not IExternallyExecutedAccount external)
+        {
+            throw new InvalidOperationException("Owner cancels require an externally executed account.");
+        }
+
+        try
+        {
+            return external.RequestCancel(orderId).Disposition;
+        }
+        catch
+        {
+            _faulted = true;
+
+            throw;
+        }
+    }
+
     internal IReadOnlyList<EventOccurrence> ApplySimulatedOrderUpdate(ExternalOrderUpdate update, ReachedMarketContext context)
     {
         EnsureIdle();
