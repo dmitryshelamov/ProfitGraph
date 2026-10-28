@@ -16,7 +16,7 @@ namespace ProfitGraph.Application.Bots.Runtime;
 /// <summary>
 ///     Before each root of a running bot, switches its engine to the strategy's latest saved version (ADR 0019, Profit Fox
 ///     Designer ADR 0057). The candidate takes the run's parameter values fitted to its parameters: a removed parameter's value
-///     is dropped and a new parameter takes its default (ADR 0039). A candidate that does not take those values, does not
+///     is dropped and a new parameter takes its default (ADR 0047). A candidate that does not take those values, does not
 ///     compile or that the engine refuses is rejected once, and the bot keeps its version.
 /// </summary>
 public sealed class BotGraphFollower(
@@ -41,7 +41,7 @@ public sealed class BotGraphFollower(
     ///     Gives a stored run the bot's current values and allocation once, when the runner opens it after a start (ADR 0025).
     ///     Settings change only while the bot is stopped, so a difference from the run's applied values is the owner's change.
     ///     The owner's values were checked against the strategy's latest version, so the run takes them on that version in one
-    ///     root, fitted to its parameters (ADR 0039). A refusal leaves the run as it was and rejects that version once (ADR 0019).
+    ///     root, fitted to its parameters (ADR 0047). A refusal leaves the run as it was and rejects that version once (ADR 0019).
     /// </summary>
     public async Task ApplySettings(Bot bot, LeaseHolderId holder, long epoch, BotEngineSession session, CancellationToken cancellationToken)
     {

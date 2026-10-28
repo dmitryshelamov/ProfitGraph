@@ -88,7 +88,7 @@ while its runner was down. Two pull requests: T-Invest with the shared parts fir
 
 ## Manual limit order
 
-A limit order in the manual order block of the bot page ([ADR 0027](adr/0027-manual-limit-order.md)), for every venue.
+A limit order in the manual order block of the bot page ([ADR 0046](adr/0046-manual-limit-order.md)), for every venue.
 
 | Step | Scope | Done when | Status |
 |---|---|---|---|
@@ -107,7 +107,7 @@ A candle chart on the bot page ([ADR 0026](adr/0026-bot-chart.md)), for every ve
 
 ## Strategy changes on live bots
 
-A saved version that adds or removes a parameter reaches running and stopped bots ([ADR 0039](adr/0039-bot-values-follow-the-strategy-parameters.md)).
+A saved version that adds or removes a parameter reaches running and stopped bots ([ADR 0047](adr/0047-bot-values-follow-the-strategy-parameters.md)).
 
 | Step | Scope | Done when | Status |
 |---|---|---|---|

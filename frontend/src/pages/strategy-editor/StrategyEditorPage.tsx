@@ -405,7 +405,7 @@ export function StrategyEditorPage() {
 
 /**
  * Running bots switch to a saved version on their next root, so the save asks to confirm after listing them. A parameter the
- * version adds takes its default on every bot and a removed one is dropped (ADR 0039); the prompt names those values.
+ * version adds takes its default on every bot and a removed one is dropped (ADR 0047); the prompt names those values.
  */
 function LiveImpactPrompt({
   strategyId,
