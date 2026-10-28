@@ -79,6 +79,59 @@ public sealed class BotTransitionsTests
         bot.DomainEvents.ShouldBeEmpty();
     }
 
+    [Test]
+    public void StartBeforeTheRunnerStoppedKeepsItsRunningStatus()
+    {
+        Bot bot = BotFixture.Running();
+        bot.Stop(Now);
+
+        bot.Start(BotFixture.FirstVersion, hasCheckpoint: true, tradingHalted: false, Now.AddSeconds(1)).ShouldBeTrue();
+
+        bot.ShouldSatisfyAllConditions(
+            () => bot.DesiredState.ShouldBe(BotDesiredState.Running),
+            () => bot.RuntimeStatus.ShouldBe(BotRuntimeStatus.Running),
+            () => Should.NotThrow(bot.EnsureAcceptsManualOrders),
+            () => Should.NotThrow(bot.EnsureAcceptsOrderCancels));
+    }
+
+    [Test]
+    public void StartBeforeTheRunnerStoppedKeepsItsStartingStatus()
+    {
+        Bot bot = BotFixture.Started();
+        bot.MarkStarting(Now);
+        bot.Stop(Now);
+
+        bot.Start(BotFixture.FirstVersion, hasCheckpoint: true, tradingHalted: false, Now.AddSeconds(1)).ShouldBeTrue();
+
+        bot.RuntimeStatus.ShouldBe(BotRuntimeStatus.Starting);
+    }
+
+    [Test]
+    public void StartAfterTheRunnerStoppedWaitsForANewRunner()
+    {
+        Bot bot = BotFixture.Running();
+        bot.Stop(Now);
+        bot.MarkRuntimeStopped(Now);
+
+        bot.Start(BotFixture.FirstVersion, hasCheckpoint: true, tradingHalted: false, Now.AddSeconds(1)).ShouldBeTrue();
+
+        bot.RuntimeStatus.ShouldBe(BotRuntimeStatus.Created);
+    }
+
+    [Test]
+    public void TheRunnerOfAKilledBotStartedAgainReportsItRunning()
+    {
+        Bot bot = BotFixture.Running();
+        bot.Kill(BotStatusReason.Killed, Now);
+        bot.Start(BotFixture.FirstVersion, hasCheckpoint: true, tradingHalted: false, Now.AddSeconds(1));
+
+        bot.MarkRunning(Now.AddSeconds(2)).ShouldBeTrue();
+
+        bot.ShouldSatisfyAllConditions(
+            () => bot.RuntimeStatus.ShouldBe(BotRuntimeStatus.Running),
+            () => Should.NotThrow(bot.EnsureAcceptsManualOrders));
+    }
+
     [TestCase(BotStatusReason.IntentFailed)]
     [TestCase(BotStatusReason.InsufficientBalance)]
     public void StartReArmsABotDegradedByAFailedIntentOrBalance(BotStatusReason reason)
@@ -232,7 +285,7 @@ public sealed class BotTransitionsTests
 
         bot.RecordRuntimeFailure(now);
 
-        delays.ShouldBe([TimeSpan.FromSeconds(30), ..Enumerable.Repeat(TimeSpan.FromMinutes(1), count: 19)]);
+        delays.ShouldBe([TimeSpan.FromSeconds(30), .. Enumerable.Repeat(TimeSpan.FromMinutes(1), count: 19)]);
         bot.ShouldSatisfyAllConditions(
             () => bot.RestartAttempts.ShouldBe(BotRestartSchedule.MaxCountedAttempts),
             () => bot.NextRestartAt.ShouldBe(now.AddMinutes(1)),
@@ -370,6 +423,79 @@ public sealed class BotTransitionsTests
 
         bot.StatusReason.ShouldBe(BotStatusReason.ForeignOrder);
         bot.NextRestartAt.ShouldBeNull();
+    }
+
+    [TestCase(BotStatusReason.Killed)]
+    [TestCase(BotStatusReason.DailyLossLimit)]
+    public void RuntimeFailureAfterAKillKeepsTheKillReason(BotStatusReason reason)
+    {
+        Bot bot = BotFixture.Running();
+        bot.Kill(reason, Now);
+        bot.ClearDomainEvents();
+
+        bot.RecordRuntimeFailure(Now.AddSeconds(1), "the runner failed").ShouldBeFalse();
+
+        bot.ShouldSatisfyAllConditions(
+            () => bot.RuntimeStatus.ShouldBe(BotRuntimeStatus.Stopped),
+            () => bot.StatusReason.ShouldBe(reason),
+            () => bot.NextRestartAt.ShouldBeNull(),
+            () => bot.DomainEvents.ShouldBeEmpty());
+    }
+
+    [Test]
+    public void RuntimeFailureAfterAPlainStopIsStillRecorded()
+    {
+        Bot bot = BotFixture.Running();
+        bot.Stop(Now);
+
+        bot.RecordRuntimeFailure(Now.AddSeconds(1)).ShouldBeTrue();
+
+        bot.StatusReason.ShouldBe(BotStatusReason.RuntimeFailure);
+    }
+
+    [TestCase(BotStatusReason.ForeignOrder)]
+    [TestCase(BotStatusReason.IntentFailed)]
+    public void StartingKeepsASafetyReason(BotStatusReason reason)
+    {
+        Bot bot = BotFixture.DegradedBy(reason);
+
+        bot.MarkStarting(Now).ShouldBeFalse();
+        bot.MarkRunning(Now).ShouldBeFalse();
+
+        bot.ShouldSatisfyAllConditions(
+            () => bot.RuntimeStatus.ShouldBe(BotRuntimeStatus.Degraded),
+            () => bot.StatusReason.ShouldBe(reason),
+            () => bot.CanSubmit(tradingHalted: false).ShouldBeFalse(),
+            () => bot.DomainEvents.ShouldBeEmpty());
+    }
+
+    [Test]
+    public void StoppedRuntimeKeepsASafetyReasonWhileTheBotShouldRun()
+    {
+        Bot bot = BotFixture.DegradedBy(BotStatusReason.UnresolvedOrder);
+
+        bot.MarkRuntimeStopped(Now).ShouldBeFalse();
+
+        bot.ShouldSatisfyAllConditions(
+            () => bot.RuntimeStatus.ShouldBe(BotRuntimeStatus.Degraded),
+            () => bot.StatusReason.ShouldBe(BotStatusReason.UnresolvedOrder),
+            () => bot.CanAcquireLease(Now.AddDays(1)).ShouldBeFalse());
+    }
+
+    [Test]
+    public void StoppedRuntimeKeepsASafetyReasonAfterAStopUntilTheOwnerStarts()
+    {
+        Bot bot = BotFixture.DegradedBy(BotStatusReason.ForeignOrder);
+        bot.Stop(Now);
+
+        bot.MarkRuntimeStopped(Now).ShouldBeFalse();
+        bot.StatusReason.ShouldBe(BotStatusReason.ForeignOrder);
+
+        bot.Start(BotFixture.FirstVersion, hasCheckpoint: true, tradingHalted: false, Now.AddMinutes(1)).ShouldBeTrue();
+
+        bot.ShouldSatisfyAllConditions(
+            () => bot.RuntimeStatus.ShouldBe(BotRuntimeStatus.Created),
+            () => bot.StatusReason.ShouldBeNull());
     }
 
     [Test]

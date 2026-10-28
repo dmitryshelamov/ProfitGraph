@@ -22,14 +22,16 @@ gateway amend it in later stage 5 pull requests.
   halted (`trading_halted`), runs the latest strategy version when no checkpoint exists, and otherwise keeps the stored
   version for a graph change at runtime. Starting a bot that should already run changes nothing, except that it
   re-arms a bot degraded by `IntentFailed` or `InsufficientBalance`. A start clears reasons, diagnostics, the restart
-  streak and the daily loss baseline. `Stop` changes only the desired state; open orders stay.
+  streak and the daily loss baseline; a runtime still `Starting` or `Running`, because the owner started the bot again
+  before its runner stopped, keeps that status. `Stop` changes only the desired state; open orders stay.
 - **Reasons.** `BotStatusReason` codes are classified in `BotStatusReasons`. `RuntimeFailure` restarts automatically
   after 30 s and then every minute, without a limit ([ADR 0050](0050-endless-restart-after-runtime-failure.md); until
   then, after 30 s, 1, 2, 5 and 10 minutes, and the bot waited for the owner after five restarts). Safety reasons (`NoGateway`,
   `UnknownVenue`, `IntentFailed`, `UnresolvedOrder`, `ForeignOrder`, `KeyPermissions`, `UnsupportedFeeAsset`,
-  `InsufficientBalance`, `HistoryDataCorrection`) never clear themselves and are not replaced by a runtime failure.
-  Control reasons (`Killed`, `DailyLossLimit`) come from a kill: desired and runtime state become stopped at once and
-  the reason stays until the next start. Texts for people are produced from the codes at the boundary.
+  `InsufficientBalance`, `HistoryDataCorrection`) never clear themselves: a runtime failure does not replace them, and a
+  runner's `Starting` or `Stopped` report leaves the bot degraded. Control reasons (`Killed`, `DailyLossLimit`) come
+  from a kill: desired and runtime state become stopped at once and the reason stays until the next start, also when
+  the ending runner reports a failure. Texts for people are produced from the codes at the boundary.
 - **Leases.** `BotLease` gives one runtime process the right to execute a bot. The first lease has epoch 1; an expired
   lease is taken over under the next epoch with a closed submit gate. Only the holder of the current epoch renews,
   releases or opens the gate, and only before expiry. A bot may be leased while it should run and is not degraded, or
@@ -130,7 +132,8 @@ gateway amend it in later stage 5 pull requests.
 - **Runner.** One runner per leased bot reports `Starting`, opens its engine, reports `Running` and processes live
   candles and venue updates through one sequential queue. A stop ends it after the current root and reports `Stopped`;
   a lost lease ends it without writing; any other failure reports a runtime failure (automatic restart with backoff).
-  The lease is released at the end. Every report is fenced by the lease (`ReportBotRuntimeCommand`).
+  A bot started again while its trading runner still works keeps that runner; when a kill had marked the bot stopped
+  meanwhile, the host reports it `Running` again on its next pass. The lease is released at the end. Every report is fenced by the lease (`ReportBotRuntimeCommand`).
 - **Engine session.** A first run compiles the strategy version with the bot's values, warms on public closed history
   and starts at its last candle, emitting `Start` once. A stored run restores the checkpoint with `RestoreWithoutResume`
   on the history ending at its last candle, warms on the candles missed since without `CandleClosed`, and drains one
