@@ -1,13 +1,10 @@
-using ProfitGraph.Application.Notifications;
 using ProfitGraph.Domain.Accounts;
-using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Notifications;
 
 namespace ProfitGraph.Tests.Unit.Domain.Notifications;
 
 /// <summary>
-///     Link codes are random, stored only as a hash that ignores case and spaces, and expire after ten minutes; alert texts
-///     name the bot by its instrument (ADR 0020).
+///     Link codes are random, stored only as a hash that ignores case and spaces, and expire after ten minutes (ADR 0020).
 /// </summary>
 public sealed class TelegramLinkCodeTests
 {
@@ -24,13 +21,5 @@ public sealed class TelegramLinkCodeTests
         issued.Stored.IsExpired(Now.AddMinutes(9)).ShouldBeFalse();
         issued.Stored.IsExpired(Now.AddMinutes(10)).ShouldBeTrue();
         TelegramLinkCode.Issue(UserId.New(), Now).Code.ShouldNotBe(issued.Code);
-    }
-
-    [Test]
-    public void AlertTextNamesTheBotAndTheReason()
-    {
-        var alert = new TelegramAlertDelivery(BotAlertId.New(), ChatId: 1, BotAlertKind.Degraded, "ForeignOrder", "BTCUSDT", "1h");
-
-        TelegramMessages.Alert(alert).ShouldBe("ProfitGraph: бот BTCUSDT 1h остановлен по безопасности (ForeignOrder).");
     }
 }

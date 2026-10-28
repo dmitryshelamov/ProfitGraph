@@ -52,6 +52,7 @@ public static class DependencyInjection
         services.AddScoped<IAccountIdentityRepository, AccountIdentityRepository>();
         services.AddScoped<ITelegramLinkRepository, TelegramLinkRepository>();
         services.AddScoped<ITelegramPollerLeaseRepository, TelegramPollerLeaseRepository>();
+        services.AddScoped<ITelegramNotificationRepository, TelegramNotificationRepository>();
         services.AddOptions<TelegramOptions>()
             .Bind(configuration.GetSection(TelegramOptions.SectionName))
             .Validate(options => options.IsValid(), "Telegram needs a bot token, an absolute base address and positive delays when it is enabled.")

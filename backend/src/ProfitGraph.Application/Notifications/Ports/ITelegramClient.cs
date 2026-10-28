@@ -3,8 +3,8 @@ using ProfitGraph.Application.Notifications.Contracts;
 namespace ProfitGraph.Application.Notifications.Ports;
 
 /// <summary>
-///     The Telegram Bot API (ADR 0020). It exists only when Telegram is enabled; any failure other than a blocked chat
-///     throws, and the caller tries again.
+///     The Telegram Bot API (ADR 0020, ADR 0042). It exists only when Telegram is enabled. Telegram's answers to a send are a
+///     <see cref="TelegramSendResult" />; a transport failure throws, and the caller tries again.
 /// </summary>
 public interface ITelegramClient
 {
@@ -13,5 +13,8 @@ public interface ITelegramClient
     /// </summary>
     Task<IReadOnlyList<TelegramUpdateInternal>> GetUpdates(long offset, TimeSpan timeout, CancellationToken cancellationToken);
 
-    Task<TelegramSendOutcome> SendMessage(long chatId, string text, CancellationToken cancellationToken);
+    /// <summary>
+    ///     Sends <paramref name="html" /> in HTML parse mode.
+    /// </summary>
+    Task<TelegramSendResult> SendMessage(long chatId, string html, CancellationToken cancellationToken);
 }

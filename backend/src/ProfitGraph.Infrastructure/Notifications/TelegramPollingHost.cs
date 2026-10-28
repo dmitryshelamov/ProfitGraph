@@ -6,7 +6,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Notifications;
-using ProfitGraph.Application.Notifications.BlockTelegramChat;
 using ProfitGraph.Application.Notifications.Contracts;
 using ProfitGraph.Application.Notifications.LinkTelegramChat;
 using ProfitGraph.Application.Notifications.Ports;
@@ -15,15 +14,13 @@ using ProfitGraph.Domain.Notifications;
 namespace ProfitGraph.Infrastructure.Notifications;
 
 /// <summary>
-///     The Telegram bot of the Worker's <c>live</c> role (ADR 0020). The process that holds the poller lease reads updates
-///     from the stored offset, links chats that send <c>/start CODE</c> and advances the offset; then it sends alerts that
-///     wait for linked chats and marks each sent only after Telegram accepted it, so a crash between the two sends it
-///     again (at least once). A blocked chat receives nothing more.
+///     Reads the Telegram bot's updates in the Worker's <c>live</c> role (ADR 0020, ADR 0042). The process that holds the
+///     poller lease reads updates from the stored offset, links chats that send <c>/start CODE</c> and advances the offset.
+///     Notifications are sent by <see cref="TelegramDeliveryHost" />, so they never wait for a long poll.
 /// </summary>
-internal sealed class TelegramHost(IServiceScopeFactory scopes, IOptions<TelegramOptions> options, TimeProvider clock, ILogger<TelegramHost> logger)
+internal sealed class TelegramPollingHost(IServiceScopeFactory scopes, IOptions<TelegramOptions> options, TimeProvider clock, ILogger<TelegramPollingHost> logger)
     : BackgroundService
 {
-    private const int DeliveryBatch = 20;
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromSeconds(60);
 
     private readonly Guid _holder = Guid.NewGuid();
@@ -62,7 +59,7 @@ internal sealed class TelegramHost(IServiceScopeFactory scopes, IOptions<Telegra
     }
 
     /// <summary>
-    ///     One poll and delivery round; false when another process leads or the round failed early.
+    ///     One poll; false when another process leads.
     /// </summary>
     private async Task<bool> Pass(CancellationToken stoppingToken)
     {
@@ -86,8 +83,6 @@ internal sealed class TelegramHost(IServiceScopeFactory scopes, IOptions<Telegra
             await leases.Advance(_holder, update.UpdateId + 1, clock.GetUtcNow(), stoppingToken);
         }
 
-        await Deliver(scope.ServiceProvider.GetRequiredService<ITelegramLinkRepository>(), telegram, sender, stoppingToken);
-
         return true;
     }
 
@@ -104,21 +99,5 @@ internal sealed class TelegramHost(IServiceScopeFactory scopes, IOptions<Telegra
 
         bool linked = await sender.Send(new LinkTelegramChatCommand(code, chatId), stoppingToken);
         await telegram.SendMessage(chatId, linked ? TelegramMessages.Linked : TelegramMessages.UnknownCode, stoppingToken);
-    }
-
-    private async Task Deliver(ITelegramLinkRepository links, ITelegramClient telegram, ISender sender, CancellationToken stoppingToken)
-    {
-        foreach (TelegramAlertDelivery alert in await links.ListUndelivered(DeliveryBatch, stoppingToken))
-        {
-            if (await telegram.SendMessage(alert.ChatId, TelegramMessages.Alert(alert), stoppingToken) == TelegramSendOutcome.Blocked)
-            {
-                await sender.Send(new BlockTelegramChatCommand(alert.ChatId), stoppingToken);
-                logger.LogWarning("A Telegram chat blocked the bot; it receives no more alerts.");
-
-                continue;
-            }
-
-            await links.MarkDelivered(alert.AlertId, clock.GetUtcNow(), stoppingToken);
-        }
     }
 }

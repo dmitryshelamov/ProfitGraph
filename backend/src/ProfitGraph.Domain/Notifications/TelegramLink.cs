@@ -4,7 +4,7 @@ using ProfitGraph.Domain.Common;
 namespace ProfitGraph.Domain.Notifications;
 
 /// <summary>
-///     A user's Telegram chat for alerts (ADR 0020). It receives the alerts raised after it was linked, until the user
+///     A user's Telegram chat for notifications (ADR 0020, ADR 0042). It receives what happens after it was linked, until the user
 ///     blocks the bot or unlinks it.
 /// </summary>
 public sealed class TelegramLink : AggregateRoot

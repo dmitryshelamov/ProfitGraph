@@ -7,17 +7,19 @@ namespace ProfitGraph.Tests.Integration.Notifications;
 
 /// <summary>
 ///     The Telegram Bot API in the test process: it hands out pushed updates from the requested offset, records sent
-///     messages and can fail or refuse sends. Nothing leaves the process; the token is invented.
+///     messages, answers scripted failures to the next sends and refuses blocked chats. Nothing leaves the process; the token
+///     is invented.
 /// </summary>
 internal sealed class FakeTelegramApi : HttpMessageHandler
 {
     public const string Token = "000000:test-telegram-token-not-real";
 
     private readonly ConcurrentQueue<(long UpdateId, long ChatId, string Text)> _updates = new ConcurrentQueue<(long, long, string)>();
-    private int _failSends;
+    private readonly ConcurrentQueue<(HttpStatusCode Status, string Body)> _answers = new ConcurrentQueue<(HttpStatusCode, string)>();
     private long _nextUpdateId = 100;
 
     public ConcurrentQueue<(long ChatId, string Text)> Sent { get; } = new ConcurrentQueue<(long, string)>();
+    public ConcurrentQueue<string?> ParseModes { get; } = new ConcurrentQueue<string?>();
     public ConcurrentQueue<long> Offsets { get; } = new ConcurrentQueue<long>();
     public ConcurrentQueue<string> Paths { get; } = new ConcurrentQueue<string>();
 
@@ -32,11 +34,14 @@ internal sealed class FakeTelegramApi : HttpMessageHandler
     }
 
     /// <summary>
-    ///     Answers the next <paramref name="count" /> sends with HTTP 500 after doing nothing.
+    ///     Answers the next sends, one each, with these failures after doing nothing.
     /// </summary>
-    public void FailSends(int count)
+    public void FailNextSends(params (HttpStatusCode Status, string Body)[] answers)
     {
-        Interlocked.Exchange(ref _failSends, count);
+        foreach ((HttpStatusCode Status, string Body) answer in answers)
+        {
+            _answers.Enqueue(answer);
+        }
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -72,12 +77,13 @@ internal sealed class FakeTelegramApi : HttpMessageHandler
                 return new HttpResponseMessage(HttpStatusCode.Forbidden) { Content = new StringContent("""{"ok":false,"error_code":403}""") };
             }
 
-            if (Interlocked.Decrement(ref _failSends) >= 0)
+            if (_answers.TryDequeue(out (HttpStatusCode Status, string Body) failure))
             {
-                return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+                return new HttpResponseMessage(failure.Status) { Content = new StringContent(failure.Body) };
             }
 
             Sent.Enqueue((chatId, body.RootElement.GetProperty("text").GetString()!));
+            ParseModes.Enqueue(body.RootElement.TryGetProperty("parse_mode", out JsonElement mode) ? mode.GetString() : null);
 
             return Json(new { ok = true, result = new { message_id = 1 } });
         }
