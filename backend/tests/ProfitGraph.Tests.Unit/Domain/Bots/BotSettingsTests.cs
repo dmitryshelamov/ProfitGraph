@@ -334,7 +334,7 @@ public sealed class BotSettingsTests
     [Test]
     public void RestoreRejectsAnImpossibleRestartCount()
     {
-        BotSnapshot snapshot = BotFixture.Stopped().ToSnapshot() with { RestartAttempts = BotRestartSchedule.MaxAttempts + 1 };
+        BotSnapshot snapshot = BotFixture.Stopped().ToSnapshot() with { RestartAttempts = BotRestartSchedule.MaxCountedAttempts + 1 };
 
         Should.Throw<ArgumentException>(() => Bot.Restore(snapshot));
     }

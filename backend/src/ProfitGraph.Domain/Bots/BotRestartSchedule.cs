@@ -1,27 +1,21 @@
 namespace ProfitGraph.Domain.Bots;
 
 /// <summary>
-///     Automatic restarts after runtime failures wait 30 s, 1, 2, 5 and 10 minutes; after five failed restarts the bot stays
-///     degraded until the owner starts it again (Profit Fox Designer ADR 0054).
+///     Automatic restarts after runtime failures wait 30 s, then 1 minute each, without a limit (ADR 0050). The restart
+///     counter stops at <see cref="MaxCountedAttempts" />; it only shows that a streak is running.
 /// </summary>
 public static class BotRestartSchedule
 {
-    public const int MaxAttempts = 5;
+    public const int MaxCountedAttempts = 5;
 
-    private static readonly TimeSpan[] Delays =
-    [
-        TimeSpan.FromSeconds(30),
-        TimeSpan.FromMinutes(1),
-        TimeSpan.FromMinutes(2),
-        TimeSpan.FromMinutes(5),
-        TimeSpan.FromMinutes(10)
-    ];
+    private static readonly TimeSpan FirstDelay = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan RepeatDelay = TimeSpan.FromMinutes(1);
 
     /// <summary>
-    ///     When the next restart may begin after <paramref name="attempts" /> restarts, or null once they are exhausted.
+    ///     When the next restart may begin after <paramref name="attempts" /> restarts.
     /// </summary>
-    public static DateTimeOffset? NextRestartAt(int attempts, DateTimeOffset now)
+    public static DateTimeOffset NextRestartAt(int attempts, DateTimeOffset now)
     {
-        return attempts < Delays.Length ? now + Delays[attempts] : null;
+        return now + (attempts == 0 ? FirstDelay : RepeatDelay);
     }
 }

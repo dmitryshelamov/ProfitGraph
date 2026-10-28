@@ -9,7 +9,7 @@ namespace ProfitGraph.Domain.Bots;
 /// <summary>
 ///     A live bot (ADR 0016): one strategy on one venue series, traded through the owner's credential. The owner sets the
 ///     desired state; the runtime that holds the bot's lease reports its runtime status. A degraded bot with a safety
-///     reason waits for the owner, while a runtime failure restarts automatically with backoff.
+///     reason waits for the owner, while a runtime failure restarts automatically, without a limit (ADR 0050).
 /// </summary>
 public sealed class Bot : AggregateRoot
 {
@@ -127,7 +127,7 @@ public sealed class Bot : AggregateRoot
         ArgumentNullException.ThrowIfNull(snapshot);
 
         if (!Enum.IsDefined(snapshot.DesiredState) || !Enum.IsDefined(snapshot.RuntimeStatus) ||
-            snapshot.RestartAttempts is < 0 or > BotRestartSchedule.MaxAttempts || (snapshot.StatusReason is { } reason && !Enum.IsDefined(reason)))
+            snapshot.RestartAttempts is < 0 or > BotRestartSchedule.MaxCountedAttempts || (snapshot.StatusReason is { } reason && !Enum.IsDefined(reason)))
         {
             throw new ArgumentException("Invalid stored bot.", nameof(snapshot));
         }
@@ -246,7 +246,8 @@ public sealed class Bot : AggregateRoot
 
     /// <summary>
     ///     Whether a runtime may take the bot's lease: it should run, and it is not waiting for the owner or for its next
-    ///     restart time.
+    ///     restart time. A runtime failure without a restart time, left by the former five-restart limit, is due at once
+    ///     (ADR 0050).
     /// </summary>
     public bool CanAcquireLease(DateTimeOffset now)
     {
@@ -255,8 +256,7 @@ public sealed class Bot : AggregateRoot
             return false;
         }
 
-        return !IsDegraded || (StatusReason is { } reason && !BotStatusReasons.IsSafety(reason) &&
-            RestartAttempts < BotRestartSchedule.MaxAttempts && NextRestartAt is { } next && next <= now);
+        return !IsDegraded || (StatusReason == BotStatusReason.RuntimeFailure && (NextRestartAt is not { } next || next <= now));
     }
 
     /// <summary>
@@ -269,7 +269,7 @@ public sealed class Bot : AggregateRoot
             throw new BotRuleException(BotRuleException.NotLeasable, "The bot cannot be leased now.");
         }
 
-        if (IsDegraded)
+        if (IsDegraded && RestartAttempts < BotRestartSchedule.MaxCountedAttempts)
         {
             RestartAttempts++;
         }
@@ -340,8 +340,7 @@ public sealed class Bot : AggregateRoot
     }
 
     /// <summary>
-    ///     A runtime failure degrades the bot and schedules an automatic restart, unless a safety reason already holds it; once
-    ///     the restarts are spent the bot waits for its owner (<see cref="BotRestartsExhausted" />).
+    ///     A runtime failure degrades the bot and schedules an automatic restart, unless a safety reason already holds it.
     ///     <paramref name="detail" /> is a short text that is safe to show to the owner (ADR 0029).
     /// </summary>
     public bool RecordRuntimeFailure(DateTimeOffset now, string? detail = null)
@@ -352,7 +351,6 @@ public sealed class Bot : AggregateRoot
         }
 
         bool wasDegraded = IsDegraded;
-        DateTimeOffset? previousRestartAt = NextRestartAt;
         RuntimeStatus = BotRuntimeStatus.Degraded;
         StatusReason = BotStatusReason.RuntimeFailure;
         NextRestartAt = BotRestartSchedule.NextRestartAt(RestartAttempts, now);
@@ -361,11 +359,6 @@ public sealed class Bot : AggregateRoot
         if (!wasDegraded)
         {
             AddDomainEvent(new BotDegraded(Id, BotStatusReason.RuntimeFailure, now, FailureDetail.Limit(detail)));
-        }
-
-        if (NextRestartAt is null && (!wasDegraded || previousRestartAt is not null))
-        {
-            AddDomainEvent(new BotRestartsExhausted(Id, now));
         }
 
         return true;

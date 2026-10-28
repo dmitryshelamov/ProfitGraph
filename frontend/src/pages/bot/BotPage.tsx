@@ -24,7 +24,6 @@ import {
   ManualOrderForm,
   ParametersForm,
   renameBot,
-  restartsExhausted,
   RiskLimitsForm,
   TradingHaltBanner,
   useBotDisplay,
@@ -141,15 +140,9 @@ export function BotPage() {
               ))}
             </ul>
           )}
-          {restartsExhausted(current) && (
-            <p className="text-sm text-danger-text">
-              Автоматические перезапуски исчерпаны: бот ждёт, пока владелец запустит его снова.
-            </p>
-          )}
           {current.nextRestartAt && (
             <p className="text-sm text-muted">
-              Перезапуск после <DateTime value={current.nextRestartAt} /> (попытка{' '}
-              {current.restartAttempts})
+              Перезапуск после <DateTime value={current.nextRestartAt} />
             </p>
           )}
           <BotControls bot={current} />

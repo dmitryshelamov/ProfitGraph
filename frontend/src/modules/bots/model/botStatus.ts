@@ -41,23 +41,9 @@ const alertLabels: Record<BotAlertKind, string> = {
   GraphChangeRejected: 'Версия стратегии не принята',
 };
 
-/**
- * A runtime failure with no restart scheduled: the automatic restarts are spent and the bot waits for the owner to start it
- * again (ADR 0016, 0028).
- */
-export function restartsExhausted(
-  bot: Pick<Bot, 'runtimeStatus' | 'statusReason' | 'nextRestartAt'>,
-): boolean {
-  return (
-    bot.runtimeStatus === 'Degraded' &&
-    bot.statusReason === 'RuntimeFailure' &&
-    bot.nextRestartAt === null
-  );
-}
-
 /** The bot's state for people: what it does now and, when it stopped by itself, why. */
 export function botStatusLabel(
-  bot: Pick<Bot, 'desiredState' | 'runtimeStatus' | 'statusReason' | 'nextRestartAt'>,
+  bot: Pick<Bot, 'desiredState' | 'runtimeStatus' | 'statusReason'>,
 ): string {
   const status =
     bot.desiredState === 'Running'
@@ -65,10 +51,6 @@ export function botStatusLabel(
       : bot.runtimeStatus === 'Created'
         ? 'Не запущен'
         : 'Остановлен';
-
-  if (restartsExhausted(bot)) {
-    return `${status}: сбой выполнения, бот ждёт владельца`;
-  }
 
   return bot.statusReason ? `${status}: ${reasonLabels[bot.statusReason]}` : status;
 }

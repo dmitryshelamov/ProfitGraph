@@ -24,7 +24,8 @@ gateway amend it in later stage 5 pull requests.
   re-arms a bot degraded by `IntentFailed` or `InsufficientBalance`. A start clears reasons, diagnostics, the restart
   streak and the daily loss baseline. `Stop` changes only the desired state; open orders stay.
 - **Reasons.** `BotStatusReason` codes are classified in `BotStatusReasons`. `RuntimeFailure` restarts automatically
-  after 30 s, 1, 2, 5 and 10 minutes; after five restarts the bot waits for the owner. Safety reasons (`NoGateway`,
+  after 30 s and then every minute, without a limit ([ADR 0050](0050-endless-restart-after-runtime-failure.md); until
+  then, after 30 s, 1, 2, 5 and 10 minutes, and the bot waited for the owner after five restarts). Safety reasons (`NoGateway`,
   `UnknownVenue`, `IntentFailed`, `UnresolvedOrder`, `ForeignOrder`, `KeyPermissions`, `UnsupportedFeeAsset`,
   `InsufficientBalance`, `HistoryDataCorrection`) never clear themselves and are not replaced by a runtime failure.
   Control reasons (`Killed`, `DailyLossLimit`) come from a kill: desired and runtime state become stopped at once and

@@ -78,10 +78,6 @@ public static class TelegramMessages
             TelegramNotificationKind.StopRequested => Lines("⏸ <b>Бот останавливается по команде владельца</b>", Line("Бот", name), "Заявки на бирже остаются."),
             TelegramNotificationKind.Stopped => Lines("⏹ <b>Бот остановлен</b>", Line("Бот", name)),
             TelegramNotificationKind.Recovered => Lines("🔄 <b>Бот снова работает</b>", Line("Бот", name)),
-            TelegramNotificationKind.WaitingForOwner => Lines(
-                "🛑 <b>Бот ждёт владельца</b>",
-                Line("Бот", name),
-                "Автоматические перезапуски исчерпаны, запустите бота вручную."),
             TelegramNotificationKind.PositionClosed => PositionClosed(notification.Details, name),
             TelegramNotificationKind.OrderFilled => OrderFilled(notification.Details, bot, name, venue),
             _ => throw new ArgumentOutOfRangeException(nameof(notification), notification.Kind, "Unknown notification kind.")

@@ -215,13 +215,13 @@ public sealed class BotTransitionsTests
     }
 
     [Test]
-    public void RestartsBackOffAndStopAfterFiveAttempts()
+    public void RestartsWaitThirtySecondsThenEveryMinuteWithoutALimit()
     {
         Bot bot = BotFixture.Running();
         DateTimeOffset now = BotFixture.Created;
         var delays = new List<TimeSpan>();
 
-        for (var attempt = 0; attempt < BotRestartSchedule.MaxAttempts; attempt++)
+        for (var attempt = 0; attempt < 20; attempt++)
         {
             bot.RecordRuntimeFailure(now);
             delays.Add(bot.NextRestartAt!.Value - now);
@@ -232,33 +232,26 @@ public sealed class BotTransitionsTests
 
         bot.RecordRuntimeFailure(now);
 
-        delays.ShouldBe([TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(10)]);
+        delays.ShouldBe([TimeSpan.FromSeconds(30), ..Enumerable.Repeat(TimeSpan.FromMinutes(1), count: 19)]);
         bot.ShouldSatisfyAllConditions(
-            () => bot.RestartAttempts.ShouldBe(BotRestartSchedule.MaxAttempts),
-            () => bot.NextRestartAt.ShouldBeNull(),
-            () => bot.CanAcquireLease(now.AddDays(1)).ShouldBeFalse());
+            () => bot.RestartAttempts.ShouldBe(BotRestartSchedule.MaxCountedAttempts),
+            () => bot.NextRestartAt.ShouldBe(now.AddMinutes(1)),
+            () => bot.CanAcquireLease(now.AddMinutes(1)).ShouldBeTrue());
     }
 
     [Test]
-    public void LastFailedRestartReportsThatTheBotWaitsForItsOwnerOnce()
+    public void ARuntimeFailureLeftWithoutARestartTimeIsDueAtOnce()
     {
-        Bot bot = BotFixture.Running();
-        DateTimeOffset now = BotFixture.Created;
-
-        for (var attempt = 0; attempt < BotRestartSchedule.MaxAttempts; attempt++)
+        BotSnapshot spent = BotFixture.FailedOnce().ToSnapshot() with
         {
-            bot.RecordRuntimeFailure(now);
-            now = bot.NextRestartAt!.Value;
-            bot.RecordLeaseAcquired(now);
-            bot.MarkStarting(now);
-        }
+            RestartAttempts = BotRestartSchedule.MaxCountedAttempts,
+            NextRestartAt = null
+        };
 
-        bot.ShouldSatisfyAllConditions(() => bot.DomainEvents.OfType<BotRestartsExhausted>().ShouldBeEmpty());
+        Bot bot = Bot.Restore(spent);
+        bot.RecordLeaseAcquired(Now);
 
-        bot.RecordRuntimeFailure(now);
-        bot.RecordRuntimeFailure(now.AddMinutes(1));
-
-        bot.DomainEvents.OfType<BotRestartsExhausted>().ShouldBe([new BotRestartsExhausted(bot.Id, now)]);
+        bot.RestartAttempts.ShouldBe(BotRestartSchedule.MaxCountedAttempts);
     }
 
     [Test]
