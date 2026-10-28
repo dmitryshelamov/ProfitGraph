@@ -59,21 +59,28 @@ internal sealed class TInvestOrderProgress(
     {
         bool final = TInvestOrderTranslation.IsFinal(state);
         TInvestOrderAttemptState next = final ? TInvestOrderAttemptState.Final : TInvestOrderAttemptState.Active;
-        string? exchangeOrderId = string.IsNullOrEmpty(state.OrderId) ? attempt.ExchangeOrderId : state.OrderId;
         TInvestOrderAttempt recorded = attempt;
 
-        if (attempt.State != TInvestOrderAttemptState.Final && (attempt.State != next || attempt.ExchangeOrderId != exchangeOrderId))
+        while (recorded.State != TInvestOrderAttemptState.Final)
         {
+            string? exchangeOrderId = string.IsNullOrEmpty(state.OrderId) ? recorded.ExchangeOrderId : state.OrderId;
+
+            if (recorded.State == next && recorded.ExchangeOrderId == exchangeOrderId)
+            {
+                break;
+            }
+
             TInvestExecution own = final ? TInvestOrderTranslation.Executed(state, context.Share.Lot) : TInvestExecution.None;
-            TInvestCancelReason? cancelledBy = attempt.CancelledBy;
+            TInvestCancelReason? cancelledBy = recorded.CancelledBy;
 
             if (cancelledBy is null && state.ExecutionReportStatus == OrderExecutionReportStatus.ExecutionReportStatusCancelled)
             {
                 // A cancellation nobody asked for is the end of the trading day when the schedule shows it, and otherwise the owner's own
                 // cancel at the broker (ADR 0039): the executions the state shows are booked and the order ends as cancelled.
-                cancelledBy = await Expired(context, attempt, cancellationToken) ? TInvestCancelReason.Expired : TInvestCancelReason.Owner;
+                cancelledBy = await Expired(context, recorded, cancellationToken) ? TInvestCancelReason.Expired : TInvestCancelReason.Owner;
             }
-            TInvestOrderAttempt moved = attempt with
+
+            TInvestOrderAttempt moved = recorded with
             {
                 State = next,
                 ExchangeOrderId = exchangeOrderId,
@@ -83,9 +90,17 @@ internal sealed class TInvestOrderProgress(
                 ExecutedFee = own.Fee,
                 UpdatedAt = clock.GetUtcNow()
             };
-            recorded = await attempts.Transition(moved, attempt.State, cancellationToken)
-                ? moved
-                : await attempts.ByRequestId(attempt.RequestId, cancellationToken) ?? throw new TInvestOrderUnresolvedException("AttemptChanged");
+
+            if (await attempts.Transition(moved, recorded.State, cancellationToken))
+            {
+                recorded = moved;
+
+                break;
+            }
+
+            // Another writer moved the attempt after it was read, as the gateway does once its place request returns while the
+            // stream already reads the order: the state is recorded on the attempt as stored now, so a final state is never lost.
+            recorded = await attempts.ByRequestId(attempt.RequestId, cancellationToken) ?? throw new TInvestOrderUnresolvedException("AttemptChanged");
         }
 
         long remainder = state.LotsRequested - state.LotsExecuted;

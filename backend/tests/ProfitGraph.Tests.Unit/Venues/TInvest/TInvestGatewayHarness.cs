@@ -45,6 +45,10 @@ internal sealed class TInvestGatewayHarness
 
     public FakeTimeProvider Clock { get; } = new FakeTimeProvider(Now);
 
+    public TInvestBotContext Context { get; }
+
+    public TInvestOrderProgress Progress { get; }
+
     /// <summary>
     ///     What the bots on the account and share hold by their checkpoints; the harness bot holds nothing to begin with.
     /// </summary>
@@ -82,12 +86,13 @@ internal sealed class TInvestGatewayHarness
             FirstMinuteCandle: null,
             FirstDayCandle: null,
             exchange);
-        var contexts = new FixedTInvestBotContexts(new TInvestBotContext(Bot, new TInvestToken("t.invented-token"), AccountId, share));
+        Context = new TInvestBotContext(Bot, new TInvestToken("t.invented-token"), AccountId, share);
+        var contexts = new FixedTInvestBotContexts(Context);
         var schedules = new TInvestSchedules(transport, Clock, NullLogger<TInvestSchedules>.Instance);
         var operations = new TInvestOperationReads(transport);
         Positions = new FixedTInvestBotPositions(Bot);
         var coverage = new TInvestPositionCoverage(operations, Positions, NullLogger<TInvestPositionCoverage>.Instance);
-        var progress = new TInvestOrderProgress(Attempts, Waits, schedules, coverage, Clock);
+        Progress = new TInvestOrderProgress(Attempts, Waits, schedules, coverage, Clock);
         var sender = Substitute.For<ISender>();
         sender.Send(Arg.Any<GetBotOrdersToRefreshQuery>(), Arg.Any<CancellationToken>())
             .Returns(_ => new BotReconcileInternal(Bot, AllowForeignOrders: false, [.. OrdersToRefresh]));
@@ -99,7 +104,7 @@ internal sealed class TInvestGatewayHarness
             reads,
             Attempts,
             Updates,
-            progress,
+            Progress,
             services.GetRequiredService<IServiceScopeFactory>(),
             new PrivateStreamReconnectPolicy { Delays = [TimeSpan.FromSeconds(1)], Budget = TimeSpan.FromSeconds(10) },
             options,
@@ -124,7 +129,7 @@ internal sealed class TInvestGatewayHarness
             new TInvestPriceBands(transport, Clock),
             schedules,
             Waits,
-            progress,
+            Progress,
             proofs,
             transport,
             options,
@@ -146,7 +151,7 @@ internal sealed class TInvestGatewayHarness
             contexts,
             Streams,
             reads,
-            progress,
+            Progress,
             schedules,
             options,
             Clock,
