@@ -10,14 +10,9 @@ namespace ProfitGraph.Engine.Templates;
 public static class StrategyTemplateUpgrades
 {
     /// <summary>
-    ///     The blocks the Ladder's reaction to a filled manual order attaches to (ADR 0037): the exit and averaging chain of the Ladder
-    ///     with resume, and the restart condition. A graph without one of them, or without one of the chain's wires, has been changed
-    ///     away from the template.
-    /// </summary>
-    private static readonly string[] RequiredBlocks = ["resume", "cancelExit", "exitConditions", "exit", "averageConditions", "restartEvent"];
-
-    /// <summary>
-    ///     The blocks the Ladder's restoring at resume attaches to (ADR 0040): the chain of the Ladder, without the resume blocks.
+    ///     The blocks the Ladder's reaction to a filled manual order (ADR 0037) and its restoring at resume (ADR 0040) attach to: the
+    ///     exit and averaging chain of the Ladder and the restart condition. A graph without one of them, or without one of the chain's
+    ///     wires, has been changed away from the template.
     /// </summary>
     private static readonly string[] ChainBlocks = ["entryConditions", "cancelExit", "exitConditions", "exit", "averageConditions", "restartEvent"];
 
@@ -53,8 +48,8 @@ public static class StrategyTemplateUpgrades
         HashSet<string> ids = [.. definition.Blocks.Select(block => block.Id)];
         IReadOnlyList<StrategyBlock> blocks = LadderResumeRestore.Blocks();
 
-        if (blocks.Any(block => ids.Contains(block.Id)) || definition.Blocks.Any(block => block is { Kind: "event", Source: "OnResume" }) ||
-            ChainBlocks.Any(id => !ids.Contains(id)) || !HasWires(definition))
+        if (blocks.Any(block => ids.Contains(block.Id)) || definition.Blocks.Any(IsResumeEvent) || ChainBlocks.Any(id => !ids.Contains(id)) ||
+            !HasWires(definition))
         {
             return null;
         }
@@ -75,7 +70,8 @@ public static class StrategyTemplateUpgrades
 
     /// <summary>
     ///     The definition with the Ladder's reaction to a filled manual order added, or null when the graph already reacts to the
-    ///     manual tag or is not the Ladder with resume.
+    ///     manual tag or is not the Ladder with resume. The resume event may be the template's <c>resume</c> or one the owner added under
+    ///     another id (ADR 0052).
     /// </summary>
     public static StrategyDefinition? WithManualFillRebuild(StrategyDefinition definition)
     {
@@ -84,8 +80,8 @@ public static class StrategyTemplateUpgrades
         HashSet<string> ids = [.. definition.Blocks.Select(block => block.Id)];
         IReadOnlyList<StrategyBlock> blocks = LadderManualFillRebuild.Blocks();
 
-        if (blocks.Any(block => ids.Contains(block.Id)) || definition.Blocks.Any(ReactsToManualOrders) ||
-            RequiredBlocks.Any(id => !ids.Contains(id)) || !HasWires(definition))
+        if (blocks.Any(block => ids.Contains(block.Id)) || definition.Blocks.Any(ReactsToManualOrders) || !definition.Blocks.Any(IsResumeEvent) ||
+            ChainBlocks.Any(id => !ids.Contains(id)) || !HasWires(definition))
         {
             return null;
         }
@@ -96,6 +92,11 @@ public static class StrategyTemplateUpgrades
             [.. definition.Blocks, .. blocks],
             [.. definition.Wires, .. LadderManualFillRebuild.Wires()],
             definition.TemplateKind);
+    }
+
+    private static bool IsResumeEvent(StrategyBlock block)
+    {
+        return block is { Kind: "event", Source: "OnResume" };
     }
 
     private static bool ReactsToManualOrders(StrategyBlock block)

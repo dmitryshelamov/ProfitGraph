@@ -7,8 +7,8 @@ using ValueType = ProfitGraph.Engine.Nodes.ValueType;
 namespace ProfitGraph.Tests.Unit.Engine.Blocks;
 
 /// <summary>
-///     The upgrades that add the Ladder's restoring at resume (ADR 0040) and its reaction to a filled manual order (ADR 0038) to saved
-///     strategies: they add exactly what the template of today has, only to the Ladder chain they attach to, and only once.
+///     The upgrades that add the Ladder's restoring at resume (ADR 0040) and its reaction to a filled manual order (ADR 0038, ADR 0052)
+///     to saved strategies: they add exactly what the template of today has, only to the Ladder chain they attach to, and only once.
 /// </summary>
 public sealed class StrategyTemplateUpgradesTests
 {
@@ -117,7 +117,7 @@ public sealed class StrategyTemplateUpgradesTests
     }
 
     [Test]
-    public void AGraphWithAResumeEventOfItsOwnIsNotGivenTheResumeBlocks()
+    public void AGraphWithAResumeEventOfItsOwnGetsOnlyTheManualReaction()
     {
         StrategyDefinition ladder = LadderStrategyBlockFactory.Create();
         var own = new StrategyBlock("myResume", "event", "Моё возобновление", "OnResume");
@@ -129,7 +129,28 @@ public sealed class StrategyTemplateUpgradesTests
             ladder.TemplateKind);
 
         StrategyTemplateUpgrades.WithResumeRestore(custom).ShouldBeNull();
-        StrategyTemplateUpgrades.Upgrade(custom).ShouldBeNull();
+        StrategyDefinition upgraded = StrategyTemplateUpgrades.Upgrade(custom).ShouldNotBeNull();
+
+        upgraded.Blocks.Select(block => block.Id).Except(custom.Blocks.Select(block => block.Id)).Order().ShouldBe(ManualBlocks.Order());
+        StrategyTemplateUpgrades.Upgrade(upgraded).ShouldBeNull();
+    }
+
+    [Test]
+    public void ALadderWhoseOwnerAddedTheResumeUnderOtherIdsGetsExactlyTheTemplatesManualReaction()
+    {
+        StrategyDefinition template = LadderResumeStrategyBlockFactory.Create();
+        StrategyDefinition saved = Renamed(Without(template), ("resume", "onresume_6b61cd8a"), ("resumeExitGuard", "condition_3b69ebdd"));
+
+        StrategyDefinition upgraded = StrategyTemplateUpgrades.Upgrade(saved).ShouldNotBeNull();
+
+        StrategyDefinition expected = Renamed(template, ("resume", "onresume_6b61cd8a"), ("resumeExitGuard", "condition_3b69ebdd"));
+        upgraded.Blocks.Select(Key).Order().ShouldBe(expected.Blocks.Select(Key).Order());
+        upgraded.Wires.Select(Describe).Order().ShouldBe(expected.Wires.Select(Describe).Order());
+        upgraded.Parameters.ShouldBe(saved.Parameters);
+        upgraded.Values.ShouldBe(saved.Values);
+        upgraded.TemplateKind.ShouldBe(saved.TemplateKind);
+        new StrategyDefinitionValidator().Validate(upgraded, ProductionTradingNodeTests.Catalog).Diagnostics.ShouldBeEmpty();
+        StrategyTemplateUpgrades.Upgrade(upgraded).ShouldBeNull();
     }
 
     [Test]
@@ -178,6 +199,34 @@ public sealed class StrategyTemplateUpgradesTests
             template.Blocks.Where(block => !removed.Contains(block.Id)),
             template.Wires.Where(wire => !removed.Contains(wire.From.Block) && !removed.Contains(wire.To)),
             template.TemplateKind);
+    }
+
+    private static StrategyDefinition Renamed(StrategyDefinition definition, params (string From, string To)[] renames)
+    {
+        Dictionary<string, string> map = renames.ToDictionary(rename => rename.From, rename => rename.To);
+        string Id(string id) => map.GetValueOrDefault(id, id);
+
+        return new StrategyDefinition(
+            definition.Parameters,
+            definition.Values,
+            definition.Blocks.Select(
+                block => new StrategyBlock(
+                    Id(block.Id),
+                    block.Kind,
+                    block.DisplayName,
+                    block.Source,
+                    block.Join,
+                    block.Checks,
+                    block.OrderKind,
+                    block.Side,
+                    block.Tag,
+                    block.Amount,
+                    block.Quantity,
+                    block.Price,
+                    block.SizeMode,
+                    block.MinimumOrderPolicy)),
+            definition.Wires.Select(wire => new StrategyWire(new StrategyExit(Id(wire.From.Block), wire.From.Exit), Id(wire.To))),
+            definition.TemplateKind);
     }
 
     private static StrategyDefinition Without(StrategyDefinition template)
