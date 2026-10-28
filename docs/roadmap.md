@@ -137,3 +137,11 @@ Corrections to stage 2 sign-in found in review.
 |---|---|---|---|
 | 1. Throttling and session end | [ADR 0043](adr/0043-sign-in-throttling-and-session-end.md): only failed sign-ins count, with a lockout per login that doubles from 30 s to 15 min and ends on success, except on client addresses the login signed in from; `returnTo` accepted only on the same origin; blocking closes the account's SignalR connections and hub calls re-check the account | Integration tests lock a login out and release it, keep the owner's known address open, close a blocked account's WebSocket connections on all four hubs; unit tests reject `//x`, `/\x`, `https://x` and `javascript:` as return paths | Done |
 | 2. Two-factor sign-in | Second factor for the owner | | Awaiting the owner's decision |
+
+## Private order streams
+
+Corrections to [ADR 0017](adr/0017-bybit-spot-order-gateway.md) and [ADR 0023](adr/0023-tinvest-moex-shares.md) found in review.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Reconnect inside the bot | [ADR 0044](adr/0044-private-stream-reconnect.md): a lost Bybit or T-Invest private stream reconnects with backoff (1, 2, 5, 10, then 30 s) for up to 5 minutes; once the venue confirmed it, the bot's open orders are read again as at reconciliation and published; an unreadable message, a failed lookup or a foreign order still ends the bot | Fake transports and the mock Invest API: a fill missed while the stream was down is published once after the restore, a stream lost for the whole budget ends the updates, a foreign order placed meanwhile degrades | Done on mocks; no real venue stream checked |
