@@ -8,6 +8,9 @@ using NSubstitute;
 
 using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.ReadExchangeCredentialSecrets;
+using ProfitGraph.Application.Bots.Contracts;
+using ProfitGraph.Application.Bots.GetBotOrdersToRefresh;
+using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.Accounts;
@@ -43,6 +46,16 @@ internal sealed class BybitGatewayHarness
 
     public FakeTimeProvider Time { get; } = new FakeTimeProvider(new DateTimeOffset(year: 2026, month: 10, day: 27, hour: 12, minute: 0, second: 0, TimeSpan.Zero));
 
+    /// <summary>
+    ///     The orders the bot's engine and intents hold open, which a restored private stream reads again (ADR 0044).
+    /// </summary>
+    public List<ReconcileOrderInternal> OrdersToRefresh { get; } = [];
+
+    /// <summary>
+    ///     A lost private stream connects again every second of <see cref="Time" /> and gives up after ten.
+    /// </summary>
+    public PrivateStreamReconnectPolicy Reconnect { get; } = new PrivateStreamReconnectPolicy { Delays = [TimeSpan.FromSeconds(1)], Budget = TimeSpan.FromSeconds(10) };
+
     public BybitGatewayHarness()
     {
         Bot = Bot.Create(
@@ -62,6 +75,8 @@ internal sealed class BybitGatewayHarness
         var sender = Substitute.For<ISender>();
         sender.Send(Arg.Any<ReadExchangeCredentialSecretsQuery>(), Arg.Any<CancellationToken>())
             .Returns(new ExchangeCredentialSecretsInternal(Bot.CredentialId.Value, "bybit", MockBybitExchange.ApiKey, MockBybitExchange.ApiSecret));
+        sender.Send(Arg.Any<GetBotOrdersToRefreshQuery>(), Arg.Any<CancellationToken>())
+            .Returns(_ => new BotReconcileInternal(Bot.Id, AllowForeignOrders: false, [.. OrdersToRefresh]));
         var rules = Substitute.For<IInstrumentRulesSource>();
         rules.Venue.Returns(new VenueId("bybit"));
         rules.Get(Arg.Any<InstrumentSymbol>(), Arg.Any<CancellationToken>())
@@ -88,7 +103,15 @@ internal sealed class BybitGatewayHarness
             new BybitTradeClient(http, clock),
             read,
             reads,
-            new BybitPrivateStreams(PrivateStream, read, reads, Updates, NullLogger<BybitPrivateStreams>.Instance),
+            new BybitPrivateStreams(
+                PrivateStream,
+                read,
+                reads,
+                Updates,
+                services.GetRequiredService<IServiceScopeFactory>(),
+                Reconnect,
+                Time,
+                NullLogger<BybitPrivateStreams>.Instance),
             new BybitBotContexts(services.GetRequiredService<IServiceScopeFactory>()),
             Updates,
             new BybitAbsenceProofs(reads, Time));
@@ -143,5 +166,43 @@ internal sealed class BybitGatewayHarness
         }
 
         return published;
+    }
+
+    /// <summary>
+    ///     What else the bot's updates receive within a short wait.
+    /// </summary>
+    public async Task<List<ExternalOrderUpdate>> PublishedSoon()
+    {
+        using var wait = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+        var published = new List<ExternalOrderUpdate>();
+
+        try
+        {
+            await foreach (ExternalOrderUpdate update in Updates.Read(Bot.Id, wait.Token))
+            {
+                published.Add(update);
+            }
+        }
+        catch (OperationCanceledException) when (wait.IsCancellationRequested)
+        {
+            // Nothing else arrived.
+        }
+
+        return published;
+    }
+
+    /// <summary>
+    ///     Moves <see cref="Time" /> a second at a time until the condition holds, so the private stream's pauses before it
+    ///     connects again pass.
+    /// </summary>
+    public async Task AdvanceUntil(Func<bool> condition)
+    {
+        for (var step = 0; step < 400 && !condition(); step++)
+        {
+            Time.Advance(TimeSpan.FromSeconds(1));
+            await Task.Delay(TimeSpan.FromMilliseconds(10));
+        }
+
+        condition().ShouldBeTrue();
     }
 }

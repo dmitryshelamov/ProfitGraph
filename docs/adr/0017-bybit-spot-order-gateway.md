@@ -67,7 +67,9 @@ maker rebates. Agents never use a real key or call an authenticated endpoint; ev
   not the bot's ends the bot's updates with `ForeignOrder` unless the bot allows foreign orders. Other symbols are
   ignored.
 - **Loss.** A closed connection, an unreadable message or a failed lookup ends the bot's updates with that error; the
-  runner restarts and reconciles again. A connection per credential shared by its bots is left for later.
+  runner restarts and reconciles again. A connection per credential shared by its bots is left for later. ADR 0044 changes
+  this for a closed connection: it is restored inside the running bot, and only one lost for the whole budget ends the
+  bot's updates.
 
 ## Amendment: in-memory simulation for end-to-end tests (stage 5 follow-up)
 

@@ -3,7 +3,14 @@ import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 import { api, ApiError, unwrap } from '@/shared/api/client';
 
 import { pageBefore } from '../model/botCandles';
-import type { Bot, BotCandlesPage, ManualOrder, OrderSide, TradingHalt } from '../model/types';
+import type {
+  Bot,
+  BotCandlesPage,
+  ManualOrder,
+  OrderCancel,
+  OrderSide,
+  TradingHalt,
+} from '../model/types';
 
 export const botKeys = {
   all: ['bots'] as const,
@@ -15,8 +22,10 @@ export const botKeys = {
   fills: (id: string) => ['bots', id, 'fills'] as const,
   feed: (id: string) => ['bots', id, 'feed'] as const,
   position: (id: string) => ['bots', id, 'position'] as const,
+  account: (id: string) => ['bots', id, 'account'] as const,
   waiting: (id: string) => ['bots', id, 'waiting-orders'] as const,
   openOrders: (id: string) => ['bots', id, 'open-orders'] as const,
+  orderCancel: (id: string, cancelId: string) => ['bots', id, 'order-cancels', cancelId] as const,
   unresolved: (id: string) => ['bots', id, 'unresolved-orders'] as const,
   candles: (id: string) => ['bots', id, 'candles'] as const,
   newCandles: (id: string, from: string) => ['bots', id, 'new-candles', from] as const,
@@ -42,6 +51,20 @@ export function botQuery(id: string) {
     queryFn: async () => unwrap(await api.GET('/api/bots/{id}', { params: { path: { id } } })),
     retry: retryUnlessMissing,
     refetchInterval: 5_000,
+  });
+}
+
+/**
+ * The exchange account the bot trades on, from what the server stored (ADR 0049): reading it never reaches the venue, and
+ * the Worker refreshes the value every five minutes, so a minute's polling is enough.
+ */
+export function botAccountQuery(id: string) {
+  return queryOptions({
+    queryKey: botKeys.account(id),
+    queryFn: async () =>
+      unwrap(await api.GET('/api/bots/{id}/account', { params: { path: { id } } })),
+    retry: retryUnlessMissing,
+    refetchInterval: 60_000,
   });
 }
 
@@ -199,6 +222,32 @@ export function botOpenOrdersQuery(id: string) {
     queryFn: async () =>
       unwrap(await api.GET('/api/bots/{id}/open-orders', { params: { path: { id } } })),
     refetchInterval: 15_000,
+  });
+}
+
+/**
+ * The owner cancels one of the running bot's open orders (ADR 0048). The bot's runner turns it into the engine's ordinary
+ * cancel within a minute; follow it with {@link orderCancelQuery}.
+ */
+export async function cancelBotOrder(botId: string, engineOrderId: number): Promise<OrderCancel> {
+  return unwrap(
+    await api.POST('/api/bots/{id}/open-orders/{engineOrderId}/cancel', {
+      params: { path: { id: botId, engineOrderId } },
+    }),
+  );
+}
+
+/** Follows an owner's order cancel until the runner resolves it. */
+export function orderCancelQuery(botId: string, cancelId: string) {
+  return queryOptions({
+    queryKey: botKeys.orderCancel(botId, cancelId),
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/api/bots/{id}/order-cancels/{cancelId}', {
+          params: { path: { id: botId, cancelId } },
+        }),
+      ),
+    refetchInterval: (query) => (query.state.data?.status === 'Pending' ? 1_000 : false),
   });
 }
 

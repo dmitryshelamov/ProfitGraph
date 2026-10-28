@@ -43,8 +43,9 @@ internal sealed class RuntimeScenario
 
     /// <summary>
     ///     A Worker host with the live role; without a gateway it models a process where trading is disabled, and with the outbox its events reach the bot's feed.
+    ///     <paramref name="configure" /> adds services of one test.
     /// </summary>
-    public IHost Worker(bool withGateway = true, bool withOutbox = false)
+    public IHost Worker(bool withGateway = true, bool withOutbox = false, Action<IServiceCollection>? configure = null)
     {
         return BotTestHost.Create(
             services =>
@@ -65,6 +66,8 @@ internal sealed class RuntimeScenario
                     services.AddSingleton<IOrderGateway>(Gateway);
                     services.AddSingleton<IOrderReadiness>(Readiness);
                 }
+
+                configure?.Invoke(services);
             },
             settings: Settings());
     }

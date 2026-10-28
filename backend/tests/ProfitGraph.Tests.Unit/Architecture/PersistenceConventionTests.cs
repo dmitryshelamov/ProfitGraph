@@ -12,7 +12,7 @@ public sealed partial class PersistenceConventionTests
     private const string MigrationFolder = "ProfitGraph.Infrastructure/Common/Postgres/Migrations";
 
     [Test]
-    public void MigrationsAreNamedByVersionAndLiveInOneFolder()
+    public void MigrationsAreNamedByVersionAndLiveInMigrationFolders()
     {
         string[] offenders =
         [
@@ -23,7 +23,8 @@ public sealed partial class PersistenceConventionTests
                 .Select(file => Path.GetRelativePath(RepositoryLayout.SourceDirectory, file.Path))
         ];
 
-        offenders.ShouldBeEmpty($"Name migrations {{version}}_{{snake_case}}.cs with a *Migration class in {MigrationFolder}.");
+        offenders.ShouldBeEmpty(
+            $"Name migrations {{version}}_{{snake_case}}.cs with a *Migration class in {MigrationFolder} or in Persistence/Migrations of the owning venue module.");
     }
 
     [Test]

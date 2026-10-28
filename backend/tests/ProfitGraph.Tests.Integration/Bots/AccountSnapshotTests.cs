@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Npgsql;
 
 using ProfitGraph.Application.Accounts.Contracts;
+using ProfitGraph.Application.Accounts.Ports;
 using ProfitGraph.Application.Accounts.RecordAccountBalance;
 using ProfitGraph.Application.Accounts.ThinAccountSnapshots;
 using ProfitGraph.Domain.Accounts;
@@ -106,6 +107,38 @@ public sealed class AccountSnapshotTests
             },
             "the credential's balance is read");
         await worker.StopAsync();
+    }
+
+    [Test]
+    public async Task WorkerRecordsTheAccountIdentityOfEveryCredentialWithABotOnAVenueWithAReader()
+    {
+        var scenario = new RuntimeScenario();
+        var reader = new FakeAccountIdentityReader();
+        using IHost worker = scenario.Worker(configure: services => services.AddSingleton<IVenueAccountIdentityReader>(reader));
+        Bot bot = await RuntimeScenario.RunningLadder(worker);
+        await BotStore.Change(worker, bot.Id, stored => stored.Stop(DateTimeOffset.UtcNow));
+
+        await worker.StartAsync();
+        await RuntimeScenario.Until(
+            async () =>
+            {
+                await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+
+                return await connection.ExecuteScalarAsync<DateTime?>(
+                    "SELECT last_attempt_at FROM account_identities WHERE credential_id = @id",
+                    new { id = bot.CredentialId.Value }) is not null;
+            },
+            "the credential's identity is read");
+        await worker.StopAsync();
+
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+        var identity = await connection.QuerySingleAsync<(string? AccountId, string? FailureReason)>(
+            "SELECT account_id, failure_reason FROM account_identities WHERE credential_id = @id",
+            new { id = bot.CredentialId.Value });
+
+        // No key decrypts the invented secrets, so the venue is never asked and the failure is recorded instead.
+        identity.ShouldBe((null, "credential_unavailable"));
+        reader.Reads.ShouldBe(0);
     }
 
     private static AccountBalanceReadInternal Observed(decimal totalValue, DateTimeOffset at)

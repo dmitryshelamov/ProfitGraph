@@ -283,6 +283,9 @@ public sealed class TInvestDayEndTests
     public async Task TheSweepLeavesARunningBotToItsStream_AndStopsOnceTheNextSessionOpens()
     {
         await PlaceBuy(lots: 1);
+
+        // The submit's acceptance, then the stream's, published once it has read the new order.
+        (await _harness.Next(count: 2)).ShouldBe([ExternalOrderUpdate.Accept(orderId: 1), ExternalOrderUpdate.Accept(orderId: 1)]);
         int reads = _harness.Orders.StateReads;
 
         At(Tuesday, hour: 20, minute: 50);

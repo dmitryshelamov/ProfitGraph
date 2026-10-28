@@ -13,6 +13,11 @@ public interface IAccountSnapshotRepository
     Task<IReadOnlyList<AccountSnapshot>> List(ExchangeCredentialId credentialId, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken);
 
     /// <summary>
+    ///     The credential's latest snapshot, or null before the first one.
+    /// </summary>
+    Task<AccountSnapshot?> Latest(ExchangeCredentialId credentialId, CancellationToken cancellationToken);
+
+    /// <summary>
     ///     Keeps only the latest snapshot per credential and UTC hour among those captured before <paramref name="before" />;
     ///     returns how many it removed.
     /// </summary>

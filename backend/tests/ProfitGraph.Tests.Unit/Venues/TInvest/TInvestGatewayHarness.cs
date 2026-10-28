@@ -1,7 +1,15 @@
+using MediatR;
+
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 
+using NSubstitute;
+
+using ProfitGraph.Application.Bots.Contracts;
+using ProfitGraph.Application.Bots.GetBotOrdersToRefresh;
+using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Venues.TInvest;
@@ -50,6 +58,11 @@ internal sealed class TInvestGatewayHarness
 
     public TInvestClosedSessionSweep Sweep { get; }
 
+    /// <summary>
+    ///     The orders the bot's engine and intents hold open, which a restored order state stream reads again (ADR 0044).
+    /// </summary>
+    public List<ReconcileOrderInternal> OrdersToRefresh { get; } = [];
+
     public TInvestGatewayHarness(string exchange = Exchange)
     {
         Orders = new MockTInvestOrders(Api, AccountId) { PositionInstrumentUid = ShareUid };
@@ -75,7 +88,23 @@ internal sealed class TInvestGatewayHarness
         Positions = new FixedTInvestBotPositions(Bot);
         var coverage = new TInvestPositionCoverage(operations, Positions, NullLogger<TInvestPositionCoverage>.Instance);
         var progress = new TInvestOrderProgress(Attempts, Waits, schedules, coverage, Clock);
-        Streams = new TInvestOrderStreams(transport, reads, Attempts, Updates, progress, options, NullLogger<TInvestOrderStreams>.Instance);
+        var sender = Substitute.For<ISender>();
+        sender.Send(Arg.Any<GetBotOrdersToRefreshQuery>(), Arg.Any<CancellationToken>())
+            .Returns(_ => new BotReconcileInternal(Bot, AllowForeignOrders: false, [.. OrdersToRefresh]));
+        ServiceProvider services = new ServiceCollection().AddSingleton(sender).BuildServiceProvider();
+
+        // A lost order state stream subscribes again every second of the clock and gives up after ten.
+        Streams = new TInvestOrderStreams(
+            transport,
+            reads,
+            Attempts,
+            Updates,
+            progress,
+            services.GetRequiredService<IServiceScopeFactory>(),
+            new PrivateStreamReconnectPolicy { Delays = [TimeSpan.FromSeconds(1)], Budget = TimeSpan.FromSeconds(10) },
+            options,
+            Clock,
+            NullLogger<TInvestOrderStreams>.Instance);
         var proofs = new TInvestAbsenceProofs(
             reads,
             operations,
@@ -158,6 +187,44 @@ internal sealed class TInvestGatewayHarness
         }
 
         return read;
+    }
+
+    /// <summary>
+    ///     What else the bot's updates receive within a short wait.
+    /// </summary>
+    public async Task<IReadOnlyList<ExternalOrderUpdate>> NextSoon()
+    {
+        using var wait = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+        List<ExternalOrderUpdate> read = [];
+
+        try
+        {
+            await foreach (ExternalOrderUpdate update in Updates.Read(Bot, wait.Token))
+            {
+                read.Add(update);
+            }
+        }
+        catch (OperationCanceledException) when (wait.IsCancellationRequested)
+        {
+            // Nothing else arrived.
+        }
+
+        return read;
+    }
+
+    /// <summary>
+    ///     Moves the clock a second at a time until the condition holds, so the order state stream's pauses before it
+    ///     subscribes again pass.
+    /// </summary>
+    public async Task AdvanceUntil(Func<bool> condition)
+    {
+        for (var step = 0; step < 400 && !condition(); step++)
+        {
+            Clock.Advance(TimeSpan.FromSeconds(1));
+            await Task.Delay(TimeSpan.FromMilliseconds(10));
+        }
+
+        condition().ShouldBeTrue();
     }
 
     public static OrderSnapshot Limit(long id, OrderSide side, decimal quantity, decimal price)
