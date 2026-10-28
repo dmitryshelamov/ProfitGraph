@@ -34,3 +34,10 @@ date-based migration versions.
   it by foreign key, and the core row is written first.
 - Operator commands (`--run {name}` on the Worker) let a module offer a one-time console task, such as importing a
   credential, without migrations or background services.
+
+## Amendment: production (ADR 0053)
+
+- The first production deployment ends the rule of one initial migration per feature edited in place. From then on,
+  a schema change is a new migration, and a migration already applied in production is never edited.
+- `deploy/deploy.sh` applies migrations with `--migrate-only` while the previous version still runs, so a migration
+  must not break the version before it.

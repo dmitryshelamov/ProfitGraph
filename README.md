@@ -14,7 +14,9 @@ ProfitGraph — пересборка проекта Profit Fox Designer: код 
 ```text
 backend/    .NET 10: Engine, Domain, Application, Infrastructure, Api, Worker и модули площадок
 frontend/   React 19, TypeScript, Vite: веб-интерфейс
-docs/       архитектура, roadmap и ADR
+docs/       архитектура, roadmap, ADR и runbook прода (docs/production.md)
+deploy/     скрипт деплоя и примеры настроек прода
+docker/     Dockerfile образов и Caddyfile
 ```
 
 ## Запуск и проверки
@@ -109,3 +111,9 @@ docker compose -f docker-compose.dev-app.yml down
 - Архитектура и правила кода: [docs/architecture.md](docs/architecture.md), решения: [docs/adr](docs/adr).
 - Изменения попадают в `main` только через pull request с зелёным CI, слияние — squash.
 - Инструкции для агентов: [AGENTS.md](AGENTS.md).
+
+## Прод
+
+Прод работает на `192.168.8.111` в Docker Compose за Caddy с HTTPS. Merge в `main` собирает образы в GHCR, а деплой
+запускается после подтверждения окружения `production` в GitHub Actions. Порядок работы и первичная настройка описаны в
+`docs/production.md`.
