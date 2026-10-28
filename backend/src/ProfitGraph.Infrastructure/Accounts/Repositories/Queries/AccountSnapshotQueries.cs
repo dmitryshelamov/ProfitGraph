@@ -17,6 +17,15 @@ internal static class AccountSnapshotQueries
                                  LIMIT @limit
                                  """;
 
+    internal const string Latest = """
+                                   SELECT id AS Id, credential_id AS CredentialId, captured_at AS CapturedAt, bucket_start AS BucketStart,
+                                       total_value AS TotalValue, value_currency AS ValueCurrency, available_value AS AvailableValue, coins::text AS Coins
+                                   FROM account_value_snapshots
+                                   WHERE credential_id = @credentialId
+                                   ORDER BY captured_at DESC
+                                   LIMIT 1
+                                   """;
+
     internal const string ThinToHourly = """
                                          DELETE FROM account_value_snapshots AS snapshot
                                          WHERE snapshot.captured_at < @before

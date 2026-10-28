@@ -130,6 +130,13 @@ as a T-Invest brokerage account, the account is chosen from the venue's list whe
 account has at most one credential. A credential belongs to its owner, and another user's credential is reported as
 missing. See [ADR 0015](docs/adr/0015-exchange-credentials.md).
 
+### Account Identity
+
+The exchange account a credential trades on as its venue last described it: the account's identifier (a Bybit UID, a
+T-Invest account number), its name or the key's note, its kind, the key's access level, permissions and expiry. The Worker
+reads it once a day for every credential with a bot and keeps the last success through failures; the bot page shows it from
+that cache and never asks the venue. It holds no secret. See [ADR 0049](docs/adr/0049-bot-page-account-summary.md).
+
 ### Bot
 
 A strategy running live on one venue series through one of its owner's exchange credentials. The owner sets its desired

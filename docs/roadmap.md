@@ -145,3 +145,11 @@ Corrections to [ADR 0017](adr/0017-bybit-spot-order-gateway.md) and [ADR 0023](a
 | Step | Scope | Done when | Status |
 |---|---|---|---|
 | 1. Reconnect inside the bot | [ADR 0044](adr/0044-private-stream-reconnect.md): a lost Bybit or T-Invest private stream reconnects with backoff (1, 2, 5, 10, then 30 s) for up to 5 minutes; once the venue confirmed it, the bot's open orders are read again as at reconciliation and published; an unreadable message, a failed lookup or a foreign order still ends the bot | Fake transports and the mock Invest API: a fill missed while the stream was down is published once after the restore, a stream lost for the whole budget ends the updates, a foreign order placed meanwhile degrades | Done on mocks; no real venue stream checked |
+
+## Bot page account summary
+
+[ADR 0049](adr/0049-bot-page-account-summary.md): the bot page begins with the exchange account the bot trades on.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Account card | `GET /api/bots/{id}/account` from stored data only; `IVenueAccountIdentityReader` for Bybit (`/v5/user/query-api`) and T-Invest (`GetAccounts`), cached daily in `account_identities` by the Worker; `BotAccountCard` first on the bot page with details behind a disclosure | Handler, endpoint and Worker tests pass against the test venue, the readers against the mock Bybit exchange and the mock Invest API, and the card in the app tests | Done on mocks; the real Bybit and T-Invest answers are not checked |

@@ -51,6 +51,7 @@ public static class BybitRegistration
         services.AddHttpClient<BybitReadClient>(Configure).RemoveAllLoggers();
         services.AddTransient<IVenueFeeRateReader, BybitFeeRateReader>();
         services.AddTransient<IAccountBalanceReader, BybitAccountBalanceReader>();
+        services.AddTransient<IVenueAccountIdentityReader, BybitAccountIdentityReader>();
         services.AddSingleton<IVenueCredentialSchema, BybitCredentialSchema>();
 
         return services;

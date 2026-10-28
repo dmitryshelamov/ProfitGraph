@@ -49,6 +49,7 @@ public static class DependencyInjection
         services.AddScoped<IExchangeCredentialRepository, ExchangeCredentialRepository>();
         services.AddScoped<IAccountSnapshotRepository, AccountSnapshotRepository>();
         services.AddScoped<IAccountBalanceStatusRepository, AccountBalanceStatusRepository>();
+        services.AddScoped<IAccountIdentityRepository, AccountIdentityRepository>();
         services.AddScoped<ITelegramLinkRepository, TelegramLinkRepository>();
         services.AddScoped<ITelegramPollerLeaseRepository, TelegramPollerLeaseRepository>();
         services.AddOptions<TelegramOptions>()

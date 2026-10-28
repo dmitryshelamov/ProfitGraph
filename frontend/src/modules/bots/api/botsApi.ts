@@ -22,6 +22,7 @@ export const botKeys = {
   fills: (id: string) => ['bots', id, 'fills'] as const,
   feed: (id: string) => ['bots', id, 'feed'] as const,
   position: (id: string) => ['bots', id, 'position'] as const,
+  account: (id: string) => ['bots', id, 'account'] as const,
   waiting: (id: string) => ['bots', id, 'waiting-orders'] as const,
   openOrders: (id: string) => ['bots', id, 'open-orders'] as const,
   orderCancel: (id: string, cancelId: string) => ['bots', id, 'order-cancels', cancelId] as const,
@@ -50,6 +51,20 @@ export function botQuery(id: string) {
     queryFn: async () => unwrap(await api.GET('/api/bots/{id}', { params: { path: { id } } })),
     retry: retryUnlessMissing,
     refetchInterval: 5_000,
+  });
+}
+
+/**
+ * The exchange account the bot trades on, from what the server stored (ADR 0049): reading it never reaches the venue, and
+ * the Worker refreshes the value every five minutes, so a minute's polling is enough.
+ */
+export function botAccountQuery(id: string) {
+  return queryOptions({
+    queryKey: botKeys.account(id),
+    queryFn: async () =>
+      unwrap(await api.GET('/api/bots/{id}/account', { params: { path: { id } } })),
+    retry: retryUnlessMissing,
+    refetchInterval: 60_000,
   });
 }
 

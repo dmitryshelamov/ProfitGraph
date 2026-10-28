@@ -2105,6 +2105,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bots/{id}/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotAccountResponse"];
+                        "application/json": components["schemas"]["BotAccountResponse"];
+                        "text/json": components["schemas"]["BotAccountResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bots/{id}/parameters": {
         parameters: {
             query?: never;
@@ -3640,6 +3679,40 @@ export interface components {
             orderKinds: components["schemas"]["BlockCatalogEntryResponse"][];
             valueSources: components["schemas"]["BlockCatalogEntryResponse"][];
         };
+        BotAccountIdentityResponse: {
+            accountId: null | string;
+            name: null | string;
+            kind: null | string;
+            accessLevel: null | string;
+            readOnly: null | boolean;
+            permissions: string[];
+            /** Format: date-time */
+            expiresAt: null | string;
+            /** Format: date-time */
+            readAt: string;
+        };
+        BotAccountResponse: {
+            /** Format: uuid */
+            credentialId: string;
+            venue: string;
+            credentialLabel: string;
+            apiKeyLast4: string;
+            accountPublicId: null | string;
+            identity: null | components["schemas"]["BotAccountIdentityResponse"];
+            identityFailureReason: null | string;
+            snapshot: null | components["schemas"]["AccountSnapshotResponse"];
+            /** Format: date-time */
+            lastAttemptAt: null | string;
+            /** Format: date-time */
+            lastSuccessAt: null | string;
+            failureReason: null | string;
+            /** Format: date-time */
+            nextAttemptAt: null | string;
+            venueStatus: null | components["schemas"]["AccountStatusResponse"];
+            protection: components["schemas"]["AccountProtectionResponse"];
+            allocationCap: string;
+            otherRunningBots: components["schemas"]["BotAllocationResponse"][];
+        };
         /** @enum {unknown} */
         BotAlertKind: "Degraded" | "Killed" | "RiskRejection" | "ExchangeUnavailable" | "GraphChangeRejected";
         BotAlertResponse: {
@@ -3653,6 +3726,14 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             acknowledgedAt: null | string;
+        };
+        BotAllocationResponse: {
+            /** Format: uuid */
+            botId: string;
+            name: null | string;
+            symbol: string;
+            allocationCap: string;
+            runtimeStatus: components["schemas"]["BotRuntimeStatus"];
         };
         /** @enum {unknown} */
         BotCandleHistoryStatus: "Complete" | "Partial" | "Unavailable";
