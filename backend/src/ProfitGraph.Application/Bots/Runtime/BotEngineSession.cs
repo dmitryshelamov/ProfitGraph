@@ -251,12 +251,11 @@ public sealed class BotEngineSession
             update.Kind is ExternalOrderUpdateKind.PartialFill or ExternalOrderUpdateKind.FinalFill ? _clock.GetUtcNow() : null);
         _dispatcher.Drain(cancellationToken);
 
-        // An order the venue cancelled without the engine asking (the owner's cancel at the broker) leaves the strategy's grid short of
-        // an order: one more resume lets the strategy restore it (ADR 0039). The engine's own cancels also complete a pending cancel, and
-        // an order that awaited cancellation before the update was cancelled at the engine's request, such as the owner's cancel in
-        // the app, which the strategy must not undo at once (ADR 0048).
+        // An order cancelled without a block asking (the owner's cancel at the broker or in the app) leaves the strategy's grid short of
+        // an order: one more resume lets the strategy restore it by its own rules (ADR 0039, ADR 0051). A strategy's own cancel also
+        // completes a pending cancel, and the block that asked for it continues the strategy.
         if (resumeAfterVenueCancel &&
-            occurrences.Any(occurrence => occurrence.Kind == EventKind.Cancelled && !AwaitedCancellation(occurrence)) &&
+            occurrences.Any(occurrence => occurrence.Kind == EventKind.Cancelled) &&
             occurrences.All(occurrence => occurrence.Kind != EventKind.CancelCompleted))
         {
             _dispatcher.ResumeRestartAndDrain(LastCandle.OpenTime + _timeframe.Duration, cancellationToken);
@@ -409,15 +408,6 @@ public sealed class BotEngineSession
         {
             _switchedParameters = null;
         }
-    }
-
-    /// <summary>
-    ///     Whether a cancelled order awaited cancellation in the last committed state, so the engine had asked to cancel it.
-    /// </summary>
-    private bool AwaitedCancellation(EventOccurrence occurrence)
-    {
-        return occurrence.Payload is OrderPayload { Order.Id: var orderId } &&
-            Checkpoint!.Account.Orders.Any(order => order.Id == orderId && order.Status == OrderStatus.PendingCancel);
     }
 
     private async Task Save(

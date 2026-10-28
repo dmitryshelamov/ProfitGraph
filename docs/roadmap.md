@@ -94,7 +94,7 @@ A limit order in the manual order block of the bot page ([ADR 0046](adr/0046-man
 | Step | Scope | Done when | Status |
 |---|---|---|---|
 | 1. Limit order | `type` and `limitPrice` in the manual order request, engine limit submit, form with type, price, tick and lot hint and confirmation, rejection reasons | A limit order passes its tests on mocked gateways and the form tests | Done |
-| 2. Cancel | Owner cancel of any open order of a running bot, the manual one included, as a root on the runner's queue ([ADR 0048](adr/0048-owner-cancels-an-active-order.md)): stored request, the engine's ordinary cancel intent, no immediate restore by the strategy, feed entry, confirmation and follow-up on the page | The scripted venue shows a Ladder exit cancelled once and not placed again, a deferred submit cancelled locally, and the endpoint refuses other users, stopped bots and final orders | Done on the scripted venue; not checked on a real venue |
+| 2. Cancel | Owner cancel of any open order of a running bot, the manual one included, as a root on the runner's queue ([ADR 0048](adr/0048-owner-cancels-an-active-order.md)): stored request, the engine's ordinary cancel intent, feed entry, confirmation and follow-up on the page; the venue's confirmation resumes the strategy, which restores its orders ([ADR 0051](adr/0051-owner-cancel-resumes-the-strategy.md)) | The scripted venue shows a Ladder exit cancelled once and placed again after the confirmation, a deferred submit cancelled locally, and the endpoint refuses other users, stopped bots and final orders | Done on the scripted venue; not checked on a real venue |
 
 ## Bot chart
 

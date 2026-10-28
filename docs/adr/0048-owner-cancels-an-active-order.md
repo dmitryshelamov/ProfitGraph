@@ -1,8 +1,9 @@
 # ADR 0048: The Owner Cancels an Active Order of a Running Bot
 
-Status: Proposed, 2026-10-28. Supplements ADR 0016, ADR 0024, ADR 0027 and ADR 0039; builds the "cancel of a manual order" that ADR 0027
-left as a next step, for any of the bot's orders. Proven on the scripted venue, unit tests and the frontend's fake API only; nothing was
-sent to a real venue. The owner reviews it in the pull request.
+Status: Proposed, 2026-10-28. Section 4 is superseded by ADR 0051: the owner's cancel resumes the strategy. Supplements ADR 0016,
+ADR 0024, ADR 0027 and ADR 0039; builds the "cancel of a manual order" that ADR 0027 left as a next step, for any of the bot's orders.
+Proven on the scripted venue, unit tests and the frontend's fake API only; nothing was sent to a real venue. The owner reviews it in the
+pull request.
 
 ## Context
 
@@ -70,7 +71,7 @@ Starting, reconciling, degraded or stopping bots are "not running" too; the page
 | The owner's manual order (tag `manual`) | Cancelled like any other order; this is the ADR 0027 next step, and it frees the `manual` tag. |
 | An order the venue fills before the cancel arrives | Filled; the strategy reacts to the fill as usual. The request stays `Requested`, the page says the order is no longer active and points to the feed. |
 
-### 4. The strategy's reaction: no immediate restore
+### 4. The strategy's reaction: no immediate restore (superseded by ADR 0051)
 
 ADR 0039 drains one more `Resume(Restart)` after a venue update that cancels an order "the engine did not ask to cancel", recognised as
 a `Cancelled` event without a `CancelCompleted`. An owner cancel is asked for by the engine but by no block, so no `CancelCompleted`

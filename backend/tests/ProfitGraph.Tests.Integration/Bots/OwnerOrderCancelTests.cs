@@ -21,9 +21,9 @@ namespace ProfitGraph.Tests.Integration.Bots;
 
 /// <summary>
 ///     The owner's cancel of one of a running bot's orders (ADR 0048) on the scripted venue: the runner turns the request into the
-///     engine's ordinary cancel, so one cancel intent goes out, the venue's confirmation ends the order without the resume of ADR 0039,
-///     and the Ladder does not place the cancelled exit again at once. A deferred submit is cancelled locally, and the runner rejects
-///     a request for an order that is not working or one that waited too long.
+///     engine's ordinary cancel, so one cancel intent goes out, and the venue's confirmation ends the order and resumes the strategy, so
+///     the Ladder places its exit again (ADR 0051). A deferred submit is cancelled locally, and the runner rejects a request for an
+///     order that is not working or one that waited too long.
 /// </summary>
 [NonParallelizable]
 public sealed class OwnerOrderCancelTests
@@ -50,7 +50,7 @@ public sealed class OwnerOrderCancelTests
     }
 
     [Test]
-    public async Task TheOwnersCancelOfTheLadderExitGoesOutOnce_AndTheStrategyDoesNotPlaceItAgainAtOnce()
+    public async Task TheOwnersCancelOfTheLadderExitGoesOutOnce_AndTheStrategyPlacesTheExitAgain()
     {
         var scenario = new RuntimeScenario();
         using IHost worker = scenario.Worker(withOutbox: true);
@@ -75,15 +75,20 @@ public sealed class OwnerOrderCancelTests
         scenario.Gateway.Push(bot.Id, ExternalOrderUpdate.ConfirmCancel(exit.Id));
         await RuntimeScenario.Until(async () => (await Orders(worker, bot)).All(order => order.Id != exit.Id), "the venue's confirmation ends the exit");
 
-        // The root that ended the exit would carry the exit placed again by a resume; nothing after it is driven by the test.
+        // The root that ended the exit carries the exit placed again by the resume.
         IReadOnlyList<OrderSnapshot> after = await Orders(worker, bot);
         await RuntimeScenario.Until(
             async () => (await RuntimeScenario.Feed(worker, bot.Id)).Any(entry => entry.Kind == BotFeedKind.OrderCancelRequested),
             "the feed records the owner's cancel");
         await worker.StopAsync();
 
-        after.ShouldNotContain(order => order.Tag == "ladder.exit");
-        after.ShouldHaveSingleItem().Id.ShouldBe(average.Id);
+        OrderSnapshot restored = after.Where(order => order.Tag == "ladder.exit").ShouldHaveSingleItem();
+        restored.Id.ShouldNotBe(exit.Id);
+        restored.Side.ShouldBe(exit.Side);
+        restored.Quantity.ShouldBe(exit.Quantity);
+        restored.LimitPrice.ShouldBe(exit.LimitPrice);
+        after.Count.ShouldBe(2);
+        after.ShouldContain(order => order.Id == average.Id);
         scenario.Gateway.Cancels.Count(id => id == exitClientId).ShouldBe(1);
         (await RuntimeScenario.Intents(worker, bot.Id)).Count(intent => intent.Kind == OrderIntentKind.Cancel).ShouldBe(1);
         (await RuntimeScenario.Read(worker, bot.Id)).RuntimeStatus.ShouldNotBe(BotRuntimeStatus.Degraded);
