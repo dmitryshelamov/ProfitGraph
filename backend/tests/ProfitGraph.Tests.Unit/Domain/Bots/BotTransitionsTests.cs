@@ -308,6 +308,81 @@ public sealed class BotTransitionsTests
     }
 
     [Test]
+    public void LastFailedRestartReportsThatTheBotWaitsForItsOwnerOnce()
+    {
+        Bot bot = BotFixture.Running();
+        DateTimeOffset now = BotFixture.Created;
+
+        for (var attempt = 0; attempt < BotRestartSchedule.MaxAttempts; attempt++)
+        {
+            bot.RecordRuntimeFailure(now);
+            now = bot.NextRestartAt!.Value;
+            bot.RecordLeaseAcquired(now);
+            bot.MarkStarting(now);
+        }
+
+        bot.ShouldSatisfyAllConditions(() => bot.DomainEvents.OfType<BotRestartsExhausted>().ShouldBeEmpty());
+
+        bot.RecordRuntimeFailure(now);
+        bot.RecordRuntimeFailure(now.AddMinutes(1));
+
+        bot.DomainEvents.OfType<BotRestartsExhausted>().ShouldBe([new BotRestartsExhausted(bot.Id, now)]);
+    }
+
+    [Test]
+    public void FilledOrderIsRecordedAsAFact()
+    {
+        Bot bot = BotFixture.Running();
+        var fill = new BotOrderFill(
+            engineOrderId: 3,
+            OrderSide.Sell,
+            "exit",
+            grossBase: 0.002m,
+            grossQuote: 130m,
+            fee: 0.13m,
+            FeeAsset.Quote,
+            realizedPnl: 4.5m,
+            quantityStep: 0.000001m,
+            priceTick: 0.01m,
+            quotePrecision: 8);
+
+        bot.RecordOrderFilled(fill, Now);
+
+        bot.DomainEvents.ShouldBe([new BotOrderFilled(bot.Id, fill, Now)]);
+        bot.UpdatedAt.ShouldBe(Now);
+        fill.AveragePrice.ShouldBe(65000m);
+    }
+
+    [Test]
+    public void FilledOrderHasARealizedProfitExactlyWhenItSold()
+    {
+        Should.Throw<ArgumentException>(() => new BotOrderFill(
+            engineOrderId: 1,
+            OrderSide.Buy,
+            tag: null,
+            grossBase: 1m,
+            grossQuote: 1m,
+            fee: 0m,
+            FeeAsset.Base,
+            realizedPnl: 0m,
+            quantityStep: 1m,
+            priceTick: 1m,
+            quotePrecision: 2));
+        Should.Throw<ArgumentException>(() => new BotOrderFill(
+            engineOrderId: 1,
+            OrderSide.Sell,
+            tag: null,
+            grossBase: 1m,
+            grossQuote: 1m,
+            fee: 0m,
+            FeeAsset.Quote,
+            realizedPnl: null,
+            quantityStep: 1m,
+            priceTick: 1m,
+            quotePrecision: 2));
+    }
+
+    [Test]
     public void RuntimeFailureDegradesWithOneEvent()
     {
         Bot bot = BotFixture.Running();

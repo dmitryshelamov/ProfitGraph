@@ -340,7 +340,8 @@ public sealed class Bot : AggregateRoot
     }
 
     /// <summary>
-    ///     A runtime failure degrades the bot and schedules an automatic restart, unless a safety reason already holds it.
+    ///     A runtime failure degrades the bot and schedules an automatic restart, unless a safety reason already holds it; once
+    ///     the restarts are spent the bot waits for its owner (<see cref="BotRestartsExhausted" />).
     ///     <paramref name="detail" /> is a short text that is safe to show to the owner (ADR 0029).
     /// </summary>
     public bool RecordRuntimeFailure(DateTimeOffset now, string? detail = null)
@@ -351,6 +352,7 @@ public sealed class Bot : AggregateRoot
         }
 
         bool wasDegraded = IsDegraded;
+        DateTimeOffset? previousRestartAt = NextRestartAt;
         RuntimeStatus = BotRuntimeStatus.Degraded;
         StatusReason = BotStatusReason.RuntimeFailure;
         NextRestartAt = BotRestartSchedule.NextRestartAt(RestartAttempts, now);
@@ -359,6 +361,11 @@ public sealed class Bot : AggregateRoot
         if (!wasDegraded)
         {
             AddDomainEvent(new BotDegraded(Id, BotStatusReason.RuntimeFailure, now, FailureDetail.Limit(detail)));
+        }
+
+        if (NextRestartAt is null && (!wasDegraded || previousRestartAt is not null))
+        {
+            AddDomainEvent(new BotRestartsExhausted(Id, now));
         }
 
         return true;
