@@ -47,7 +47,7 @@ internal sealed class BackgroundJobWorker(
 
                 foreach (BackgroundJob job in interrupted)
                 {
-                    await runner.Interrupt(job, BackgroundJobRunner.RestartFailure);
+                    await runner.Interrupt(job, BackgroundJobRunner.RestartFailure, stoppingToken);
                 }
 
                 if (interrupted.Count > 0)

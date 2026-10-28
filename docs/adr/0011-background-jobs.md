@@ -25,8 +25,13 @@ not the process that runs the job. Jobs also gain an owner, like strategies.
   its own DI scope. Progress is written by separate conditional updates while the job is `Running`.
 - **Cancellation across processes.** Cancelling a queued job is a conditional update to `Cancelled`. Cancelling a
   running job sets `cancel_requested`; the Worker checks the flag on every polling interval while the job runs and
-  cancels the work's token. The Worker records `Cancelled` after the work stops. A second request, or a request for
-  a finished job, is a conflict (`job_cancel_requested`, `job_finished`).
+  cancels the work's token. A failed check is logged and repeated on the next interval, so a database error never
+  leaves a running job that cannot be stopped. The Worker records `Cancelled` after the work stops. A second request,
+  or a request for a finished job, is a conflict (`job_cancel_requested`, `job_finished`).
+- **Outcome.** The Worker writes a job's outcome with a conditional update from `Running`. A transient database
+  failure (`NpgsqlException.IsTransient`) while it reads or writes that state is retried on every polling interval until
+  it succeeds or the Worker stops, so a running Worker never leaves a finished job `Running`; a stopped Worker leaves it
+  to the restart rule below. Other failures are not retried.
 - **Failures.** Application and Domain exceptions become `failure { code, message }` with their stable codes.
   Anything else is logged and stored only as `unexpected_error`.
 - **Restart.** On startup the Worker marks jobs left in `Running` as `Failed` with `background_job_interrupted`; a
