@@ -2,14 +2,20 @@ using MediatR;
 
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.Notifications.Contracts;
+using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Notifications;
 
 namespace ProfitGraph.Application.Notifications.ClaimTelegramNotifications;
 
+/// <summary>
+///     Claims due notifications for sending. One whose chat was unlinked or blocked, or whose account was blocked after it was
+///     queued (ADR 0043), is <c>ChatUnavailable</c> without a request.
+/// </summary>
 internal sealed class ClaimTelegramNotificationsCommandHandler(
     ITelegramNotificationRepository notifications,
     ITelegramLinkRepository links,
+    IUserRepository users,
     IBotRepository bots,
     VenueRegistry venues,
     TimeProvider clock) : IRequestHandler<ClaimTelegramNotificationsCommand, TelegramClaimInternal>
@@ -32,7 +38,8 @@ internal sealed class ClaimTelegramNotificationsCommandHandler(
 
             if (!notification.Skip(claimId, now))
             {
-                if (await links.Get(notification.OwnerId, cancellationToken) is { BlockedAt: null } link)
+                if (await links.Get(notification.OwnerId, cancellationToken) is { BlockedAt: null } link &&
+                    await users.GetById(notification.OwnerId, cancellationToken) is { IsActive: true })
                 {
                     Bot? bot = await bots.Get(notification.BotId, cancellationToken);
                     outgoing.Add(

@@ -10,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 
 using Npgsql;
 
+using ProfitGraph.Application.Accounts.BlockUser;
 using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Application.Notifications;
@@ -33,8 +34,9 @@ namespace ProfitGraph.Tests.Integration.Notifications;
 ///     Telegram against a fake Bot API (ADR 0020, ADR 0042): a chat links with a one-time code and gets help; an alert
 ///     reaches the chat through the queue, named by its bot, and its «Принято» button acknowledges it for the chat's user
 ///     only; a refused message never holds up the next and a temporary failure is tried
-///     again; a blocked chat receives nothing more; an old alert is skipped; two senders never claim the same notification;
-///     and nothing runs while Telegram is disabled.
+///     again; a blocked chat receives nothing more; a blocked account neither links, acknowledges nor hears anything, even
+///     what was queued before the block; an old alert is skipped; two senders never claim the same notification; and nothing
+///     runs while Telegram is disabled.
 /// </summary>
 [NonParallelizable]
 public sealed class TelegramTests
@@ -182,6 +184,59 @@ public sealed class TelegramTests
         (await connection.ExecuteScalarAsync<DateTime?>("SELECT blocked_at FROM telegram_links WHERE user_id = @id", new { id = user.Id })).ShouldNotBeNull();
         (await Status(second)).ShouldBeNull();
         telegram.Sent.ShouldBeEmpty();
+    }
+
+    [Test]
+    public async Task BlockedAccountNeitherLinksNorAcknowledgesNorHearsNewAlerts()
+    {
+        var telegram = new FakeTelegramApi();
+        UserInternal owner = await _api.CreateAccount(UserRole.Owner);
+        UserInternal user = await _api.CreateAccount(UserRole.User);
+        using IHost worker = Worker(telegram);
+        Bot bot = (await RuntimeScenario.RunningLadders(worker, count: 1, new UserId(user.Id)))[0];
+        await Settle(worker);
+        await Link(worker, user, chatId: 907);
+        BotAlertId sent = await Raise(worker, bot, BotAlertKind.Killed, nameof(BotStatusReason.Killed), DateTimeOffset.UtcNow);
+        await RuntimeScenario.Until(async () => await Status(sent) == nameof(TelegramNotificationStatus.Sent), "the alert is sent before the block");
+        TelegramLinkCodeInternal code = await Send(worker, new CreateTelegramLinkCodeCommand(user.Id));
+
+        await Send(worker, new BlockUserCommand(owner.Id, user.Id));
+        string press = telegram.Press(chatId: 907, messageId: 1, telegram.Buttons.Single().ShouldHaveSingleItem());
+        telegram.Push(chatId: 908, $"/start {code.Code}");
+        BotAlertId after = await Raise(worker, bot, BotAlertKind.Degraded, nameof(BotStatusReason.IntentFailed), DateTimeOffset.UtcNow);
+        await RuntimeScenario.Until(() => Task.FromResult(telegram.CallbackAnswers.Any(answer => answer.CallbackId == press)), "the press is answered");
+        await RuntimeScenario.Until(() => Task.FromResult(telegram.Sent.Any(message => message.ChatId == 908)), "the code is answered");
+        await RuntimeScenario.Until(OutboxDelivered, "the outbox delivers the alert raised after the block");
+        await worker.StopAsync();
+
+        telegram.CallbackAnswers.ShouldBe([(press, TelegramMessages.AlertNotFound)]);
+        (await AcknowledgedAt(sent)).ShouldBeNull();
+        telegram.Sent.ShouldContain((908L, TelegramMessages.UnknownCode));
+        (await Status(after)).ShouldBeNull();
+        telegram.Sent.Count(message => message.ChatId == 907).ShouldBe(expected: 1);
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+        (await connection.ExecuteScalarAsync<long>("SELECT chat_id FROM telegram_links WHERE user_id = @id", new { id = user.Id })).ShouldBe(907);
+    }
+
+    [Test]
+    public async Task NotificationQueuedBeforeAnAccountBlockIsNotSent()
+    {
+        UserInternal owner = await _api.CreateAccount(UserRole.Owner);
+        UserInternal user = await _api.CreateAccount(UserRole.User);
+        using IHost host = BotTestHost.Create(services => services.AddOutboxDispatcher());
+        Bot bot = (await RuntimeScenario.RunningLadders(host, count: 1, new UserId(user.Id)))[0];
+        await Settle(host);
+        await Link(host, user, chatId: 909);
+        BotAlertId alert = await Raise(host, bot, BotAlertKind.RiskRejection, "RiskLimit", DateTimeOffset.UtcNow);
+        await RuntimeScenario.Until(async () => await Status(alert) is not null, "the alert is queued");
+        await host.StopAsync();
+        Guid notificationId = await NotificationId(alert);
+
+        await Send(host, new BlockUserCommand(owner.Id, user.Id));
+        TelegramClaimInternal claim = await Send(host, new ClaimTelegramNotificationsCommand(Guid.NewGuid(), Limit: 50));
+
+        claim.Messages.ShouldNotContain(message => message.NotificationId == notificationId);
+        (await Status(alert)).ShouldBe(nameof(TelegramNotificationStatus.ChatUnavailable));
     }
 
     [Test]

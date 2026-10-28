@@ -13,6 +13,8 @@ namespace ProfitGraph.Application.Optimization.RunOptimization;
 /// <summary>
 ///     Stores the trials the runner delivers in batches, each in one short transaction with the optimization's counters,
 ///     plan and best trial, and reports job progress after each commit. New trials continue the stored delivery sequence.
+///     A batch that failed to commit has already been counted on the optimization, so the recorder then stores nothing more:
+///     a later flush does nothing and the failure that stopped it stays the job's reason.
 /// </summary>
 internal sealed class OptimizationTrialRecorder
 {
@@ -25,6 +27,7 @@ internal sealed class OptimizationTrialRecorder
     private readonly IOptimizationTrialStore _trials;
     private readonly ITransactionExecutor _transactions;
     private OptimizationTrialResult? _best;
+    private bool _failed;
     private long _sequence;
 
     /// <summary>
@@ -59,6 +62,11 @@ internal sealed class OptimizationTrialRecorder
 
     public async ValueTask Add(int windowIndex, OptimizationTrialResult trial)
     {
+        if (_failed)
+        {
+            throw new InvalidOperationException("An earlier batch of trials failed to commit; the recorder stores nothing more.");
+        }
+
         _batch.Add((windowIndex, trial));
 
         if (_batch.Count >= _batchSize)
@@ -69,38 +77,50 @@ internal sealed class OptimizationTrialRecorder
 
     public async ValueTask Flush()
     {
-        if (_batch.Count == 0)
+        if (_failed || _batch.Count == 0)
         {
             return;
         }
 
-        OptimizationTrialInternal[] records = [.. _batch.Select(item => Record(++_sequence, item.Window, item.Result))];
-
-        if (_ranksBest)
+        try
         {
-            _best = OptimizationRanking.Rank(
-                    _batch.Select(item => item.Result)
-                        .Where(trial => trial is { Status: OptimizationTrialStatus.Completed, ObjectiveValue: not null })
-                        .Append(_best)
-                        .OfType<OptimizationTrialResult>())
-                .FirstOrDefault();
-        }
+            OptimizationTrialInternal[] records = [.. _batch.Select(item => Record(++_sequence, item.Window, item.Result))];
 
-        if (Planned.Total is { } total && total != _optimization.PlannedTrials && total >= _optimization.Counters.Executed + _batch.Count)
-        {
-            _optimization.PlanTrials(total);
-        }
-
-        _optimization.RecordTrials(_batch.Select(item => item.Result), _best is null ? null : new OptimizationBestTrial(_best.Trial.Index, _best.ObjectiveValue!.Value));
-        await _transactions.ExecuteAsync(
-            async () =>
+            if (_ranksBest)
             {
-                await _trials.Write(_optimization.Id, records, CancellationToken.None);
-                await _optimizations.Save(_optimization, CancellationToken.None);
+                _best = OptimizationRanking.Rank(
+                        _batch.Select(item => item.Result)
+                            .Where(trial => trial is { Status: OptimizationTrialStatus.Completed, ObjectiveValue: not null })
+                            .Append(_best)
+                            .OfType<OptimizationTrialResult>())
+                    .FirstOrDefault();
+            }
 
-                return true;
-            },
-            CancellationToken.None);
+            if (Planned.Total is { } total && total != _optimization.PlannedTrials && total >= _optimization.Counters.Executed + _batch.Count)
+            {
+                _optimization.PlanTrials(total);
+            }
+
+            _optimization.RecordTrials(
+                _batch.Select(item => item.Result),
+                _best is null ? null : new OptimizationBestTrial(_best.Trial.Index, _best.ObjectiveValue!.Value));
+            await _transactions.ExecuteAsync(
+                async () =>
+                {
+                    await _trials.Write(_optimization.Id, records, CancellationToken.None);
+                    await _optimizations.Save(_optimization, CancellationToken.None);
+
+                    return true;
+                },
+                CancellationToken.None);
+        }
+        catch
+        {
+            _failed = true;
+
+            throw;
+        }
+
         _batch.Clear();
         await _progress.RecordStoredWork(CancellationToken.None);
         await _progress.Report(
