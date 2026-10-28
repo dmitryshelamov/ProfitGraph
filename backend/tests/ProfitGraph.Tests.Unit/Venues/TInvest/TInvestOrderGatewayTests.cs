@@ -2,6 +2,7 @@ using Grpc.Core;
 
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Venues.TInvest.MarketData;
 using ProfitGraph.Venues.TInvest.Trading;

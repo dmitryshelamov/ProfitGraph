@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 using ProfitGraph.Application.Bots.AuthorizeWaitingRelease;
 using ProfitGraph.Application.Bots.RecordOrderWaiting;
-using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderWaiting;
 
 namespace ProfitGraph.Venues.Steam.Orders;
 

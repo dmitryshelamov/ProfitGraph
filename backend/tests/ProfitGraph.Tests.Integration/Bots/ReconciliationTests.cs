@@ -14,6 +14,7 @@ using ProfitGraph.Application.Bots.StartBot;
 using ProfitGraph.Application.Bots.StopBot;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Integration.Common;
 

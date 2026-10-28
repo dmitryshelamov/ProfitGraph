@@ -1,4 +1,4 @@
-using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderIntents;
 
 namespace ProfitGraph.Application.Bots.Contracts;
 

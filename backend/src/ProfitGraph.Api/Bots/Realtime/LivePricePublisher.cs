@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.SignalR;
 using ProfitGraph.Api.Bots.Contracts;
 using ProfitGraph.Api.Common.Parsing;
 using ProfitGraph.Application.Bots.Ports;
-using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.MarkPrices;
 
 namespace ProfitGraph.Api.Bots.Realtime;
 

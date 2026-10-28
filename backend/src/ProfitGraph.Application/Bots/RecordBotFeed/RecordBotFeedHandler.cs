@@ -4,6 +4,13 @@ using MediatR;
 
 using ProfitGraph.Application.Common.Numbers;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.FeeCorrections;
+using ProfitGraph.Domain.Bots.Feed;
+using ProfitGraph.Domain.Bots.Fills;
+using ProfitGraph.Domain.Bots.OrderCancels;
+using ProfitGraph.Domain.Bots.OrderIntents;
+using ProfitGraph.Domain.Bots.OrderWaiting;
+using ProfitGraph.Domain.Bots.Positions;
 
 namespace ProfitGraph.Application.Bots.RecordBotFeed;
 

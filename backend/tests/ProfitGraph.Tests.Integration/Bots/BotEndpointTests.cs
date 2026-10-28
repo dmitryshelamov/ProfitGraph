@@ -12,6 +12,7 @@ using ProfitGraph.Application.Bots;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Trading;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Integration.Common;
 using ProfitGraph.Tests.Integration.MarketData;

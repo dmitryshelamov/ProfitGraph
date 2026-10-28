@@ -1,6 +1,8 @@
 using MediatR;
 
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Alerts;
+using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Application.Bots.RecordBotAlerts;

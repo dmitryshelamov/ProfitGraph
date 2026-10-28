@@ -17,6 +17,9 @@ using ProfitGraph.Application.Bots.ResolveOrderCancel;
 using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Leases;
+using ProfitGraph.Domain.Bots.ManualOrders;
+using ProfitGraph.Domain.Bots.OrderCancels;
 using ProfitGraph.Domain.Strategies;
 
 namespace ProfitGraph.Infrastructure.Bots.Runtime;

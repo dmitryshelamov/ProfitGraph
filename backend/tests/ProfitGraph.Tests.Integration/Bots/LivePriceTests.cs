@@ -16,6 +16,7 @@ using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.GetBotPosition;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.MarkPrices;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Tests.Integration.Common;
 

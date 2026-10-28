@@ -1,4 +1,6 @@
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.FeeCorrections;
+using ProfitGraph.Domain.Bots.Fills;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Dispatch;
 

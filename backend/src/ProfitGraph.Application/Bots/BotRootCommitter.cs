@@ -1,5 +1,14 @@
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Checkpoints;
+using ProfitGraph.Domain.Bots.FeeCorrections;
+using ProfitGraph.Domain.Bots.Fills;
+using ProfitGraph.Domain.Bots.Leases;
+using ProfitGraph.Domain.Bots.ManualOrders;
+using ProfitGraph.Domain.Bots.OrderCancels;
+using ProfitGraph.Domain.Bots.OrderIntents;
+using ProfitGraph.Domain.Bots.OrderWaiting;
+using ProfitGraph.Domain.Bots.Positions;
 using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Application.Bots;

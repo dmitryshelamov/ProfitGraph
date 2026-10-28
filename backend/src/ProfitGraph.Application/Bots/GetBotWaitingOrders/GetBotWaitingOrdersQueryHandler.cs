@@ -2,6 +2,7 @@ using MediatR;
 
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderWaiting;
 
 namespace ProfitGraph.Application.Bots.GetBotWaitingOrders;
 

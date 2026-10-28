@@ -3,6 +3,7 @@ using Dapper;
 using Npgsql;
 
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Positions;
 using ProfitGraph.Infrastructure.Bots.Repositories.Contracts;
 using ProfitGraph.Infrastructure.Bots.Repositories.Converters;
 using ProfitGraph.Infrastructure.Bots.Repositories.Queries;

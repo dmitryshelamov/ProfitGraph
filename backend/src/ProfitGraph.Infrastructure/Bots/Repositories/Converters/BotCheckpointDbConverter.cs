@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Checkpoints;
 using ProfitGraph.Engine.Dispatch;
 using ProfitGraph.Infrastructure.Bots.Repositories.Contracts;
 

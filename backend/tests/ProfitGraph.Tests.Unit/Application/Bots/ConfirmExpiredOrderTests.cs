@@ -9,6 +9,8 @@ using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Checkpoints;
+using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Dispatch;
 using ProfitGraph.Engine.Market;

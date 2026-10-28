@@ -6,6 +6,7 @@ using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Leases;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Compilation;
 using ProfitGraph.Engine.Dispatch;

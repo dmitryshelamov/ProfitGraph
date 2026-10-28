@@ -1,5 +1,6 @@
 using ProfitGraph.Application.Bots.RecordBotFeed;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Feed;
 
 namespace ProfitGraph.Tests.Unit.Application.Bots;
 

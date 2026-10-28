@@ -23,6 +23,7 @@ using ProfitGraph.Application.Strategies.Converters;
 using ProfitGraph.Application.Strategies.CreateStrategy;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderWaiting;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Accounting;

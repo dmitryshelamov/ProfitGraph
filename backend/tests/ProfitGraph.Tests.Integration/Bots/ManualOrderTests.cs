@@ -13,6 +13,7 @@ using ProfitGraph.Application.Bots.SubmitManualOrder;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.ManualOrders;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Integration.Common;
 

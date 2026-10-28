@@ -7,7 +7,12 @@ using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Checkpoints;
+using ProfitGraph.Domain.Bots.Leases;
+using ProfitGraph.Domain.Bots.OrderIntents;
+using ProfitGraph.Domain.Bots.OrderWaiting;
 using ProfitGraph.Domain.MarketData;
+using ProfitGraph.Domain.Trading;
 using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Application.Bots.DispatchOrderIntent;

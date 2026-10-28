@@ -5,6 +5,7 @@ using ProfitGraph.Application.Common.Numbers;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Application.Notifications.Contracts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Alerts;
 using ProfitGraph.Domain.Notifications;
 using ProfitGraph.Engine.Accounting;
 

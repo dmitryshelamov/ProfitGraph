@@ -3,8 +3,12 @@ using Microsoft.Extensions.Hosting;
 
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Checkpoints;
+using ProfitGraph.Domain.Bots.Leases;
+using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Strategies;
+using ProfitGraph.Domain.Trading;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Dispatch;
 using ProfitGraph.Tests.Integration.Common;

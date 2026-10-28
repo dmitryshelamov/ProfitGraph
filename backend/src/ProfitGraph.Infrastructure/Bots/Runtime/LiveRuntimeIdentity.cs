@@ -1,4 +1,4 @@
-using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Leases;
 
 namespace ProfitGraph.Infrastructure.Bots.Runtime;
 

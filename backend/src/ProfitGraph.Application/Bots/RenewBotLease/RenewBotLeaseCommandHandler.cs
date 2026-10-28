@@ -1,6 +1,7 @@
 using MediatR;
 
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Leases;
 
 namespace ProfitGraph.Application.Bots.RenewBotLease;
 

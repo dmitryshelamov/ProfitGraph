@@ -2,6 +2,7 @@ using MediatR;
 
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Checkpoints;
 using ProfitGraph.Domain.MarketData;
 
 namespace ProfitGraph.Application.Bots.GetVenueBotPositions;

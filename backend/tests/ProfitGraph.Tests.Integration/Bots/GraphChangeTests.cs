@@ -13,6 +13,8 @@ using ProfitGraph.Application.Strategies.Contracts;
 using ProfitGraph.Application.Strategies.GetStrategy;
 using ProfitGraph.Application.Strategies.SaveStrategy;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Checkpoints;
+using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Market;

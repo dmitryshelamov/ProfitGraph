@@ -1,4 +1,5 @@
-using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.ManualOrders;
+using ProfitGraph.Domain.Bots.OrderCancels;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Market;
 

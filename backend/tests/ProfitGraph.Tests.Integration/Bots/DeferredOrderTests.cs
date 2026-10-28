@@ -7,6 +7,8 @@ using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.GetBotWaitingOrders;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderIntents;
+using ProfitGraph.Domain.Bots.OrderWaiting;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Integration.Common;
 

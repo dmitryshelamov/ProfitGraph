@@ -1,4 +1,8 @@
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.FeeCorrections;
+using ProfitGraph.Domain.Bots.Fills;
+using ProfitGraph.Domain.Bots.Leases;
+using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Engine.Dispatch;
 
 namespace ProfitGraph.Application.Bots;

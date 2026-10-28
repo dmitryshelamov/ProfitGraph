@@ -1,7 +1,7 @@
 using MediatR;
 
 using ProfitGraph.Application.Trading.Contracts;
-using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Trading;
 
 namespace ProfitGraph.Application.Trading.GetTradingHalt;
 

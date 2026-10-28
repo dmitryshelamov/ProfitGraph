@@ -5,7 +5,12 @@ using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.Converters;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Checkpoints;
+using ProfitGraph.Domain.Bots.Fills;
+using ProfitGraph.Domain.Bots.Leases;
+using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Domain.Strategies;
+using ProfitGraph.Domain.Trading;
 
 namespace ProfitGraph.Application.Bots.StartBot;
 

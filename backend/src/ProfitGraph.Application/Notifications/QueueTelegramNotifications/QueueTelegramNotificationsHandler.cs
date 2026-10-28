@@ -5,6 +5,8 @@ using MediatR;
 using ProfitGraph.Application.Common.Numbers;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.Alerts;
+using ProfitGraph.Domain.Bots.Positions;
 using ProfitGraph.Domain.Notifications;
 
 namespace ProfitGraph.Application.Notifications.QueueTelegramNotifications;

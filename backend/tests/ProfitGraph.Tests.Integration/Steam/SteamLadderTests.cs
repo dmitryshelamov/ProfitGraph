@@ -18,6 +18,8 @@ using ProfitGraph.Application.Bots.GetBotWaitingOrders;
 using ProfitGraph.Application.Common.Operations;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderIntents;
+using ProfitGraph.Domain.Bots.OrderWaiting;
 using ProfitGraph.Tests.Integration.Bots;
 using ProfitGraph.Tests.Integration.Common;
 using ProfitGraph.Venues.Steam;

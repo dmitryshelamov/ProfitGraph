@@ -1,4 +1,5 @@
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.OrderWaiting;
 using ProfitGraph.Venues.TInvest.Trading;
 
 namespace ProfitGraph.Tests.Unit.Venues.TInvest;
