@@ -1,8 +1,15 @@
 .git
+.github
 .claude
 .codegraph
 docs
-frontend
+deploy
+frontend/dist
+frontend/e2e
+frontend/test-results
+frontend/playwright-report
 **/bin
 **/obj
 **/node_modules
+**/*.env
+**/.env*

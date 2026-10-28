@@ -13,7 +13,7 @@ small pull requests; a stage is done when its acceptance criterion holds.
 | 3. Data and backtests | Venue ports, `Venues.Bybit` public data, CSV import, background jobs, durable runs, progress, results, holdout | A template backtest on Bybit data runs from pair selection to result charts | Done |
 | 4. Optimization and comparison | Grid, random, coarse-to-fine and TPE search ([ADR 0013](adr/0013-optimization.md)), walk-forward ([ADR 0014](adr/0014-walk-forward.md)), durable trials, progress over SignalR, pause and resume; ranking with filters and a side-by-side comparison of runs and trials | Walk-forward optimization completes and resumes after restart; runs and trials compare side by side | Done |
 | 5. Live core | Bot and order-intent aggregates, Worker, leases and fencing, checkpoints, outbox, reconciliation, risk limits, credential encryption, Bybit order gateway (trading disabled by default), manual orders, graph change, event feed, positions, account snapshots, Telegram alerts | Bot scenarios pass against a mocked gateway; every transition has Domain tests | Done |
-| 6. Production | Production compose, watchdog, runbook, switch-over | The owner deploys, enters credentials and starts bots | Planned |
+| 6. Production | Production compose, watchdog, runbook, switch-over | The owner deploys, enters credentials and starts bots | In progress: images, production stack, deploy job and [runbook](production.md) ([ADR 0053](adr/0053-production-deployment.md)); watchdog, backups and switch-over remain |
 
 ### Carried over from stage 1
 

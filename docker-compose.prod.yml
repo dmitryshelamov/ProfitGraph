@@ -1,0 +1,145 @@
+# Production stack (ADR 0053): PostgreSQL, a one-shot migration, the API, the Worker and Caddy serving the frontend over
+# HTTPS. deploy/deploy.sh copies this file to the host and runs it with the host's untracked .env
+# (deploy/production.env.example) and master-keys.env (deploy/master-keys.env.example), which holds the Secrets section
+# in .NET variable names so that more than one key can be listed for rotation. Images come from GHCR by PROFITGRAPH_VERSION.
+# Live trading and the Steam and T-Invest venues stay off unless .env turns them on.
+name: profitgraph-production
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-backend: &backend
+  image: ${PROFITGRAPH_REGISTRY:-ghcr.io/dmitryshelamov}/profitgraph-backend:${PROFITGRAPH_VERSION:?Set PROFITGRAPH_VERSION}
+  env_file:
+    - path: master-keys.env
+      required: true
+  restart: unless-stopped
+  logging: *logging
+  networks:
+    - profitgraph
+
+x-backend-env: &backend-env
+  DOTNET_ENVIRONMENT: Production
+  ASPNETCORE_ENVIRONMENT: Production
+  ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=profitgraph;Username=profitgraph;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD};Gss Encryption Mode=Disable"
+  Postgres__RunMigrationsOnStartup: "false"
+
+x-runtime-env: &runtime-env
+  Telegram__Enabled: ${TELEGRAM_ENABLED:-false}
+  Telegram__BotToken: ${TELEGRAM_BOT_TOKEN:-}
+  Telegram__BotUsername: ${TELEGRAM_BOT_USERNAME:-}
+  Venues__Steam__Enabled: ${STEAM_ENABLED:-false}
+  Venues__Steam__CommunityBaseAddress: https://steamcommunity.com/
+  Venues__Steam__LoginBaseAddress: https://login.steampowered.com/
+  Venues__Steam__ApiBaseAddress: https://api.steampowered.com/
+  Venues__Steam__MarketDataCredentialId: ${STEAM_MARKET_DATA_CREDENTIAL_ID:-}
+  Venues__TInvest__Enabled: ${TINVEST_ENABLED:-false}
+  Venues__TInvest__Endpoint: https://invest-public-api.tbank.ru/
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: profitgraph
+      POSTGRES_USER: profitgraph
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U profitgraph -d profitgraph" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+    logging: *logging
+    networks:
+      - profitgraph
+
+  # Not started by "up": deploy.sh runs it once per deployment, before the API and the Worker start on the new version.
+  migrate:
+    <<: *backend
+    profiles:
+      - migrate
+    restart: "no"
+    working_dir: /app/api
+    command: [ "dotnet", "ProfitGraph.Api.dll", "--migrate-only" ]
+    environment:
+      <<: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    working_dir: /app/api
+    command: [ "dotnet", "ProfitGraph.Api.dll" ]
+    environment:
+      <<: [ *backend-env, *runtime-env ]
+      DataProtection__KeyDirectory: /app/keys
+      ReverseProxy__KnownProxies__0: 172.30.42.10
+      Auth__BootstrapOwner__Login: ${BOOTSTRAP_OWNER_LOGIN:-}
+      Auth__BootstrapOwner__Password: ${BOOTSTRAP_OWNER_PASSWORD:-}
+    volumes:
+      - api_keys:/app/keys
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /api/health HTTP/1.0\r\n\r\n' >&3 && head -n1 <&3 | grep -q ' 200 '
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    stop_grace_period: 30s
+
+  worker:
+    <<: *backend
+    working_dir: /app/worker
+    command: [ "dotnet", "ProfitGraph.Worker.dll" ]
+    environment:
+      <<: [ *backend-env, *runtime-env ]
+      Live__Trading__Enabled: ${LIVE_TRADING_ENABLED:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    stop_grace_period: 45s
+
+  web:
+    image: ${PROFITGRAPH_REGISTRY:-ghcr.io/dmitryshelamov}/profitgraph-web:${PROFITGRAPH_VERSION:?Set PROFITGRAPH_VERSION}
+    environment:
+      PROFITGRAPH_HOST: ${PROFITGRAPH_HOST:?Set PROFITGRAPH_HOST}
+    ports:
+      - "${PROFITGRAPH_HTTP_PORT:-80}:80"
+      - "${PROFITGRAPH_HTTPS_PORT:-443}:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+    networks:
+      profitgraph:
+        # The API trusts forwarded client addresses only from here (ReverseProxy__KnownProxies__0).
+        ipv4_address: 172.30.42.10
+
+networks:
+  profitgraph:
+    ipam:
+      config:
+        - subnet: 172.30.42.0/24
+
+volumes:
+  postgres_data:
+  api_keys:
+  caddy_data:
+  caddy_config:

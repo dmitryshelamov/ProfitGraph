@@ -104,6 +104,8 @@ npm run build
   (`127.0.0.1:5293`) and frontend (`127.0.0.1:5275`) against a disposable `profitgraph_e2e_<hex>` database on 5436
   with a per-run Owner password, and drops the database afterwards; it never touches 5435.
 - Stop temporary instances started for checks; do not leave stray processes.
+- Production: `docker-compose.prod.yml`, `deploy/` and the `Production` workflow ([ADR 0053](docs/adr/0053-production-deployment.md));
+  operations are in `docs/production.md`.
 
 ## Architecture and code style
 
