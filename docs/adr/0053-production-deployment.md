@@ -44,7 +44,7 @@ live process, secrets from the environment, trading and Telegram off by default.
     that rotation can list more than one key.
   Both files are `600`. Venue addresses are fixed in the compose file; the venues are off unless `.env` turns them on.
   The connection string disables GSS encryption, which the image has no library for.
-- **Deployment.** `deploy/deploy.sh <version>`:
+- **Deployment.** `deploy/deploy.sh <version>`, on the host:
   1. copies the compose file to `~/profitgraph`;
   2. pulls the version;
   3. starts PostgreSQL and runs `migrate`;
@@ -53,14 +53,16 @@ live process, secrets from the environment, trading and Telegram off by default.
   The previous version keeps running while the migrations apply, so a migration must not break it.
 - **Deploy job.** `.github/workflows/production.yml`:
   - On a push to `main` it builds and pushes the images.
-  - Its `deploy` job waits for the owner's approval in the `production` environment, then runs `deploy.sh` on a
-    self-hosted runner with the label `profitgraph-production`, installed on the host as `soyo`, who is in the
-    `docker` group. One deployment runs at a time.
+  - Its `deploy` job waits for the owner's approval in the `production` environment. One deployment runs at a time.
+  - The job runs on a self-hosted runner with the label `profitgraph-deploy` on another machine of the local network,
+    `192.168.8.142` (`soyo-03`): GitHub-hosted runners cannot reach the host, and the host runs production only. Over
+    SSH with a deploy key it copies the compose file and `deploy.sh` to `~/profitgraph/release`, signs the host in to
+    GHCR with the run's `GITHUB_TOKEN` (so the packages may stay private), runs `deploy.sh` and signs out.
+  - The host accepts the deploy key only from `192.168.8.142`, without forwarding or a terminal.
   - A manual run with a version redeploys or rolls back to that version; with no version it builds and deploys `main`.
   - Pull requests that touch the deployment build the images without pushing them.
-  The runner pulls with the run's `GITHUB_TOKEN`, so the GHCR packages may stay private. The runner is only reachable
-  through that job: the repository is public, so pull requests from outside collaborators need approval before any
-  workflow runs.
+  The repository is public, so pull requests from outside collaborators need approval before any workflow runs;
+  otherwise one could run code on the runner.
 - **Migrations.** The first production deployment ends ADR 0006's rule of one initial migration per feature edited in
   place. From then on, a schema change is a new migration.
 

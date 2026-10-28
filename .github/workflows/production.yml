@@ -1,9 +1,10 @@
 name: Production
 
 # ADR 0053. A push to main builds the backend and web images for linux/amd64 and pushes them to GHCR as 1.0.<run number>;
-# the deploy job then waits for the owner's approval in the production environment and runs deploy/deploy.sh on the
-# self-hosted runner of the production host. A manual run deploys a given earlier version (redeploy or rollback), or
-# builds and deploys main when the version is empty. Pull requests that touch the deployment only build the images.
+# the deploy job then waits for the owner's approval in the production environment and, from a self-hosted runner on
+# another machine of the local network, runs deploy/deploy.sh on the production host over SSH. A manual run deploys a
+# given earlier version (redeploy or rollback), or builds and deploys main when the version is empty. Pull requests that
+# touch the deployment only build the images.
 
 on:
   push:
@@ -81,7 +82,7 @@ jobs:
     if: >-
       always() && github.event_name != 'pull_request' &&
       (needs.images.result == 'success' || (needs.images.result == 'skipped' && inputs.version != ''))
-    runs-on: [self-hosted, profitgraph-production]
+    runs-on: [self-hosted, profitgraph-deploy]
     timeout-minutes: 20
     environment:
       name: production
@@ -91,15 +92,26 @@ jobs:
     permissions:
       contents: read
       packages: read
+    env:
+      # An SSH alias on the runner's machine: the production host, its user and the deploy key (docs/production.md).
+      HOST: profitgraph-production
+      VERSION: ${{ inputs.version || needs.images.outputs.version }}
     steps:
+      - name: Check the version
+        run: '[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Not a version: $VERSION" >&2; exit 1; }'
       - uses: actions/checkout@v4
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Deploy
+      - name: Copy the release files
+        run: |
+          ssh "$HOST" 'rm -rf ~/profitgraph/release && mkdir -p ~/profitgraph/release/deploy'
+          scp docker-compose.prod.yml "$HOST":profitgraph/release/
+          scp deploy/deploy.sh "$HOST":profitgraph/release/deploy/
+      - name: Sign in to GHCR on the host
         env:
-          VERSION: ${{ inputs.version || needs.images.outputs.version }}
-          PROFITGRAPH_REGISTRY: ${{ env.REGISTRY }}
-        run: deploy/deploy.sh "$VERSION"
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$TOKEN" | ssh "$HOST" docker login ghcr.io --username "$ACTOR" --password-stdin
+      - name: Deploy
+        run: ssh "$HOST" "PROFITGRAPH_REGISTRY=$REGISTRY profitgraph/release/deploy/deploy.sh $VERSION"
+      - name: Sign out of GHCR on the host
+        if: always()
+        run: ssh "$HOST" docker logout ghcr.io
