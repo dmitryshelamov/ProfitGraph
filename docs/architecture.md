@@ -162,8 +162,12 @@ Venues.Bybit/
 - **Configuration.** Operational settings (intervals, timeouts, retries, cache lifetimes, page sizes and limits, venue
   addresses) are options classes bound from a section and validated on start; a class or method does not hide such a
   value in a constant. Each host's `appsettings.json` lists every setting of the sections that host reads, with the
-  value the options class has as its default; a new setting goes into both. Secrets and machine-specific values (keys,
-  tokens, connection strings, the bootstrap Owner) never appear there. Facts of a protocol or format (a venue's error
+  value the options class has as its default; a new setting goes into both. `appsettings.Development.json` holds what
+  a local run changes (the development database, debug logs, enabled venues) and `appsettings.Testing.json` what every
+  test host shares (the test PostgreSQL, quiet logs, fast polling, the API's migrations, the Worker's trading
+  simulation); a test adds only its own values on top. Secrets (master keys, tokens, the bootstrap Owner) appear in
+  `appsettings.json` only as empty placeholders, and `Live:Trading:Enabled` only as `false`; their real values come
+  from user secrets or the environment. Facts of a protocol or format (a venue's error
   codes, page maxima, precision, client order id length) and input validation rules stay in code.
 
 ## Numbers and Time

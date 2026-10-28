@@ -35,13 +35,15 @@ docker compose -f docker-compose.dev-app.yml down
   `nugetcache`. In the environment this was written in, `api.nuget.org` itself timed out from the host, which is why
   an online restore inside the container hung. Run `dotnet restore backend/ProfitGraph.sln` on the host once (or after
   a package change) so the cache is complete; a missing package fails the build with a restore error.
-- The connection string (`host.docker.internal:5435`), `Venues__TInvest__Enabled=true` and
-  `Venues__TInvest__Endpoint` are environment variables of this compose file only. Committed `appsettings*.json` keep
-  T-Invest off, and `Live:Trading:Enabled` stays `false`.
+- The connection string (`host.docker.internal:5435`) is an environment variable of this compose file only. Steam and
+  T-Invest are enabled by `appsettings.Development.json`, as for a host run; `Live:Trading:Enabled` stays `false` in
+  every committed file.
 - `DataProtection__KeyDirectory=/root/.aspnet/DataProtection-Keys` is a named volume. Setting the key directory also
   makes `AuthenticationSetup` pin the application name `ProfitGraph`; without it the name derives from the content
   root path, which would change keys between builds.
-- Development user secrets (`~/.microsoft/usersecrets/profitgraph-{api,worker}-development`) are bind-mounted read-only.
+- Development user secrets (`~/.microsoft/usersecrets/profitgraph-{api,worker}-development`) hold the real values of
+  `Secrets:*`, `Auth:BootstrapOwner:*` and the Worker's `Live:Trading:Enabled`, whose committed values are empty
+  placeholders or `false`, and may repeat other settings. They are bind-mounted read-only.
   Their content is never copied into the image or the repository; a missing directory fails `up` instead of being
   created empty.
 

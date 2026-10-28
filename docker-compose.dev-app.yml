@@ -1,6 +1,6 @@
 # API and Worker in Linux containers for macOS, where .NET cannot complete the TLS handshake with the T-Invest endpoint.
 # PostgreSQL stays in docker-compose.dev.yml (localhost:5435, host.docker.internal from here). Start that stack first.
-# T-Invest is enabled only here; committed appsettings keep it off and Live:Trading:Enabled is not touched.
+# Venues come from appsettings.Development.json; Live:Trading:Enabled is not touched.
 name: profitgraph-app
 
 x-app: &app
@@ -17,8 +17,6 @@ x-app: &app
     ASPNETCORE_ENVIRONMENT: Development
     DOTNET_ENVIRONMENT: Development
     ConnectionStrings__Postgres: "Host=host.docker.internal;Port=5435;Database=profitgraph_dev;Username=postgres;Password=postgres"
-    Venues__TInvest__Enabled: "true"
-    Venues__TInvest__Endpoint: "https://invest-public-api.tbank.ru:443"
 
 services:
   api:

@@ -96,7 +96,8 @@ internal static class AuthenticationSetup
         string? login = app.Configuration["Auth:BootstrapOwner:Login"];
         string? password = app.Configuration["Auth:BootstrapOwner:Password"];
 
-        if (login is null && password is null)
+        // appsettings.json carries empty placeholders; the real values come from user secrets or the environment.
+        if (string.IsNullOrEmpty(login) && string.IsNullOrEmpty(password))
         {
             return;
         }
