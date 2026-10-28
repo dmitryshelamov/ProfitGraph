@@ -18,7 +18,9 @@ gateway amend it in later stage 5 pull requests.
   rates read from the venue, the foreign-orders policy (stage 5 plan S5-16), the strategy version it runs, and whether
   a run exists. A new bot is stopped and has never run.
 - **Desired state and runtime status.** The owner sets the desired state (`Stopped`, `Running`); the runtime that holds
-  the lease reports `Created`, `Starting`, `Running`, `Degraded` or `Stopped`. `Start` is refused while trading is
+  the lease reports `Created`, `Starting`, `Running`, `Degraded` or `Stopped`. The runtime status, its reason and the
+  restart streak form the `BotRuntimeState` value, which owns their transition rules; the bot adds its desired state,
+  events and timestamps. `Start` is refused while trading is
   halted (`trading_halted`), runs the latest strategy version when no checkpoint exists, and otherwise keeps the stored
   version for a graph change at runtime. Starting a bot that should already run changes nothing, except that it
   re-arms a bot degraded by `IntentFailed` or `InsufficientBalance`. A start clears reasons, diagnostics, the restart
