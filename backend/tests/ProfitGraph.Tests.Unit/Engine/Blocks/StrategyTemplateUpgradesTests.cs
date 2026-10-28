@@ -1,11 +1,14 @@
 using ProfitGraph.Engine.Blocks;
 using ProfitGraph.Engine.Templates;
+using ProfitGraph.Tests.Unit.Engine.Graphs;
+
+using ValueType = ProfitGraph.Engine.Nodes.ValueType;
 
 namespace ProfitGraph.Tests.Unit.Engine.Blocks;
 
 /// <summary>
-///     The upgrade that adds the Ladder's reaction to a filled manual order to saved strategies (ADR 0038): it adds exactly what the
-///     template of today has, only to the Ladder with resume whose chain it attaches to, and only once.
+///     The upgrades that add the Ladder's restoring at resume (ADR 0040) and its reaction to a filled manual order (ADR 0038) to saved
+///     strategies: they add exactly what the template of today has, only to the Ladder chain they attach to, and only once.
 /// </summary>
 public sealed class StrategyTemplateUpgradesTests
 {
@@ -28,8 +31,10 @@ public sealed class StrategyTemplateUpgradesTests
 
         upgraded.Blocks.Select(block => block.Id).Order().ShouldBe(template.Blocks.Select(block => block.Id).Order());
         upgraded.Wires.Select(Describe).Order().ShouldBe(template.Wires.Select(Describe).Order());
-        upgraded.Blocks.Where(block => ManualBlocks.Contains(block.Id)).Select(Key).Order().ShouldBe(
-            template.Blocks.Where(block => ManualBlocks.Contains(block.Id)).Select(Key).Order());
+        upgraded.Blocks.Where(block => ManualBlocks.Contains(block.Id))
+            .Select(Key)
+            .Order()
+            .ShouldBe(template.Blocks.Where(block => ManualBlocks.Contains(block.Id)).Select(Key).Order());
         upgraded.Parameters.ShouldBe(saved.Parameters);
         upgraded.Values.ShouldBe(saved.Values);
         upgraded.TemplateKind.ShouldBe(saved.TemplateKind);
@@ -70,33 +75,74 @@ public sealed class StrategyTemplateUpgradesTests
 
         upgraded.Blocks.Select(block => block.Id).Order().ShouldBe(LadderResumeStrategyBlockFactory.Create().Blocks.Select(block => block.Id).Order());
         upgraded.Wires.Select(Describe).Order().ShouldBe(LadderResumeStrategyBlockFactory.Create().Wires.Select(Describe).Order());
+        new StrategyDefinitionValidator().Validate(upgraded, ProductionTradingNodeTests.Catalog).Diagnostics.ShouldBeEmpty();
+    }
+
+    [TestCaseSource(nameof(Templates))]
+    public void AnUpgradedGraphValidatesAgainstTheNodeRegistry(StrategyDefinition template)
+    {
+        StrategyDefinition upgraded = StrategyTemplateUpgrades.Upgrade(WithoutResume(template)).ShouldNotBeNull();
+
+        new StrategyDefinitionValidator().Validate(upgraded, ProductionTradingNodeTests.Catalog).Diagnostics.ShouldBeEmpty();
     }
 
     [Test]
     public void AGraphThatIsNotTheLadderChainIsNotGivenTheResumeBlocks()
     {
-        StrategyDefinition noExit = new StrategyDefinition(
-            LadderStrategyBlockFactory.Create().Parameters,
-            LadderStrategyBlockFactory.Create().Values,
-            LadderStrategyBlockFactory.Create().Blocks.Where(block => block.Id != "exit"),
-            LadderStrategyBlockFactory.Create().Wires.Where(wire => wire.From.Block != "exit" && wire.To != "exit"),
-            LadderStrategyBlockFactory.Create().TemplateKind);
+        StrategyDefinition ladder = LadderStrategyBlockFactory.Create();
+        var noExit = new StrategyDefinition(
+            ladder.Parameters,
+            ladder.Values,
+            ladder.Blocks.Where(block => block.Id != "exit"),
+            ladder.Wires.Where(wire => wire.From.Block != "exit" && wire.To != "exit"),
+            ladder.TemplateKind);
 
         StrategyTemplateUpgrades.WithResumeRestore(noExit).ShouldBeNull();
         StrategyTemplateUpgrades.Upgrade(noExit).ShouldBeNull();
     }
 
     [Test]
+    public void AGraphWithTheExitGuardButNoResumeEventIsLeftAsItIs()
+    {
+        StrategyDefinition ladder = LadderResumeStrategyBlockFactory.Create();
+        var withoutResume = new StrategyDefinition(
+            ladder.Parameters,
+            ladder.Values,
+            ladder.Blocks.Where(block => block.Id != "resume"),
+            ladder.Wires.Where(wire => wire.From.Block != "resume"),
+            ladder.TemplateKind);
+
+        StrategyTemplateUpgrades.WithResumeRestore(withoutResume).ShouldBeNull();
+        StrategyTemplateUpgrades.Upgrade(withoutResume).ShouldBeNull();
+    }
+
+    [Test]
+    public void AGraphWithAResumeEventOfItsOwnIsNotGivenTheResumeBlocks()
+    {
+        StrategyDefinition ladder = LadderStrategyBlockFactory.Create();
+        var own = new StrategyBlock("myResume", "event", "Моё возобновление", "OnResume");
+        var custom = new StrategyDefinition(
+            ladder.Parameters,
+            ladder.Values,
+            [.. ladder.Blocks, own],
+            [.. ladder.Wires, new StrategyWire(new StrategyExit("myResume", "out"), "entryConditions")],
+            ladder.TemplateKind);
+
+        StrategyTemplateUpgrades.WithResumeRestore(custom).ShouldBeNull();
+        StrategyTemplateUpgrades.Upgrade(custom).ShouldBeNull();
+    }
+
+    [Test]
     public void AGraphWhoseChainWasChangedIsLeftAsItIs()
     {
         StrategyDefinition saved = Without(LadderSmaStrategyBlockFactory.Create());
-        StrategyDefinition withoutExitWire = new StrategyDefinition(
+        var withoutExitWire = new StrategyDefinition(
             saved.Parameters,
             saved.Values,
             saved.Blocks,
             saved.Wires.Where(wire => !(wire.From.Block == "exitConditions" && wire.To == "exit")),
             saved.TemplateKind);
-        StrategyDefinition withoutBlock = new StrategyDefinition(
+        var withoutBlock = new StrategyDefinition(
             saved.Parameters,
             saved.Values,
             saved.Blocks.Where(block => block.Id != "averageConditions"),
@@ -116,7 +162,7 @@ public sealed class StrategyTemplateUpgradesTests
             "event",
             "Моя реакция",
             "OnOrderFilled",
-            tag: new ValueExpression("constant", valueType: ProfitGraph.Engine.Nodes.ValueType.Tag, text: "manual"));
+            tag: new ValueExpression("constant", ValueType.Tag, text: "manual"));
         var custom = new StrategyDefinition(saved.Parameters, saved.Values, [.. saved.Blocks, own], saved.Wires, saved.TemplateKind);
 
         StrategyTemplateUpgrades.WithManualFillRebuild(custom).ShouldBeNull();
@@ -146,7 +192,7 @@ public sealed class StrategyTemplateUpgradesTests
 
     private static string Key(StrategyBlock block)
     {
-        return string.Join('|', block.Id, block.Kind, block.DisplayName, block.Source, block.Tag?.Text);
+        return string.Join(separator: '|', block.Id, block.Kind, block.DisplayName, block.Source, block.Tag?.Text);
     }
 
     private static string Describe(StrategyWire wire)
