@@ -92,7 +92,9 @@ describe('owner cancel of an open order', () => {
     await userEvent.click((await exitRow()).getByRole('button', { name: 'Отменить ордер 2' }));
 
     expect(screen.getByText(/Отменить ордер 2 \(ladder\.exit\): продажа 0\.1/)).toBeInTheDocument();
-    expect(screen.getByText(/может выставить его позже по своим правилам/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/стратегия выставит недостающие ордера заново по своим правилам/),
+    ).toBeInTheDocument();
     expect(sent()).toEqual([]);
     await userEvent.click(screen.getByRole('button', { name: 'Подтвердить отмену' }));
 
