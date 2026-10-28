@@ -6,7 +6,7 @@ import type { Bot } from '../model/types';
 export function BotStatusBadge({
   bot,
 }: {
-  bot: Pick<Bot, 'desiredState' | 'runtimeStatus' | 'statusReason' | 'nextRestartAt'>;
+  bot: Pick<Bot, 'desiredState' | 'runtimeStatus' | 'statusReason'>;
 }) {
   return <StatusBadge tone={botStatusTone(bot)}>{botStatusLabel(bot)}</StatusBadge>;
 }

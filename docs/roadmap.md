@@ -63,7 +63,8 @@ checkpoint check and the log showed only an exception type.
 |---|---|---|---|
 | 1. Restated history | `RestatesClosedCandles` port capability; Steam continues on a restated last candle and records `HistoryRestated`; other venues stop with `HistoryDataCorrection` without spending restarts | `BotRuntimeTests` restart a bot on a changed last candle on both kinds of venue | Done on mocks; whether the real Steam restated the incident's hour is not proven |
 | 2. Diagnostics | Allow-listed failure description in the log and the `Degraded` feed entry | The feed shows the type chain and our own message, never a foreign message | Done |
-| 3. Status text | "бот ждёт владельца" once the restarts are spent | The bot page shows it from `nextRestartAt` | Done |
+| 3. Status text | "бот ждёт владельца" once the restarts are spent | The bot page shows it from `nextRestartAt` | Done; removed by step 4 |
+| 4. Endless restart | [ADR 0050](adr/0050-endless-restart-after-runtime-failure.md): a runtime failure restarts after 30 s and then every minute without a limit; the counter stops at 5; a failure left without a restart time by the former limit is due at once | Domain tests restart a bot twenty times and lease a bot stopped by the former limit; the bot page always promises a restart | Done |
 
 ## Automatic check of unresolved orders
 

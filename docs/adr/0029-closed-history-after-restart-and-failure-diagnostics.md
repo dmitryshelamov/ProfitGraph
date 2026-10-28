@@ -90,6 +90,9 @@ today, and the type chain plus an authored message answers the question that was
 returns `restartAttempts` and `nextRestartAt`, so no contract change is needed; the feed kind `HistoryRestated` is added to the
 `BotFeedKind` enum of the contract.
 
+Superseded by [ADR 0050](0050-endless-restart-after-runtime-failure.md): restarts no longer run out, so the text and the line
+are gone.
+
 ## Consequences
 
 - A Steam bot continues after a restatement of its last hour; the owner sees it in the feed.
