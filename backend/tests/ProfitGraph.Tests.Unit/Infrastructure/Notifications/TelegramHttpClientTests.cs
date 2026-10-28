@@ -22,12 +22,59 @@ public sealed class TelegramHttpClientTests
     {
         var handler = new StubHandler(
             HttpStatusCode.OK,
-            body: """{"ok":true,"result":[{"update_id":7,"message":{"chat":{"id":42},"text":"/start ABC"}},{"update_id":8,"edited_message":{}}]}""");
+            body: """
+                  {"ok":true,"result":[
+                    {"update_id":7,"message":{"chat":{"id":42,"type":"private"},"from":{"id":42,"is_bot":false},"text":"/start ABC"}},
+                    {"update_id":8,"edited_message":{}},
+                    {"update_id":9,"callback_query":{"id":"cb1","from":{"id":42,"is_bot":false},"message":{"message_id":5,"chat":{"id":42,"type":"private"}},"data":"ack:x"}},
+                    {"update_id":10,"message":{"chat":{"id":-100,"type":"group"},"from":{"id":7,"is_bot":true}}}
+                  ]}
+                  """);
 
         IReadOnlyList<TelegramUpdateInternal> updates = await Client(handler).GetUpdates(offset: 7, TimeSpan.FromSeconds(1), CancellationToken.None);
 
         handler.Path.ShouldBe($"/bot{Token}/getUpdates");
-        updates.ShouldBe([new TelegramUpdateInternal(UpdateId: 7, ChatId: 42, "/start ABC"), new TelegramUpdateInternal(UpdateId: 8, ChatId: null, Text: null)]);
+        handler.Body!.ShouldContain("\"allowed_updates\":[\"message\",\"callback_query\"]");
+        updates.ShouldBe(
+        [
+            new TelegramUpdateInternal(UpdateId: 7, new TelegramIncomingMessageInternal(ChatId: 42, "private", FromBot: false, "/start ABC")),
+            new TelegramUpdateInternal(UpdateId: 8),
+            new TelegramUpdateInternal(UpdateId: 9, Callback: new TelegramCallbackInternal("cb1", FromBot: false, ChatId: 42, "private", MessageId: 5, "ack:x")),
+            new TelegramUpdateInternal(UpdateId: 10, new TelegramIncomingMessageInternal(ChatId: -100, "group", FromBot: true, Text: null))
+        ]);
+    }
+
+    [Test]
+    public async Task ButtonsGoInOneRowUnderTheMessage()
+    {
+        var handler = new StubHandler(HttpStatusCode.OK, body: """{"ok":true,"result":{"message_id":1}}""");
+
+        await Client(handler).SendMessage(chatId: 42, "hi", [new TelegramButtonInternal("Принято", "ack:1")], CancellationToken.None);
+
+        handler.Body!.ShouldContain(
+            "\"reply_markup\":{\"inline_keyboard\":[[{\"text\":\"\\u041F\\u0440\\u0438\\u043D\\u044F\\u0442\\u043E\",\"callback_data\":\"ack:1\"}]]}");
+    }
+
+    [Test]
+    public async Task MessageWithoutButtonsHasNoMarkup()
+    {
+        var handler = new StubHandler(HttpStatusCode.OK, body: """{"ok":true,"result":{"message_id":1}}""");
+
+        await Client(handler).SendMessage(chatId: 42, "hi", [], CancellationToken.None);
+
+        handler.Body!.ShouldNotContain("reply_markup");
+    }
+
+    [Test]
+    public async Task RefusedCallbackAnswerAndButtonRemovalAreNotFailures()
+    {
+        var handler = new StubHandler(HttpStatusCode.BadRequest, body: """{"ok":false,"description":"Bad Request: query is too old"}""");
+
+        await Client(handler).AnswerCallback("cb1", "Принято", CancellationToken.None);
+        handler.Path.ShouldBe($"/bot{Token}/answerCallbackQuery");
+        await Client(handler).RemoveButtons(chatId: 42, messageId: 5, CancellationToken.None);
+        handler.Path.ShouldBe($"/bot{Token}/editMessageReplyMarkup");
+        handler.Body!.ShouldContain("\"inline_keyboard\":[]");
     }
 
     [Test]
@@ -35,7 +82,7 @@ public sealed class TelegramHttpClientTests
     {
         TelegramSendResult result = await Client(
                 new StubHandler(HttpStatusCode.Forbidden, body: """{"ok":false,"error_code":403,"description":"Forbidden: bot was blocked by the user"}"""))
-            .SendMessage(chatId: 42, "hi", CancellationToken.None);
+            .SendMessage(chatId: 42, "hi", [], CancellationToken.None);
 
         result.ShouldBe(new TelegramSendResult(TelegramSendOutcome.Blocked, Error: "http_403: Forbidden: bot was blocked by the user"));
     }
@@ -45,7 +92,7 @@ public sealed class TelegramHttpClientTests
     {
         var handler = new StubHandler(HttpStatusCode.OK, body: """{"ok":true,"result":{"message_id":1}}""");
 
-        TelegramSendResult result = await Client(handler).SendMessage(chatId: 42, "<b>hi</b>", CancellationToken.None);
+        TelegramSendResult result = await Client(handler).SendMessage(chatId: 42, "<b>hi</b>", [], CancellationToken.None);
 
         result.ShouldBe(TelegramSendResult.Sent);
         handler.Path.ShouldBe($"/bot{Token}/sendMessage");
@@ -59,7 +106,7 @@ public sealed class TelegramHttpClientTests
                 new StubHandler(
                     HttpStatusCode.TooManyRequests,
                     body: """{"ok":false,"error_code":429,"description":"Too Many Requests: retry after 30","parameters":{"retry_after":30}}"""))
-            .SendMessage(chatId: 42, "hi", CancellationToken.None);
+            .SendMessage(chatId: 42, "hi", [], CancellationToken.None);
 
         result.ShouldBe(new TelegramSendResult(TelegramSendOutcome.RetryLater, TimeSpan.FromSeconds(30), "http_429: Too Many Requests: retry after 30"));
     }
@@ -69,7 +116,7 @@ public sealed class TelegramHttpClientTests
     {
         TelegramSendResult result = await Client(
                 new StubHandler(HttpStatusCode.BadRequest, body: """{"ok":false,"error_code":400,"description":"Bad Request: can't parse entities"}"""))
-            .SendMessage(chatId: 42, "<b>hi", CancellationToken.None);
+            .SendMessage(chatId: 42, "<b>hi", [], CancellationToken.None);
 
         result.ShouldBe(new TelegramSendResult(TelegramSendOutcome.Rejected, Error: "http_400: Bad Request: can't parse entities"));
     }
@@ -78,9 +125,9 @@ public sealed class TelegramHttpClientTests
     public async Task ServerErrorAndWrongTokenAreTriedAgain()
     {
         TelegramSendResult failure = await Client(new StubHandler(HttpStatusCode.BadGateway, "<html>bad gateway</html>"))
-            .SendMessage(chatId: 42, "hi", CancellationToken.None);
+            .SendMessage(chatId: 42, "hi", [], CancellationToken.None);
         TelegramSendResult unauthorized = await Client(new StubHandler(HttpStatusCode.Unauthorized, body: """{"ok":false,"description":"Unauthorized"}"""))
-            .SendMessage(chatId: 42, "hi", CancellationToken.None);
+            .SendMessage(chatId: 42, "hi", [], CancellationToken.None);
 
         failure.ShouldBe(new TelegramSendResult(TelegramSendOutcome.RetryLater, Error: "http_502"));
         unauthorized.Outcome.ShouldBe(TelegramSendOutcome.RetryLater);

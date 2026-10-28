@@ -1,5 +1,6 @@
 using System.Net;
 
+using ProfitGraph.Application.Notifications.Contracts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Notifications;
 
@@ -14,7 +15,15 @@ public static class TelegramMessages
 {
     public const string Linked = "ProfitGraph: чат привязан, сюда будут приходить уведомления ботов.";
     public const string UnknownCode = "ProfitGraph: код не найден или истёк. Получите новый код в профиле.";
-    public const string Help = "ProfitGraph: чтобы получать уведомления, отправьте /start и код из профиля.";
+
+    public const string Help =
+        "ProfitGraph: чтобы получать уведомления, отправьте /start и код из профиля. Кнопка «Принято» под алертом отмечает его прочитанным.";
+
+    public const string AcknowledgeAction = "ack";
+    public const string Acknowledged = "Принято";
+    public const string AlreadyAcknowledged = "Алерт уже принят";
+    public const string AlertNotFound = "Алерт не найден";
+    public const string UnknownButton = "Эта кнопка больше не работает";
 
     private static readonly Dictionary<string, string> ReasonTexts = new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -40,6 +49,14 @@ public static class TelegramMessages
     public static string BotName(Bot? bot)
     {
         return bot is null ? "без имени" : bot.Name?.Value ?? $"{bot.Series.Symbol} {bot.Series.Timeframe.Key}";
+    }
+
+    /// <summary>
+    ///     The buttons under a notification: «Принято» under an alert, nothing under anything else.
+    /// </summary>
+    public static IReadOnlyList<TelegramButtonInternal> Buttons(TelegramNotification notification)
+    {
+        return notification.AlertId is { } alertId ? [new TelegramButtonInternal(Acknowledged, $"{AcknowledgeAction}:{alertId.Value:D}")] : [];
     }
 
     public static string Notification(TelegramNotification notification, Bot? bot)

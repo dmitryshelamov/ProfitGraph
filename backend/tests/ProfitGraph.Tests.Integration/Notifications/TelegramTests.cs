@@ -29,8 +29,9 @@ using ProfitGraph.Tests.Integration.Common;
 namespace ProfitGraph.Tests.Integration.Notifications;
 
 /// <summary>
-///     Telegram against a fake Bot API (ADR 0020, ADR 0042): a chat links with a one-time code; an alert reaches the chat
-///     through the queue, named by its bot; a refused message never holds up the next and a temporary failure is tried
+///     Telegram against a fake Bot API (ADR 0020, ADR 0042): a chat links with a one-time code and gets help; an alert
+///     reaches the chat through the queue, named by its bot, and its «Принято» button acknowledges it for the chat's user
+///     only; a refused message never holds up the next and a temporary failure is tried
 ///     again; a blocked chat receives nothing more; an old alert is skipped; two senders never claim the same notification;
 ///     and nothing runs while Telegram is disabled.
 /// </summary>
@@ -70,11 +71,13 @@ public sealed class TelegramTests
         await worker.StartAsync();
         telegram.Push(chatId: 777, $"/start {code.Code}");
         telegram.Push(chatId: 778, "/start WRONGCODE1");
-        await RuntimeScenario.Until(() => Task.FromResult(telegram.Sent.Count >= 2), "the bot answers both chats");
+        telegram.Push(chatId: 779, "/help");
+        await RuntimeScenario.Until(() => Task.FromResult(telegram.Sent.Count >= 3), "the bot answers every chat");
         await worker.StopAsync();
 
         telegram.Sent.ShouldContain((777L, TelegramMessages.Linked));
         telegram.Sent.ShouldContain((778L, TelegramMessages.UnknownCode));
+        telegram.Sent.ShouldContain((779L, TelegramMessages.Help));
         await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
         (await connection.ExecuteScalarAsync<long>("SELECT chat_id FROM telegram_links WHERE user_id = @id", new { id = user.Id })).ShouldBe(777);
         (await connection.ExecuteScalarAsync<long>("SELECT update_offset FROM telegram_poller_lease")).ShouldBeGreaterThan(telegram.Offsets.Min());
@@ -99,6 +102,35 @@ public sealed class TelegramTests
         chatId.ShouldBe(900);
         text.ShouldBe("⛔ <b>Бот остановлен по безопасности</b>\nБот: BTCUSDT 1h\nПричина: на символе есть чужие заявки");
         telegram.ParseModes.Single().ShouldBe("HTML");
+    }
+
+    [Test]
+    public async Task AcceptButtonAcknowledgesTheAlertOfTheChatsUserOnly()
+    {
+        var telegram = new FakeTelegramApi();
+        UserInternal owner = await _api.CreateAccount(UserRole.User);
+        UserInternal stranger = await _api.CreateAccount(UserRole.User);
+        using IHost worker = Worker(telegram);
+        Bot bot = (await RuntimeScenario.RunningLadders(worker, count: 1, new UserId(owner.Id)))[0];
+        await Link(worker, owner, chatId: 905);
+        await Link(worker, stranger, chatId: 906);
+        BotAlertId alert = await Raise(worker, bot, BotAlertKind.Killed, nameof(BotStatusReason.Killed), DateTimeOffset.UtcNow);
+
+        await worker.StartAsync();
+        await RuntimeScenario.Until(async () => await Status(alert) == nameof(TelegramNotificationStatus.Sent), "the alert is sent");
+        string data = telegram.Buttons.Single().ShouldHaveSingleItem();
+        string strangers = telegram.Press(chatId: 906, messageId: 1, data);
+        await RuntimeScenario.Until(() => Task.FromResult(telegram.CallbackAnswers.Any(answer => answer.CallbackId == strangers)), "the stranger's press is answered");
+        bool acknowledgedByStranger = await AcknowledgedAt(alert) is not null;
+        string owners = telegram.Press(chatId: 905, messageId: 1, data);
+        await RuntimeScenario.Until(async () => await AcknowledgedAt(alert) is not null, "the owner's press acknowledges the alert");
+        await RuntimeScenario.Until(() => Task.FromResult(telegram.CallbackAnswers.Any(answer => answer.CallbackId == owners)), "the owner's press is answered");
+        await worker.StopAsync();
+
+        data.ShouldBe($"ack:{alert.Value:D}");
+        acknowledgedByStranger.ShouldBeFalse();
+        telegram.CallbackAnswers.ShouldBe([(strangers, TelegramMessages.AlertNotFound), (owners, TelegramMessages.Acknowledged)]);
+        telegram.RemovedButtons.ShouldBe([(905L, 1L)]);
     }
 
     [Test]
@@ -263,6 +295,13 @@ public sealed class TelegramTests
         await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
 
         return await connection.ExecuteScalarAsync<string?>("SELECT status FROM telegram_notifications WHERE alert_id = @id", new { id = alert.Value });
+    }
+
+    private static async Task<DateTime?> AcknowledgedAt(BotAlertId alert)
+    {
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+
+        return await connection.ExecuteScalarAsync<DateTime?>("SELECT acknowledged_at FROM bot_alerts WHERE id = @id", new { id = alert.Value });
     }
 
     private static async Task<Guid> NotificationId(BotAlertId alert)
