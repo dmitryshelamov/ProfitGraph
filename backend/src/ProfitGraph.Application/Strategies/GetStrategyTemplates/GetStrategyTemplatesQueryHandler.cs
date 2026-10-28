@@ -16,11 +16,10 @@ internal sealed class GetStrategyTemplatesQueryHandler : IRequestHandler<GetStra
         cancellationToken.ThrowIfCancellationRequested();
         StrategyDefinition sma = SmaStrategyBlockFactory.Create();
 
-        // The plain Ladder gets the resume blocks and the manual-fill reaction like every saved Ladder (ADR 0040), so a strategy made
+        // The catalog's Ladder is the Ladder with resume and the manual-fill reaction under its own kind (ADR 0040), so a strategy made
         // from it restores its orders after a start, a reconciliation and an order the venue cancelled.
-        StrategyDefinition plainLadder = LadderStrategyBlockFactory.Create();
-        StrategyDefinition ladder = StrategyTemplateUpgrades.Upgrade(plainLadder) ?? plainLadder;
-        StrategyDefinition ladderV2 = LadderResumeStrategyBlockFactory.Create();
+        StrategyDefinition resume = LadderResumeStrategyBlockFactory.Create();
+        var ladder = new StrategyDefinition(resume.Parameters, resume.Values, resume.Blocks, resume.Wires, StrategyTemplateKind.Ladder);
         StrategyDefinition profitFox = ProfitFoxLadderStrategyBlockFactory.Create();
         StrategyDefinition ladderSma = LadderSmaStrategyBlockFactory.Create();
         StrategyDefinition capitulationDip = CapitulationDipStrategyBlockFactory.Create();
@@ -40,12 +39,6 @@ internal sealed class GetStrategyTemplatesQueryHandler : IRequestHandler<GetStra
                 "Ladder",
                 "Вход, усреднение и выход лимитными ордерами: восстановление после возобновления, перестройка при ручной заявке.",
                 ladder.ToInternal(),
-                StrategyTemplateLayouts.Ladder().ToInternal()),
-            new StrategyTemplateInternal(
-                ladderV2.TemplateKind!.Value,
-                "Ladder (возобновление)",
-                "Вход, усреднение и выход с восстановлением недостающих ордеров после возобновления.",
-                ladderV2.ToInternal(),
                 StrategyTemplateLayouts.Ladder().ToInternal()),
             new StrategyTemplateInternal(
                 StrategyTemplateKind.LadderProfitFox,

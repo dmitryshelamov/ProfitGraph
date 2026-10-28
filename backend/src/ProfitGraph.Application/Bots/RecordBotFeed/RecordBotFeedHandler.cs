@@ -190,7 +190,7 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
     }
 
     /// <summary>
-    ///     The values followed a new strategy version (ADR 0039): <c>added</c> lists <c>name=default</c> pairs, <c>removed</c> names.
+    ///     The values followed a new strategy version (ADR 0047): <c>added</c> lists <c>name=default</c> pairs, <c>removed</c> names.
     /// </summary>
     public Task Handle(BotParametersFitted notification, CancellationToken cancellationToken)
     {

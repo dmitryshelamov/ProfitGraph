@@ -1,4 +1,5 @@
-using System.Threading.RateLimiting;
+using System.Globalization;
+using System.Net;
 
 using MediatR;
 
@@ -19,7 +20,7 @@ namespace ProfitGraph.Api.Accounts;
 
 [ApiController]
 [Route("api/auth")]
-public sealed class AuthController(ISender sender, SignInLoginLimiter loginLimiter) : ControllerBase
+public sealed class AuthController(ISender sender, SignInThrottle throttle) : ControllerBase
 {
     [HttpPost("login")]
     [AllowAnonymous]
@@ -27,10 +28,12 @@ public sealed class AuthController(ISender sender, SignInLoginLimiter loginLimit
     public async Task<ActionResult<UserResponse>> Login(SignInRequest request, CancellationToken cancellationToken)
     {
         string login = request.Login ?? string.Empty;
-        using RateLimitLease lease = loginLimiter.Acquire(login);
+        IPAddress? address = HttpContext.Connection.RemoteIpAddress;
 
-        if (!lease.IsAcquired)
+        if (!throttle.TryBegin(login, address, out TimeSpan retryAfter))
         {
+            Response.Headers.RetryAfter = Math.Ceiling(retryAfter.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+
             return Problem(statusCode: StatusCodes.Status429TooManyRequests, title: "Too many sign-in attempts");
         }
 
@@ -44,6 +47,7 @@ public sealed class AuthController(ISender sender, SignInLoginLimiter loginLimit
             return Unauthorized(problem);
         }
 
+        throttle.Succeeded(login, address);
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, AuthenticationSetup.Principal(user));
 
         return user.ToResponse();

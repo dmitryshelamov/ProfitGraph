@@ -1,7 +1,7 @@
 # ADR 0038: Saved Strategies Are Brought Forward to Their Template Automatically
 
-Status: Proposed, 2026-10-28. Supplements ADR 0019, ADR 0025 and ADR 0037; proven on the test database only. The owner reviews it in
-the pull request.
+Status: Proposed, 2026-10-28. Supplements ADR 0019, ADR 0025 and ADR 0037; amended by ADR 0040; proven on the test database only. The
+owner reviews it in the pull request.
 
 ## Context
 
@@ -22,8 +22,9 @@ A new version of a saved strategy is made by the system when an upgrade applies 
 - **It applies only to the shape it attaches to.** The graph must be the Ladder with resume: the blocks `resume`, `cancelExit`,
   `exitConditions`, `exit`, `averageConditions`, `restartEvent` and the wires `cancelExit.completed → exitConditions`,
   `exitConditions.yes → exit`, `exit.submitted → averageConditions` and `restartEvent.yes → entryConditions`. A graph without one of
-  them (the plain Ladder, or one the owner changed away from the template) is left as it is (the plain Ladder gets the resume blocks first, ADR 0040). The template kind is not the test: older
-  saved graphs carry another kind for the same shape.
+  them is not given the reaction by this step. A graph the owner changed away from the template is left as it is; a Ladder that
+  has the chain but no `resume` (the plain Ladder, an older Ladder SMA) first gets the resume blocks (ADR 0040) and then this
+  step. The template kind is not the test: older saved graphs carry another kind for the same shape.
 - **The upgraded graph is validated** with the strategy validator and the node registry; one that does not validate is not saved.
 - **Who runs it.** `StrategyTemplateUpgradeHost` in the Worker's `live` role, 15 seconds after the start (once; a failed pass is tried again after a minute, up to three passes), sends
   `UpgradeStrategyTemplatesCommand`: for every strategy, in one transaction, it reads the current version, applies the upgrade, and
@@ -44,8 +45,8 @@ A new version of a saved strategy is made by the system when an upgrade applies 
   something needs its own decision and is not made this way.
 - The version history of such a strategy gets one new version made by the system, with the same name and layout; its backtests
   and bots' stored versions are unaffected.
-- A strategy the owner changed away from the template, and the plain Ladder, do not get the reaction; the owner adds the blocks in the
-  editor if wanted.
+- A strategy the owner changed away from the template does not get the reaction; the owner adds the blocks in the editor if wanted.
+  The plain Ladder gets it together with the resume blocks (ADR 0040).
 - Tested: unit tests of the upgrade (the template's own output without the blocks gets exactly the template's blocks and wires, no
   second upgrade, other shapes untouched) and an integration test on the test database (a saved Ladder with resume gets version 2 once,
-  a plain Ladder and a current one are not changed). The host is not run in the tests.
+  a current one is not changed; since ADR 0040 a plain Ladder gets version 2 too). The host is not run in the tests.

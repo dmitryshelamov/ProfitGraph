@@ -122,6 +122,16 @@ internal sealed class MockTInvestOrders
 
     public bool LimitsLoading { get; set; }
 
+    /// <summary>
+    ///     How every following <c>OrderStateStream</c> fails before it confirms its subscription.
+    /// </summary>
+    public RpcException? StreamFailure { get; set; }
+
+    /// <summary>
+    ///     How many <c>OrderStateStream</c> subscriptions were confirmed.
+    /// </summary>
+    public int Subscriptions { get; private set; }
+
     public RpcException? PositionsFailure { get; set; }
 
     public MockTInvestOrders(MockTInvestApi api, string accountId)
@@ -339,9 +349,8 @@ internal sealed class MockTInvestOrders
             int start = request.HasCursor ? int.Parse(request.Cursor, CultureInfo.InvariantCulture) : 0;
             int size = Math.Min(OperationsPageSize, request.Limit);
             IEnumerable<OperationItem> listed = FilterOperationsByRange
-                ? Operations.Where(
-                    item => item.Date.ToDateTimeOffset() >= request.From.ToDateTimeOffset() &&
-                        item.Date.ToDateTimeOffset() <= request.To.ToDateTimeOffset())
+                ? Operations.Where(item => item.Date.ToDateTimeOffset() >= request.From.ToDateTimeOffset() &&
+                    item.Date.ToDateTimeOffset() <= request.To.ToDateTimeOffset())
                 : Operations;
             OperationItem[] page = [.. listed.Skip(start).Take(size)];
             var response = new GetOperationsByCursorResponse
@@ -517,13 +526,35 @@ internal sealed class MockTInvestOrders
         return new CancelOrderResponse { Time = Timestamp.FromDateTime(DateTime.UtcNow) };
     }
 
+    /// <summary>
+    ///     Ends every open <c>OrderStateStream</c>, as a lost connection does; changes until the next subscription are not signalled.
+    /// </summary>
+    public void DropStreams()
+    {
+        lock (_subscribers)
+        {
+            foreach (Channel<OrderStateStreamResponse> subscriber in _subscribers)
+            {
+                subscriber.Writer.TryComplete();
+            }
+
+            _subscribers.Clear();
+        }
+    }
+
     private async IAsyncEnumerable<OrderStateStreamResponse> Stream(OrderStateStreamRequest request, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        if (StreamFailure is { } failure)
+        {
+            throw failure;
+        }
+
         var channel = Channel.CreateUnbounded<OrderStateStreamResponse>();
 
         lock (_subscribers)
         {
             _subscribers.Add(channel);
+            Subscriptions++;
         }
 
         yield return new OrderStateStreamResponse { Subscription = new SubscriptionResponse { Status = ResultSubscriptionStatus.Ok } };

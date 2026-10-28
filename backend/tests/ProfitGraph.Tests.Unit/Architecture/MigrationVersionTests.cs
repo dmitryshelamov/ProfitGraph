@@ -1,10 +1,12 @@
 using System.Globalization;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 using FluentMigrator;
 
 using ProfitGraph.Infrastructure;
 using ProfitGraph.Venues.Steam;
+using ProfitGraph.Venues.TInvest;
 
 namespace ProfitGraph.Tests.Unit.Architecture;
 
@@ -12,12 +14,19 @@ namespace ProfitGraph.Tests.Unit.Architecture;
 ///     Enforces ADR 0006: migration versions use yyyyMMddNNNN and never collide across Infrastructure and the venue modules
 ///     that own tables (ADR 0022, C8), so parallel branches fail in CI instead of at startup.
 /// </summary>
-public sealed class MigrationVersionTests
+public sealed partial class MigrationVersionTests
 {
+    private static readonly Assembly[] MigrationAssemblies =
+    [
+        typeof(DependencyInjection).Assembly,
+        typeof(SteamRegistration).Assembly,
+        typeof(TInvestRegistration).Assembly
+    ];
+
     [Test]
     public void MigrationVersionsAreUniqueAndDateBased()
     {
-        (string Type, long Version)[] migrations = new[] { typeof(DependencyInjection).Assembly, typeof(SteamRegistration).Assembly }
+        (string Type, long Version)[] migrations = MigrationAssemblies
             .SelectMany(assembly => assembly.GetTypes())
             .Select(type => (Type: type.FullName!, Attribute: type.GetCustomAttribute<MigrationAttribute>()))
             .Where(migration => migration.Attribute is not null)
@@ -25,6 +34,22 @@ public sealed class MigrationVersionTests
             .ToArray();
 
         Problems(migrations).ShouldBeEmpty();
+    }
+
+    [Test]
+    public void EveryProjectWithMigrationsIsChecked()
+    {
+        string[] checkedProjects = [.. MigrationAssemblies.Select(assembly => assembly.GetName().Name!)];
+        string[] missing =
+        [
+            .. RepositoryLayout.SourceFiles()
+                .Where(path => MigrationAttribute().IsMatch(File.ReadAllText(path)))
+                .Select(path => Path.GetRelativePath(RepositoryLayout.SourceDirectory, path).Split(Path.DirectorySeparatorChar)[0])
+                .Distinct()
+                .Except(checkedProjects)
+        ];
+
+        missing.ShouldBeEmpty("Add the assembly of every project with migrations to MigrationAssemblies.");
     }
 
     [Test]
@@ -54,4 +79,7 @@ public sealed class MigrationVersionTests
 
         return text.Length == 12 && DateOnly.TryParseExact(text[..8], "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
     }
+
+    [GeneratedRegex(@"\[Migration\(\d+\)\]")]
+    private static partial Regex MigrationAttribute();
 }

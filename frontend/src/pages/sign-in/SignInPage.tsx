@@ -8,12 +8,9 @@ import { Button } from '@/shared/ui/Button';
 import { Field } from '@/shared/ui/Field';
 import { Input } from '@/shared/ui/Input';
 
-const route = getRouteApi('/sign-in');
+import { safeReturnPath } from './safeReturnPath';
 
-/** Only a path of this application is a safe place to return to after sign-in. */
-function safeReturnPath(returnTo: string | undefined): string {
-  return returnTo?.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/';
-}
+const route = getRouteApi('/sign-in');
 
 export function SignInPage() {
   const queryClient = useQueryClient();

@@ -13,7 +13,7 @@ namespace ProfitGraph.Application.Bots.StartBot;
 ///     Sets the bot to run. A first run compiles the latest version with the bot's values now; a stored run resumes and
 ///     changes graph at runtime. A stopped run that holds and spent nothing, whose intents are all final and that left no
 ///     fill, is forgotten first, so <c>OnStart</c> and the current settings apply; the next run continues its order
-///     identifiers. A run that starts afresh fits the bot's values to the latest version's parameters (ADR 0039).
+///     identifiers. A run that starts afresh fits the bot's values to the latest version's parameters (ADR 0047).
 /// </summary>
 internal sealed class StartBotCommandHandler(
     IBotRepository bots,

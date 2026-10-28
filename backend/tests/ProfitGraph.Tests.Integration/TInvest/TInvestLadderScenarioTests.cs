@@ -16,6 +16,7 @@ using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.CreateExchangeCredential;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Application.Bots.GetBotWaitingOrders;
+using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Application.Strategies.Contracts;
 using ProfitGraph.Application.Strategies.Converters;
@@ -181,7 +182,52 @@ public sealed class TInvestLadderScenarioTests
         await second.StopAsync();
     }
 
-    private IHost Worker()
+    [Test]
+    public async Task ALostOrderStreamSubscribesAgain_AndTheFillItMissedReachesTheRunningBot()
+    {
+        using IHost worker = Worker(new PrivateStreamReconnectPolicy { Delays = [TimeSpan.FromMilliseconds(200)], Budget = TimeSpan.FromSeconds(30) });
+        Bot bot = await RunningLadder(worker);
+        await worker.StartAsync();
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Checkpoint(worker, bot.Id))?.Engine.Account.Orders is [{ Status: OrderStatus.Active }],
+            "the entry is placed and accepted");
+
+        _orders.DropStreams();
+        _orders.Fill(_orders.Posted.Single().OrderId, lots: 1, price: 100m, commission: 0.5m);
+
+        await RuntimeScenario.Until(() => Task.FromResult(_orders.Subscriptions == 2), "the order state stream subscribes again");
+        await RuntimeScenario.Until(async () => (await Fills(bot)).Count == 1, "the fill missed while the stream was lost is booked");
+        await RuntimeScenario.Until(() => Task.FromResult(_orders.Posted.Count >= 2), "the ladder goes on after the fill");
+        (await Fills(bot)).Count.ShouldBe(1);
+        Bot stored = await RuntimeScenario.Read(worker, bot.Id);
+        stored.ShouldSatisfyAllConditions(
+            () => stored.RuntimeStatus.ShouldBe(BotRuntimeStatus.Running),
+            () => stored.IsDegraded.ShouldBeFalse(),
+            () => stored.RestartAttempts.ShouldBe(0));
+        await worker.StopAsync();
+    }
+
+    [Test]
+    public async Task AnOrderStreamLostForTheWholeBudgetFailsTheBotForARestart()
+    {
+        using IHost worker = Worker(new PrivateStreamReconnectPolicy { Delays = [TimeSpan.FromMilliseconds(100)], Budget = TimeSpan.FromSeconds(1) });
+        Bot bot = await RunningLadder(worker);
+        await worker.StartAsync();
+        await RuntimeScenario.Until(() => Task.FromResult(_orders.Posted.Count == 1), "the entry is placed");
+
+        _orders.StreamFailure = MockTInvestApi.Refusal(StatusCode.Unavailable, "connection reset");
+        _orders.DropStreams();
+
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Read(worker, bot.Id)).StatusReason == BotStatusReason.RuntimeFailure,
+            "the bot fails once the stream stayed lost");
+        await worker.StopAsync();
+        Bot stored = await RuntimeScenario.Read(worker, bot.Id);
+        stored.ShouldSatisfyAllConditions(() => stored.IsDegraded.ShouldBeTrue(), () => stored.NextRestartAt.ShouldNotBeNull());
+        _orders.Subscriptions.ShouldBe(1);
+    }
+
+    private IHost Worker(PrivateStreamReconnectPolicy? reconnect = null)
     {
         var settings = new Dictionary<string, string?>
         {
@@ -206,6 +252,11 @@ public sealed class TInvestLadderScenarioTests
                 services.AddTInvestVenue(configuration);
                 services.AddTInvestTrading();
                 services.AddSingleton<ITInvestCallInvokers>(new MockTInvestInvokers(_invest));
+
+                if (reconnect is not null)
+                {
+                    services.AddSingleton(reconnect);
+                }
             },
             settings: settings);
     }

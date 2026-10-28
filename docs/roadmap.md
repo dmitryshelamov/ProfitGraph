@@ -88,7 +88,7 @@ while its runner was down. Two pull requests: T-Invest with the shared parts fir
 
 ## Manual limit order
 
-A limit order in the manual order block of the bot page ([ADR 0027](adr/0027-manual-limit-order.md)), for every venue.
+A limit order in the manual order block of the bot page ([ADR 0046](adr/0046-manual-limit-order.md)), for every venue.
 
 | Step | Scope | Done when | Status |
 |---|---|---|---|
@@ -107,7 +107,7 @@ A candle chart on the bot page ([ADR 0026](adr/0026-bot-chart.md)), for every ve
 
 ## Strategy changes on live bots
 
-A saved version that adds or removes a parameter reaches running and stopped bots ([ADR 0039](adr/0039-bot-values-follow-the-strategy-parameters.md)).
+A saved version that adds or removes a parameter reaches running and stopped bots ([ADR 0047](adr/0047-bot-values-follow-the-strategy-parameters.md)).
 
 | Step | Scope | Done when | Status |
 |---|---|---|---|
@@ -120,3 +120,28 @@ Corrections to [ADR 0018](adr/0018-live-risk-controls.md) found in review.
 | Step | Scope | Done when | Status |
 |---|---|---|---|
 | 1. Daily loss across midnight | [ADR 0041](adr/0041-daily-loss-across-midnight.md): the first root of a UTC day takes the previous day's last recorded equity as its baseline and is checked against it; `bots.day_last_equity` | Domain tests kill a `1d` bot and a `1h` bot on a loss across midnight; the root committer kills a bot from the stored last equity | Done |
+
+## Outbox maintenance
+
+Corrections to the outbox of [ADR 0016](adr/0016-live-bot-runtime.md) found in review.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Retention and parked messages | [ADR 0045](adr/0045-outbox-retention-and-parked-messages.md): the Worker's `live` role deletes delivered messages older than 14 days in batches every hour; a message that failed 10 times is parked with its last error, logged without payload and reported by `/api/health/ready` as Degraded; `outbox_messages.parked_at` | Integration tests park a failing message with Degraded readiness and delete only expired delivered messages, batch by batch | Done |
+
+## Sign-in and sessions
+
+Corrections to stage 2 sign-in found in review.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Throttling and session end | [ADR 0043](adr/0043-sign-in-throttling-and-session-end.md): only failed sign-ins count, with a lockout per login that doubles from 30 s to 15 min and ends on success, except on client addresses the login signed in from; `returnTo` accepted only on the same origin; blocking closes the account's SignalR connections and hub calls re-check the account | Integration tests lock a login out and release it, keep the owner's known address open, close a blocked account's WebSocket connections on all four hubs; unit tests reject `//x`, `/\x`, `https://x` and `javascript:` as return paths | Done |
+| 2. Two-factor sign-in | Second factor for the owner | | Awaiting the owner's decision |
+
+## Private order streams
+
+Corrections to [ADR 0017](adr/0017-bybit-spot-order-gateway.md) and [ADR 0023](adr/0023-tinvest-moex-shares.md) found in review.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Reconnect inside the bot | [ADR 0044](adr/0044-private-stream-reconnect.md): a lost Bybit or T-Invest private stream reconnects with backoff (1, 2, 5, 10, then 30 s) for up to 5 minutes; once the venue confirmed it, the bot's open orders are read again as at reconciliation and published; an unreadable message, a failed lookup or a foreign order still ends the bot | Fake transports and the mock Invest API: a fill missed while the stream was down is published once after the restore, a stream lost for the whole budget ends the updates, a foreign order placed meanwhile degrades | Done on mocks; no real venue stream checked |
