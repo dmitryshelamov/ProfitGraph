@@ -90,7 +90,7 @@ public sealed class ManualOrderRequest : AggregateRoot
         DateTimeOffset? resolvedAt)
     {
         if (!Enum.IsDefined(status) || status == ManualOrderStatus.Pending != resolvedAt is null ||
-            status == ManualOrderStatus.Submitted != engineOrderId is not null)
+            status == ManualOrderStatus.Submitted != engineOrderId is not null || status == ManualOrderStatus.Rejected != rejectionReason is not null)
         {
             throw new ArgumentException("Invalid stored manual order request.");
         }

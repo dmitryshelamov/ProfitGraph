@@ -38,7 +38,9 @@ internal static class ExchangeCredentialDbConverter
                 credential.Secrets.ToDictionary(
                     secret => secret.Key,
                     secret => new EncryptedSecretDb
-                        { KeyId = secret.Value.KeyId, Nonce = secret.Value.Nonce, Ciphertext = secret.Value.Ciphertext, Tag = secret.Value.Tag }),
+                    {
+                        KeyId = secret.Value.KeyId, Nonce = secret.Value.Nonce.ToArray(), Ciphertext = secret.Value.Ciphertext.ToArray(), Tag = secret.Value.Tag.ToArray()
+                    }),
                 Options),
             CreatedAt = credential.CreatedAt,
             AccountFingerprint = credential.AccountFingerprint,
