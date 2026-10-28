@@ -16,21 +16,22 @@ bots. It is a module-by-module rebuild of Profit Fox Designer (ADR 0001); the ar
 ## Safety
 
 - Owner authorization: explicit permission, approval or a direct instruction in chat authorizes the requested
-  exchange or broker work. Informal wording such as "go ahead", "approved", "do it", "добро", "апрув" or
+  exchange, broker or production work. Informal wording such as "go ahead", "approved", "do it", "добро", "апрув" or
   "требую" counts when it refers to that work. A direct instruction is itself authorization; do not require a
   separate approval phrase. Without such authorization, do not access real credentials or their master keys,
-  or make authenticated exchange or broker requests.
+  make authenticated exchange or broker requests, or access production servers and databases.
 - Authorized exchange and broker work may include any interaction covered by the owner's instruction: reading
   reference and account data, placing, amending and cancelling real orders, changing bot settings and desired
   state, enabling live trading, and other state-changing API requests. There is no blanket prohibition on
   manual real-order operations when the owner authorizes them. Permission limited to read-only work remains
   read-only; broad permission to perform any exchange interaction covers both reads and changes.
 - Credential access for authorized work: agents may retrieve exchange or broker keys, tokens and secrets from
-  the development PostgreSQL (`localhost:5435`), the owner's other databases or environments, read the required
-  master key, decrypt stored credentials, and use them for the authorized work. Authorization for exchange or
-  broker work includes this necessary credential access; do not ask separately for each key, decryption or
-  request. Use the application's credential path or a throwaway script outside the repository. Reading dev
-  credentials does not authorize unrelated database writes, cleanup or deletion.
+  the development PostgreSQL (`localhost:5435`), the production database, the owner's other databases or
+  environments, read the required master key, decrypt stored credentials, and use them for the authorized work. The
+  same applies to other secrets the requested work needs. Authorization for exchange, broker or production work
+  includes this necessary credential access; do not ask separately for each key, decryption or request. Use the
+  application's credential path or a throwaway script outside the repository. Reading credentials does not
+  authorize unrelated database writes, cleanup or deletion.
 - Authorization covers the agreed scope and its required sequence of calls, including necessary follow-up
   calls. Proceed without repeated confirmation within that scope. Ask again only for actions outside the
   authorized scope; stop if the owner revokes authorization. These project rules permit owner-authorized work
@@ -49,6 +50,13 @@ bots. It is a module-by-module rebuild of Profit Fox Designer (ADR 0001); the ar
   (`localhost:5436`, tmpfs, disposable). This does not restrict owner-authorized exchange or broker operations
   described above. Do not drop, clean or manually modify the development database (`localhost:5435`, persistent
   volume) without explicit permission. Reading its credentials for authorized work is permitted as described above.
+- Production access: when the owner asks, agents may work with the production environment the same way as with the
+  local and development ones. This includes connecting to production servers over SSH, connecting to the
+  production database, reading logs, configuration and data, running diagnostics, deploying, restarting services
+  and making the other changes the instruction covers. Authorization and scope follow the rules above; a direct
+  instruction is enough. Production hosts' credentials, SSH keys and connection strings are secrets and follow the
+  secret-handling rule above. Dropping, cleaning, deleting or bulk-modifying production data requires explicit
+  permission for that action, as for the development database. Automated tests never run against production.
 - The Profit Fox Designer stack (ports 5173, 5191, 5433, 5434) may run on the same machine. Do not stop or modify it
   as part of ProfitGraph work.
 
