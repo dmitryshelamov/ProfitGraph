@@ -65,6 +65,8 @@ public sealed class Bot : AggregateRoot
 
     public bool IsDegraded => RuntimeStatus == BotRuntimeStatus.Degraded;
 
+    private bool HoldsSafetyReason => IsDegraded && StatusReason is { } reason && BotStatusReasons.IsSafety(reason);
+
     private Bot(
         BotId id,
         UserId ownerId,
@@ -170,7 +172,8 @@ public sealed class Bot : AggregateRoot
     /// <summary>
     ///     Starts the bot. A bot without a checkpoint runs <paramref name="latestVersionId" />; a bot with one resumes its
     ///     stored version and changes graph at runtime. Starting an already running bot changes nothing, except that it
-    ///     re-arms a bot degraded by a failed intent or an insufficient balance. Returns whether the bot changed.
+    ///     re-arms a bot degraded by a failed intent or an insufficient balance. A runtime that is still starting or running,
+    ///     because the bot was started again before its runner stopped, keeps its status. Returns whether the bot changed.
     /// </summary>
     public bool Start(StrategyVersionId latestVersionId, bool hasCheckpoint, bool tradingHalted, DateTimeOffset now)
     {
@@ -195,7 +198,12 @@ public sealed class Bot : AggregateRoot
         }
 
         DesiredState = BotDesiredState.Running;
-        RuntimeStatus = BotRuntimeStatus.Created;
+
+        if (RuntimeStatus is not (BotRuntimeStatus.Starting or BotRuntimeStatus.Running))
+        {
+            RuntimeStatus = BotRuntimeStatus.Created;
+        }
+
         StatusReason = null;
         Diagnostics = BotDiagnostics.None;
         RestartAttempts = 0;
@@ -277,9 +285,12 @@ public sealed class Bot : AggregateRoot
         UpdatedAt = now;
     }
 
+    /// <summary>
+    ///     The runtime that took the lease opens the bot. A safety reason that degraded the bot meanwhile stays.
+    /// </summary>
     public bool MarkStarting(DateTimeOffset now)
     {
-        if (DesiredState != BotDesiredState.Running)
+        if (DesiredState != BotDesiredState.Running || HoldsSafetyReason)
         {
             return false;
         }
@@ -317,11 +328,12 @@ public sealed class Bot : AggregateRoot
     }
 
     /// <summary>
-    ///     The runtime stopped processing the bot. A kill reason stays visible until the next start.
+    ///     The runtime stopped processing the bot. A kill reason stays visible until the next start, and a bot degraded by a
+    ///     safety reason stays degraded until the owner starts it again.
     /// </summary>
     public bool MarkRuntimeStopped(DateTimeOffset now)
     {
-        if (RuntimeStatus == BotRuntimeStatus.Stopped)
+        if (RuntimeStatus == BotRuntimeStatus.Stopped || HoldsSafetyReason)
         {
             return false;
         }
@@ -340,12 +352,13 @@ public sealed class Bot : AggregateRoot
     }
 
     /// <summary>
-    ///     A runtime failure degrades the bot and schedules an automatic restart, unless a safety reason already holds it.
+    ///     A runtime failure degrades the bot and schedules an automatic restart, unless a safety reason already holds it or
+    ///     a kill stopped it: a runner that fails while it ends after a kill leaves the kill reason as it is.
     ///     <paramref name="detail" /> is a short text that is safe to show to the owner (ADR 0029).
     /// </summary>
     public bool RecordRuntimeFailure(DateTimeOffset now, string? detail = null)
     {
-        if (IsDegraded && StatusReason is { } held && BotStatusReasons.IsSafety(held))
+        if (HoldsSafetyReason || (StatusReason is { } held && BotStatusReasons.IsControl(held)))
         {
             return false;
         }

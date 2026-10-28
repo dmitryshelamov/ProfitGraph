@@ -35,9 +35,17 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
     private readonly CancellationTokenSource _stopping = new CancellationTokenSource();
     private volatile bool _leaseLost;
     private volatile bool _preserveStatus;
+    private volatile bool _trading;
     private Exception? _producerFailure;
 
     public BotId BotId => bot.Id;
+
+    public long Epoch => epoch;
+
+    /// <summary>
+    ///     True once the runner opened the submit gate and processes live roots.
+    /// </summary>
+    public bool IsTrading => _trading;
 
     public Task Completion { get; private set; } = Task.CompletedTask;
 
@@ -156,6 +164,8 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
         {
             throw new BotLeaseLostException();
         }
+
+        _trading = true;
 
         // A venue without anonymous market data reads live candles with the bot's credential (ADR 0023, TC6).
         using (MarketDataAccess.Use(await scope.ServiceProvider.GetRequiredService<BotMarketDataAccess>().Read(bot, hostToken)))

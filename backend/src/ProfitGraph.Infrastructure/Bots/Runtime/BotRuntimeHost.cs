@@ -21,7 +21,8 @@ namespace ProfitGraph.Infrastructure.Bots.Runtime;
 /// <summary>
 ///     The live role's bot loop (ADR 0016): on every polling interval it beats its heartbeat, stops runners of bots that
 ///     should no longer run and takes the leases of bots that should run. A bot whose venue has no order gateway in this
-///     process, because trading is disabled, degrades with <c>NoGateway</c> and is left alone.
+///     process, because trading is disabled, degrades with <c>NoGateway</c> and is left alone. A bot started again before
+///     its trading runner stopped, after a kill had marked it stopped, is reported running again by that runner.
 /// </summary>
 internal sealed class BotRuntimeHost(
     IServiceScopeFactory scopes,
@@ -82,6 +83,7 @@ internal sealed class BotRuntimeHost(
         await Beat(scope.ServiceProvider.GetRequiredService<NpgsqlConnection>(), stoppingToken);
         var bots = scope.ServiceProvider.GetRequiredService<IBotRepository>();
         HashSet<BotId> desired = [.. await bots.ListDesiredRunning(stoppingToken)];
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
 
         foreach ((BotId id, BotRunner runner) in _runners.ToArray())
         {
@@ -90,16 +92,23 @@ internal sealed class BotRuntimeHost(
                 runner.StopAfterCurrentRoot();
                 await runner.Completion;
                 _runners.Remove(id);
+
+                continue;
             }
-            else if (await bots.Get(id, stoppingToken) is { IsDegraded: true, StatusReason: { } reason } && BotStatusReasons.IsSafety(reason))
+
+            Bot? bot = await bots.Get(id, stoppingToken);
+
+            if (bot is { IsDegraded: true, StatusReason: { } reason } && BotStatusReasons.IsSafety(reason))
             {
                 runner.StopAfterCurrentRoot(preserveStatus: true);
                 await runner.Completion;
                 _runners.Remove(id);
             }
+            else if (runner.IsTrading && bot is { IsDegraded: false, RuntimeStatus: not BotRuntimeStatus.Running })
+            {
+                await sender.Send(new ReportBotRuntimeCommand(id.Value, HolderId.Value, runner.Epoch, BotRuntimeReport.Running), stoppingToken);
+            }
         }
-
-        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
 
         foreach (BotId id in desired.Where(id => !_runners.ContainsKey(id)))
         {

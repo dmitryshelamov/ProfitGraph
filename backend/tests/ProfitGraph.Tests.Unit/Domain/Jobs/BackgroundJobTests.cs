@@ -223,6 +223,33 @@ public sealed class BackgroundJobTests
     }
 
     [Test]
+    public void InterruptedJobWithAPauseRequestIsPaused()
+    {
+        BackgroundJob job = Running();
+        job.RequestPause(Created.AddMinutes(1));
+
+        job.Interrupt(limit: 3, Created.AddMinutes(2)).ShouldBeTrue();
+
+        job.ShouldSatisfyAllConditions(
+            () => job.Status.ShouldBe(BackgroundJobStatus.Paused),
+            () => job.PauseRequested.ShouldBeFalse(),
+            () => job.FinishedAt.ShouldBeNull());
+    }
+
+    [Test]
+    public void InterruptedJobWithAPauseRequestStillFailsWhenItStalls()
+    {
+        BackgroundJob job = Running();
+        job.Interrupt(limit: 2, Created.AddMinutes(1));
+        job.Start(Created.AddMinutes(2));
+        job.RequestPause(Created.AddMinutes(3));
+
+        job.Interrupt(limit: 2, Created.AddMinutes(4)).ShouldBeFalse();
+
+        job.Status.ShouldBe(BackgroundJobStatus.Failed);
+    }
+
+    [Test]
     public void StoredWorkInAnAttemptRestartsTheStallCount()
     {
         BackgroundJob job = Running();

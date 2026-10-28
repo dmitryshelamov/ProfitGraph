@@ -264,14 +264,16 @@ public sealed class BackgroundJob : AggregateRoot
     }
 
     /// <summary>
-    ///     Queues a resumable job that a Worker restart or shutdown interrupted. After <paramref name="limit" /> consecutive
-    ///     interruptions in which it stored no work it fails instead; returns whether it was queued.
+    ///     Queues a resumable job that a Worker restart or shutdown interrupted, or pauses it when a pause was requested. After
+    ///     <paramref name="limit" /> consecutive interruptions in which it stored no work it fails instead; returns whether it was
+    ///     kept.
     /// </summary>
     public bool Interrupt(int limit, DateTimeOffset now)
     {
         EnsureStatus(BackgroundJobStatus.Running);
         ArgumentOutOfRangeException.ThrowIfLessThan(limit, other: 1);
         Interruptions = Advanced ? 0 : Interruptions + 1;
+        bool pause = PauseRequested;
         PauseRequested = false;
 
         if (Interruptions >= limit)
@@ -281,7 +283,7 @@ public sealed class BackgroundJob : AggregateRoot
             return false;
         }
 
-        Status = BackgroundJobStatus.Queued;
+        Status = pause ? BackgroundJobStatus.Paused : BackgroundJobStatus.Queued;
         UpdatedAt = now;
 
         return true;
