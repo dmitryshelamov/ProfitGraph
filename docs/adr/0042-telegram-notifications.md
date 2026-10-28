@@ -38,8 +38,7 @@ long polling.
   blocked, in the delivery transaction of the event (ADR 0016), so each event queues its message once. Nothing is queued
   for an owner without a chat, as before.
 - **Kinds.** `Alert` for every bot alert (`BotAlertRaised`, raised when an alert is stored, ADR 0018), `Started`,
-  `StopRequested` (`BotStopped`), `Stopped` (`BotRuntimeStopped`), `Recovered`, `WaitingForOwner` (the automatic
-  restarts are spent, `BotRestartsExhausted`), `PositionClosed` (`BotPositionClosed` with the cycle's realized profit) and
+  `StopRequested` (`BotStopped`), `Stopped` (`BotRuntimeStopped`), `Recovered`, `PositionClosed` (`BotPositionClosed` with the cycle's realized profit) and
   `OrderFilled`.
 - **Texts** are built when a row is sent, in Russian, HTML parse mode, every value through `WebUtility.HtmlEncode`. A bot
   is named by its name and, without one, by its symbol and timeframe. Status reasons become fixed Russian texts; an

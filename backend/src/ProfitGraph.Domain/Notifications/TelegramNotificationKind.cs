@@ -31,11 +31,6 @@ public enum TelegramNotificationKind
     Recovered,
 
     /// <summary>
-    ///     The automatic restarts are spent; the bot waits for its owner.
-    /// </summary>
-    WaitingForOwner,
-
-    /// <summary>
     ///     The position became flat, with the cycle's realized profit.
     /// </summary>
     PositionClosed,

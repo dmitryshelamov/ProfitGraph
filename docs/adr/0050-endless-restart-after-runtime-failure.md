@@ -33,6 +33,8 @@ permissions, a restated history) is a safety reason that never restarts by itsel
   come. A `RuntimeFailure` without a restart time, left by the former limit, is due at once, so bots stopped by it run again
   after deployment without the owner.
 - **Safety and control reasons** are unchanged: they never restart by themselves.
+- **Telegram.** The `BotRestartsExhausted` event and the `WaitingForOwner` message of ADR 0042 are removed: the restarts
+  no longer run out.
 - **Status text.** "бот ждёт владельца" after spent restarts (ADR 0029) is gone; a runtime failure always reads "сбой
   выполнения, бот перезапустится" with the time of the next restart, without the attempt number.
 

@@ -107,8 +107,6 @@ public sealed class TelegramMessagesTests
         var empty = new Dictionary<string, string>();
 
         TelegramMessages.Notification(Notification(TelegramNotificationKind.Started, empty), bot, venue: null).ShouldBe("▶️ <b>Бот запущен</b>\nБот: BTCUSDT 1h");
-        TelegramMessages.Notification(Notification(TelegramNotificationKind.WaitingForOwner, empty), bot, venue: null)
-            .ShouldBe("🛑 <b>Бот ждёт владельца</b>\nБот: BTCUSDT 1h\nАвтоматические перезапуски исчерпаны, запустите бота вручную.");
         TelegramMessages.Buttons(Notification(TelegramNotificationKind.Stopped, empty)).ShouldBeEmpty();
     }
 

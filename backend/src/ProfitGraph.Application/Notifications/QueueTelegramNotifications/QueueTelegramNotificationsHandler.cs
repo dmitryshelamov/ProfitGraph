@@ -21,7 +21,6 @@ internal sealed class QueueTelegramNotificationsHandler(IBotRepository bots, ITe
         INotificationHandler<BotStopped>,
         INotificationHandler<BotRuntimeStopped>,
         INotificationHandler<BotRecovered>,
-        INotificationHandler<BotRestartsExhausted>,
         INotificationHandler<BotPositionClosed>,
         INotificationHandler<BotOrderFilled>
 {
@@ -81,11 +80,6 @@ internal sealed class QueueTelegramNotificationsHandler(IBotRepository bots, ITe
     public Task Handle(BotRecovered notification, CancellationToken cancellationToken)
     {
         return Queue(notification.BotId, TelegramNotificationKind.Recovered, NoDetails, notification.At, cancellationToken);
-    }
-
-    public Task Handle(BotRestartsExhausted notification, CancellationToken cancellationToken)
-    {
-        return Queue(notification.BotId, TelegramNotificationKind.WaitingForOwner, NoDetails, notification.At, cancellationToken);
     }
 
     public Task Handle(BotRuntimeStopped notification, CancellationToken cancellationToken)

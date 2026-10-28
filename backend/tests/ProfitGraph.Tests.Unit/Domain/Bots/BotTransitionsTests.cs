@@ -255,28 +255,6 @@ public sealed class BotTransitionsTests
     }
 
     [Test]
-    public void LastFailedRestartReportsThatTheBotWaitsForItsOwnerOnce()
-    {
-        Bot bot = BotFixture.Running();
-        DateTimeOffset now = BotFixture.Created;
-
-        for (var attempt = 0; attempt < BotRestartSchedule.MaxAttempts; attempt++)
-        {
-            bot.RecordRuntimeFailure(now);
-            now = bot.NextRestartAt!.Value;
-            bot.RecordLeaseAcquired(now);
-            bot.MarkStarting(now);
-        }
-
-        bot.ShouldSatisfyAllConditions(() => bot.DomainEvents.OfType<BotRestartsExhausted>().ShouldBeEmpty());
-
-        bot.RecordRuntimeFailure(now);
-        bot.RecordRuntimeFailure(now.AddMinutes(1));
-
-        bot.DomainEvents.OfType<BotRestartsExhausted>().ShouldBe([new BotRestartsExhausted(bot.Id, now)]);
-    }
-
-    [Test]
     public void FilledOrderIsRecordedAsAFact()
     {
         Bot bot = BotFixture.Running();
