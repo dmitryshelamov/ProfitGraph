@@ -1,4 +1,4 @@
-using ProfitGraph.Domain.Optimization;
+using ProfitGraph.Domain.Optimization.WalkForward;
 
 namespace ProfitGraph.Infrastructure.Optimization.Repositories.Contracts;
 

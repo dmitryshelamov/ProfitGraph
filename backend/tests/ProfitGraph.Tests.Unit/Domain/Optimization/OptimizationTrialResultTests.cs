@@ -1,6 +1,7 @@
 using System.Numerics;
 
 using ProfitGraph.Domain.Optimization;
+using ProfitGraph.Domain.Optimization.Search;
 using ProfitGraph.Engine.Evaluation;
 using ProfitGraph.Engine.Graphs;
 using ProfitGraph.Engine.Metrics;

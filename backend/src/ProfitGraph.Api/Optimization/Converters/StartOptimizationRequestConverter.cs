@@ -8,7 +8,7 @@ using ProfitGraph.Application.Backtesting.StartBacktest;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Optimization.Contracts;
 using ProfitGraph.Application.Optimization.StartOptimization;
-using ProfitGraph.Domain.Optimization;
+using ProfitGraph.Domain.Optimization.WalkForward;
 
 namespace ProfitGraph.Api.Optimization.Converters;
 

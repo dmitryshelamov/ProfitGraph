@@ -5,6 +5,7 @@ using System.Threading.Channels;
 
 using ProfitGraph.Application.Optimization.Contracts;
 using ProfitGraph.Domain.Optimization;
+using ProfitGraph.Domain.Optimization.Search;
 using ProfitGraph.Engine.Metrics;
 using ProfitGraph.Engine.Replay;
 

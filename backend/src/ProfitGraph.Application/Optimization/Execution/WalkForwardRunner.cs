@@ -1,5 +1,7 @@
 using ProfitGraph.Application.Optimization.Contracts;
 using ProfitGraph.Domain.Optimization;
+using ProfitGraph.Domain.Optimization.Search;
+using ProfitGraph.Domain.Optimization.WalkForward;
 using ProfitGraph.Engine.Metrics;
 using ProfitGraph.Engine.Replay;
 
