@@ -1,5 +1,6 @@
 using ProfitGraph.Application.Optimization.Contracts;
 using ProfitGraph.Domain.Optimization;
+using ProfitGraph.Domain.Optimization.Search;
 
 namespace ProfitGraph.Application.Optimization.Ports;
 

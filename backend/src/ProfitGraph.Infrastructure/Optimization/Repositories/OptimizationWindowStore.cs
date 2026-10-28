@@ -4,6 +4,7 @@ using Npgsql;
 
 using ProfitGraph.Application.Optimization.Ports;
 using ProfitGraph.Domain.Optimization;
+using ProfitGraph.Domain.Optimization.WalkForward;
 using ProfitGraph.Infrastructure.Backtesting;
 using ProfitGraph.Infrastructure.Common.Postgres;
 using ProfitGraph.Infrastructure.Optimization.Repositories.Contracts;

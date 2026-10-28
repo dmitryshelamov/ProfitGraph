@@ -4,6 +4,7 @@ using ProfitGraph.Application.Optimization;
 using ProfitGraph.Application.Optimization.Contracts;
 using ProfitGraph.Application.Optimization.Execution;
 using ProfitGraph.Domain.Optimization;
+using ProfitGraph.Domain.Optimization.Search;
 using ProfitGraph.Engine.Graphs;
 using ProfitGraph.Engine.Metrics;
 using ProfitGraph.Engine.Replay;

@@ -1,4 +1,5 @@
 using ProfitGraph.Domain.Optimization;
+using ProfitGraph.Domain.Optimization.WalkForward;
 using ProfitGraph.Engine.Graphs;
 using ProfitGraph.Infrastructure.Backtesting.Repositories.Converters;
 using ProfitGraph.Infrastructure.Optimization.Repositories.Contracts;

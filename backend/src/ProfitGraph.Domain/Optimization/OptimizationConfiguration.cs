@@ -1,4 +1,5 @@
 using ProfitGraph.Domain.Backtesting;
+using ProfitGraph.Domain.Optimization.WalkForward;
 using ProfitGraph.Engine.Graphs;
 
 namespace ProfitGraph.Domain.Optimization;
