@@ -91,10 +91,10 @@ public sealed class TelegramTests
         UserInternal user = await _api.CreateAccount(UserRole.User);
         using IHost worker = Worker(telegram);
         Bot bot = (await RuntimeScenario.RunningLadders(worker, count: 1, new UserId(user.Id)))[0];
+        await Settle(worker);
         await Link(worker, user, chatId: 900);
         BotAlertId alert = await Raise(worker, bot, BotAlertKind.Degraded, nameof(BotStatusReason.ForeignOrder), DateTimeOffset.UtcNow);
 
-        await worker.StartAsync();
         await RuntimeScenario.Until(async () => await Status(alert) == nameof(TelegramNotificationStatus.Sent), "the alert is sent");
         await worker.StopAsync();
 
@@ -112,11 +112,11 @@ public sealed class TelegramTests
         UserInternal stranger = await _api.CreateAccount(UserRole.User);
         using IHost worker = Worker(telegram);
         Bot bot = (await RuntimeScenario.RunningLadders(worker, count: 1, new UserId(owner.Id)))[0];
+        await Settle(worker);
         await Link(worker, owner, chatId: 905);
         await Link(worker, stranger, chatId: 906);
         BotAlertId alert = await Raise(worker, bot, BotAlertKind.Killed, nameof(BotStatusReason.Killed), DateTimeOffset.UtcNow);
 
-        await worker.StartAsync();
         await RuntimeScenario.Until(async () => await Status(alert) == nameof(TelegramNotificationStatus.Sent), "the alert is sent");
         string data = telegram.Buttons.Single().ShouldHaveSingleItem();
         string strangers = telegram.Press(chatId: 906, messageId: 1, data);
@@ -143,11 +143,11 @@ public sealed class TelegramTests
         UserInternal user = await _api.CreateAccount(UserRole.User);
         using IHost worker = Worker(telegram);
         Bot bot = (await RuntimeScenario.RunningLadders(worker, count: 1, new UserId(user.Id)))[0];
+        await Settle(worker);
         await Link(worker, user, chatId: 901);
         BotAlertId refused = await Raise(worker, bot, BotAlertKind.Killed, nameof(BotStatusReason.Killed), DateTimeOffset.UtcNow.AddSeconds(-2));
         BotAlertId retried = await Raise(worker, bot, BotAlertKind.ExchangeUnavailable, reason: null, DateTimeOffset.UtcNow.AddSeconds(-1));
 
-        await worker.StartAsync();
         await RuntimeScenario.Until(async () => await Status(retried) == nameof(TelegramNotificationStatus.Sent), "the retried alert is sent");
         await worker.StopAsync();
 
@@ -168,10 +168,10 @@ public sealed class TelegramTests
         UserInternal user = await _api.CreateAccount(UserRole.User);
         using IHost worker = Worker(telegram);
         Bot bot = (await RuntimeScenario.RunningLadders(worker, count: 1, new UserId(user.Id)))[0];
+        await Settle(worker);
         await Link(worker, user, chatId: 902);
         BotAlertId first = await Raise(worker, bot, BotAlertKind.Degraded, nameof(BotStatusReason.IntentFailed), DateTimeOffset.UtcNow);
 
-        await worker.StartAsync();
         await RuntimeScenario.Until(async () => await Status(first) == nameof(TelegramNotificationStatus.ChatUnavailable), "the chat is unavailable");
         BotAlertId second = await Raise(worker, bot, BotAlertKind.Killed, nameof(BotStatusReason.Killed), DateTimeOffset.UtcNow);
         await RuntimeScenario.Until(OutboxDelivered, "the outbox delivers the second alert");
@@ -190,10 +190,10 @@ public sealed class TelegramTests
         UserInternal user = await _api.CreateAccount(UserRole.User);
         using IHost worker = Worker(telegram);
         Bot bot = (await RuntimeScenario.RunningLadders(worker, count: 1, new UserId(user.Id)))[0];
+        await Settle(worker);
         await Link(worker, user, chatId: 903, DateTimeOffset.UtcNow.AddDays(-2));
         BotAlertId old = await Raise(worker, bot, BotAlertKind.Degraded, nameof(BotStatusReason.IntentFailed), DateTimeOffset.UtcNow.AddHours(-25));
 
-        await worker.StartAsync();
         await RuntimeScenario.Until(async () => await Status(old) == nameof(TelegramNotificationStatus.Skipped), "the old alert is skipped");
         await worker.StopAsync();
 
@@ -206,9 +206,9 @@ public sealed class TelegramTests
         UserInternal user = await _api.CreateAccount(UserRole.User);
         using IHost host = BotTestHost.Create(services => services.AddOutboxDispatcher());
         Bot bot = (await RuntimeScenario.RunningLadders(host, count: 1, new UserId(user.Id)))[0];
+        await Settle(host);
         await Link(host, user, chatId: 904);
         BotAlertId alert = await Raise(host, bot, BotAlertKind.RiskRejection, "RiskLimit", DateTimeOffset.UtcNow);
-        await host.StartAsync();
         await RuntimeScenario.Until(async () => await Status(alert) is not null, "the alert is queued");
         await host.StopAsync();
         Guid notificationId = await NotificationId(alert);
@@ -256,6 +256,16 @@ public sealed class TelegramTests
                 ["Telegram:RetryDelay"] = TimeSpan.FromMilliseconds(50).ToString(),
                 ["Telegram:DeliveryInterval"] = TimeSpan.FromMilliseconds(50).ToString()
             });
+    }
+
+    /// <summary>
+    ///     Starts the host and waits until the outbox delivered everything, such as the start of a new bot, so a chat linked
+    ///     afterwards hears only what the test raises.
+    /// </summary>
+    private static async Task Settle(IHost host)
+    {
+        await host.StartAsync();
+        await RuntimeScenario.Until(OutboxDelivered, "the outbox delivers what came before the test");
     }
 
     private static async Task Link(IHost host, UserInternal user, long chatId, DateTimeOffset? linkedAt = null)

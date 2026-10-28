@@ -18,6 +18,8 @@ internal sealed class TInvestVenue : IVenueDescriptor
 
     public string Name => "T-Invest (MOEX)";
 
+    public string? Market => "MOEX";
+
     public IReadOnlyList<Timeframe> Timeframes { get; } = [.. new[] { "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h" }.Select(Timeframe.Parse)];
 
     /// <summary>
