@@ -4,7 +4,7 @@ using ProfitGraph.Engine.Accounting;
 namespace ProfitGraph.Domain.Bots;
 
 /// <summary>
-///     An owner's order for a running bot (Profit Fox Designer ADR 0091, ADR 0027): a market or a limit order, a buy sized in
+///     An owner's order for a running bot (Profit Fox Designer ADR 0091, ADR 0046): a market or a limit order, a buy sized in
 ///     quote, a sell in base; a limit order also carries its price. The
 ///     runtime that holds the bot's lease resolves it as a root, in the same transaction as the checkpoint. A request not taken
 ///     within <see cref="Lifetime" /> expires, so a stopped bot never trades it later.
@@ -25,6 +25,7 @@ public sealed class ManualOrderRequest : AggregateRoot
     ///     The price the owner asked for, as typed: the engine rounds it down to the instrument's tick. Set exactly for a limit order.
     /// </summary>
     public decimal? LimitPrice { get; }
+
     public ManualOrderStatus Status { get; private set; }
     public long? EngineOrderId { get; private set; }
 

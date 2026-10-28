@@ -1,10 +1,12 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Accounts.Ports;
 using ProfitGraph.Application.Bots.Ports;
+using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Venues.Bybit.Instruments;
 using ProfitGraph.Venues.Bybit.LiveData;
@@ -49,6 +51,7 @@ public static class BybitRegistration
         services.AddHttpClient<BybitReadClient>(Configure).RemoveAllLoggers();
         services.AddTransient<IVenueFeeRateReader, BybitFeeRateReader>();
         services.AddTransient<IAccountBalanceReader, BybitAccountBalanceReader>();
+        services.AddTransient<IVenueAccountIdentityReader, BybitAccountIdentityReader>();
         services.AddSingleton<IVenueCredentialSchema, BybitCredentialSchema>();
 
         return services;
@@ -66,7 +69,8 @@ public static class BybitRegistration
         services.AddSingleton<BybitOrderReads>();
         services.AddSingleton(provider => new BybitAbsenceProofs(provider.GetRequiredService<BybitOrderReads>(), TimeProvider.System));
         services.AddSingleton<IBybitPrivateStreamTransport, BybitPrivateWebSocketTransport>();
-        services.AddSingleton<BybitPrivateStreams>();
+        services.TryAddSingleton(new PrivateStreamReconnectPolicy());
+        services.AddSingleton(provider => ActivatorUtilities.CreateInstance<BybitPrivateStreams>(provider, TimeProvider.System));
         services.AddTransient<IOrderGateway, BybitOrderGateway>();
 
         return services;

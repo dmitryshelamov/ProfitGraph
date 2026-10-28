@@ -29,7 +29,7 @@ public sealed record BotParameters
     }
 
     /// <summary>
-    ///     The values for a strategy version that names <paramref name="parameters" /> (ADR 0039): a value of a parameter the
+    ///     The values for a strategy version that names <paramref name="parameters" /> (ADR 0047): a value of a parameter the
     ///     version still has is kept, a new parameter takes its default and a value of a removed parameter is dropped.
     /// </summary>
     public BotParameters Fit(IReadOnlyList<StrategyParameter> parameters)

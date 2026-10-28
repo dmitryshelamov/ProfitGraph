@@ -37,7 +37,7 @@ export interface ManualOrderCheck {
 const noCheck: ManualOrderCheck = { error: null, quantity: null };
 
 /**
- * Checks what the form can know before the runner does (ADR 0027): the amount and price are exact positive decimals and the
+ * Checks what the form can know before the runner does (ADR 0046): the amount and price are exact positive decimals and the
  * price lies on the tick. The engine rounds a quantity down to the step and rejects below the minimums, so the form shows the
  * rounded quantity and refuses what would round to nothing; the balance, the risk limits and the venue stay with the backend.
  */

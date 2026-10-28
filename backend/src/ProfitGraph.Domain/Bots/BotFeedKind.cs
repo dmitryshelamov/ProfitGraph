@@ -30,5 +30,6 @@ public enum BotFeedKind
     OrderWaiting,
     OrderWaitingEnded,
     HistoryRestated,
-    OrderAbsenceProven
+    OrderAbsenceProven,
+    OrderCancelRequested
 }

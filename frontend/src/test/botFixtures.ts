@@ -57,3 +57,41 @@ export const flatPosition: Schemas['BotPositionResponse'] = {
   unrealizedPnl: null,
   cycles: [],
 };
+
+/** The account summary of {@link bot}: a Bybit UNIFIED account read a minute before `capturedAt`. */
+export const botAccount: Schemas['BotAccountResponse'] = {
+  credentialId: credential.id,
+  venue: 'bybit',
+  credentialLabel: credential.label,
+  apiKeyLast4: credential.apiKeyLast4,
+  accountPublicId: null,
+  identity: {
+    accountId: '24617703',
+    name: 'бот BTC',
+    kind: 'main',
+    accessLevel: 'read_write',
+    readOnly: false,
+    permissions: ['Spot:SpotTrade', 'Wallet:AccountTransfer'],
+    expiresAt: '2027-01-24T00:00:00Z',
+    readAt: '2026-10-24T08:00:00Z',
+  },
+  identityFailureReason: null,
+  snapshot: {
+    capturedAt: '2026-10-24T08:00:00Z',
+    totalValue: '1234.5',
+    valueCurrency: 'USD',
+    availableValue: '1000',
+    coins: [
+      { coin: 'USDT', balance: '1000', usdValue: '1000' },
+      { coin: 'BTC', balance: '0.0035', usdValue: '234.5' },
+    ],
+  },
+  lastAttemptAt: '2026-10-24T08:00:00Z',
+  lastSuccessAt: '2026-10-24T08:00:00Z',
+  failureReason: null,
+  nextAttemptAt: '2026-10-24T08:05:00Z',
+  venueStatus: null,
+  protection: { open: false, reason: null, since: null, automaticResumeAt: null },
+  allocationCap: '100',
+  otherRunningBots: [],
+};

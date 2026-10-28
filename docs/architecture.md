@@ -47,7 +47,7 @@ Application/
     Converters/               StrategyInternalConverter.cs (ToInternal / ToDomain extensions)
 Infrastructure/
   Common/
-    Postgres/Migrations/      every migration, e.g. 202610240001_create_user_table.cs (class CreateUserTableMigration)
+    Postgres/Migrations/      every core migration, e.g. 202610240001_create_user_table.cs (class CreateUserTableMigration)
     Postgres/, Messaging/     connection, transactions, behaviors
   Strategies/
     Repositories/             StrategyRepository.cs, StrategyVersionReader.cs
@@ -82,8 +82,11 @@ Venues.Bybit/
   `*Migration` for migrations. Domain events are past-tense facts without a suffix (`BotDegraded`).
 - **One type per file**, named after the type, with no nested types. Generic and non-generic variants of one name
   are separate files (`ICommand.cs`, `ICommandOfTResponse.cs`).
-- **Migrations** all live in `Infrastructure/Common/Postgres/Migrations/` as `{version}_{snake_case}.cs`, for example
-  `202610240001_create_user_table.cs` with class `CreateUserTableMigration`.
+- **Migrations** live in `Infrastructure/Common/Postgres/Migrations/` as `{version}_{snake_case}.cs`, for example
+  `202610240001_create_user_table.cs` with class `CreateUserTableMigration`. A venue module may own tables named after
+  its venue (`steam_*`, `tinvest_*`); their migrations live in the module's `Persistence/Migrations/` folder with the
+  same version scheme and naming, and the module adds its assembly to the shared migration runner. See
+  [ADR 0006](adr/0006-persistence-and-migrations.md).
 - **Contracts and converters** sit in `Contracts/` and `Converters/` subfolders of the feature (Application, Api) or of
   `Repositories/` (Infrastructure); architecture tests enforce `*Internal`, `*Request`/`*Response`, `*Db` and `*Converter`.
 - **Forbidden top-level folders** in Domain, Application, Infrastructure and Api: `Commands`, `Queries`, `Contracts`,
@@ -105,7 +108,9 @@ Venues.Bybit/
   See [ADR 0004](adr/0004-explicit-live-state-machines.md).
 - **Outbox.** A transaction stores the Domain events of the aggregates it wrote in `outbox_messages`; the Worker
   delivers each to MediatR notification handlers once, in the transaction that marks it delivered. Handlers write only
-  to the database. See [ADR 0016](adr/0016-live-bot-runtime.md).
+  to the database. A message that failed `Outbox:MaxAttempts` times is parked and makes readiness Degraded; delivered
+  messages are deleted after `Outbox:Retention`. See [ADR 0016](adr/0016-live-bot-runtime.md) and
+  [ADR 0045](adr/0045-outbox-retention-and-parked-messages.md).
 - **Telegram.** Outbox handlers queue messages in `telegram_notifications`; `TelegramDeliveryHost` sends them outside any
   transaction under a claim (`SKIP LOCKED`) with retries, and the leader `TelegramPollingHost` reads updates. The token
   never reaches a log or an exception. See [ADR 0042](adr/0042-telegram-notifications.md).
@@ -135,8 +140,12 @@ Venues.Bybit/
 - **Authentication.** Invite-only accounts with cookie sessions (`profitgraph.session`, HttpOnly, SameSite=Strict, Secure
   outside Development and Testing, 7 days sliding). Every endpoint requires a signed-in active account unless it opts
   out with `AllowAnonymous`, including unknown routes; each request re-checks that the account is still active, so
-  blocking ends existing sessions. Sign-in is limited to 20 attempts per minute per client address and 10 per login,
-  and an unknown or blocked login costs the same password verification as a wrong password. The first Owner comes
+  blocking ends existing sessions; blocking also closes the account's realtime connections, and every hub connection
+  and hub method call re-checks the account. Sign-in is limited to 20 attempts per minute per client address; after 5
+  consecutive failures a login is locked out for 30 s, doubling to 15 min, until a successful sign-in, except on client
+  addresses it signed in from before (in-memory, one API process). An unknown or blocked login is counted the same way
+  and costs the same password verification as a wrong password. See
+  [ADR 0043](adr/0043-sign-in-throttling-and-session-end.md). The first Owner comes
   from `Auth:BootstrapOwner` only while no account exists. Account management requires the Owner role.
 - **Secrets at rest.** Exchange credentials are encrypted per value with AES-256-GCM under master keys configured
   outside the repository; no response or log contains a secret. See [ADR 0015](adr/0015-exchange-credentials.md).
@@ -171,7 +180,7 @@ src/
   without a session). The router's `_authenticated` layout route guards every screen except `/sign-in` in
   `beforeLoad` and redirects there with `returnTo`. Sign-in and sign-out clear the whole query cache, so no data of a
   previous user survives; any 401 from a query or mutation means the session expired and sends the user back to sign
-  in. Only same-application paths are accepted as `returnTo`.
+  in. `returnTo` is resolved against the current origin and accepted only on the same origin (ADR 0043).
 - **Strategy editor.** `modules/strategy-editor` draws the block definition as a flowchart with React Flow. The draft,
   selection and undo/redo history live in a Zustand store; every change is an editor command, so undo restores exact
   drafts. Saving sends the version the draft started from; `strategy_changed` keeps the draft and offers to reload.
@@ -202,7 +211,9 @@ src/
   follows a bot's state by polling every five seconds and offers start, stop and the kill switch, which asks to
   confirm. Risk limits change at any time; parameters, the bot's capital and foreign orders only while it is stopped.
   The bot page lists its alerts with acknowledgement and sends an owner manual order, market or limit, followed until the runner
-  resolves it; a limit order asks for confirmation first and checks the price against the instrument's tick. `TradingHaltBanner` shows the global halt to everyone and lets the Owner halt or resume. When a save is
+  resolves it; a limit order asks for confirmation first and checks the price against the instrument's tick. Its open orders
+  offer a confirmed cancel while the bot runs, a request the runner turns into the engine's ordinary cancel and the page follows
+  until the order is gone or the request is rejected ([ADR 0048](adr/0048-owner-cancels-an-active-order.md)). `TradingHaltBanner` shows the global halt to everyone and lets the Owner halt or resume. When a save is
   refused with `live_impact`, the editor lists the running bots and saves again with `confirmLiveImpact`.
 - **Live reports.** The bot page shows the position, the feed and the fills; the feed and the fills page backwards
   through `before` cursors. Its chart (`BotChart`, drawn by `CandleHistoryChart` in `modules/market-chart`) shows the
@@ -211,7 +222,9 @@ src/
   levels; candles closed since the newest page arrive every minute ([ADR 0026](adr/0026-bot-chart.md)). The candle being formed follows `/ws/forming-candles`: the API keeps one venue connection per series and credential for all its followers, never stores the candle, and the chart draws it see-through after the closed history ([ADR 0027](adr/0027-forming-candle.md)). The position card subscribes to `/ws/live-prices` for the bot and shows a pushed ticker
   only when it is newer than the stored display price, with the price's source and age, and then recomputes the
   unrealized profit as the server does (base total × price − cost basis) in exact decimal strings. `CredentialsPage` shows each key's latest account value, its coins and why the last
-  read failed. `modules/notifications` and the `/profile` page, opened from the login in the header, issue a Telegram
+  read failed. The bot page starts with `BotAccountCard`: the account the bot trades on, its value and the bot's capital beside
+  the key's other running bots, from `/api/bots/{id}/account`, which reads stored data only; the account's identity is a
+  daily Worker cache ([ADR 0049](adr/0049-bot-page-account-summary.md)). `modules/notifications` and the `/profile` page, opened from the login in the header, issue a Telegram
   link code and unlink the chat.
 - **API client.** `shared/api/client.ts` is the only HTTP client. Its types come from
   `shared/api/generated/schema.d.ts`, generated from the API's OpenAPI document with `npm run generate:api` and never

@@ -5,7 +5,8 @@ namespace ProfitGraph.Application.Bots;
 
 /// <summary>
 ///     What one drained engine root produced: the checkpoint after it, the parameter values the engine runs with and the
-///     intents for the venue. It is written by the lease holder under <see cref="Epoch" />.
+///     intents for the venue, with the owner's request it resolved, if any. It is written by the lease holder under
+///     <see cref="Epoch" />.
 /// </summary>
 public sealed record BotRootCommit(
     BotId BotId,
@@ -17,4 +18,5 @@ public sealed record BotRootCommit(
     BotRootManualOrder? ManualOrder = null,
     IReadOnlyList<BotFill>? Fills = null,
     BotRootPosition? Position = null,
-    IReadOnlyList<BotFeeCorrection>? FeeCorrections = null);
+    IReadOnlyList<BotFeeCorrection>? FeeCorrections = null,
+    BotRootOrderCancel? OrderCancel = null);
