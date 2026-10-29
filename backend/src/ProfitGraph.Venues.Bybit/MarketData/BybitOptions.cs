@@ -60,6 +60,11 @@ public sealed class BybitOptions
     public int MaxStreamMessageBytes { get; init; } = 1_048_576;
 
     /// <summary>
+    ///     How many resting Spot orders one bot may keep on a pair, which bounds a grid's buys plus its levels' sales (ADR 0058).
+    /// </summary>
+    public int MaxRestingOrdersPerBot { get; init; } = 200;
+
+    /// <summary>
     ///     How long a measured offset to Bybit's server time is reused.
     /// </summary>
     public TimeSpan ServerClockLifetime { get; init; } = TimeSpan.FromMinutes(5);

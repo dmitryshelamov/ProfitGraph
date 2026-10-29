@@ -1,5 +1,8 @@
+using ProfitGraph.Application.Jobs.Contracts;
+using ProfitGraph.Application.Optimization;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Jobs;
+using ProfitGraph.Domain.Optimization;
 using ProfitGraph.Infrastructure.Jobs.Repositories.Contracts;
 
 namespace ProfitGraph.Infrastructure.Jobs.Repositories.Converters;
@@ -46,5 +49,29 @@ internal static class BackgroundJobDbConverter
             FinishedAt = job.FinishedAt,
             UpdatedAt = job.UpdatedAt
         };
+    }
+
+    public static ActiveJobInternal ToInternal(this ActiveJobDb row)
+    {
+        return new ActiveJobInternal(
+            row.Id,
+            row.Kind,
+            row.Lane,
+            Enum.Parse<BackgroundJobStatus>(row.Status),
+            row.Completed,
+            row.Total,
+            row.CancelRequested,
+            row.PauseRequested,
+            row.CreatedAt.ToUniversalTime(),
+            row.StartedAt?.ToUniversalTime(),
+            row.QueuePosition is { } position ? (int)position : null,
+            row.StrategyId,
+            row.StrategyName,
+            row.StrategyVersion,
+            row.Venue,
+            row.Symbol,
+            row.Timeframe,
+            row.Method is { } method ? OptimizationNames.Method(Enum.Parse<OptimizationSearchMethod>(method)) : null,
+            row.OptimizationId);
     }
 }

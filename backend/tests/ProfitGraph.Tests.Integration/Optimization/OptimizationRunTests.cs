@@ -102,6 +102,61 @@ public sealed class OptimizationRunTests
         summary["id"]!.GetValue<Guid>().ShouldBe(id);
         summary["executedTrials"]!.GetValue<int>().ShouldBe(4);
         summary["status"]!.GetValue<string>().ShouldBe("Completed");
+        summary["strategyId"]!.GetValue<Guid>().ShouldBe(strategyId);
+        summary["strategyName"]!.GetValue<string>().ShouldBe("Wave SMA");
+        summary["plannedTrials"]!.GetValue<int>().ShouldBe(4);
+        summary["windowCount"].ShouldBeNull();
+        var started = (await _client.GetFromJsonAsync<JsonNode>($"/api/backtests?quote=USDT&symbol={_symbol}&origin=optimization"))!;
+        started["items"]!.AsArray().Select(item => item!["id"]!.GetValue<Guid>()).ShouldBe(finalists, ignoreOrder: true);
+        started["items"]!.AsArray().ShouldAllBe(item => item!["optimizationId"]!.GetValue<Guid>() == id);
+        (await _client.GetFromJsonAsync<JsonNode>($"/api/backtests?quote=USDT&symbol={_symbol}&origin=manual"))!["items"]!.AsArray().ShouldBeEmpty();
+    }
+
+    [Test]
+    public async Task TheListShowsTheOwnersOptimizationsOfEveryStrategy_FilteredByStateStrategySearchAndMethod()
+    {
+        Guid wave = await BacktestScenario.CreateStrategy(_application, _userId, "Wave alpha");
+        Guid other = await BacktestScenario.CreateStrategy(_application, _userId, "Other beta");
+        Guid grid = await Start(Request(wave, Ranges("3", "5"), "grid"));
+        Guid random = await Start(Request(other, Ranges("3", "5"), "random", budget: 3));
+        Guid cancelled = await Start(Request(wave, Ranges("40", slowFrom: "41", slowTo: "90"), "tpe", budget: 60));
+        (await _client.PostAsync($"/api/jobs/{cancelled}/cancel", content: null)).StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        using HttpClient stranger = await _application.CreateSignedInClient();
+
+        (await Ids("/api/optimizations")).ShouldBe([cancelled, random, grid]);
+        (await Ids("/api/optimizations?limit=1")).ShouldBe([cancelled]);
+        (await Ids("/api/optimizations?state=active")).ShouldBe([random, grid]);
+        (await Ids("/api/optimizations?state=cancelled")).ShouldBe([cancelled]);
+        (await Ids("/api/optimizations?state=completed")).ShouldBeEmpty();
+        (await Ids($"/api/optimizations?strategyId={wave}")).ShouldBe([cancelled, grid]);
+        (await Ids("/api/optimizations?search=BETA")).ShouldBe([random]);
+        (await Ids($"/api/optimizations?search={_symbol.ToLowerInvariant()}&venue={TestHistoryVenue.WithHistory}&timeframe=1h")).Length.ShouldBe(3);
+        (await Ids("/api/optimizations?method=grid")).ShouldBe([grid]);
+        (await stranger.GetFromJsonAsync<JsonNode>("/api/optimizations"))!["items"]!.AsArray().ShouldBeEmpty();
+        JsonNode first = (await _client.GetFromJsonAsync<JsonNode>("/api/optimizations?state=active"))!["items"]![0]!;
+        first["strategyName"]!.GetValue<string>().ShouldBe("Other beta");
+        first["method"]!.GetValue<string>().ShouldBe("random");
+        first["status"]!.GetValue<string>().ShouldBe("Queued");
+
+        JsonNode[] active = [.. (await _client.GetFromJsonAsync<JsonNode>("/api/jobs/active"))!["jobs"]!.AsArray().Select(job => job!)];
+        active.Select(job => job["id"]!.GetValue<Guid>()).ShouldBe([grid, random]);
+        active.ShouldAllBe(job => job["lane"]!.GetValue<string>() == "optimization" && job["kind"]!.GetValue<string>() == "optimization");
+        active.Select(job => job["method"]!.GetValue<string>()).ShouldBe(["grid", "random"]);
+        active[1]["queuePosition"]!.GetValue<int>().ShouldBe(active[0]["queuePosition"]!.GetValue<int>() + 1);
+        active[0]["strategyName"]!.GetValue<string>().ShouldBe("Wave alpha");
+    }
+
+    [TestCase("/api/optimizations?state=done", "invalid_state")]
+    [TestCase("/api/optimizations?method=auto", "invalid_method")]
+    [TestCase("/api/optimizations?venue=Bad", "invalid_venue")]
+    [TestCase("/api/optimizations?timeframe=7m", "unsupported_timeframe")]
+    [TestCase("/api/optimizations?limit=101", "InclusiveBetweenValidator")]
+    public async Task InvalidListReadsAreRejected(string path, string code)
+    {
+        HttpResponseMessage response = await _client.GetAsync(path);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadFromJsonAsync<JsonNode>())!["errors"]!.AsArray().Select(error => error!["code"]!.GetValue<string>()).ShouldContain(code);
     }
 
     [Test]
@@ -228,6 +283,11 @@ public sealed class OptimizationRunTests
             finalistCount = 2,
             minExecutions = 0
         };
+    }
+
+    private async Task<Guid[]> Ids(string path)
+    {
+        return [.. (await _client.GetFromJsonAsync<JsonNode>(path))!["items"]!.AsArray().Select(item => item!["id"]!.GetValue<Guid>())];
     }
 
     private async Task<Guid> Start(object request)

@@ -36,6 +36,20 @@ public sealed class ProfitFoxDcaTemplateTests
         result.Ledger.ShouldNotContain(entry => entry.Kind == BacktestLedgerKind.Rejected);
     }
 
+    // Bybit KASUSDT: 5 USDT at 0.03606 floors to 138.65 KAS, worth 4.999719; the 5 USDT budget itself meets the minimum.
+    // The first 138.65 KAS cannot be sold below the minimum, so the position counts as flat and the next close buys again.
+    [Test]
+    public void BuysAtTheExchangeMinimumWhenTheFlooredQuantityIsWorthSlightlyLess()
+    {
+        var rules = new InstrumentRules(quantityStep: 0.01m, priceTick: 0.00001m, minQuantity: 0m, minNotional: 5m, basePrecision: 2, quotePrecision: 8);
+        BacktestResult result = Run(ProfitFoxDcaStrategyBlockFactory.Create(buyAmount: 5m, interval: 4), Flat(count: 5, price: 0.03606m), rules);
+        result.Terminal.Outcome.ShouldBe(BacktestOutcome.Completed);
+        result.Ledger.ShouldNotContain(entry => entry.Kind == BacktestLedgerKind.Rejected);
+        BacktestLedgerEntry[] fills = Fills(result);
+        fills.Select(entry => entry.Context.CandleIndex).ShouldBe(new[] { 0, 1 });
+        fills.ShouldAllBe(entry => entry.Fill!.GrossBase == 138.65m && entry.Fill.QuoteChange == -4.999719m);
+    }
+
     private static BacktestLedgerEntry[] Fills(BacktestResult result)
     {
         return result.Ledger
@@ -43,13 +57,13 @@ public sealed class ProfitFoxDcaTemplateTests
             .ToArray();
     }
 
-    private static BacktestResult Run(StrategyDefinition definition, IEnumerable<Candle> range)
+    private static BacktestResult Run(StrategyDefinition definition, IEnumerable<Candle> range, InstrumentRules? rules = null)
     {
         var input = new BacktestInput(
             Compile(definition),
             EngineExecutionInputs.Empty,
             new ExecutionSettings(startingCapital: 10000m, slippage: 0m, limitFeeRate: 0m, marketFeeRate: 0m),
-            new InstrumentRules(quantityStep: 0.00000001m, priceTick: 0.00000001m, minQuantity: 0m, minNotional: 0m, basePrecision: 8, quotePrecision: 8),
+            rules ?? new InstrumentRules(quantityStep: 0.00000001m, priceTick: 0.00000001m, minQuantity: 0m, minNotional: 0m, basePrecision: 8, quotePrecision: 8),
             Timeframe.Parse("4h"),
             [],
             range);

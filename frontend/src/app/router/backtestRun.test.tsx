@@ -92,6 +92,9 @@ describe('backtest run page', () => {
 
     expect(screen.getByText('лимитные 0.1%, рыночные 0.1%')).toBeInTheDocument();
     expect(screen.getByText('50 из 50 свечей')).toBeInTheDocument();
+    expect(screen.getByText('пробой: цена прошла лимит')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Под водой, % свечей' })).toBeInTheDocument();
+    expect(screen.getAllByTitle('37.5').length).toBeGreaterThan(0);
     expect(hub.subscriptions).toEqual([]);
   });
 
@@ -171,6 +174,7 @@ describe('run lists', () => {
     totalPnl: '12.5',
     returnPercent: '1.25',
     maxDrawdownPercent: '3',
+    optimizationId: null,
   };
 
   it('ranks completed runs in a quote currency and loads more', async () => {
@@ -210,7 +214,11 @@ describe('run lists', () => {
     renderApp('/backtests');
 
     expect(await screen.findByText('TQBR:GAZP')).toBeInTheDocument();
-    expect(screen.getByLabelText('Валюта котировки')).toHaveValue('RUB');
+    expect(
+      within(screen.getByRole('radiogroup', { name: 'Валюта котировки' })).getByRole('radio', {
+        name: 'RUB',
+      }),
+    ).toHaveAttribute('aria-checked', 'true');
   });
 
   it('sorts the ranking by a result column and picks runs to compare', async () => {

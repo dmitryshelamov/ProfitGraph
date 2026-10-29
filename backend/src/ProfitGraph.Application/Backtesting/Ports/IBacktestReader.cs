@@ -37,18 +37,22 @@ public interface IBacktestReader
     Task<BacktestSummaryPageInternal> ForStrategy(StrategyId strategyId, Guid? after, int limit, CancellationToken cancellationToken);
 
     /// <summary>
-    ///     The owner's completed runs in one quote currency, best full-period return first.
+    ///     The owner's finished runs that pass the filter, ordered by one column; ties fall back to the start time and the
+    ///     identifier in the same direction.
     /// </summary>
     Task<BacktestSummaryPageInternal> Ranking(
         UserId ownerId,
-        string quoteAsset,
-        string? symbol,
-        string? timeframe,
+        BacktestRankingFilterInternal filter,
         Guid? after,
         int limit,
         BacktestRankingSort sort,
         bool ascending,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     The values the owner's finished runs take in each filter dimension, with the number of runs of each.
+    /// </summary>
+    Task<BacktestFacetsInternal> Facets(UserId ownerId, CancellationToken cancellationToken);
 
     /// <summary>
     ///     The newest run of each strategy that has one.

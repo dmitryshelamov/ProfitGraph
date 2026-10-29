@@ -1,6 +1,7 @@
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Dispatch;
 using ProfitGraph.Engine.Graphs;
+using ProfitGraph.Engine.Grids;
 using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Metrics;
 
@@ -28,6 +29,7 @@ internal sealed class BacktestRunState
     private int _candleIndex;
     private PricePhase _phase;
     private decimal _marketPrice;
+    private decimal? _segmentEnd;
     private long _sequence;
     private int _processed;
     private int _fillCount;
@@ -52,8 +54,26 @@ internal sealed class BacktestRunState
         var outcome = BacktestOutcome.Completed;
         BacktestDiagnostic? failure = null;
 
+        // A grid whose profit step cannot pay the round trip's fees fails before any candle (ADR 0058, section 8).
+        foreach (GridFeeFinding finding in GridFeeCheck.Check(_input.Graph, _input.Selections, _input.Settings, _input.Rules, _input.Replay[0].Open))
+        {
+            var diagnostic = new BacktestDiagnostic(finding.Code, finding.Message, finding.GridNodeId);
+            AddDiagnostic(diagnostic);
+
+            if (finding.IsError && failure is null)
+            {
+                outcome = BacktestOutcome.Failed;
+                failure = diagnostic;
+            }
+        }
+
         try
         {
+            if (failure is not null)
+            {
+                throw new GridFeeRejectedException();
+            }
+
             _dispatcher = new CausalDispatcher(_input.Graph, _account, _input.Selections, closures: _input.Closures);
             var historyIndex = 0;
 
@@ -111,6 +131,10 @@ internal sealed class BacktestRunState
             outcome = BacktestOutcome.Cancelled;
             failure = new BacktestDiagnostic("Cancelled", "Replay was cancelled at the reached market cursor.", CandleIndex: _candleIndex);
             _diagnostics.Add(failure);
+        }
+        catch (GridFeeRejectedException)
+        {
+            // The fee check's diagnostic is already the failure.
         }
         catch (Exception exception)
         {
@@ -186,13 +210,16 @@ internal sealed class BacktestRunState
                 valuation.UnrealizedPnl,
                 portfolio.RealizedPnl,
                 portfolio.FeesBase,
-                portfolio.FeesQuote);
+                portfolio.FeesQuote,
+                portfolio.CostBasis,
+                portfolio.QuoteReserved,
+                InPosition());
             _processed++;
             metricsObserver.OnCandleMetrics(observation);
         }
         else if (_observer is not null)
         {
-            var snapshot = new CandleSnapshot(sequence, Cursor, AccountSnapshot.Capture(_account));
+            var snapshot = new CandleSnapshot(sequence, Cursor, AccountSnapshot.Capture(_account), InPosition());
             _processed++;
             _observer.OnCandleProcessed(snapshot);
         }
@@ -202,6 +229,11 @@ internal sealed class BacktestRunState
             AccountValuation.Capture(_account.Portfolio, _marketPrice);
             _processed++;
         }
+    }
+
+    private bool InPosition()
+    {
+        return !PositionHoldingPeriod.IsFlat(_account.Portfolio.BaseTotal, _input.Rules, _input.Settings, _marketPrice);
     }
 
     private void RecordLedger(BacktestLedgerEntry entry)
@@ -237,7 +269,7 @@ internal sealed class BacktestRunState
                 }
             }
 
-            long? id = market?.Id ?? OrderMatcher.NextAtPrice(_marketPrice, _account, _candleIndex)?.OrderId;
+            long? id = market?.Id ?? OrderMatcher.NextAtPrice(_marketPrice, _account, _candleIndex, _segmentEnd)?.OrderId;
 
             if (!id.HasValue)
             {
@@ -470,6 +502,7 @@ internal sealed class BacktestRunState
         }
 
         Move(phase, _marketPrice);
+        _segmentEnd = end;
 
         while (OrderMatcher.Next(start, end, _marketPrice, _account, index) is { } candidate)
         {
@@ -477,6 +510,7 @@ internal sealed class BacktestRunState
             MatchCurrentPoint();
         }
 
+        _segmentEnd = null;
         Move(phase, end);
     }
 

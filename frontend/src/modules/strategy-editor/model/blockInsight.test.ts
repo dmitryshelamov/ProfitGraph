@@ -54,3 +54,52 @@ it.each([
     );
   },
 );
+
+it('spells out indicator formulas with their output and periods', () => {
+  const close = { kind: 'candle', field: 'Close' };
+  const integer = (number: string) => ({ kind: 'constant', valueType: 'Integer', number });
+  expect(
+    formulaText(
+      formulaTokens(
+        {
+          kind: 'MACD',
+          field: 'signal',
+          arguments: {
+            in: close,
+            fastPeriod: integer('12'),
+            slowPeriod: integer('26'),
+            signalPeriod: integer('9'),
+          },
+        },
+        ladder,
+        catalog,
+      ),
+    ),
+  ).toBe('сигнальная линия свеча: закрытие за 12 / 26 / 9');
+  expect(
+    formulaText(
+      formulaTokens(
+        {
+          kind: 'Bollinger',
+          field: 'lower',
+          arguments: {
+            in: close,
+            period: integer('20'),
+            multiplier: { kind: 'constant', valueType: 'Scalar', number: '2' },
+          },
+        },
+        ladder,
+        catalog,
+      ),
+    ),
+  ).toBe('нижняя полоса Боллинджера свеча: закрытие за 20 ± 2 σ');
+  expect(
+    formulaText(
+      formulaTokens(
+        { kind: 'RSI', arguments: { in: close, period: integer('14') } },
+        ladder,
+        catalog,
+      ),
+    ),
+  ).toBe('RSI свеча: закрытие за 14');
+});

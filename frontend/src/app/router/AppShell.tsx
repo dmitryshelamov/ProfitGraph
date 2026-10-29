@@ -3,6 +3,7 @@ import { Link, Outlet, useNavigate } from '@tanstack/react-router';
 
 import { signOut, useCurrentUser } from '@/modules/accounts';
 import { ComparisonBar } from '@/modules/comparison';
+import { ActiveJobsIndicator } from '@/modules/jobs';
 import { Button } from '@/shared/ui/Button';
 
 export function AppShell() {
@@ -60,6 +61,7 @@ export function AppShell() {
         </nav>
         {user && (
           <div className="ml-auto flex items-center gap-3 text-sm">
+            <ActiveJobsIndicator />
             <Link
               to="/profile"
               className="text-text-secondary hover:text-text"

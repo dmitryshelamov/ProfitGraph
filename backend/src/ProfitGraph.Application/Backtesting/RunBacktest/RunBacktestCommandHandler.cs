@@ -4,6 +4,7 @@ using ProfitGraph.Application.Backtesting.Contracts;
 using ProfitGraph.Application.Backtesting.Execution;
 using ProfitGraph.Application.Backtesting.History;
 using ProfitGraph.Application.Backtesting.Ports;
+using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Application.Jobs.Ports;
@@ -13,6 +14,7 @@ using ProfitGraph.Domain.Backtesting;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Compilation;
 using ProfitGraph.Engine.Evaluation;
+using ProfitGraph.Engine.Grids;
 using ProfitGraph.Engine.Replay;
 
 namespace ProfitGraph.Application.Backtesting.RunBacktest;
@@ -31,8 +33,11 @@ internal sealed class RunBacktestCommandHandler(
     IBacktestFactStore facts,
     ITransactionExecutor transactions,
     IBackgroundJobProgress progress,
-    BacktestExecutionOptions options) : IRequestHandler<RunBacktestCommand, BacktestCompletedInternal>
+    BacktestExecutionOptions options,
+    VenuePorts<IVenueRestingOrderCapacity> capacities) : IRequestHandler<RunBacktestCommand, BacktestCompletedInternal>
 {
+    private const string GridVenueOrdersUnmodelled = "GridVenueOrdersUnmodelled";
+
     public async Task<BacktestCompletedInternal> Handle(RunBacktestCommand request, CancellationToken cancellationToken)
     {
         BacktestRun run = await runs.Get(new BacktestRunId(request.RunId), cancellationToken)
@@ -55,6 +60,15 @@ internal sealed class RunBacktestCommandHandler(
         BacktestInput input = Input(plan, configuration, loaded.Definition, loaded.Prepared);
         await progress.Restart(completed: 0, input.SampleRanges.TotalBars, cancellationToken);
         var session = new BacktestReplaySession(run.Id, facts, transactions, progress, options, configuration.Settings.StartingCapital, input.SampleRanges);
+
+        // Replay holds every resting order a grid wants; a venue that cannot run grids may hold fewer (ADR 0058, section 9).
+        if (capacities.Find(configuration.Series.Venue) is null && GridStatics.Read(plan, EngineExecutionInputs.Empty).Count > 0)
+        {
+            session.OnDiagnostic(
+                new BacktestDiagnostic(
+                    GridVenueOrdersUnmodelled,
+                    "This venue does not run grids live; the backtest assumes it holds every resting order the grid wants."));
+        }
 
         // The replay is synchronous and waits for room in the session's channel, so it gets its own thread.
         BacktestResult result = await Task.Factory.StartNew(

@@ -18,6 +18,7 @@ using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Strategies;
+using ProfitGraph.Engine.Compilation;
 
 namespace ProfitGraph.Application.Bots.CreateBot;
 
@@ -35,6 +36,7 @@ internal sealed class CreateBotCommandHandler(
     VenuePorts<IVenueFeeRateReader> feeReaders,
     VenuePorts<IVenueBotSettings> venueSettings,
     BacktestCompiler compiler,
+    BotGridRules gridRules,
     ITransactionExecutor transactions,
     TimeProvider clock) : IRequestHandler<CreateBotCommand, BotInternal>
 {
@@ -45,7 +47,7 @@ internal sealed class CreateBotCommandHandler(
             ?? throw new ResourceNotFoundException("The strategy version does not exist.", "strategy_version_not_found");
         IReadOnlyDictionary<string, decimal> parameters = command.Parameters!;
         BotParameterRules.Ensure(version.Definition, parameters);
-        compiler.Compile(version.Definition, parameters);
+        CompiledTradingGraph plan = compiler.Compile(version.Definition, parameters);
         ExchangeCredential credential = await credentials.GetOwned(command.CredentialId, command.OwnerId, cancellationToken);
         CandleSeries series = venues.ResolveSeries(credential.Venue.Value, command.Symbol, command.Timeframe);
         IVenueFeeRateReader reader = feeReaders.Find(series.Venue) ?? throw new VenueFeeRatesUnavailableException("This venue cannot run bots in this deployment.");
@@ -74,6 +76,8 @@ internal sealed class CreateBotCommandHandler(
             new BotFeeRates(rates.MakerRate, rates.TakerRate, now, rates.SellerFees),
             now,
             settings);
+
+        gridRules.Ensure(series, bot.FeeRates, plan);
 
         if (command.AllowForeignOrders)
         {

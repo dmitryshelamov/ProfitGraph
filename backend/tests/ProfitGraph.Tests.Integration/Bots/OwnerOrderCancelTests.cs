@@ -7,7 +7,10 @@ using Microsoft.Extensions.Hosting;
 
 using ProfitGraph.Application.Bots.CancelBotOrder;
 using ProfitGraph.Application.Bots.Contracts;
+using ProfitGraph.Application.Bots.GetBotOpenOrders;
 using ProfitGraph.Application.Bots.GetOrderCancel;
+using ProfitGraph.Application.Bots.StartBot;
+using ProfitGraph.Application.Bots.StopBot;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Bots.Feed;
@@ -23,7 +26,8 @@ namespace ProfitGraph.Tests.Integration.Bots;
 ///     The owner's cancel of one of a running bot's orders (ADR 0048) on the scripted venue: the runner turns the request into the
 ///     engine's ordinary cancel, so one cancel intent goes out, and the venue's confirmation ends the order and resumes the strategy, so
 ///     the Ladder places its exit again (ADR 0051). A deferred submit is cancelled locally, and the runner rejects a request for an
-///     order that is not working or one that waited too long.
+///     order that is not working or one that waited too long. A stopped bot's cancel (ADR 0055) goes out through the dispatcher with
+///     no runner, and the next start's reconciliation applies it, so the strategy places the exit again.
 /// </summary>
 [NonParallelizable]
 public sealed class OwnerOrderCancelTests
@@ -95,6 +99,52 @@ public sealed class OwnerOrderCancelTests
         (await RuntimeScenario.Feed(worker, bot.Id)).Single(entry => entry.Kind == BotFeedKind.OrderCancelRequested)
             .Details["engineOrderId"]
             .ShouldBe(exit.Id.ToString(CultureInfo.InvariantCulture));
+    }
+
+    [Test]
+    public async Task AStoppedBotsExitIsCancelledWithoutARunner_AndTheNextStartPlacesItAgain()
+    {
+        var scenario = new RuntimeScenario();
+        using IHost worker = scenario.Worker(withOutbox: true);
+        Bot bot = await RuntimeScenario.RunningResumingLadder(worker);
+        await worker.StartAsync();
+        await RuntimeScenario.Until(async () => await Orders(worker, bot) is [{ Status: OrderStatus.Active }], "the entry is accepted");
+        scenario.Gateway.Push(bot.Id, ExternalOrderUpdate.Final(orderId: 1, grossBase: 0.1m, grossQuote: 10m, fee: 0.0001m));
+        await RuntimeScenario.Until(
+            async () => (await Orders(worker, bot)).Count(order => order.Status == OrderStatus.Active) == 2,
+            "the exit and the averaging are placed");
+        OrderSnapshot exit = (await Orders(worker, bot)).Single(order => order.Tag == "ladder.exit");
+        ClientOrderId exitClientId = scenario.Gateway.ClientOrderIdFor(bot.Id, exit.Id);
+        await Send(worker, new StopBotCommand(bot.OwnerId.Value, bot.Id.Value));
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Read(worker, bot.Id)).RuntimeStatus == BotRuntimeStatus.Stopped &&
+                (await RuntimeScenario.Lease(bot.Id))?.ExpiresAt <= DateTime.UtcNow,
+            "the runner stops and gives the lease up");
+
+        OrderCancelInternal requested = await Send(worker, new CancelBotOrderCommand(bot.OwnerId.Value, bot.Id.Value, exit.Id));
+        await RuntimeScenario.Until(() => Task.FromResult(scenario.Gateway.Cancels.Contains(exitClientId)), "the cancel goes out without a runner");
+        await RuntimeScenario.Until(
+            async () => (await Send(worker, new GetBotOpenOrdersQuery(bot.OwnerId.Value, bot.Id.Value))).All(order => order.EngineOrderId != exit.Id),
+            "the stopped bot's open orders leave the cancelled exit out");
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Feed(worker, bot.Id)).Any(entry => entry.Kind == BotFeedKind.OrderCancelRequested),
+            "the feed records the owner's cancel");
+
+        requested.Status.ShouldBe(OrderCancelStatus.Requested);
+        (await Orders(worker, bot)).Single(order => order.Id == exit.Id).Status.ShouldBe(OrderStatus.Active);
+        (await RuntimeScenario.Intents(worker, bot.Id)).Single(intent => intent.Kind == OrderIntentKind.Cancel).FromKill.ShouldBeFalse();
+
+        // The venue reports the cancelled exit (and, in this script, every other found order) as cancelled when the bot opens.
+        scenario.Gateway.CancelEveryFoundOrder = true;
+        await Send(worker, new StartBotCommand(bot.OwnerId.Value, bot.Id.Value));
+        await RuntimeScenario.Until(
+            async () => (await Orders(worker, bot)).Any(order => order.Tag == "ladder.exit" && order.Id != exit.Id && order.Status == OrderStatus.Active),
+            "the start's reconciliation ends the exit and the strategy places it again");
+        await worker.StopAsync();
+
+        (await Orders(worker, bot)).ShouldNotContain(order => order.Id == exit.Id);
+        scenario.Gateway.Cancels.Count(id => id == exitClientId).ShouldBe(1);
+        (await RuntimeScenario.Read(worker, bot.Id)).RuntimeStatus.ShouldNotBe(BotRuntimeStatus.Degraded);
     }
 
     [Test]

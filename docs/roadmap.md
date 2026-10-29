@@ -88,6 +88,16 @@ while its runner was down. Two pull requests: T-Invest with the shared parts fir
 | 13. Ladders without resume blocks | [ADR 0040](adr/0040-upgrade-ladders-saved-without-the-resume-blocks.md): the automatic upgrade (ADR 0038) also adds the resume blocks (`resume`, `resumeExitGuard`) to a saved Ladder that lacks them (the Bybit bot's "Ladder SMA"), so an order the venue cancelled, a start or a reconciliation restores its exit; then the manual-fill reaction. Proven on unit and integration tests only. |
 | 14. Ladders with their own resume | [ADR 0052](adr/0052-manual-fill-reaction-for-ladders-with-their-own-resume.md): a Ladder whose owner added an `OnResume` event under another id (the Steam bot's "CS Dreams & Nightmares Case 1h") gets the manual-fill reaction too; its own resume is kept and the template's resume blocks are not added. Proven on unit tests only. |
 
+## Indicators
+
+Indicator blocks for trend and counter-trend strategies, before templates on them and a real grid
+([ADR 0056](adr/0056-decimal-indicators-and-multi-output-composites.md), [node catalog](node-catalog.md)).
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. EMA, RSI, Bollinger Bands, MACD | Decimal `EMA`, `RSI` and `StdDev` nodes, `Bollinger` and `MACD` composites with output ports, block catalog entries, validation of periods, `fastPeriod < slowPeriod` and a positive multiplier, editor sources | Unit tests with hand-computed values, warm-up boundaries and flat-price cases pass; a MACD crossover backtest is deterministic | Done |
+| 2. Templates | Trend and counter-trend templates on these indicators, with their parameter rules | | Planned |
+
 ## Manual limit order
 
 A limit order in the manual order block of the bot page ([ADR 0046](adr/0046-manual-limit-order.md)), for every venue.
@@ -95,7 +105,8 @@ A limit order in the manual order block of the bot page ([ADR 0046](adr/0046-man
 | Step | Scope | Done when | Status |
 |---|---|---|---|
 | 1. Limit order | `type` and `limitPrice` in the manual order request, engine limit submit, form with type, price, tick and lot hint and confirmation, rejection reasons | A limit order passes its tests on mocked gateways and the form tests | Done |
-| 2. Cancel | Owner cancel of any open order of a running bot, the manual one included, as a root on the runner's queue ([ADR 0048](adr/0048-owner-cancels-an-active-order.md)): stored request, the engine's ordinary cancel intent, feed entry, confirmation and follow-up on the page; the venue's confirmation resumes the strategy, which restores its orders ([ADR 0051](adr/0051-owner-cancel-resumes-the-strategy.md)) | The scripted venue shows a Ladder exit cancelled once and placed again after the confirmation, a deferred submit cancelled locally, and the endpoint refuses other users, stopped bots and final orders | Done on the scripted venue; not checked on a real venue |
+| 2. Cancel | Owner cancel of any open order of a running bot, the manual one included, as a root on the runner's queue ([ADR 0048](adr/0048-owner-cancels-an-active-order.md)): stored request, the engine's ordinary cancel intent, feed entry, confirmation and follow-up on the page; the venue's confirmation resumes the strategy, which restores its orders ([ADR 0051](adr/0051-owner-cancel-resumes-the-strategy.md)) | The scripted venue shows a Ladder exit cancelled once and placed again after the confirmation, a deferred submit cancelled locally, and the endpoint refuses other users, starting and stopping bots and final orders | Done on the scripted venue; not checked on a real venue |
+| 3. Cancel of a stopped bot | Owner cancel of a stopped bot's order with no runner, as a cancel intent the dispatcher sends at once, the request answered `Requested`, the open orders following the intent ([ADR 0055](adr/0055-owner-cancels-an-order-of-a-stopped-bot.md)) | The scripted venue shows a stopped Ladder's exit cancelled with no runner and placed again at the next start; the endpoint refuses a stopping bot and an unsent submit | Done on the scripted venue; not checked on a real venue |
 
 ## Bot chart
 
@@ -156,6 +167,15 @@ Corrections to [ADR 0017](adr/0017-bybit-spot-order-gateway.md) and [ADR 0023](a
 |---|---|---|---|
 | 1. Account card | `GET /api/bots/{id}/account` from stored data only; `IVenueAccountIdentityReader` for Bybit (`/v5/user/query-api`) and T-Invest (`GetAccounts`), cached daily in `account_identities` by the Worker; `BotAccountCard` first on the bot page with details behind a disclosure | Handler, endpoint and Worker tests pass against the test venue, the readers against the mock Bybit exchange and the mock Invest API, and the card in the app tests | Done on mocks; the real Bybit and T-Invest answers are not checked |
 
+## Runs, optimizations and the queue
+
+The runs page tells what the Worker is doing and finds finished work: what runs and waits in each lane, optimizations
+of every strategy, and filters beyond the quote currency.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Queue and lists | `GET /api/jobs/active` with lanes, queue places and the Worker's heartbeat; `GET /api/optimizations` with state, strategy, venue, timeframe, method and search; the run list filtered by status, strategy, venue, timeframe, search, origin, period and result bounds, with `GET /api/backtests/facets`; the header indicator, the «В работе» panel, the optimizations tab and filters kept in the address | Integration tests on the test database cover queue places across users, the heartbeat, every filter and the counts; app tests cover the panel, the indicator, the filters and the address | Done |
+
 ## Telegram notifications
 
 [ADR 0042](adr/0042-telegram-notifications.md): a delivery queue fed by outbox handlers, a separate delivery host with
@@ -168,6 +188,20 @@ filled orders.
 | 2. Queue and delivery | `telegram_notifications`, alert handler, `TelegramDeliveryHost` with claims, retries, age and rate limits, bot names, migration of unsent alerts | Integration tests against a fake Bot API: a 429 and a 500 are retried, a 400 fails one row without holding the next, a 403 blocks the chat, old rows are skipped | Done on the fake Bot API |
 | 3. Updates | `TelegramUpdateProcessor`, message and callback handlers, `/help`, the «Принято» button | A pressed button acknowledges the owner's alert and only theirs | Done on the fake Bot API |
 | 4. Trading messages | Lifecycle, closed positions, `BotOrderFilled` and the filled-order message | A partly filled order sends one message when it is filled; Engine hashes unchanged | Done on the scripted venue |
+
+## Grid
+
+A spot long-only grid with an honest backtest ([ADR 0057](adr/0057-limit-fills-through-the-price-and-capital-cost-metrics.md),
+[ADR 0058](adr/0058-grid-block.md)), after the owner ranked work: indicators, trend and counter-trend templates, the grid, a
+scanner. The edge over Bybit's free grid bots is a configurable backtest, so fill realism and the fee check come first.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Honest fills and cost metrics | ADR 0057: `LimitFill` (`Touch`, `Through`) as a run setting with `Through` as the request default and `Touch` for stored runs; max capital deployed and committed, time in position, time under water and the longest stretch under water in every sample | Engine tests fill on a trade-through and not on a touch; pinned replay hashes are unchanged; a stored run reads as `Touch` | Done |
+| 2. Grid in backtests | ADR 0058 sections 1–8: the `grid` block and `Grid` node, level state, desired-order reconciliation, upward shift, stop below the grid, cancel of a grid, the fee check and its optimization rejection, the «Сетка» template, the editor's grid inspector | A grid backtest on Bybit candles runs from template to result charts; engine tests cover partial fills, the order limit, the shift, the stop and determinism | Done: engine tests on replay and an external account; the template backtest through the API is an integration test |
+| 3. Grid on live bots | ADR 0058 sections 9–10: `IVenueRestingOrderCapacity` for Bybit and the scripted venue, grid state in the checkpoint, start refusal on other venues, the fee check at start | A grid bot passes its scenarios on the scripted venue and the mock Bybit: restart with levels, owner cancel, venue cancel, partial fill, kill switch | Done on the scripted venue (`GridBotTests`: restart with levels, venue cancel, kill switch, start refused without room) and in engine tests (partial fill, owner cancel, checkpoint restore); not yet on the mock Bybit exchange |
+| 4. T-Invest and Steam grids | Their own scenarios: DAY orders carried over every night, the single Steam buy slot in replay and live | | Not started |
+| 5. Grid levels on the bot chart | The grid's levels and anchor on the bot chart | | Not started |
 
 ## Market scanner
 

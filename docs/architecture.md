@@ -79,7 +79,8 @@ Venues.Bybit/
 
 - **Engine** is organized by engine subsystem instead of product feature: `Common/`, `Market/`, `Accounting/`,
   `Graphs/` (with `Validation/`, `Dependencies/`, `Composites/`), `Nodes/` (node types, `BuiltIn/`), `Blocks/`,
-  `Lowering/`, `Compilation/`, `Evaluation/`, `Dispatch/`, `Replay/`, `Metrics/`, `Templates/`.
+  `Lowering/`, `Compilation/`, `Evaluation/`, `Dispatch/`, `Grids/` (grid levels and their plan, ADR 0058), `Replay/`,
+  `Metrics/`, `Templates/`.
   Engine exceptions derive from `Common/EngineException`.
 - **Use cases** get their own folder named after the use case (`CreateStrategy/`). It holds the command or query, its
   handler and its validator; nothing else.
@@ -131,8 +132,11 @@ Venues.Bybit/
 - **Background jobs.** Long work (downloads, backtests) is a job request (`IBackgroundJobRequest<TResult>`, always
   non-transactional) queued by a command and run by the Worker; the API never runs it. Progress goes through
   `IBackgroundJobProgress` (`Restart` begins the next stage); cancelling a running job sets a flag the Worker polls.
-  Work that a record describes, such as a backtest run, is queued under the record's identifier. See
-  [ADR 0011](adr/0011-background-jobs.md).
+  Work that a record describes, such as a backtest run, is queued under the record's identifier. The Worker runs one
+  job at a time in each lane (`main` for downloads and backtests, `optimization`); `/api/jobs/active` lists the
+  user's queued, running and paused jobs with each queued job's place among every user's queued jobs of its lane, in
+  the order the Worker claims them, and whether the Worker beats its heartbeat. Its reader names a job's strategy and
+  series from the backtest or optimization row, or a download's request. See [ADR 0011](adr/0011-background-jobs.md).
 - **Backtest execution.** The engine replays on its own thread and reports facts to `BacktestReplaySession`, which
   commits them in bounded batches, each in its own transaction, while the replay waits on a full channel. Each commit
   sends `NOTIFY backtest_progress`; the API listens and pushes committed observations to `/ws/backtests` (SignalR),
@@ -206,6 +210,16 @@ src/
   The editor route is guarded like other screens but renders without the navigation shell.
 - **Background work.** `modules/jobs` follows a job by polling `/api/jobs/{id}` every second until it finishes and
   offers cancellation; `JobProgress` shows any job. History downloads and run starts hand their job to it.
+  `ActiveJobsIndicator` in the header counts the user's active jobs on every screen and `ActiveJobsPanel` on the runs
+  page shows each lane's running job with its progress and its queue with places; both poll `/api/jobs/active` every
+  two seconds while there are jobs and every ten otherwise, and warn when queued jobs wait for a Worker that does not
+  answer. A paused optimization resumes on its own page.
+- **Run and optimization lists.** `/backtests` lists finished runs and, on its second tab, optimizations of every
+  strategy. The tab and the filters live in the address (`validateSearch` of the route), so a reload or a shared link
+  keeps them. Completed runs are compared in one quote currency, picked from `/api/backtests/facets`, which also counts
+  the runs of each status, origin, strategy, venue and timeframe; failed and cancelled runs have no result and are
+  listed by start time. The search matches a part of the symbol or the strategy name. A change of the active jobs
+  refreshes both lists.
 - **Run setup.** `modules/backtests` keeps the form as typed text: percents become fractions and dates become UTC
   midnight by string arithmetic (`shared/lib/decimal`), never through `number`, before the request is sent. A run
   replays a saved version, so the editor offers it only without unsaved changes.
@@ -232,7 +246,8 @@ src/
   The bot page lists its alerts with acknowledgement and sends an owner manual order, market or limit, followed until the runner
   resolves it; a limit order asks for confirmation first and checks the price against the instrument's tick. Its open orders
   offer a confirmed cancel while the bot runs, a request the runner turns into the engine's ordinary cancel and the page follows
-  until the order is gone or the request is rejected ([ADR 0048](adr/0048-owner-cancels-an-active-order.md)). `TradingHaltBanner` shows the global halt to everyone and lets the Owner halt or resume. When a save is
+  until the order is gone or the request is rejected ([ADR 0048](adr/0048-owner-cancels-an-active-order.md)), and once it is
+  stopped, a cancel intent sent at once ([ADR 0055](adr/0055-owner-cancels-an-order-of-a-stopped-bot.md)). `TradingHaltBanner` shows the global halt to everyone and lets the Owner halt or resume. When a save is
   refused with `live_impact`, the editor lists the running bots and saves again with `confirmLiveImpact`.
 - **Live reports.** The bot page shows the position, the feed and the fills; the feed and the fills page backwards
   through `before` cursors. Its chart (`BotChart`, drawn by `CandleHistoryChart` in `modules/market-chart`) shows the

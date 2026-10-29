@@ -62,12 +62,16 @@ public sealed class BacktestResultTests
         run["stage"]!.GetValue<string>().ShouldBe("replaying");
         run["configuration"]!["parameters"]!["buyAmount"]!.GetValue<string>().ShouldBe("50");
         run["configuration"]!["outOfSampleFraction"]!.GetValue<string>().ShouldBe("0.25");
+        run["configuration"]!["limitFill"]!.GetValue<string>().ShouldBe("Through");
         run["history"]!["replayCount"]!.GetValue<int>().ShouldBe(240);
         run["history"]!["quoteAsset"]!.GetValue<string>().ShouldBe("USDT");
         run["history"]!["rules"]!["priceTick"]!.GetValue<string>().ShouldBe("0.01");
         run["result"]!["outcome"]!.GetValue<string>().ShouldBe("completed");
         run["result"]!["metrics"]!["full"]!["observedCandles"]!.GetValue<int>().ShouldBe(240);
         run["result"]!["metrics"]!["outOfSample"]!["observedCandles"]!.GetValue<int>().ShouldBe(60);
+        run["result"]!["metrics"]!["full"]!["maxCapitalCommitted"]!.GetValue<string>().ShouldNotBeNullOrEmpty();
+        run["result"]!["metrics"]!["full"]!["timeInPositionPercent"]!.GetValue<string>().ShouldNotBeNullOrEmpty();
+        run["result"]!["metrics"]!["full"]!["longestUnderWaterCandles"].ShouldNotBeNull();
         run["chartBucketSize"]!.GetValue<int>().ShouldBe(1);
         run["candleCount"]!.GetValue<long>().ShouldBe(240);
 
@@ -177,11 +181,77 @@ public sealed class BacktestResultTests
         ranking.ShouldAllBe(item => item["maxDrawdownPercent"] != null);
     }
 
+    [Test]
+    public async Task TheRankingFiltersTheOwnersRuns_ListsCancelledRunsByStartTime_AndCountsEveryFilterValue()
+    {
+        DateTimeOffset started = DateTimeOffset.UtcNow.AddMinutes(-5);
+        Guid wave = await BacktestScenario.CreateStrategy(_application, _userId, "Wave alpha");
+        Guid other = await BacktestScenario.CreateStrategy(_application, _userId, "Other beta");
+        Guid small = await CompletedRun(BacktestScenario.Request(wave, _symbol));
+        Guid large = await CompletedRun(BacktestScenario.Request(wave, _symbol, parameters: new Dictionary<string, string> { ["buyAmount"] = "300" }));
+        Guid third = await CompletedRun(BacktestScenario.Request(other, _symbol));
+        Guid cancelled = await BacktestScenario.Start(_client, BacktestScenario.Request(wave, _symbol));
+        JsonNode queued = (await Get("/api/jobs/active"))["jobs"]!.AsArray().Single()!;
+        queued.ShouldSatisfyAllConditions(
+            () => queued["id"]!.GetValue<Guid>().ShouldBe(cancelled),
+            () => queued["kind"]!.GetValue<string>().ShouldBe("backtest"),
+            () => queued["lane"]!.GetValue<string>().ShouldBe("main"),
+            () => queued["status"]!.GetValue<string>().ShouldBe("Queued"),
+            () => queued["queuePosition"]!.GetValue<int>().ShouldBeGreaterThan(0),
+            () => queued["strategyId"]!.GetValue<Guid>().ShouldBe(wave),
+            () => queued["strategyName"]!.GetValue<string>().ShouldBe("Wave alpha"),
+            () => queued["venue"]!.GetValue<string>().ShouldBe(TestHistoryVenue.WithHistory),
+            () => queued["symbol"]!.GetValue<string>().ShouldBe(_symbol),
+            () => queued["timeframe"]!.GetValue<string>().ShouldBe("1h"));
+        (await _client.PostAsync($"/api/jobs/{cancelled}/cancel", content: null)).StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        JsonNode[] completed = await ReadAllRuns("/api/backtests?quote=USDT", limit: 2);
+        decimal best = completed.Max(item => decimal.Parse(item["returnPercent"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+        decimal calmest = completed.Min(item => decimal.Parse(item["maxDrawdownPercent"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+
+        completed.Select(item => item["id"]!.GetValue<Guid>()).ShouldBe([small, large, third], ignoreOrder: true);
+        completed.ShouldAllBe(item => item["optimizationId"] == null);
+        (await Ids($"/api/backtests?quote=USDT&strategyId={wave}")).ShouldBe([small, large], ignoreOrder: true);
+        (await Ids("/api/backtests?quote=USDT&search=ALPHA")).ShouldBe([small, large], ignoreOrder: true);
+        (await Ids($"/api/backtests?quote=USDT&search={_symbol[2..7].ToLowerInvariant()}")).Length.ShouldBe(3);
+        (await Ids("/api/backtests?quote=USDT&search=%25")).ShouldBeEmpty();
+        (await Ids($"/api/backtests?quote=USDT&venue={TestHistoryVenue.WithHistory}&timeframe=1h&origin=manual")).Length.ShouldBe(3);
+        (await Ids("/api/backtests?quote=USDT&venue=nowhere")).ShouldBeEmpty();
+        (await Ids("/api/backtests?quote=USDT&origin=optimization")).ShouldBeEmpty();
+        (await Ids($"/api/backtests?quote=USDT&from={Time(started)}&to={Time(DateTimeOffset.UtcNow.AddMinutes(5))}")).Length.ShouldBe(3);
+        (await Ids($"/api/backtests?quote=USDT&from={Time(DateTimeOffset.UtcNow.AddMinutes(5))}")).ShouldBeEmpty();
+        (await Ids($"/api/backtests?quote=USDT&minReturn={best.ToString(CultureInfo.InvariantCulture)}")).Length.ShouldBe(1);
+        (await Ids($"/api/backtests?quote=USDT&maxDrawdown={calmest.ToString(CultureInfo.InvariantCulture)}")).ShouldNotBeEmpty();
+        (await Ids($"/api/backtests?quote=USDT&maxDrawdown={(calmest - 0.0001m).ToString(CultureInfo.InvariantCulture)}")).ShouldBeEmpty();
+        (await Ids("/api/backtests?status=cancelled&sort=created")).ShouldBe([cancelled]);
+        (await Ids("/api/backtests?status=failed&sort=created")).ShouldBeEmpty();
+        (await Get("/api/jobs/active"))["jobs"]!.AsArray().ShouldBeEmpty();
+
+        JsonNode facets = await Get("/api/backtests/facets");
+        Counts(facets["quotes"]!).ShouldBe(new Dictionary<string, int> { ["USDT"] = 3 });
+        Counts(facets["statuses"]!).ShouldBe(new Dictionary<string, int> { ["completed"] = 3, ["cancelled"] = 1 });
+        Counts(facets["origins"]!).ShouldBe(new Dictionary<string, int> { ["manual"] = 4 });
+        Counts(facets["venues"]!).ShouldBe(new Dictionary<string, int> { [TestHistoryVenue.WithHistory] = 4 });
+        Counts(facets["timeframes"]!).ShouldBe(new Dictionary<string, int> { ["1h"] = 4 });
+        facets["strategies"]!.AsArray()
+            .Select(item => (item!["id"]!.GetValue<Guid>(), item["name"]!.GetValue<string>(), item["count"]!.GetValue<int>()))
+            .ShouldBe([(wave, "Wave alpha", 3), (other, "Other beta", 1)]);
+        using HttpClient stranger = await _application.CreateSignedInClient();
+        Counts((await stranger.GetFromJsonAsync<JsonNode>("/api/backtests/facets"))!["statuses"]!).ShouldBeEmpty();
+    }
+
     [TestCase("/api/backtests?quote=USDT&sort=sharpe", "invalid_sort")]
     [TestCase("/api/backtests?quote=USDT&order=up", "invalid_order")]
     [TestCase("/api/backtests?quote=usdt", "invalid_quote")]
     [TestCase("/api/backtests?quote=USDT&timeframe=7m", "unsupported_timeframe")]
     [TestCase("/api/backtests?quote=USDT&limit=101", "InclusiveBetweenValidator")]
+    [TestCase("/api/backtests?quote=USDT&status=done", "invalid_status")]
+    [TestCase("/api/backtests?quote=USDT&origin=bot", "invalid_origin")]
+    [TestCase("/api/backtests?quote=USDT&venue=Bad", "invalid_venue")]
+    [TestCase("/api/backtests?quote=USDT&from=2026-01-02T00:00:00Z&to=2026-01-01T00:00:00Z", "invalid_period")]
+    [TestCase("/api/backtests?quote=USDT&minReturn=1e3", "invalid_percent")]
+    [TestCase("/api/backtests?status=failed", "sort_needs_result")]
+    [TestCase("/api/backtests?status=failed&sort=created&minReturn=1", "result_filter_needs_result")]
+    [TestCase("/api/backtests?status=cancelled&sort=created&quote=usdt", "invalid_quote")]
     [TestCase("/api/backtests/{id}/fills?limit=0", "InclusiveBetweenValidator")]
     [TestCase("/api/backtests/{id}/observations?limit=101", "InclusiveBetweenValidator")]
     [TestCase("/api/backtests/{id}/orders?after=-1", "GreaterThanOrEqualValidator")]
@@ -326,6 +396,46 @@ public sealed class BacktestResultTests
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await response.Content.ReadAsStringAsync());
     }
 
+    [Test]
+    public async Task ARunStoredWithoutTheLimitFillModeReadsAsTouchAndWithoutCostMetrics()
+    {
+        Guid id = await CompletedRun(BacktestScenario.Request(await BacktestScenario.CreateStrategy(_application, _userId), _symbol));
+        (await Scalar<string>("SELECT configuration->>'limitFill' FROM backtest_runs WHERE id = @id", new { id })).ShouldBe("Through");
+
+        await Scalar<int>(
+            sql: """
+                 UPDATE backtest_runs
+                 SET configuration = configuration - 'limitFill', metrics = jsonb_set(metrics, '{full}', (metrics->'full') - 'maxCapitalDeployed')
+                 WHERE id = @id
+                 RETURNING 1
+                 """,
+            new { id });
+        JsonNode run = await Get($"/api/backtests/{id}");
+
+        run["configuration"]!["limitFill"]!.GetValue<string>().ShouldBe("Touch");
+        run["result"]!["metrics"]!["full"]!["maxCapitalDeployed"].ShouldBeNull();
+    }
+
+    [Test]
+    public async Task AnUnknownLimitFillModeIsRejected()
+    {
+        HttpResponseMessage response = await _client.PostAsJsonAsync(
+            "/api/backtests",
+            new
+            {
+                strategyId = await BacktestScenario.CreateStrategy(_application, _userId),
+                venue = TestHistoryVenue.WithHistory,
+                symbol = _symbol,
+                timeframe = "1h",
+                from = BacktestScenario.From,
+                to = BacktestScenario.To,
+                startingCapital = "1000",
+                limitFill = "Sideways"
+            });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await response.Content.ReadAsStringAsync());
+    }
+
     private async Task<Guid> CompletedRun(object request)
     {
         using IHost worker = WorkerHost.Create(settings: CompactNever);
@@ -364,6 +474,21 @@ public sealed class BacktestResultTests
         }
 
         return [.. items];
+    }
+
+    private static Dictionary<string, int> Counts(JsonNode facet)
+    {
+        return facet.AsArray().ToDictionary(item => item!["value"]!.GetValue<string>(), item => item!["count"]!.GetValue<int>());
+    }
+
+    private static string Time(DateTimeOffset time)
+    {
+        return Uri.EscapeDataString(time.ToString("O", CultureInfo.InvariantCulture));
+    }
+
+    private async Task<Guid[]> Ids(string path)
+    {
+        return [.. (await ReadAllRuns(path, limit: 100)).Select(item => item["id"]!.GetValue<Guid>())];
     }
 
     private async Task<JsonNode[]> ReadAllRuns(string path, int limit)

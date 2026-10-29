@@ -77,6 +77,8 @@ public static class OptimizationResponseConverter
             [
                 .. page.Items.Select(summary => new OptimizationSummaryResponse(
                     summary.Id,
+                    summary.StrategyId,
+                    summary.StrategyName,
                     summary.StrategyVersion,
                     summary.CreatedAt,
                     summary.Venue,
@@ -85,6 +87,8 @@ public static class OptimizationResponseConverter
                     summary.Method,
                     summary.Status,
                     summary.ExecutedTrials,
+                    summary.PlannedTrials,
+                    summary.WindowCount,
                     Text(summary.BestObjective)))
             ],
             page.Next);

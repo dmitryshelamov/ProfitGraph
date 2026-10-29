@@ -3,10 +3,11 @@ using ProfitGraph.Domain.Common;
 namespace ProfitGraph.Domain.Bots.OrderCancels;
 
 /// <summary>
-///     The owner's request to cancel one working order of a running bot (ADR 0048). The runtime that holds the bot's lease
+///     The owner's request to cancel one working order of a bot. For a running bot (ADR 0048) the runtime that holds the bot's lease
 ///     resolves it as a root, in the same transaction as the checkpoint: the engine asks to cancel the order, so the cancel goes out
 ///     as an ordinary cancel intent, or the request is rejected with a stable code. A request not taken within
-///     <see cref="Lifetime" /> expires, so a stopped bot never cancels it later.
+///     <see cref="Lifetime" /> expires, so a bot that stopped meanwhile never cancels it later. For a stopped bot (ADR 0055) the
+///     request is marked requested at once, together with the cancel intent that the dispatcher sends to the venue.
 /// </summary>
 public sealed class OrderCancelRequest : AggregateRoot
 {

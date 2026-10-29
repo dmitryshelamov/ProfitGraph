@@ -24,6 +24,7 @@ public sealed class EventRouter
             OrderPayload payload => payload.Order.OriginNodeId,
             RejectionPayload payload => payload.Rejection.OriginNodeId,
             CancelResultPayload payload => payload.OriginNodeId,
+            GridPayload payload => payload.OriginNodeId,
             _ => null
         };
         string? tag = occurrence.Payload switch
@@ -51,7 +52,7 @@ public sealed class EventRouter
             string? port = occurrence.Kind switch
             {
                 EventKind.Submitted => "submitted", EventKind.Filled => "filled", EventKind.Cancelled => "cancelled", EventKind.Rejected => "rejected",
-                EventKind.CancelCompleted => "completed", _ => null
+                EventKind.CancelCompleted => "completed", EventKind.GridStarted => "started", EventKind.GridStopped => "stopped", _ => null
             };
 
             if (port is not null && action.OutputTypes.ContainsKey(port))

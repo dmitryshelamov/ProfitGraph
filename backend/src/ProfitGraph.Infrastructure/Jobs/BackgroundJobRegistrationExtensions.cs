@@ -57,6 +57,7 @@ public static class BackgroundJobRegistrationExtensions
         services.AddSingleton<BackgroundJobPayloadSerializer>();
         services.AddScoped<BackgroundJobRepository>();
         services.AddScoped<IBackgroundJobRepository>(provider => provider.GetRequiredService<BackgroundJobRepository>());
+        services.AddScoped<IActiveJobReader, ActiveJobReader>();
         services.AddScoped<BackgroundJobProgressReporter>();
         services.AddScoped<IBackgroundJobProgress>(provider => provider.GetRequiredService<BackgroundJobProgressReporter>());
         services.AddScoped<BackgroundJobQueue>();

@@ -23,6 +23,12 @@ const sample = (
   feesQuote: '0.15',
   maxDrawdownPercent: '3.456789',
   executions: 4,
+  maxCapitalDeployed: '250',
+  maxCapitalDeployedPercent: '25',
+  maxCapitalCommitted: '300',
+  timeInPositionPercent: '62.5',
+  timeUnderWaterPercent: '37.5',
+  longestUnderWaterCandles: 7,
 });
 
 export const queuedRun: Schemas['BacktestRunResponse'] = {
@@ -47,6 +53,7 @@ export const queuedRun: Schemas['BacktestRunResponse'] = {
     warmupCandles: 50,
     sellerFees: null,
     settlementHoldSeconds: null,
+    limitFill: 'Through',
   },
   stage: null,
   history: null,

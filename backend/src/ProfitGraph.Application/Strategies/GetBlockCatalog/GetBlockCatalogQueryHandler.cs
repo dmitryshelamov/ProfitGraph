@@ -77,6 +77,23 @@ internal sealed class GetBlockCatalogQueryHandler : IRequestHandler<GetBlockCata
                 Entry("candle", "Поле свечи", output: "field", choices: ["Open", "High", "Low", "Close", "Volume"]),
                 Entry("SMA", "Скользящая средняя", [Operand("in", "Значение", numeric), Operand("period", "Период", ["Integer"])], "input"),
                 Entry("ATR", "Средний истинный диапазон", [Operand("period", "Период", ["Integer"])], "Price"),
+                Entry("EMA", "Экспоненциальная средняя (EMA)", [Operand("in", "Значение", numeric), Operand("period", "Период", ["Integer"])], "input"),
+                Entry("RSI", "Индекс относительной силы (RSI)", [Operand("in", "Значение", numeric), Operand("period", "Период", ["Integer"])], "Scalar"),
+                Entry(
+                    "Bollinger",
+                    "Полосы Боллинджера",
+                    [Operand("in", "Значение", numeric), Operand("period", "Период", ["Integer"]), Operand("multiplier", "Число отклонений", ["Scalar"])],
+                    "field",
+                    ["upper", "middle", "lower"]),
+                Entry(
+                    "MACD",
+                    "Схождение-расхождение средних (MACD)",
+                    [
+                        Operand("in", "Значение", numeric), Operand("fastPeriod", "Быстрый период", ["Integer"]),
+                        Operand("slowPeriod", "Медленный период", ["Integer"]), Operand("signalPeriod", "Период сигнальной линии", ["Integer"])
+                    ],
+                    "field",
+                    ["macd", "signal", "histogram"]),
                 Entry("previous", "Предыдущее значение", [Operand("in", "Значение", numeric)], "input"),
                 Entry("balance", "Баланс", output: "field", choices: ["baseAvailable", "quoteAvailable", "baseReserved", "quoteReserved", "baseTotal", "quoteTotal"]),
                 Entry("position", "Позиция", output: "field", choices: ["quantity", "costBasis", "averageCost", "lastBuyPrice", "realizedPnl", "barsHeld"]),
@@ -121,6 +138,8 @@ internal sealed class GetBlockCatalogQueryHandler : IRequestHandler<GetBlockCata
                 Field("lastBuyPrice", "Последняя цена покупки", "Price"), Field("realizedPnl", "Реализованный PnL", "QuoteAmount"),
                 Field("barsHeld", "Свечей в позиции", "Integer")
             ],
+            "Bollinger" => [Field("upper", "Верхняя полоса", "input"), Field("middle", "Средняя линия", "input"), Field("lower", "Нижняя полоса", "input")],
+            "MACD" => [Field("macd", "Линия MACD", "input"), Field("signal", "Сигнальная линия", "input"), Field("histogram", "Гистограмма MACD", "input")],
             "activeOrder" =>
             [
                 Field("exists", "Существует", "Boolean"), Field("order", "Ордер", "Order"), Field("orderId", "Идентификатор", "OrderId"),

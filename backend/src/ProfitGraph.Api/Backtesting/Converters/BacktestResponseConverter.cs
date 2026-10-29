@@ -59,7 +59,8 @@ public static class BacktestResponseConverter
             Text(configuration.OutOfSampleFraction),
             configuration.WarmupCandles,
             configuration.SellerFees is { } fees ? new SellerFeeScheduleResponse([.. fees.Rates.Select(Text)], Text(fees.Minimum), fees.Increment) : null,
-            configuration.SettlementHoldSeconds);
+            configuration.SettlementHoldSeconds,
+            configuration.LimitFill);
     }
 
     public static BacktestHistoryResponse ToResponse(this BacktestHistoryInternal history)
@@ -205,7 +206,19 @@ public static class BacktestResponseConverter
             summary.QuoteAsset,
             Text(summary.TotalPnl),
             Text(summary.ReturnPercent),
-            Text(summary.MaxDrawdownPercent));
+            Text(summary.MaxDrawdownPercent),
+            summary.OptimizationId);
+    }
+
+    public static BacktestFacetsResponse ToResponse(this BacktestFacetsInternal facets)
+    {
+        return new BacktestFacetsResponse(
+            Facets(facets.Quotes),
+            Facets(facets.Statuses),
+            Facets(facets.Origins),
+            Facets(facets.Venues),
+            Facets(facets.Timeframes),
+            [.. facets.Strategies.Select(strategy => new BacktestStrategyFacetResponse(strategy.Id, strategy.Name, strategy.Count))]);
     }
 
     public static BacktestSummaryPageResponse ToResponse(this BacktestSummaryPageInternal page)
@@ -239,7 +252,13 @@ public static class BacktestResponseConverter
             Text(sample.FeesBase),
             Text(sample.FeesQuote),
             Text(sample.MaxDrawdownPercent),
-            sample.Executions);
+            sample.Executions,
+            Text(sample.MaxCapitalDeployed),
+            Text(sample.MaxCapitalDeployedPercent),
+            Text(sample.MaxCapitalCommitted),
+            Text(sample.TimeInPositionPercent),
+            Text(sample.TimeUnderWaterPercent),
+            sample.LongestUnderWaterCandles);
     }
 
     private static string Text(decimal value)
@@ -250,5 +269,10 @@ public static class BacktestResponseConverter
     private static string? Text(decimal? value)
     {
         return value is { } number ? ExactDecimalText.Format(number) : null;
+    }
+
+    private static BacktestFacetResponse[] Facets(IEnumerable<BacktestFacetInternal> values)
+    {
+        return [.. values.Select(value => new BacktestFacetResponse(value.Value, value.Count))];
     }
 }

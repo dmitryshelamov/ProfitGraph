@@ -33,6 +33,7 @@ import {
   withVenueDefaults,
 } from '../model/backtestSetup';
 import { BacktestLimits } from './BacktestLimits';
+import { LimitFillField } from './LimitFillField';
 
 function Checked({
   label,
@@ -181,6 +182,7 @@ export function BacktestSetupForm({
         <div className="grid gap-4 sm:grid-cols-2">
           {text('startingCapital', 'Начальный капитал, в валюте котировки')}
           {text('slippagePercent', 'Проскальзывание рыночных ордеров, %')}
+          <LimitFillField value={values.limitFill} onChange={(mode) => set('limitFill', mode)} />
           {values.sellerFees ? (
             <>
               {values.sellerFees.percents.map((_, index) =>

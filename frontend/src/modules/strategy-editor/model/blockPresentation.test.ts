@@ -103,6 +103,46 @@ it('formats shared expressions without nodes and terminates cyclic draft values'
     ),
   ).toBe('SMA 20 ↗ SMA 50');
 });
+it('formats indicator expressions with their periods and chosen output', () => {
+  const definition = templates[0]!.definition;
+  const integer = (number: string) => ({ kind: 'constant', valueType: 'Integer', number });
+  const close = { kind: 'candle', field: 'Close' };
+  expect(
+    expressionText({ kind: 'EMA', arguments: { in: close, period: integer('20') } }, definition),
+  ).toBe('EMA 20');
+  expect(
+    expressionText({ kind: 'RSI', arguments: { in: close, period: integer('14') } }, definition),
+  ).toBe('RSI 14');
+  expect(
+    expressionText(
+      {
+        kind: 'Bollinger',
+        field: 'upper',
+        arguments: {
+          in: close,
+          period: integer('20'),
+          multiplier: { kind: 'constant', valueType: 'Scalar', number: '2' },
+        },
+      },
+      definition,
+    ),
+  ).toBe('BB 20×2: Верхняя полоса');
+  expect(
+    expressionText(
+      {
+        kind: 'MACD',
+        field: 'histogram',
+        arguments: {
+          in: close,
+          fastPeriod: integer('12'),
+          slowPeriod: integer('26'),
+          signalPeriod: integer('9'),
+        },
+      },
+      definition,
+    ),
+  ).toBe('MACD 12/26/9: Гистограмма MACD');
+});
 it('keeps unwired blocks visible and marks them detached', () => {
   const definition = templates[0]!.definition;
   const board = presentBlocks({

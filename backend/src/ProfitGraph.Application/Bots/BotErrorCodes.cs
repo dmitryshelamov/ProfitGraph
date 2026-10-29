@@ -13,4 +13,7 @@ public static class BotErrorCodes
     public const string CredentialInUse = "exchange_credential_in_use";
     public const string OrderIntentNotFound = "bot_order_intent_not_found";
     public const string AbsenceNotConfirmable = "order_absence_not_confirmable";
+    public const string GridNotSupportedByVenue = "grid_not_supported_by_venue";
+    public const string GridExceedsVenueOrders = "grid_exceeds_venue_orders";
+    public const string GridProfitBelowFees = "grid_profit_below_fees";
 }

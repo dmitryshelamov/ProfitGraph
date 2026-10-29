@@ -53,6 +53,8 @@ internal static class BacktestFreezing
             ? new ExecutionSettings(request.StartingCapital, request.Slippage, new SellerFeeSchedule(fees.Rates, fees.Minimum, fees.Increment))
             : new ExecutionSettings(request.StartingCapital, request.Slippage, request.LimitFeeRate, request.MarketFeeRate);
 
+        settings = settings.WithLimitFill(request.LimitFill is { } mode ? Enum.Parse<LimitFillMode>(mode) : LimitFillMode.Through);
+
         return request.SettlementHoldSeconds is { } hold ? settings.WithSettlementHold(TimeSpan.FromSeconds(hold)) : settings;
     }
 

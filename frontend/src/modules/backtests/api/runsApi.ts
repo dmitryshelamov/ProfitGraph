@@ -7,8 +7,10 @@ export const backtestKeys = {
   chart: (id: string) => ['backtests', id, 'chart'] as const,
   facts: (id: string, kind: FactKind) => ['backtests', id, kind] as const,
   strategyRuns: (strategyId: string) => ['strategies', strategyId, 'backtests'] as const,
-  ranking: (quote: string, sort: RankingSort, order: RankingOrder) =>
-    ['backtests', 'ranking', quote, sort, order] as const,
+  rankings: ['backtests', 'ranking'] as const,
+  ranking: (filters: RankingFilters, sort: RankingSort, order: RankingOrder) =>
+    ['backtests', 'ranking', filters, sort, order] as const,
+  facets: ['backtests', 'facets'] as const,
 };
 
 export type FactKind = 'orders' | 'fills' | 'diagnostics';
@@ -16,6 +18,30 @@ export type FactKind = 'orders' | 'fills' | 'diagnostics';
 /** The ranking's column and direction; ties fall back to the start time in the same direction. */
 export type RankingSort = 'return' | 'pnl' | 'drawdown' | 'created';
 export type RankingOrder = 'asc' | 'desc';
+
+/** How listed runs ended; failed and cancelled runs have no result and are ordered by start time. */
+export type RankingStatus = 'completed' | 'failed' | 'cancelled';
+
+/** Who started a run: the user or an optimization confirming its finalists. */
+export type RankingOrigin = 'manual' | 'optimization';
+
+/**
+ * The run list's filters; an absent value filters nothing. Completed runs need a quote currency; `from` and `to` are
+ * UTC instants bounding the start time, `minReturn` and `maxDrawdown` decimal strings in percent.
+ */
+export interface RankingFilters {
+  status: RankingStatus;
+  quote?: string;
+  strategyId?: string;
+  venue?: string;
+  timeframe?: string;
+  search?: string;
+  origin?: RankingOrigin;
+  from?: string;
+  to?: string;
+  minReturn?: string;
+  maxDrawdown?: string;
+}
 
 /** Another user's run is a 404 like a missing one; retrying cannot change that. */
 function retryUnlessMissing(count: number, error: Error): boolean {
@@ -103,24 +129,60 @@ export function strategyRunsQuery(strategyId: string) {
   });
 }
 
-/** The user's completed runs in one quote currency, best return first. */
+/**
+ * The user's finished runs that pass the filters, best return first by default. Completed runs are listed only with a
+ * valid quote currency; failed and cancelled runs are always ordered by start time.
+ */
 export function rankingQuery(
-  quote: string,
+  filters: RankingFilters,
   sort: RankingSort = 'return',
   order: RankingOrder = 'desc',
 ) {
+  const completed = filters.status === 'completed';
+  const column = completed ? sort : 'created';
+  const direction = completed ? order : 'desc';
+
   return infiniteQueryOptions({
-    queryKey: backtestKeys.ranking(quote, sort, order),
+    queryKey: backtestKeys.ranking(filters, column, direction),
     queryFn: async ({ pageParam }) =>
       unwrap(
         await api.GET('/api/backtests', {
           params: {
-            query: { quote, limit: 50, sort, order, ...(pageParam ? { after: pageParam } : {}) },
+            query: {
+              ...rankingParameters(filters),
+              limit: 50,
+              sort: column,
+              order: direction,
+              ...(pageParam ? { after: pageParam } : {}),
+            },
           },
         }),
       ),
     initialPageParam: '' as string,
     getNextPageParam: (page) => page.next ?? undefined,
-    enabled: /^[A-Z0-9]{1,32}$/.test(quote),
+    enabled: !completed || /^[A-Z0-9]{1,32}$/.test(filters.quote ?? ''),
   });
+}
+
+/** The values the user's finished runs take in each filter, with the number of runs of each. */
+export function backtestFacetsQuery() {
+  return queryOptions({
+    queryKey: backtestKeys.facets,
+    queryFn: async () => unwrap(await api.GET('/api/backtests/facets')),
+  });
+}
+
+/** The query of the filters without absent values; the status is sent only when it is not the default. */
+function rankingParameters(filters: RankingFilters) {
+  const { status, minReturn, maxDrawdown, ...rest } = filters;
+  const present = Object.fromEntries(
+    Object.entries(rest).filter(([, value]) => value !== undefined && value !== ''),
+  );
+
+  return {
+    ...(status === 'completed' ? {} : { status }),
+    ...present,
+    ...(status === 'completed' && minReturn ? { minReturn } : {}),
+    ...(status === 'completed' && maxDrawdown ? { maxDrawdown } : {}),
+  };
 }

@@ -77,6 +77,71 @@ public sealed class MinimumOrderPolicyTests
         preview.Reason.ShouldBe(RejectionReason.BelowMinQuantity);
     }
 
+    // Bybit KASUSDT: the quote budget is the order value, so its floored quantity may be worth slightly less than the minimum.
+    [TestCase("5", "0.03606", MinimumOrderPolicy.RaiseToExchangeMinimum, "5", "138.65")]
+    [TestCase("2", "0.03606", MinimumOrderPolicy.RaiseToExchangeMinimum, "5", "138.65")]
+    [TestCase("5", "0.03606", MinimumOrderPolicy.Reject, "5", "138.65")]
+    [TestCase("2", "0.05", MinimumOrderPolicy.RaiseToExchangeMinimum, "5", "100")]
+    public void MarketBuyPreviewMeetsMinimumNotionalWithItsBudgetBeforeQuantityFlooring(
+        string amount,
+        string referencePrice,
+        MinimumOrderPolicy policy,
+        string quote,
+        string quantity)
+    {
+        OrderSizingResult result = Size(
+            OrderType.Market,
+            Number(amount),
+            price: null,
+            minimumQuantity: 0m,
+            policy: policy,
+            referencePrice: Number(referencePrice),
+            quantityStep: 0.01m);
+        result.Reason.ShouldBeNull();
+        result.Reservation.ShouldBe(Number(quote));
+        result.Quantity.ShouldBe(Number(quantity));
+    }
+
+    [Test]
+    public void MarketBuyPreviewStillRejectsABudgetBelowMinimumNotionalWithoutRaise()
+    {
+        OrderSizingResult result = Size(
+            OrderType.Market,
+            amount: 4.99m,
+            price: null,
+            minimumQuantity: 0m,
+            policy: MinimumOrderPolicy.Reject,
+            referencePrice: 0.03606m,
+            quantityStep: 0.01m);
+        result.Reason.ShouldBe(RejectionReason.BelowMinNotional);
+    }
+
+    [Test]
+    public void RaisedMarketBuyFillsTheFlooredQuantityOfItsMinimumBudget()
+    {
+        InstrumentRules rules = Rules(minimumQuantity: 0m, quantityStep: 0.01m);
+        var settings = new ExecutionSettings(startingCapital: 100m, slippage: 0m, limitFeeRate: 0m, marketFeeRate: 0m);
+        var account = new TradingAccount(settings, rules);
+        var request = new OrderRequest(
+            OrderSide.Buy,
+            OrderType.Market,
+            Amount: 2m,
+            LimitPrice: null,
+            Tag: null,
+            "buy",
+            EligibleFromCandleIndex: 0,
+            MinimumOrderPolicy.RaiseToExchangeMinimum);
+        Order order = account.Submit(request).Order.ShouldNotBeNull();
+        order.QuoteBudget.ShouldBe(5m);
+
+        OrderExecution execution = account.Execute(order.Id, referencePrice: 0.03606m);
+
+        execution.Rejection.ShouldBeNull();
+        execution.Fill.ShouldNotBeNull().GrossBase.ShouldBe(138.65m);
+        account.Portfolio.QuoteReserved.ShouldBe(0m);
+        account.Portfolio.QuoteAvailable.ShouldBe(100m - 4.999719m);
+    }
+
     [Test]
     public void SharedAccountReservesRaisedQuoteAndNeverMutatesOnRefusal()
     {
@@ -105,9 +170,10 @@ public sealed class MinimumOrderPolicyTests
         decimal minimumQuantity = 0.1m,
         decimal minimumNotional = 5m,
         MinimumOrderPolicy policy = MinimumOrderPolicy.RaiseToExchangeMinimum,
-        decimal? referencePrice = null)
+        decimal? referencePrice = null,
+        decimal quantityStep = 0.1m)
     {
-        InstrumentRules rules = Rules(minimumQuantity, minimumNotional);
+        InstrumentRules rules = Rules(minimumQuantity, minimumNotional, quantityStep);
         var settings = new ExecutionSettings(available, slippage: 0m, limitFeeRate: 0m, marketFeeRate: 0m);
         var account = new TradingAccount(settings, rules);
         var request = new OrderRequest(OrderSide.Buy, type, amount, price, Tag: null, "buy", EligibleFromCandleIndex: 0, policy);
@@ -115,9 +181,9 @@ public sealed class MinimumOrderPolicyTests
         return new OrderSizingService().Resolve(request, rules, settings, account.Capture(), referencePrice);
     }
 
-    private static InstrumentRules Rules(decimal minimumQuantity = 0.1m, decimal minimumNotional = 5m)
+    private static InstrumentRules Rules(decimal minimumQuantity = 0.1m, decimal minimumNotional = 5m, decimal quantityStep = 0.1m)
     {
-        return new InstrumentRules(quantityStep: 0.1m, priceTick: 0.1m, minimumQuantity, minimumNotional, basePrecision: 2, quotePrecision: 2);
+        return new InstrumentRules(quantityStep, priceTick: 0.1m, minimumQuantity, minimumNotional, basePrecision: 2, quotePrecision: 2);
     }
 
     private static decimal Number(string text)

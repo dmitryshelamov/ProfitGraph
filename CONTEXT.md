@@ -100,9 +100,15 @@ range and fill counts. A run keeps at most 5000 buckets.
 ### Background Job
 
 Durable work that runs in the Worker after the request that started it has returned, such as a history download
-or a backtest: queued, running, then completed, failed or cancelled, with progress. A job belongs to the user who
-started it; cancelling a running job is a request that the Worker honours. See
+or a backtest: queued, running, then completed, failed or cancelled, with progress; an optimization can also be
+paused. A job belongs to the user who started it; cancelling a running job is a request that the Worker honours. See
 [ADR 0011](docs/adr/0011-background-jobs.md).
+
+### Worker Lane
+
+One queue of the Worker that runs one job at a time: `main` for history downloads and backtests, `optimization` for
+optimizations, so a long search never holds back a backtest. A queued job's place in its lane counts every user's
+queued jobs, in the order the Worker claims them: oldest first.
 
 ### Venue Bot Settings
 
@@ -314,6 +320,24 @@ An internal element of StrategyGraph that receives, computes or consumes data an
 to lowering, validation, compilation and frozen execution snapshots; they are not the strategy-authoring model.
 The catalog documentation describes the user-facing model and lists internal primitives separately.
 
+### Composite Node
+
+A node with its own ports and parameters that is expanded into primitive nodes before validation, so one node can
+publish several outputs. Bollinger Bands and MACD are composites; a block expression picks one of their outputs with
+its `field`. See [ADR 0056](docs/adr/0056-decimal-indicators-and-multi-output-composites.md).
+
+### Indicator
+
+A value computed from closed candles: SMA, ATR, EMA, RSI, Bollinger Bands and MACD. It advances once per closed candle,
+never looks ahead and is unavailable until it is warmed up. Formulas, warm-up and edge cases are in
+[the node catalog](docs/node-catalog.md).
+
+### Warm-up
+
+The closed candles an indicator needs before its first value, such as `period` for SMA and EMA, `period + 1` for ATR
+and RSI and `slowPeriod + signalPeriod − 1` for MACD. A run reads the strategy's warm-up before its start so that
+indicators are ready on the first replayed candle.
+
 ### Connection
 
 A typed link between compatible ports in the internal StrategyGraph. Value connections carry calculations and
@@ -353,6 +377,18 @@ A backtest model that simulates each candle using the fixed price path Open → 
 ### Full Limit Fill
 
 The engine assumption that a limit order fills its entire remaining quantity when the simulation considers it executable. Partial fills and order-book liquidity constraints are not modeled for limit orders.
+
+### Limit Fill Mode
+
+A run setting of when the simulation considers a resting limit order executable: on `Touch`, when the price path reaches its
+limit; `Through`, only when the path trades strictly beyond it. New runs default to `Through`; a stored run without the
+setting is `Touch`. Live bots never use it. See [ADR 0057](docs/adr/0057-limit-fills-through-the-price-and-capital-cost-metrics.md).
+
+### Capital Cost Metrics
+
+What a run's position cost it besides fees: the largest cost basis held (capital deployed), the largest cost basis plus quote
+reserved by resting buys (capital committed), the share of closes in a position, and the share and longest stretch of closes
+under water, when the held position was worth less than it cost.
 
 ### Market Order Slippage
 
@@ -398,6 +434,23 @@ A result occurrence emitted after an action commits its state change, allowing d
 
 A strategy-assigned semantic name identifying an order's purpose, such as `ladder.exit`. Under the execution contract, at most one active order can occupy a tag; a later terminal replacement gets a new order ID while reusing that tag.
 
+### Grid
+
+A block of a strategy that keeps many limit buys laddered below its anchor at a percentage step, each level with its own lot,
+and sells every bought level at its own entry price plus a profit step; a level whose sale filled buys again. Spot and
+long-only. Not a Ladder: a Ladder averages into one position and exits from its average cost. See
+[ADR 0058](docs/adr/0058-grid-block.md).
+
+### Grid Level
+
+One price of a grid: free, buying (its buy rests or is partly filled) or held (it owns the base its buy received net of the
+fee, and its sale rests or is due). A grid never sells base none of its levels bought.
+
+### Grid Anchor
+
+The price a grid's levels are counted down from: the price at which the grid started, raised by an upward shift when the grid
+holds nothing and the price has risen past the shift threshold, never above the anchor ceiling and never lowered.
+
 ### Manual Order
 
 An owner-submitted market or limit order in a running live bot, outside the strategy graph (Profit Fox Designer ADR 0091,
@@ -411,7 +464,9 @@ The owner's request to cancel one working order of a running live bot from the b
 ([ADR 0048](docs/adr/0048-owner-cancels-an-active-order.md)). The bot's runner takes it as a root and the engine cancels the order as it
 cancels its own, so the cancel goes out as an ordinary cancel intent; the venue's confirmation resumes the strategy, which places the
 orders it misses again by its own rules ([ADR 0051](docs/adr/0051-owner-cancel-resumes-the-strategy.md)). A request nobody takes within
-a minute expires.
+a minute expires. A stopped bot with no runner takes the request at once: its order gets a cancel intent, as a kill gives it, the
+dispatcher sends it to the venue, and the next start's reconciliation ends the order and lets the strategy restore its orders
+([ADR 0055](docs/adr/0055-owner-cancels-an-order-of-a-stopped-bot.md)).
 
 ### Order Lifecycle Output
 

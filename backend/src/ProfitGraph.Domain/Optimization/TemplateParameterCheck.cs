@@ -41,6 +41,15 @@ internal sealed class TemplateParameterCheck(CompiledTradingGraph graph, IReadOn
                 Positive("maxHold");
 
                 break;
+            case StrategyTemplateKind.Grid:
+                Require(Positive("gridLevels") <= 200m, "gridLevels", "A grid requires 1 <= gridLevels <= 200.");
+                Require(Positive("gridStep") < 1m, "gridStep", "A grid requires 0 < gridStep < 1.");
+                Require(Positive("gridMaxOpenBuys") <= 200m, "gridMaxOpenBuys", "A grid requires 1 <= gridMaxOpenBuys <= 200.");
+                Positive("gridProfitStep");
+                Positive("gridLot");
+                Positive("gridAnchorCeiling");
+
+                break;
             case StrategyTemplateKind.DcaProfitFox:
                 Require(amount <= Positive("allocationCap"), "allocationCap", "DCA requires buyAmount <= allocationCap.", ["buyAmount", "allocationCap"]);
                 Positive("interval");

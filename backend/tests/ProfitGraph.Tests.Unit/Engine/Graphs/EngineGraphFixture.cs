@@ -18,7 +18,8 @@ internal static class EngineGraphFixture
         new INodeDefinition[]
         {
             new ConstantNodeDefinition(), new ParameterNodeDefinition(), new CandleFieldNodeDefinition(), new DataSourceNodeDefinition(), new SmaNodeDefinition(),
-            new AtrNodeDefinition(), new PreviousCandleValueNodeDefinition(), new ArithmeticNodeDefinition(), new CompareNodeDefinition(),
+            new AtrNodeDefinition(), new EmaNodeDefinition(), new RsiNodeDefinition(), new StandardDeviationNodeDefinition(), new PreviousCandleValueNodeDefinition(),
+            new ArithmeticNodeDefinition(), new CompareNodeDefinition(),
             new CrossesAboveNodeDefinition(), new CrossesBelowNodeDefinition(), new AndNodeDefinition(), new OrNodeDefinition(), new NotNodeDefinition(),
             new IsAvailableNodeDefinition(), new OnStartNodeDefinition(), new OnCandleClosedNodeDefinition(),
             new MergeEventsNodeDefinition(),
