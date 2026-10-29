@@ -92,6 +92,9 @@ describe('backtest run page', () => {
 
     expect(screen.getByText('лимитные 0.1%, рыночные 0.1%')).toBeInTheDocument();
     expect(screen.getByText('50 из 50 свечей')).toBeInTheDocument();
+    expect(screen.getByText('пробой: цена прошла лимит')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Под водой, % свечей' })).toBeInTheDocument();
+    expect(screen.getAllByTitle('37.5').length).toBeGreaterThan(0);
     expect(hub.subscriptions).toEqual([]);
   });
 

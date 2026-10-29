@@ -12,6 +12,9 @@ import {
 
 export type StartBacktestRequest = Schemas['StartBacktestRequest'];
 
+/** When a resting limit order fills in replay (ADR 0057); new runs default to a fill through the price. */
+export type LimitFill = 'Through' | 'Touch';
+
 /** What the setup form edits; every number is the text the user typed, percents as percents. */
 export interface BacktestSetupValues {
   readonly series: SeriesSelection;
@@ -21,6 +24,7 @@ export interface BacktestSetupValues {
   readonly limitFeePercent: string;
   readonly marketFeePercent: string;
   readonly slippagePercent: string;
+  readonly limitFill: LimitFill;
   readonly holdoutPercent: string;
   readonly parameters: Readonly<Record<string, string>>;
   /**
@@ -62,6 +66,7 @@ export function backtestSetupDefaults(definition: StrategyDefinition): BacktestS
     limitFeePercent: '0.1',
     marketFeePercent: '0.1',
     slippagePercent: '0',
+    limitFill: 'Through',
     holdoutPercent: '20',
     sellerFees: null,
     holdDays: null,
@@ -287,6 +292,7 @@ export function backtestSetupRequest(
       limitFeeRate: limitFeeRate!,
       marketFeeRate: marketFeeRate!,
       outOfSampleFraction: outOfSampleFraction!,
+      limitFill: values.limitFill,
       ...(values.sellerFees
         ? {
             sellerFees: {

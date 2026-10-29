@@ -20,4 +20,12 @@ public interface IGraphAccount
     ///     Cancels the active order with this tag, or returns null for a successful no-op when none exists.
     /// </summary>
     public Order? CancelByTag(string tag);
+
+    /// <summary>
+    ///     What the order has executed so far, also after it ended in this process, or none.
+    /// </summary>
+    public OrderExecutedTotals ExecutedTotals(long orderId)
+    {
+        return OrderExecutedTotals.None;
+    }
 }

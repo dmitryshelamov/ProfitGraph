@@ -112,6 +112,7 @@ public sealed class GraphCompilationFingerprintTests
             StrategyTemplateKind.VolumeMomentum => VolumeMomentumStrategyBlockFactory.Create(),
             StrategyTemplateKind.LadderPlus => LadderPlusStrategyBlockFactory.Create(),
             StrategyTemplateKind.DcaProfitFox => ProfitFoxDcaStrategyBlockFactory.Create(),
+            StrategyTemplateKind.Grid => GridStrategyBlockFactory.Create(),
             _ => throw new ArgumentOutOfRangeException(nameof(kind))
         };
     }

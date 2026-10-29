@@ -4,6 +4,7 @@ using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Compilation;
 using ProfitGraph.Engine.Evaluation;
 using ProfitGraph.Engine.Graphs;
+using ProfitGraph.Engine.Grids;
 using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Nodes;
 
@@ -39,6 +40,7 @@ public sealed class CausalDispatcher
     private readonly ReplayDispatchBatch _replayBatch;
     private readonly Dictionary<long, string> _orderGraphVersions = new Dictionary<long, string>();
     private readonly List<MarketClosure> _closures;
+    private readonly SortedDictionary<string, GridState> _grids = new SortedDictionary<string, GridState>(StringComparer.Ordinal);
     private CompiledTradingGraph _graph;
     private EngineExecutionInputs _inputs;
     private CandleValueEvaluator _evaluator;
@@ -210,7 +212,8 @@ public sealed class CausalDispatcher
             Started,
             graphVersionId,
             _orderGraphVersions.ToImmutableDictionary(),
-            _positionOpenedAt);
+            _positionOpenedAt,
+            _grids.Values.Where(grid => grid.Phase != GridPhase.Stopped).Select(grid => grid.Capture()).ToImmutableArray());
     }
 
     public static CausalDispatcher Restore(
@@ -288,6 +291,11 @@ public sealed class CausalDispatcher
         foreach ((long orderId, string versionId) in checkpoint.OrderGraphVersions)
         {
             dispatcher._orderGraphVersions.Add(orderId, versionId);
+        }
+
+        foreach (GridCheckpoint grid in checkpoint.Grids)
+        {
+            dispatcher._grids.Add(grid.NodeId, GridState.Restore(grid));
         }
 
         if (enqueueRestart)
@@ -881,6 +889,13 @@ public sealed class CausalDispatcher
                     ActionRequest request = requests[requestIndex];
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    if (request is GridStartRequest or GridEvaluateRequest or GridCancelRequest)
+                    {
+                        ApplyGrid(request, occurrence, routed.Market);
+
+                        continue;
+                    }
+
                     if (!_applied.Add((occurrence.Id, request.NodeId)))
                     {
                         continue;
@@ -922,6 +937,103 @@ public sealed class CausalDispatcher
         {
             _isDraining = false;
         }
+    }
+
+    /// <summary>
+    ///     Starts, books, stops and reconciles a grid (ADR 0058). Its submits and cancels are ordinary account actions with their
+    ///     own attempts; a grid's pending cancel waits for no completion, because the grid reacts to the cancellation itself.
+    /// </summary>
+    private void ApplyGrid(ActionRequest request, EventOccurrence occurrence, ReachedMarketContext market)
+    {
+        switch (request)
+        {
+            case GridStartRequest start:
+                if (Grid(start.NodeId).Start(occurrence.MarketPrice))
+                {
+                    _guard.Consume(start.NodeId, occurrence.Id);
+                    Enqueue(EventKind.GridStarted, new GridPayload(start.NodeId, occurrence.MarketPrice), market, occurrence.Id);
+                }
+
+                return;
+            case GridCancelRequest cancel:
+                if (_grids.TryGetValue(cancel.GridNodeId, out GridState? cancelled) && cancelled.Phase == GridPhase.Running)
+                {
+                    cancelled.RequestStop(sell: false);
+                    PlanGrid(cancelled, settings: null, occurrence, market);
+                }
+
+                _guard.Consume(cancel.NodeId, occurrence.Id);
+                Enqueue(EventKind.CancelCompleted, new CancelResultPayload(Cancelled: true, CancelledOrderId: null, cancel.NodeId, occurrence), market, occurrence.Id);
+
+                return;
+            case GridEvaluateRequest evaluate:
+                GridState grid = Grid(evaluate.NodeId);
+
+                if (grid.Book(occurrence, Account))
+                {
+                    EmitGridStopped(grid, occurrence, market);
+
+                    return;
+                }
+
+                if (occurrence.Kind == EventKind.CandleClosed && evaluate.Settings is { } settings)
+                {
+                    grid.OnClose(settings, occurrence.MarketPrice, Account, Account.Capture());
+                }
+
+                PlanGrid(grid, evaluate.Settings, occurrence, market);
+
+                return;
+            default:
+                throw new ArgumentException("Unknown grid request.", nameof(request));
+        }
+    }
+
+    private void PlanGrid(GridState grid, GridSettings? settings, EventOccurrence occurrence, ReachedMarketContext market)
+    {
+        IReadOnlyList<ActionRequest> plan = grid.Plan(settings, Account, Account.Capture(), market, out bool stopped);
+
+        foreach (ActionRequest action in plan)
+        {
+            _guard.Consume(action.NodeId, occurrence.Id);
+            long attemptId = checked(++_nextAttemptId);
+            ActionApplication application = _executor.Apply(action, Account, occurrence, attemptId);
+
+            if (application.PendingSubmitOrderId is { } pendingSubmitOrderId)
+            {
+                _pendingSubmissionAttempts.Add(pendingSubmitOrderId, attemptId);
+            }
+
+            _facts.Add(new AppliedActionFact(action.NodeId, occurrence.Id, attemptId, application.Emissions));
+
+            foreach (LifecycleEmission emission in application.Emissions)
+            {
+                _guard.Consume(action.NodeId, occurrence.Id);
+                Enqueue(emission.Kind, emission.Payload, market, occurrence.Id);
+            }
+        }
+
+        if (stopped)
+        {
+            EmitGridStopped(grid, occurrence, market);
+        }
+    }
+
+    private void EmitGridStopped(GridState grid, EventOccurrence occurrence, ReachedMarketContext market)
+    {
+        _guard.Consume(grid.NodeId, occurrence.Id);
+        Enqueue(EventKind.GridStopped, new GridPayload(grid.NodeId, Anchor: null), market, occurrence.Id);
+    }
+
+    private GridState Grid(string nodeId)
+    {
+        if (!_grids.TryGetValue(nodeId, out GridState? grid))
+        {
+            grid = new GridState(nodeId);
+            _grids.Add(nodeId, grid);
+        }
+
+        return grid;
     }
 
     private EventOccurrence Enqueue(EventKind kind, EventPayload payload, ReachedMarketContext context, long? cause)

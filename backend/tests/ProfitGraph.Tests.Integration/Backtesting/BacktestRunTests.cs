@@ -245,7 +245,7 @@ public sealed class BacktestRunTests
         var input = new BacktestInput(
             plan,
             EngineExecutionInputs.Empty,
-            new ExecutionSettings(startingCapital: 1000m, slippage: 0.001m, limitFeeRate: 0.001m, marketFeeRate: 0.001m),
+            new ExecutionSettings(startingCapital: 1000m, slippage: 0.001m, limitFeeRate: 0.001m, marketFeeRate: 0.001m).WithLimitFill(LimitFillMode.Through),
             FakeInstrumentSource.DefaultRules,
             prepared.ToReplay(),
             OutOfSampleSplit.Create(0.25m));

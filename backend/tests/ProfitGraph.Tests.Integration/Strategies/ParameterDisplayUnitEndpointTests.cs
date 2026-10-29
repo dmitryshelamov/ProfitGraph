@@ -90,7 +90,9 @@ public sealed class ParameterDisplayUnitEndpointTests
             {
                 var name = parameter!["name"]!.GetValue<string>();
                 var unit = parameter["displayUnit"]!.GetValue<string>();
-                string expected = name is "drop" or "rise" or "takeProfit" or "impulse" or "stopLoss" ? "percent"
+                string expected = name is "drop" or "rise" or "takeProfit" or "impulse" or "stopLoss" or "gridStep" or "gridProfitStep" or "gridShiftThreshold"
+                    or "gridAnchorCeiling" or "gridStopBelow"
+                    ? "percent"
                     : parameter["valueType"]!.GetValue<string>() == "QuoteAmount" ? "quote" : "none";
                 unit.ShouldBe(expected, $"{template["kind"]}: {name}");
             }

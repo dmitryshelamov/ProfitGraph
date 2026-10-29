@@ -18,13 +18,15 @@ namespace ProfitGraph.Application.Bots.Runtime;
 ///     Before each root of a running bot, switches its engine to the strategy's latest saved version (ADR 0019, Profit Fox
 ///     Designer ADR 0057). The candidate takes the run's parameter values fitted to its parameters: a removed parameter's value
 ///     is dropped and a new parameter takes its default (ADR 0047). A candidate that does not take those values, does not
-///     compile or that the engine refuses is rejected once, and the bot keeps its version.
+///     compile, holds a grid the venue or the fees cannot run (ADR 0058) or that the engine refuses is rejected once, and the bot
+///     keeps its version.
 /// </summary>
 public sealed class BotGraphFollower(
     IStrategyRepository strategies,
     IBotRepository bots,
     VenuePorts<IHistoricalCandleSource> histories,
     BacktestCompiler compiler,
+    BotGridRules gridRules,
     BotMarketDataAccess access,
     ISender sender)
 {
@@ -57,7 +59,7 @@ public sealed class BotGraphFollower(
 
         try
         {
-            (CompiledTradingGraph plan, LoweredStrategyGraph lowered) = Prepare(latest, values);
+            (CompiledTradingGraph plan, LoweredStrategyGraph lowered) = Prepare(bot, latest, values);
             refused = await session.ApplySettings(
                 latest.Id,
                 values,
@@ -102,7 +104,7 @@ public sealed class BotGraphFollower(
 
         try
         {
-            (CompiledTradingGraph plan, LoweredStrategyGraph lowered) = Prepare(latest, values);
+            (CompiledTradingGraph plan, LoweredStrategyGraph lowered) = Prepare(bot, latest, values);
             refused = await session.ChangeGraph(
                 latest.Id,
                 values,
@@ -122,10 +124,11 @@ public sealed class BotGraphFollower(
     /// <summary>
     ///     Checks the values against the version, compiles and lowers it with them; a mismatch or a graph that does not compile throws.
     /// </summary>
-    private (CompiledTradingGraph Plan, LoweredStrategyGraph Lowered) Prepare(StrategyVersion version, BotParameters values)
+    private (CompiledTradingGraph Plan, LoweredStrategyGraph Lowered) Prepare(Bot bot, StrategyVersion version, BotParameters values)
     {
         BotParameterRules.Ensure(version.Definition, values.Values);
         CompiledTradingGraph plan = compiler.Compile(version.Definition, values.Values);
+        gridRules.Ensure(bot.Series, bot.FeeRates, plan);
 
         return (plan, compiler.Lower(version.Definition, values.Values));
     }

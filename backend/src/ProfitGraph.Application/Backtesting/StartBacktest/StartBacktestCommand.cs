@@ -8,7 +8,8 @@ namespace ProfitGraph.Application.Backtesting.StartBacktest;
 ///     Freezes a run of a strategy version and queues it (stage 3 plan, S3-5). Omitted parameters keep the version's values;
 ///     an omitted holdout fraction is 0.2. Seller fees replace the limit and market rates, which must then be zero; a
 ///     settlement hold delays selling what was bought (ADR 0022). A named credential of the user reads market data for a
-///     venue without anonymous market data; the job keeps its identifier, the frozen run never does (ADR 0023, TC6).
+///     venue without anonymous market data; the job keeps its identifier, the frozen run never does (ADR 0023, TC6). An
+///     omitted limit fill mode is <c>Through</c> (ADR 0057).
 /// </summary>
 public sealed record StartBacktestCommand(
     Guid UserId,
@@ -27,4 +28,5 @@ public sealed record StartBacktestCommand(
     decimal? OutOfSampleFraction,
     SellerFeeScheduleInternal? SellerFees = null,
     long? SettlementHoldSeconds = null,
-    Guid? CredentialId = null) : ICommand<BackgroundJobInternal>;
+    Guid? CredentialId = null,
+    string? LimitFill = null) : ICommand<BackgroundJobInternal>;
