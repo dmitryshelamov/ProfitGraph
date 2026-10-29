@@ -1,8 +1,8 @@
 # ADR 0058: The Grid Block
 
-Status: Accepted by the owner in the design interview of 2026-10-29 (questions 1–7). Sections 1–8 and the engine part of
-section 10 (checkpoint, resume, cancels) are built with the backtests; the bot runtime's part of sections 9 and 10 is a second
-pull request. Supplements ADR 0007 (single strategy format), ADR 0016 (live bot runtime), ADR 0048 and ADR 0051 (owner
+Status: Accepted by the owner in the design interview of 2026-10-29 (questions 1–7). Built in two pull requests: sections 1–8
+with the engine part of section 10, then the bot side of sections 9 and 10. Live grids are proven on the scripted venue only;
+nothing was sent to a real venue. Supplements ADR 0007 (single strategy format), ADR 0016 (live bot runtime), ADR 0048 and ADR 0051 (owner
 cancel); uses the fill mode and metrics of ADR 0057.
 
 ## Context
@@ -131,10 +131,13 @@ reference price (the run's first replay open, the bot's last close), since the b
 A bot whose strategy contains a grid starts only on a venue whose module provides the port that states how many resting
 orders one bot may keep on an instrument (`IVenueRestingOrderCapacity`). Without the port the start is refused with
 `grid_not_supported_by_venue`; with it, `maxOpenBuys + levels` must not exceed the capacity (`grid_exceeds_venue_orders`).
-In this work the Bybit module (its limit from configuration, to be checked against Bybit's documentation before trading) and
-the scripted venue provide it; T-Invest (DAY orders carried over every night by ADR 0024 and ADR 0031) and Steam (one buy
+In this work the Bybit module (`Venues:Bybit:MaxRestingOrdersPerBot`, 200 by default: our own bound, to be checked against
+Bybit's documentation before a grid trades) and the scripted venue provide it; T-Invest (DAY orders carried over every night by ADR 0024 and ADR 0031) and Steam (one buy
 order per item, which replay does not model, ADR 0022) do not, until a step of their own proves their scenarios. A backtest on
-a venue without the port shows a warning that replay assumes unlimited resting orders. Live trading stays disabled by default.
+a venue without the port records the diagnostic `GridVenueOrdersUnmodelled`: replay assumes the venue holds every resting
+order the grid wants. The checks (`BotGridRules`) run when a bot is created or started, when its values change, and when its
+runner takes a new strategy version, which a grid the venue or the fees cannot run makes it reject. Live trading stays
+disabled by default.
 
 ### 10. Live: checkpoint, resume and the owner's actions
 

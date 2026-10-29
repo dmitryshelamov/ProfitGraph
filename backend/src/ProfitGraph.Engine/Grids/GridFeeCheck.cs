@@ -3,8 +3,6 @@ using System.Globalization;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Compilation;
 using ProfitGraph.Engine.Evaluation;
-using ProfitGraph.Engine.Graphs;
-using ProfitGraph.Engine.Nodes;
 
 namespace ProfitGraph.Engine.Grids;
 
@@ -25,20 +23,15 @@ public static class GridFeeCheck
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(settings);
-        CompiledTradingNode[] grids = graph.ActionNodes.Where(node => node.TradingBehavior == TradingNodeBehavior.Grid).ToArray();
 
-        if (grids.Length == 0 || (settings.SellerFees is not null && (rules is null || referencePrice <= 0m)))
+        if (settings.SellerFees is not null && (rules is null || referencePrice <= 0m))
         {
             return [];
         }
 
-        IReadOnlyDictionary<PortReference, EngineValue> values;
+        IReadOnlyDictionary<string, GridSettings?> grids = GridStatics.Read(graph, selections);
 
-        try
-        {
-            values = new CandleValueEvaluator(graph, selections).ReadStaticValues();
-        }
-        catch (GraphExecutionException)
+        if (grids.Count == 0)
         {
             return [];
         }
@@ -47,16 +40,16 @@ public static class GridFeeCheck
         decimal margin = roundTrip + settings.Slippage;
         var findings = new List<GridFeeFinding>();
 
-        foreach (CompiledTradingNode grid in grids)
+        foreach ((string gridNodeId, GridSettings? grid) in grids)
         {
-            decimal? step = Static(grid, "step", values);
-            decimal? profit = Static(grid, "profitStep", values);
+            decimal? step = grid?.Step;
+            decimal? profit = grid?.ProfitStep;
 
             if (profit is { } profitStep && profitStep <= roundTrip)
             {
                 findings.Add(
                     new GridFeeFinding(
-                        grid.Node.Id,
+                        gridNodeId,
                         IsError: true,
                         GridFeeFinding.ProfitBelowFees,
                         $"The grid's profit step {Percent(profitStep)} does not cover the round trip's fees {Percent(roundTrip)}: every cycle loses."));
@@ -68,7 +61,7 @@ public static class GridFeeCheck
             {
                 findings.Add(
                     new GridFeeFinding(
-                        grid.Node.Id,
+                        gridNodeId,
                         IsError: false,
                         GridFeeFinding.StepNearFees,
                         $"The grid's step or profit step is below the round trip's fees plus slippage {Percent(margin)}."));
@@ -86,15 +79,6 @@ public static class GridFeeCheck
         }
 
         return 2m * settings.LimitFeeRate;
-    }
-
-    private static decimal? Static(CompiledTradingNode grid, string key, IReadOnlyDictionary<PortReference, EngineValue> values)
-    {
-        CompiledEngineInput? input = grid.EngineInputs.FirstOrDefault(candidate => candidate.Spec.Key == key);
-
-        return input?.Source is { } source && values.TryGetValue(source, out EngineValue value) && value.IsAvailable && UnitAlgebra.IsNumeric(value.ValueType)
-            ? value.Number
-            : null;
     }
 
     private static string Percent(decimal fraction)
