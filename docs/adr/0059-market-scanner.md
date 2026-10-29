@@ -57,15 +57,26 @@ sources, history downloads as background jobs, backtests, comparison, and Telegr
 2. **One topic per pair:** `kline.1.{symbol}`. Hourly candles are aggregated from the minutes in memory, the 24-hour figures
    come from candles, not from the ticker topic, so every value is reproducible from candles. About 500 pairs take 5
    connections of 100 topics.
-3. **Warm-up and gaps.** At start the role reads 24 hours of 1-minute candles (2 requests per pair) and 7 days of hourly candles
-   (1 request per pair) over REST, limited to 10 requests per second (about 2.5 minutes for 500 pairs); a 403 stops all REST
-   calls for 10 minutes. A lost connection reconnects with backoff (as ADR 0044) and backfills the missed minutes over REST
-   before the pair's metrics are shown again. A minute the venue reports without trades counts as a flat candle with zero
+3. **Warm-up: subscription first, then history.** For each pair, in this order, so no minute closes unseen between the REST
+   answer and the subscription:
+   1. Subscribe to `kline.1.{symbol}` and buffer the candles that arrive.
+   2. Read 24 hours of 1-minute candles (2 requests) and 7 days of hourly candles (1 request) over REST.
+   3. Merge the history and the buffer by open time; where they overlap, the closed candle wins.
+   4. Show the pair once its series has no gap; until then it has no row or its metrics are empty.
+
+   REST is limited to 10 requests per second (about 2.5 minutes for 500 pairs); a 403 stops all REST calls for 10 minutes.
+   After warm-up only the stream moves the series: a closed minute is appended and the minute older than 24 hours dropped; a
+   closed hour, aggregated from its minutes, is appended to the 7-day series and the oldest hour dropped. The forming minute
+   only sets the price.
+4. **Reconnect.** A lost connection reconnects with backoff (as ADR 0044) and repeats steps 1–3 for the missed minutes; until the
+   gap is closed the pair is marked as incomplete. A minute the venue reports without trades counts as a flat candle with zero
    volume; whether Bybit returns such candles is checked in the implementation.
-4. **Memory, not the candle cache.** Scanner candles live only in the role's memory (about 500 × 1,440 minutes and 500 × 168
-   hours). They are not written to the shared candle cache; a batch backtest (step 3) downloads its history through the
-   ordinary history download.
-5. **Snapshot.** After each minute closes, the role computes every pair's metrics and replaces the stored current snapshot (one
+5. **Memory, not the candle cache.** Scanner candles live only in the role's memory (about 500 × 1,440 minutes and 500 × 168
+   hours, some tens of megabytes). They are not written to the shared candle cache; a batch backtest (step 3) downloads its
+   history through the ordinary history download. A restart of the Worker loses them and warms up again; meanwhile the page
+   shows the last stored snapshot with its age. Keeping candles on disk for a faster restart is left until restarts prove
+   frequent.
+6. **Snapshot.** After each minute closes, the role computes every pair's metrics and replaces the stored current snapshot (one
    row per venue and pair, with its computation time); spreads come from one REST quote snapshot per minute. No history of
    snapshots is kept. A `NOTIFY` tells the API, which pushes the snapshot to a SignalR hub `/ws/scanner`; the page shows the
    snapshot's age and reads the stored snapshot over HTTP when it opens.
