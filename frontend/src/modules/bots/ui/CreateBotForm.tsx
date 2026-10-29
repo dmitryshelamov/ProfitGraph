@@ -237,7 +237,8 @@ export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) 
             />
           </Field>
           <p className="text-sm text-muted md:col-span-2">
-            Бот держит маржу — объём позиции, делённый на плечо. Нужен hedge mode позиций на Bybit.
+            Бот держит маржу — объём позиции, делённый на плечо. В one-way режиме Bybit вход против
+            открытой позиции пары не встанет.
           </p>
         </>
       )}

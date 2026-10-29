@@ -18,7 +18,8 @@ namespace ProfitGraph.Venues.Bybit.Trading;
 ///     outcome is an exception, so the intent retries and eventually degrades the bot. Reconciliation checks the key and
 ///     the symbol before a bot trades (ADR 0016, stage 5.8). A submit Bybit does not know is closed only when a long wait and
 ///     independent evidence prove it never took effect (ADR 0030); otherwise it is unresolved. The same gateway serves USDT
-///     perpetuals (ADR 0061): reconciliation also requires the symbol in hedge mode, and an entry first sets the bot's leverage.
+///     perpetuals (ADR 0061) in hedge or one-way mode, read before each order: an entry first sets the bot's leverage, and in one-way
+///     mode an entry is refused while the symbol holds or works the opposite position, which it would net against.
 /// </summary>
 internal sealed class BybitOrderGateway(
     BybitTradeClient trade,
@@ -71,6 +72,21 @@ internal sealed class BybitOrderGateway(
             await PublishExisting(context, submit.ClientOrderId.Value, cancellationToken);
 
             return null;
+        }
+
+        if (context.Market.IsLinear)
+        {
+            BybitLinearPosition position = await reads.LinearPosition(context, cancellationToken);
+            context = context with { Hedge = position.Hedge };
+
+            if (!position.Hedge && !context.Reduces(submit.Order.Side) &&
+                (Opposite(position.Net, context) || await reads.OppositeEntryWorks(context, cancellationToken)))
+            {
+                return ExternalOrderUpdate.Reject(
+                    submit.Order.Id,
+                    RejectionReason.BrokerRejected,
+                    "In one-way mode the symbol holds or works the opposite position, which the entry would net against.");
+            }
         }
 
         decimal? lastPrice = submit.Order.Type == OrderType.Market && (submit.Order.Side == OrderSide.Sell || context.Market.IsLinear)
@@ -137,12 +153,6 @@ internal sealed class BybitOrderGateway(
         if (!await reads.KeyMayTrade(context, cancellationToken))
         {
             return new BotReconciliationInternal([], [], BotStatusReason.KeyPermissions);
-        }
-
-        // Long and short trades of one pair hold separate sides only in hedge mode, which the owner sets (ADR 0061).
-        if (context.Market.IsLinear && await reads.HedgePosition(context, cancellationToken) is null)
-        {
-            return new BotReconciliationInternal([], [], BotStatusReason.VenuePositionMode);
         }
 
         await streams.Open(context, request.AllowForeignOrders, cancellationToken);
@@ -294,6 +304,11 @@ internal sealed class BybitOrderGateway(
         {
             throw new BybitOrderUnresolvedException();
         }
+    }
+
+    private static bool Opposite(decimal net, BybitBotContext context)
+    {
+        return context.Direction == PositionDirection.Long ? net < 0m : net > 0m;
     }
 
     private static RejectionReason Rejection(int? code, OrderSide side, BybitBotContext context)

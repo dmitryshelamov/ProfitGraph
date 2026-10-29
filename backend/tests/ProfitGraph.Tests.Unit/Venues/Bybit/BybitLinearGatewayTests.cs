@@ -76,18 +76,57 @@ public sealed class BybitLinearGatewayTests
     }
 
     [Test]
-    public async Task ASymbolInOneWayModeStopsTheBot()
+    public async Task InOneWayModeOrdersUseTheNetPositionAndExitsStayReduceOnly()
     {
         var harness = new BybitGatewayHarness(linear: true, PositionDirection.Short);
-        harness.Exchange.Positions.Clear();
-        harness.Exchange.Positions.Add((0, "0"));
+        OneWay(harness, "0", "");
 
-        BotReconciliationInternal result = await harness.Gateway.Reconcile(
-            new BotReconcileInternal(harness.Bot.Id, AllowForeignOrders: false, []),
+        BotReconciliationInternal reconciled = await harness.Gateway.Reconcile(
+            new BotReconcileInternal(harness.Bot.Id, AllowForeignOrders: true, []),
             CancellationToken.None);
+        await Submit(harness, Limit(id: 7, OrderSide.Sell, quantity: 0.5m, price: 100m));
+        OneWay(harness, "0.5", "Sell");
+        await Submit(harness, Limit(id: 8, OrderSide.Buy, quantity: 0.5m, price: 90m));
 
-        result.Degradation.ShouldBe(BotStatusReason.VenuePositionMode);
-        harness.PrivateStream.Connects.ShouldBeEmpty();
+        reconciled.Degradation.ShouldBeNull();
+        harness.Exchange.CreateBodies.Select(Index).ShouldBe([(0, false), (0, true)]);
+    }
+
+    [Test]
+    public async Task InOneWayModeAnEntryAgainstTheOppositePositionIsRefused()
+    {
+        var harness = new BybitGatewayHarness(linear: true, PositionDirection.Short);
+
+        // The owner's own long on the symbol: a short entry would sell it instead of opening a short.
+        OneWay(harness, "25", "Buy");
+
+        ExternalOrderUpdate refused = (await Submit(harness, Limit(id: 9, OrderSide.Sell, quantity: 0.5m, price: 100m))).ShouldNotBeNull();
+
+        (refused.Kind, refused.Reason).ShouldBe((ExternalOrderUpdateKind.Rejected, (RejectionReason?)RejectionReason.BrokerRejected));
+        harness.Exchange.CreateBodies.ShouldBeEmpty();
+        harness.Exchange.LeverageBodies.ShouldBeEmpty();
+    }
+
+    [Test]
+    public async Task InOneWayModeAnEntryWhileTheOppositeEntryWorksIsRefusedButAnExitIsNot()
+    {
+        var harness = new BybitGatewayHarness(linear: true);
+        OneWay(harness, "0", "");
+        harness.Exchange.AddOrder("someone-else", "Sell", "New", cumulativeBase: 0m, cumulativeQuote: 0m, []);
+
+        (await Submit(harness, Limit(id: 10, OrderSide.Buy, quantity: 0.5m, price: 100m))).ShouldNotBeNull().Reason.ShouldBe(RejectionReason.BrokerRejected);
+        (await Submit(harness, Limit(id: 11, OrderSide.Sell, quantity: 0.5m, price: 110m))).ShouldBeNull();
+        harness.Exchange.CreateBodies.Select(Index).ShouldBe([(0, true)]);
+    }
+
+    [Test]
+    public async Task InHedgeModeTheOtherSideDoesNotStopAnEntry()
+    {
+        var harness = new BybitGatewayHarness(linear: true, PositionDirection.Short);
+        harness.Exchange.AddOrder("someone-else", "Buy", "New", cumulativeBase: 0m, cumulativeQuote: 0m, []);
+
+        (await Submit(harness, Limit(id: 12, OrderSide.Sell, quantity: 0.5m, price: 100m))).ShouldBeNull();
+        harness.Exchange.CreateBodies.Select(Index).ShouldBe([(2, false)]);
     }
 
     [Test]
@@ -132,6 +171,19 @@ public sealed class BybitLinearGatewayTests
         schema.Leverage(schema.Defaults).ShouldBe(1m);
         schema.Leverage(BotVenueSettings.None).ShouldBe(1m);
         Should.Throw<Exception>(() => schema.Read(invalid.RootElement));
+    }
+
+    private static void OneWay(BybitGatewayHarness harness, string size, string side)
+    {
+        harness.Exchange.Positions.Clear();
+        harness.Exchange.Positions.Add((0, size, side));
+    }
+
+    private static (int Index, bool ReduceOnly) Index(string body)
+    {
+        using JsonDocument order = JsonDocument.Parse(body);
+
+        return (order.RootElement.GetProperty("positionIdx").GetInt32(), order.RootElement.GetProperty("reduceOnly").GetBoolean());
     }
 
     private static OrderSnapshot Limit(long id, OrderSide side, decimal quantity, decimal price)
