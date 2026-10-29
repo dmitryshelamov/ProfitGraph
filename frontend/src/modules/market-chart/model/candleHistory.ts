@@ -24,6 +24,10 @@ export interface ChartLevel {
   readonly side: 'Buy' | 'Sell';
   readonly price: string;
   readonly title: string;
+  /** Drawn solid and thicker: a price a proposed trade uses rather than a level. */
+  readonly solid?: boolean;
+  /** Drawn in the link color whatever its side, such as a proposed entry. */
+  readonly neutral?: boolean;
 }
 
 export function seconds(time: string): number {

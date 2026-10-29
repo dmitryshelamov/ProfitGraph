@@ -35,6 +35,9 @@ const formingAlpha = 0.45;
 /** Dashed, as a level that is not a trade yet. */
 const dashedLine = 2;
 
+/** Solid, as a price a proposed trade uses. */
+const solidLine = 0;
+
 function token(name: string, fallback: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
@@ -226,6 +229,7 @@ export function CandleHistoryChart({
 
     const up = token('--color-up', '#3fd393');
     const down = token('--color-down', '#ff6b81');
+    const neutral = token('--color-link', '#7aa7ff');
 
     for (const line of current.lines) {
       current.candles.removePriceLine(line);
@@ -234,9 +238,9 @@ export function CandleHistoryChart({
     current.lines = levels.map((level) =>
       current.candles.createPriceLine({
         price: Number(level.price),
-        color: level.side === 'Buy' ? up : down,
-        lineStyle: dashedLine,
-        lineWidth: 1,
+        color: level.neutral ? neutral : level.side === 'Buy' ? up : down,
+        lineStyle: level.solid ? solidLine : dashedLine,
+        lineWidth: level.solid ? 2 : 1,
         axisLabelVisible: true,
         title: level.title,
       }),

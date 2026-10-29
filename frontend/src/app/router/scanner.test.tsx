@@ -210,7 +210,10 @@ describe('scanner page', () => {
     await userEvent.click(await screen.findByRole('link', { name: 'SOLUSDT' }));
 
     expect(await screen.findByRole('heading', { name: 'SOLUSDT' })).toBeInTheDocument();
-    expect(await screen.findByText('187.5')).toBeInTheDocument();
+    expect(
+      within(await screen.findByLabelText('Главные метрики')).getByText('+4.25'),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('187.5').length).toBeGreaterThan(0);
     await waitFor(() => expect(candleTimeframes()).toContain('15m'));
     const levels15m = (await screen.findByRole('heading', { name: 'Уровни 15m' })).closest(
       'section',
@@ -229,7 +232,7 @@ describe('scanner page', () => {
     expect(screen.getByRole('link', { name: '1h' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('creates the ticked cards of every timeframe with the prices they show', async () => {
+  it('creates the ticked ideas of every timeframe with the profit and loss they show', async () => {
     const created = {
       id: 'trade-1',
       venue: 'bybit',
@@ -339,21 +342,37 @@ describe('scanner page', () => {
 
     renderApp('/scanner/bybit/SOLUSDT');
 
-    const levels = await screen.findByRole('article', { name: 'Идея: Лонг Уровни 15m' });
+    const levels = await screen.findByRole('row', { name: 'Идея: Лонг Уровни 15m' });
     expect(within(levels).getByText('96.15 USDT')).toBeInTheDocument();
-    expect(within(levels).getByText('R:R 2.4')).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Идеи по 4h' })).toBeInTheDocument();
-    expect(screen.getByText(/Риск на сделку/)).toHaveTextContent('ключ «Основной»');
+    expect(within(levels).getByText('+11.35 USDT')).toBeInTheDocument();
+    expect(within(levels).getByText('+11.8%')).toBeInTheDocument();
+    expect(within(levels).getByText('-5 USDT')).toBeInTheDocument();
+    expect(within(levels).getByText('-5.2%')).toBeInTheDocument();
+    expect(within(levels).getByText('2.27')).toBeInTheDocument();
+    expect(within(levels).getByText('без ком. 2.4')).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: 'Идея: Лонг Цель 2R 4h' })).toBeInTheDocument();
+    expect(
+      within(await screen.findByLabelText('Настройки сделок')).getByText('Основной'),
+    ).toBeInTheDocument();
 
     await userEvent.click(
-      within(screen.getByRole('article', { name: 'Идея: Лонг Откат 1h' })).getByRole('button', {
+      within(screen.getByRole('row', { name: 'Идея: Лонг Откат 1h' })).getByRole('button', {
         name: 'Скрыть',
       }),
     );
-    expect(screen.queryByRole('article', { name: 'Идея: Лонг Откат 1h' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('row', { name: 'Идея: Лонг Откат 1h' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Показать скрытые (1)' })).toBeInTheDocument();
 
     await userEvent.click(within(levels).getByRole('checkbox'));
-    expect(screen.getByText(/Сумма 96.15 USDT, потеря на всех стопах 5 USDT/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Сумма 96.15 USDT, прибыль на всех целях \+11.35 USDT, потеря на всех стопах 5 USDT/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('figure', { name: 'Свечи SOLUSDT' })).toHaveAttribute(
+      'data-levels',
+      '3',
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Создать выбранные (1)' }));
 
     expect(await within(levels).findByRole('link', { name: 'бот сделки' })).toHaveAttribute(
@@ -461,10 +480,13 @@ describe('scanner page', () => {
 
     renderApp('/scanner/bybit-linear/SOLUSDT');
 
-    const card = await screen.findByRole('article', { name: 'Идея: Шорт Уровни 15m' });
-    expect(within(card).getByText(/Продажа по текущей цене/)).toBeInTheDocument();
-    expect(within(card).getByText('Продажа, лимит')).toBeInTheDocument();
-    expect(await screen.findByText(/Риск на сделку/)).toHaveTextContent('плечо 3×');
+    const card = await screen.findByRole('row', { name: 'Идея: Шорт Уровни 15m' });
+    expect(within(card).getByText('Продажа лимиткой, ждёт 1 ч')).toBeInTheDocument();
+    expect(within(card).getByText('-12%')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Направление' })).toBeInTheDocument();
+    expect(
+      within(await screen.findByLabelText('Настройки сделок')).getByText('3×'),
+    ).toBeInTheDocument();
 
     await userEvent.click(within(card).getByRole('checkbox'));
     await userEvent.click(screen.getByRole('button', { name: 'Создать выбранные (1)' }));
