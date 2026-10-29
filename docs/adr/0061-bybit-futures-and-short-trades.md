@@ -37,7 +37,7 @@ exchanged every few hours, and the account's margin mode and position mode decid
   key, because credentials, accounts and account cards are keyed by venue (ADR 0003); sharing one credential across two venues is
   a core change for little gain.*
 
-### 2. Positions on the venue: hedge mode, 1× leverage, reduce-only exits
+### 2. Positions on the venue: hedge mode, configurable leverage, reduce-only exits
 
 - **Position mode (owner).** The page shows long and short cards of one pair, and the owner may tick both (ADR 0060 allows several
   trades on one pair). In Bybit's one-way mode those trades net into one position, and a reduce-only exit of one trade is rejected
