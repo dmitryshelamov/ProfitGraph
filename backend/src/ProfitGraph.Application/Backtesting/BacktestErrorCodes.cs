@@ -7,6 +7,7 @@ public static class BacktestErrorCodes
     public const string UnknownParameter = "unknown_parameter";
     public const string ParameterFixedAndRanged = "parameter_fixed_and_ranged";
     public const string InvalidSplit = "invalid_split";
+    public const string GridProfitBelowFees = "grid_profit_below_fees";
 
     /// <summary>
     ///     The strategy version no longer compiles to the frozen fingerprint, for example after an engine change.

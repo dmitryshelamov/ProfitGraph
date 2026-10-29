@@ -21,6 +21,7 @@ internal sealed class ChangeBotParametersCommandHandler(
     IBotCheckpointRepository checkpoints,
     IStrategyRepository strategies,
     BacktestCompiler compiler,
+    BotGridRules gridRules,
     TimeProvider clock) : IRequestHandler<ChangeBotParametersCommand, BotInternal>
 {
     public async Task<BotInternal> Handle(ChangeBotParametersCommand command, CancellationToken cancellationToken)
@@ -30,6 +31,12 @@ internal sealed class ChangeBotParametersCommandHandler(
         StrategyVersion latest = await strategies.Latest(bot, cancellationToken);
         IReadOnlyDictionary<string, decimal> parameters = command.Parameters!;
         BotParameterRules.Ensure(latest.Definition, parameters);
+
+        if (BotGridRules.HasGrid(latest.Definition))
+        {
+            gridRules.Ensure(bot.Series, bot.FeeRates, compiler.Compile(latest.Definition, parameters));
+        }
+
         BotCheckpoint? checkpoint = await checkpoints.Get(bot.Id, cancellationToken);
 
         if (checkpoint is not null)

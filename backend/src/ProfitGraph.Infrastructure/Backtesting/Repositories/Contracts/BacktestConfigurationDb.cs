@@ -30,6 +30,12 @@ internal sealed class BacktestConfigurationDb
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? SettlementHoldSeconds { get; init; }
 
+    /// <summary>
+    ///     Stored only for <c>Through</c>; a run stored without it fills limits on touch (ADR 0057).
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LimitFill { get; init; }
+
     public string ExecutionPolicy { get; init; } = null!;
     public string Fingerprint { get; init; } = null!;
 }

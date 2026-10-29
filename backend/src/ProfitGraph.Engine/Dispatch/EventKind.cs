@@ -9,5 +9,7 @@ public enum EventKind
     Cancelled,
     Rejected,
     CancelCompleted,
-    Resume
+    Resume,
+    GridStarted,
+    GridStopped
 }

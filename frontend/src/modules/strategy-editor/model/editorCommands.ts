@@ -30,10 +30,14 @@ export function blockExits(block: StrategyBlock): readonly string[] {
     : block.kind === 'condition'
       ? ['yes', 'no']
       : block.kind === 'cancel'
-        ? ['completed', 'rejected']
+        ? block.grid
+          ? ['completed']
+          : ['completed', 'rejected']
         : block.kind === 'order'
           ? ['submitted', 'filled', 'cancelled', 'rejected']
-          : [];
+          : block.kind === 'grid'
+            ? ['started', 'stopped']
+            : [];
 }
 export function addBlock(block: StrategyBlock): EditorCommand {
   return edit('Добавление блока', (definition) => {

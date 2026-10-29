@@ -1,5 +1,11 @@
+using System.Collections.ObjectModel;
+
 namespace ProfitGraph.Engine.Blocks;
 
+/// <summary>
+///     One block of a strategy. A grid block keeps its settings by name in <see cref="Settings" />; a cancel block either
+///     cancels a tag or names a grid block in <see cref="Grid" /> (ADR 0058).
+/// </summary>
 public sealed record StrategyBlock
 {
     public string Id { get; }
@@ -16,6 +22,8 @@ public sealed record StrategyBlock
     public ValueExpression? Price { get; }
     public string? SizeMode { get; }
     public string? MinimumOrderPolicy { get; }
+    public IReadOnlyDictionary<string, ValueExpression> Settings { get; }
+    public string? Grid { get; }
 
     public StrategyBlock(
         string id,
@@ -31,7 +39,9 @@ public sealed record StrategyBlock
         ValueExpression? quantity = null,
         ValueExpression? price = null,
         string? sizeMode = null,
-        string? minimumOrderPolicy = null)
+        string? minimumOrderPolicy = null,
+        IReadOnlyDictionary<string, ValueExpression>? settings = null,
+        string? grid = null)
     {
         Id = id;
         Kind = kind;
@@ -47,5 +57,8 @@ public sealed record StrategyBlock
         Price = price;
         SizeMode = sizeMode;
         MinimumOrderPolicy = minimumOrderPolicy == "Reject" ? null : minimumOrderPolicy;
+        Settings = new ReadOnlyDictionary<string, ValueExpression>(
+            new Dictionary<string, ValueExpression>(settings ?? new Dictionary<string, ValueExpression>(), StringComparer.Ordinal));
+        Grid = grid;
     }
 }

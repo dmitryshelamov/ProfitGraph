@@ -33,6 +33,7 @@ import {
   upsertValue,
 } from '../model/editorCommands';
 import { useEditorStore } from '../model/editorStore';
+import { gridSettings } from '../model/gridSettings';
 import {
   needsCandle,
   needsOrderConversion,
@@ -54,6 +55,7 @@ const kindLines: Record<string, string> = {
   condition: 'Условие · развилка да / нет',
   order: 'Ордер · выставить заявку',
   cancel: 'Отмена · снять заявку',
+  grid: 'Сетка · ступени покупок и продаж',
 };
 const eventHints: Record<string, string> = {
   OnStart: 'один раз, в самом начале прогона',
@@ -73,6 +75,7 @@ const exitHints: Record<string, Record<string, string>> = {
     rejected: 'не приняли',
   },
   cancel: { completed: 'заявка снята', rejected: 'снять не удалось' },
+  grid: { started: 'сетка запущена от текущей цены', stopped: 'стоп ниже сетки или остановка' },
 };
 const sizeNames = { amount: 'Сумма', quantity: 'Количество', price: 'Цена' } as const;
 const sizeAccusative = { amount: 'сумму', quantity: 'количество', price: 'цену' } as const;
@@ -925,6 +928,29 @@ export function FlowchartInspector({
     </div>
   );
 
+  const grids = definition.blocks.filter((item) => item.kind === 'grid');
+  const cancelTarget = (
+    <div className="insp-row">
+      <span className="insp-label">Отменяет</span>
+      <Choice
+        label="Что отменяет"
+        value={block.grid ? 'grid' : 'tag'}
+        options={[
+          { value: 'tag', label: 'Ордер по метке' },
+          ...(grids.length > 0 ? [{ value: 'grid', label: 'Сетку' }] : []),
+        ]}
+        onChange={(target) =>
+          editor.execute(
+            updateBlock(
+              target === 'grid'
+                ? { ...block, tag: undefined, grid: grids[0]!.id }
+                : { ...block, grid: undefined },
+            ),
+          )
+        }
+      />
+    </div>
+  );
   const tagText = expressionText(block.tag, definition);
   const tagOwners = definition.blocks.filter(
     (item) =>
@@ -933,6 +959,7 @@ export function FlowchartInspector({
   const cancelPart = block.kind === 'cancel' && (
     <div className="insp-group" role="group" aria-label="Что отменяет">
       <h4 className="insp-sub">Что отменяет</h4>
+      {cancelTarget}
       <div className="insp-row">
         <span className="insp-label">Метка</span>
         {tag.inline}
@@ -946,6 +973,58 @@ export function FlowchartInspector({
           <span className="insp-text">ни один ордер в стратегии.</span>
         )}
       </div>
+    </div>
+  );
+
+  const gridCancelPart = block.kind === 'cancel' && block.grid && (
+    <div className="insp-group" role="group" aria-label="Что отменяет">
+      <h4 className="insp-sub">Что отменяет</h4>
+      {cancelTarget}
+      <div className="insp-row">
+        <span className="insp-label">Сетка</span>
+        <select
+          aria-label="Сетка"
+          value={block.grid}
+          onChange={(event) => change({ grid: event.target.value })}
+        >
+          {grids.map((item) => (
+            <option key={item.id} value={item.id}>
+              {label(item)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <p className="insp-hint">
+        Снимает все заявки сетки и останавливает её без продажи: купленное остаётся на счёте.
+      </p>
+    </div>
+  );
+  const gridPart = block.kind === 'grid' && (
+    <div className="insp-group" role="group" aria-label="Настройки сетки">
+      <h4 className="insp-sub">Настройки сетки</h4>
+      <p className="insp-hint">
+        Покупки ступенями ниже цены старта, у каждой ступени свой лот и своя продажа. Значения —
+        параметры или числа, без цен и балансов.
+      </p>
+      {gridSettings.map((setting) => (
+        <div key={setting.key} className="insp-edit is-field">
+          <ValueExpressionEditor
+            label={setting.label}
+            expression={block.settings?.[setting.key]}
+            definition={definition}
+            catalog={catalog}
+            valueType={setting.valueType}
+            onChange={(value) =>
+              change(
+                { settings: { ...block.settings, [setting.key]: value } },
+                `${block.id}:${setting.key}`,
+              )
+            }
+            onBlur={editor.endHistoryGroup}
+          />
+          <span className="insp-hint is-block">{setting.hint}</span>
+        </div>
+      ))}
     </div>
   );
 
@@ -1048,7 +1127,8 @@ export function FlowchartInspector({
           {eventPart}
           {conditionPart}
           {orderPart}
-          {cancelPart}
+          {block.grid ? gridCancelPart : cancelPart}
+          {gridPart}
         </Step>
         {outputStep}
       </div>
