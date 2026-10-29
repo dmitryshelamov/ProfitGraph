@@ -12,7 +12,7 @@ public static class TestHistoryRegistration
 {
     /// <summary>
     ///     Adds a venue with history and instruments served by <see cref="FakeHistorySource" /> and <see cref="FakeInstrumentSource" />
-    ///     with fee rates from <see cref="FakeFeeRateReader" />,
+    ///     with fee rates from <see cref="FakeFeeRateReader" /> and room for grids from <see cref="FakeRestingOrderCapacity" />,
     ///     a venue without any of them, and a venue whose credential selects an account of <see cref="FakeAccountDirectory" />.
     /// </summary>
     public static IServiceCollection AddTestHistory(this IServiceCollection services)
@@ -29,6 +29,8 @@ public static class TestHistoryRegistration
         services.AddSingleton<IVenueCredentialSchema>(new TestCredentialSchema(TestHistoryVenue.WithoutHistory));
         services.AddSingleton<FakeFeeRateReader>();
         services.AddSingleton<IVenueFeeRateReader>(provider => provider.GetRequiredService<FakeFeeRateReader>());
+        services.AddSingleton<FakeRestingOrderCapacity>();
+        services.AddSingleton<IVenueRestingOrderCapacity>(provider => provider.GetRequiredService<FakeRestingOrderCapacity>());
         services.AddSingleton<IVenueBotSettings, FakeVenueBotSettings>();
         services.AddSingleton<FakeCredentialEnrollment>();
         services.AddSingleton<IVenueCredentialEnrollment>(provider => provider.GetRequiredService<FakeCredentialEnrollment>());

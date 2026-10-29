@@ -4,6 +4,7 @@ using FluentValidation.Results;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.MarketData;
+using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Application.Backtesting.StartBacktest;
 
@@ -67,5 +68,9 @@ internal sealed class StartBacktestCommandValidator : AbstractValidator<StartBac
             .InclusiveBetween(from: 0L, MaxSettlementHoldSeconds)
             .When(command => command.SettlementHoldSeconds is not null);
         RuleFor(command => command.OutOfSampleFraction).InclusiveBetween(from: 0m, to: 0.9m).When(command => command.OutOfSampleFraction is not null);
+        RuleFor(command => command.LimitFill)
+            .Must(mode => mode is nameof(LimitFillMode.Touch) or nameof(LimitFillMode.Through))
+            .WithMessage("The limit fill mode is Touch or Through.")
+            .When(command => command.LimitFill is not null);
     }
 }

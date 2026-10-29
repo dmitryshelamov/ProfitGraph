@@ -352,7 +352,10 @@ export function FlowchartEditor({
       label: strategyBlockLabel({ id: '', kind: 'order', orderKind: order.key, side }),
     })),
   );
-  actionDefinitions.push({ key: 'cancel', label: 'Отмена ордера' });
+  actionDefinitions.push(
+    { key: 'grid', label: 'Сетка' },
+    { key: 'cancel', label: 'Отмена ордера' },
+  );
   const palette = [
     {
       title: 'Событие',

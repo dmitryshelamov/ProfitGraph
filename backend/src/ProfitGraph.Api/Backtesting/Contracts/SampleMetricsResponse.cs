@@ -1,5 +1,8 @@
 namespace ProfitGraph.Api.Backtesting.Contracts;
 
+/// <summary>
+///     One sample's metrics; the capital cost metrics (ADR 0057) are null for a run stored before them.
+/// </summary>
 public sealed record SampleMetricsResponse(
     int StartIndex,
     int EndExclusive,
@@ -13,4 +16,10 @@ public sealed record SampleMetricsResponse(
     string? FeesBase,
     string? FeesQuote,
     string? MaxDrawdownPercent,
-    long Executions);
+    long Executions,
+    string? MaxCapitalDeployed,
+    string? MaxCapitalDeployedPercent,
+    string? MaxCapitalCommitted,
+    string? TimeInPositionPercent,
+    string? TimeUnderWaterPercent,
+    int? LongestUnderWaterCandles);

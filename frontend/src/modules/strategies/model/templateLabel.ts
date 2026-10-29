@@ -8,6 +8,7 @@ const labels: Record<string, string> = {
   VolumeMomentum: 'Импульс на объёме',
   LadderPlus: 'Ladder+',
   DcaProfitFox: 'DCA (как в Profit Fox)',
+  Grid: 'Сетка',
 };
 
 /** The template a strategy was created from; a strategy without a template marker is the user's own. */

@@ -26,6 +26,7 @@ internal sealed class GetStrategyTemplatesQueryHandler : IRequestHandler<GetStra
         StrategyDefinition volumeMomentum = VolumeMomentumStrategyBlockFactory.Create();
         StrategyDefinition ladderPlus = LadderPlusStrategyBlockFactory.Create();
         StrategyDefinition dca = ProfitFoxDcaStrategyBlockFactory.Create();
+        StrategyDefinition grid = GridStrategyBlockFactory.Create();
         IReadOnlyList<StrategyTemplateInternal> templates =
         [
             new StrategyTemplateInternal(
@@ -75,6 +76,12 @@ internal sealed class GetStrategyTemplatesQueryHandler : IRequestHandler<GetStra
                 "DCA (как в Profit Fox)",
                 "Покупка по рынку на старте и затем каждые N закрытых свечей, пока позиция не достигнет лимита; без продаж.",
                 dca.ToInternal(),
+                StrategyTemplateLayouts.Ladder().ToInternal()),
+            new StrategyTemplateInternal(
+                grid.TemplateKind!.Value,
+                "Сетка",
+                "Лимитные покупки ступенями ниже цены старта, у каждой ступени свой лот и своя продажа с шагом прибыли; спот, только long.",
+                grid.ToInternal(),
                 StrategyTemplateLayouts.Ladder().ToInternal())
         ];
 

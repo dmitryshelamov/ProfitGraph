@@ -57,6 +57,12 @@ export function RunConfiguration({ run }: { run: BacktestRun }) {
           ],
         ]),
     ['Проскальзывание', percent(configuration.slippage)],
+    [
+      'Исполнение лимитов',
+      configuration.limitFill === 'Through'
+        ? 'пробой: цена прошла лимит'
+        : 'касание: цена дошла до лимита',
+    ],
     ['Отложенная выборка', percent(configuration.outOfSampleFraction)],
     ...Object.entries(configuration.parameters).map(([name, value]): [string, ReactNode] => [
       parameterReadableName(name),

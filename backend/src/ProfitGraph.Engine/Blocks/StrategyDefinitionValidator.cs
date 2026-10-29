@@ -2,6 +2,7 @@ using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Graphs.Validation;
 using ProfitGraph.Engine.Lowering;
 using ProfitGraph.Engine.Nodes;
+using ProfitGraph.Engine.Nodes.BuiltIn;
 
 using ValueType = ProfitGraph.Engine.Nodes.ValueType;
 
@@ -219,9 +220,43 @@ public sealed class StrategyDefinitionValidator
 
                     break;
                 case "cancel":
-                    if (block.Tag is null)
+                    if (block.Grid is not null)
+                    {
+                        if (block.Tag is not null || !definition.Blocks.Any(candidate => candidate.Kind == "grid" && candidate.Id == block.Grid))
+                        {
+                            Add(GraphDiagnosticCode.InvalidParameter, "A grid cancel names one grid block and no tag.", source);
+                        }
+                    }
+                    else if (block.Tag is null)
                     {
                         Add(GraphDiagnosticCode.MissingParameter, "Specify the cancellation tag.", source);
+                    }
+
+                    break;
+                case "grid":
+                    foreach ((string key, _) in GridNodeDefinition.Settings)
+                    {
+                        if (!block.Settings.TryGetValue(key, out ValueExpression? setting))
+                        {
+                            Add(GraphDiagnosticCode.MissingInput, "Missing grid setting: " + key + ".", source);
+                        }
+                        else if (!IsStatic(setting, new HashSet<string>(StringComparer.Ordinal)))
+                        {
+                            Add(GraphDiagnosticCode.InvalidParameter, "A grid setting must be a parameter, a constant or arithmetic over them: " + key + ".", source);
+                        }
+                    }
+
+                    foreach (string key in block.Settings.Keys)
+                    {
+                        if (!GridNodeDefinition.Settings.Any(setting => setting.Key == key))
+                        {
+                            Add(GraphDiagnosticCode.UnknownParameter, "Unknown grid setting: " + key + ".", source);
+                        }
+                    }
+
+                    foreach (ValueExpression setting in block.Settings.Values)
+                    {
+                        InspectExpression(setting, source);
                     }
 
                     break;
@@ -354,6 +389,18 @@ public sealed class StrategyDefinitionValidator
 
                 return null;
             }
+        }
+
+        bool IsStatic(ValueExpression expression, HashSet<string> visited)
+        {
+            return expression.Kind switch
+            {
+                "constant" or "parameter" => true,
+                "value" => expression.Name is not null && (!visited.Add(expression.Name) ||
+                    !values.TryGetValue(expression.Name, out StrategyValue? named) || IsStatic(named.Expression, visited)),
+                "arithmetic" => expression.Arguments.Values.All(argument => IsStatic(argument, visited)),
+                _ => false
+            };
         }
 
         void MinimumPolicy(string? policy, string? side, StrategySource source)
@@ -581,7 +628,7 @@ public sealed class StrategyDefinitionValidator
         return block.Kind switch
         {
             "event" => ["out"], "condition" => ["yes", "no"], "order" => ["submitted", "filled", "cancelled", "rejected"],
-            "cancel" => ["completed", "rejected"], _ => []
+            "cancel" => block.Grid is null ? ["completed", "rejected"] : ["completed"], "grid" => ["started", "stopped"], _ => []
         };
     }
 }

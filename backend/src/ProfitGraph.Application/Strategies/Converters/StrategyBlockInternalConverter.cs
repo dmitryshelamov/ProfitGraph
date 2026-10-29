@@ -21,7 +21,9 @@ public static class StrategyBlockInternalConverter
             value.Quantity?.ToDomain(),
             value.Price?.ToDomain(),
             value.SizeMode,
-            value.MinimumOrderPolicy == "Reject" ? null : value.MinimumOrderPolicy);
+            value.MinimumOrderPolicy == "Reject" ? null : value.MinimumOrderPolicy,
+            value.Settings?.ToDictionary(pair => pair.Key, pair => pair.Value.ToDomain(), StringComparer.Ordinal),
+            value.Grid);
     }
 
     public static StrategyBlockInternal ToInternal(this StrategyBlock value)
@@ -40,6 +42,8 @@ public static class StrategyBlockInternalConverter
             value.Quantity?.ToInternal(),
             value.Price?.ToInternal(),
             value.SizeMode,
-            value.MinimumOrderPolicy == "Reject" ? null : value.MinimumOrderPolicy);
+            value.MinimumOrderPolicy == "Reject" ? null : value.MinimumOrderPolicy,
+            value.Settings.Count == 0 ? null : value.Settings.ToDictionary(pair => pair.Key, pair => pair.Value.ToInternal(), StringComparer.Ordinal),
+            value.Grid);
     }
 }

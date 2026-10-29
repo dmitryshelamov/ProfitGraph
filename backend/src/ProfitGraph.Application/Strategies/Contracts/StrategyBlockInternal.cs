@@ -14,4 +14,6 @@ public sealed record StrategyBlockInternal(
     ValueExpressionInternal? Quantity = null,
     ValueExpressionInternal? Price = null,
     string? SizeMode = null,
-    string? MinimumOrderPolicy = null);
+    string? MinimumOrderPolicy = null,
+    IReadOnlyDictionary<string, ValueExpressionInternal>? Settings = null,
+    string? Grid = null);
