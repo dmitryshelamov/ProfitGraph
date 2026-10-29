@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 
 using NSubstitute;
 
@@ -25,6 +26,40 @@ namespace ProfitGraph.Tests.Unit.Engine.Replay;
 
 public sealed class ReplayOutputRegressionTests
 {
+    // ADR 0057 added the limit fill mode, the open-position flag and the capital cost metrics; leaving them out of the hash shows
+    // that everything recorded before them is byte-identical.
+    private static readonly HashSet<(Type Type, string Name)> AddedLater = new HashSet<(Type Type, string Name)>
+    {
+        (typeof(ExecutionSettings), nameof(ExecutionSettings.LimitFill)),
+        (typeof(CandleSnapshot), nameof(CandleSnapshot.InPosition)),
+        (typeof(SampleMetrics), nameof(SampleMetrics.MaxCapitalDeployed)),
+        (typeof(SampleMetrics), nameof(SampleMetrics.MaxCapitalDeployedPercent)),
+        (typeof(SampleMetrics), nameof(SampleMetrics.MaxCapitalCommitted)),
+        (typeof(SampleMetrics), nameof(SampleMetrics.TimeInPositionPercent)),
+        (typeof(SampleMetrics), nameof(SampleMetrics.TimeUnderWaterPercent)),
+        (typeof(SampleMetrics), nameof(SampleMetrics.LongestUnderWaterCandles))
+    };
+
+    private static readonly JsonSerializerOptions HashOptions = new JsonSerializerOptions
+    {
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver
+        {
+            Modifiers =
+            {
+                info =>
+                {
+                    for (int index = info.Properties.Count - 1; index >= 0; index--)
+                    {
+                        if (AddedLater.Contains((info.Type, info.Properties[index].Name)))
+                        {
+                            info.Properties.RemoveAt(index);
+                        }
+                    }
+                }
+            }
+        }
+    };
+
     [TestCase("Sma", "1833B6A171D5A84C6BF007EF2E26A05DD806C2CD1A9988F8CFCFED5970A0691C")]
     [TestCase("Ladder", "98963CB8B0F4B13191F1A0FBA9B176FAEEA31531BB7BBA16CCC59383E55AD075")]
     [TestCase("BlockSma", "1833B6A171D5A84C6BF007EF2E26A05DD806C2CD1A9988F8CFCFED5970A0691C")]
@@ -68,8 +103,7 @@ public sealed class ReplayOutputRegressionTests
         result.Terminal.Outcome.ShouldBe(BacktestOutcome.Completed);
         result.FillCount.ShouldBeGreaterThan(0);
 
-        byte[] output = JsonSerializer.SerializeToUtf8Bytes(new { Result = result, Metrics = observer.Snapshot });
-        Convert.ToHexString(SHA256.HashData(output)).ShouldBe(expectedHash);
+        Hash(new { Result = result, Metrics = observer.Snapshot }).ShouldBe(expectedHash);
     }
 
     private static StrategyDefinition LadderWithResume()
@@ -372,6 +406,6 @@ public sealed class ReplayOutputRegressionTests
 
     private static string Hash<T>(T output)
     {
-        return Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(output)));
+        return Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(output, HashOptions)));
     }
 }

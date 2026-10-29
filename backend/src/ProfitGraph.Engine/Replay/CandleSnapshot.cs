@@ -15,7 +15,12 @@ public sealed record CandleSnapshot
     public decimal UnrealizedPnl { get; }
     public decimal TotalPnl { get; }
 
-    public CandleSnapshot(long sequence, ReachedMarketContext context, AccountSnapshot account)
+    /// <summary>
+    ///     Whether the position was open at this close by the engine's flat rule (ADR 0057).
+    /// </summary>
+    public bool InPosition { get; }
+
+    public CandleSnapshot(long sequence, ReachedMarketContext context, AccountSnapshot account, bool inPosition = false)
     {
         AccountValuation valuation = AccountValuation.Capture(account, context.MarketPrice);
         Sequence = sequence;
@@ -24,6 +29,7 @@ public sealed record CandleSnapshot
         Equity = valuation.Equity;
         UnrealizedPnl = valuation.UnrealizedPnl;
         TotalPnl = valuation.TotalPnl;
+        InPosition = inPosition;
     }
 
     private CandleSnapshot(
@@ -32,7 +38,8 @@ public sealed record CandleSnapshot
         AccountSnapshot account,
         decimal equity,
         decimal unrealizedPnl,
-        decimal totalPnl)
+        decimal totalPnl,
+        bool inPosition)
     {
         if (sequence <= 0)
         {
@@ -45,6 +52,7 @@ public sealed record CandleSnapshot
         Equity = equity;
         UnrealizedPnl = unrealizedPnl;
         TotalPnl = totalPnl;
+        InPosition = inPosition;
     }
 
     /// <summary>
@@ -56,8 +64,9 @@ public sealed record CandleSnapshot
         AccountSnapshot account,
         decimal equity,
         decimal unrealizedPnl,
-        decimal totalPnl)
+        decimal totalPnl,
+        bool inPosition = false)
     {
-        return new CandleSnapshot(sequence, context, account, equity, unrealizedPnl, totalPnl);
+        return new CandleSnapshot(sequence, context, account, equity, unrealizedPnl, totalPnl, inPosition);
     }
 }

@@ -188,3 +188,17 @@ filled orders.
 | 2. Queue and delivery | `telegram_notifications`, alert handler, `TelegramDeliveryHost` with claims, retries, age and rate limits, bot names, migration of unsent alerts | Integration tests against a fake Bot API: a 429 and a 500 are retried, a 400 fails one row without holding the next, a 403 blocks the chat, old rows are skipped | Done on the fake Bot API |
 | 3. Updates | `TelegramUpdateProcessor`, message and callback handlers, `/help`, the «Принято» button | A pressed button acknowledges the owner's alert and only theirs | Done on the fake Bot API |
 | 4. Trading messages | Lifecycle, closed positions, `BotOrderFilled` and the filled-order message | A partly filled order sends one message when it is filled; Engine hashes unchanged | Done on the scripted venue |
+
+## Grid
+
+A spot long-only grid with an honest backtest ([ADR 0057](adr/0057-limit-fills-through-the-price-and-capital-cost-metrics.md),
+[ADR 0058](adr/0058-grid-block.md)), after the owner ranked work: indicators, trend and counter-trend templates, the grid, a
+scanner. The edge over Bybit's free grid bots is a configurable backtest, so fill realism and the fee check come first.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Honest fills and cost metrics | ADR 0057: `LimitFill` (`Touch`, `Through`) as a run setting with `Through` as the request default and `Touch` for stored runs; max capital deployed and committed, time in position, time under water and the longest stretch under water in every sample | Engine tests fill on a trade-through and not on a touch; pinned replay hashes are unchanged; a stored run reads as `Touch` | Done |
+| 2. Grid in backtests | ADR 0058 sections 1–8: the `grid` block and `Grid` node, level state, desired-order reconciliation, upward shift, stop below the grid, cancel of a grid, the fee check and its optimization rejection, the «Сетка» template, the editor's grid inspector | A grid backtest on Bybit candles runs from template to result charts; engine tests cover partial fills, the order limit, the shift, the stop and determinism | Planned |
+| 3. Grid on live bots | ADR 0058 sections 9–10: `IVenueRestingOrderCapacity` for Bybit and the scripted venue, grid state in the checkpoint, start refusal on other venues, the fee check at start | A grid bot passes its scenarios on the scripted venue and the mock Bybit: restart with levels, owner cancel, venue cancel, partial fill, kill switch | Planned |
+| 4. T-Invest and Steam grids | Their own scenarios: DAY orders carried over every night, the single Steam buy slot in replay and live | | Not started |
+| 5. Grid levels on the bot chart | The grid's levels and anchor on the bot chart | | Not started |

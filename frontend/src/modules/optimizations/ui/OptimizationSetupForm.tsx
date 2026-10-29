@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { type FormEvent, type ReactElement, type ReactNode, useState } from 'react';
 
+import { LimitFillField } from '@/modules/backtests';
 import type { BackgroundJob } from '@/modules/jobs';
 import { SeriesFields } from '@/modules/market-data';
 import { isPercentageParameter, parameterReadableName, type Strategy } from '@/modules/strategies';
@@ -169,6 +170,10 @@ export function OptimizationSetupForm({
         <div className="grid gap-4 sm:grid-cols-2">
           {backtestText('startingCapital', 'Начальный капитал, в валюте котировки')}
           {backtestText('slippagePercent', 'Проскальзывание рыночных ордеров, %')}
+          <LimitFillField
+            value={values.backtest.limitFill}
+            onChange={(mode) => setBacktest('limitFill', mode)}
+          />
           {backtestText('limitFeePercent', 'Комиссия лимитных ордеров, %')}
           {backtestText('marketFeePercent', 'Комиссия рыночных ордеров, %')}
           {backtestText('holdoutPercent', 'Отложенная выборка в конце периода, %')}

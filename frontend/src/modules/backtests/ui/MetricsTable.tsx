@@ -13,11 +13,20 @@ const columns: readonly [string, (metrics: SampleMetrics) => ReactNode][] = [
   ['Комиссии в базовой', (metrics) => <Amount value={metrics.feesBase} places={8} />],
   ['Комиссии в котировке', (metrics) => <Amount value={metrics.feesQuote} />],
   ['Исполнений', (metrics) => <span className="font-mono">{metrics.executions}</span>],
+  ['Макс. капитал в позиции', (metrics) => <Amount value={metrics.maxCapitalDeployed} />],
+  ['Макс. задействовано с заявками', (metrics) => <Amount value={metrics.maxCapitalCommitted} />],
+  ['В позиции, % свечей', (metrics) => <Amount value={metrics.timeInPositionPercent} />],
+  ['Под водой, % свечей', (metrics) => <Amount value={metrics.timeUnderWaterPercent} />],
+  [
+    'Дольше всего под водой, свечей',
+    (metrics) => <span className="font-mono">{metrics.longestUnderWaterCandles ?? '—'}</span>,
+  ],
 ];
 
 /**
  * The same metrics for the whole period, the in-sample part and the holdout at its end; a strategy tuned on the
- * in-sample part should hold up on the holdout.
+ * in-sample part should hold up on the holdout. The capital columns show what the position cost besides fees (ADR 0057);
+ * a run stored before them shows a dash.
  */
 export function MetricsTable({ run }: { run: BacktestRun }) {
   const metrics = run.result?.metrics;

@@ -62,12 +62,16 @@ public sealed class BacktestResultTests
         run["stage"]!.GetValue<string>().ShouldBe("replaying");
         run["configuration"]!["parameters"]!["buyAmount"]!.GetValue<string>().ShouldBe("50");
         run["configuration"]!["outOfSampleFraction"]!.GetValue<string>().ShouldBe("0.25");
+        run["configuration"]!["limitFill"]!.GetValue<string>().ShouldBe("Through");
         run["history"]!["replayCount"]!.GetValue<int>().ShouldBe(240);
         run["history"]!["quoteAsset"]!.GetValue<string>().ShouldBe("USDT");
         run["history"]!["rules"]!["priceTick"]!.GetValue<string>().ShouldBe("0.01");
         run["result"]!["outcome"]!.GetValue<string>().ShouldBe("completed");
         run["result"]!["metrics"]!["full"]!["observedCandles"]!.GetValue<int>().ShouldBe(240);
         run["result"]!["metrics"]!["outOfSample"]!["observedCandles"]!.GetValue<int>().ShouldBe(60);
+        run["result"]!["metrics"]!["full"]!["maxCapitalCommitted"]!.GetValue<string>().ShouldNotBeNullOrEmpty();
+        run["result"]!["metrics"]!["full"]!["timeInPositionPercent"]!.GetValue<string>().ShouldNotBeNullOrEmpty();
+        run["result"]!["metrics"]!["full"]!["longestUnderWaterCandles"].ShouldNotBeNull();
         run["chartBucketSize"]!.GetValue<int>().ShouldBe(1);
         run["candleCount"]!.GetValue<long>().ShouldBe(240);
 
@@ -387,6 +391,46 @@ public sealed class BacktestResultTests
                 to = BacktestScenario.To,
                 startingCapital = "1000",
                 settlementHoldSeconds = seconds
+            });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await response.Content.ReadAsStringAsync());
+    }
+
+    [Test]
+    public async Task ARunStoredWithoutTheLimitFillModeReadsAsTouchAndWithoutCostMetrics()
+    {
+        Guid id = await CompletedRun(BacktestScenario.Request(await BacktestScenario.CreateStrategy(_application, _userId), _symbol));
+        (await Scalar<string>("SELECT configuration->>'limitFill' FROM backtest_runs WHERE id = @id", new { id })).ShouldBe("Through");
+
+        await Scalar<int>(
+            sql: """
+                 UPDATE backtest_runs
+                 SET configuration = configuration - 'limitFill', metrics = jsonb_set(metrics, '{full}', (metrics->'full') - 'maxCapitalDeployed')
+                 WHERE id = @id
+                 RETURNING 1
+                 """,
+            new { id });
+        JsonNode run = await Get($"/api/backtests/{id}");
+
+        run["configuration"]!["limitFill"]!.GetValue<string>().ShouldBe("Touch");
+        run["result"]!["metrics"]!["full"]!["maxCapitalDeployed"].ShouldBeNull();
+    }
+
+    [Test]
+    public async Task AnUnknownLimitFillModeIsRejected()
+    {
+        HttpResponseMessage response = await _client.PostAsJsonAsync(
+            "/api/backtests",
+            new
+            {
+                strategyId = await BacktestScenario.CreateStrategy(_application, _userId),
+                venue = TestHistoryVenue.WithHistory,
+                symbol = _symbol,
+                timeframe = "1h",
+                from = BacktestScenario.From,
+                to = BacktestScenario.To,
+                startingCapital = "1000",
+                limitFill = "Sideways"
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await response.Content.ReadAsStringAsync());
