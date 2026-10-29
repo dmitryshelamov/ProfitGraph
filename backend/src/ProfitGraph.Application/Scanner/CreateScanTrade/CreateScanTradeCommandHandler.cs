@@ -101,7 +101,8 @@ internal sealed class CreateScanTradeCommandHandler(
                 AllowForeignOrders: true,
                 sizing.Leverage is { } botLeverage
                     ? JsonSerializer.SerializeToElement(new { leverage = botLeverage.ToString(CultureInfo.InvariantCulture) })
-                    : null),
+                    : null,
+                command.Venue),
             cancellationToken);
         await sender.Send(new RenameBotCommand(command.OwnerId, bot.Id, Name(command)), cancellationToken);
         var trade = ScanTrade.Create(

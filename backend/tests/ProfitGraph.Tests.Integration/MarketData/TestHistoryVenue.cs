@@ -28,6 +28,11 @@ public sealed class TestHistoryVenue(string id) : IVenueDescriptor
     /// </summary>
     public bool SupportsShort { get; init; }
 
+    /// <summary>
+    ///     Another venue whose credentials this one also takes (ADR 0061); none unless a test names one.
+    /// </summary>
+    public VenueId? CredentialVenue { get; init; }
+
     public bool TryParseSymbol(string? input, [NotNullWhen(true)] out InstrumentSymbol? symbol)
     {
         symbol = input is { Length: > 0 and <= 32 } && input.All(character => char.IsAsciiLetterUpper(character) || char.IsAsciiDigit(character))

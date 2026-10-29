@@ -8,7 +8,8 @@ namespace ProfitGraph.Venues.Bybit;
 
 /// <summary>
 ///     Bybit's USDT perpetuals as the core sees them (ADR 0061): a second venue of the module, with the same kline intervals and
-///     symbols as Spot, where a strategy may sell first.
+///     symbols as Spot, where a strategy may sell first. One Bybit key trades both markets of the Unified Trading Account, so the
+///     venue takes Spot's credentials.
 /// </summary>
 internal sealed class BybitLinearVenue : IVenueDescriptor
 {
@@ -23,6 +24,8 @@ internal sealed class BybitLinearVenue : IVenueDescriptor
     public IReadOnlyList<Timeframe> Timeframes => _spot.Timeframes;
 
     public bool SupportsShort => true;
+
+    public VenueId? CredentialVenue => BybitMarket.Spot.Venue;
 
     public IReadOnlyList<string> BacktestLimits { get; } = ["funding_not_modelled"];
 

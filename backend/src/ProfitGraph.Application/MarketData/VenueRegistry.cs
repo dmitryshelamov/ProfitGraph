@@ -77,6 +77,15 @@ public sealed class VenueRegistry
     }
 
     /// <summary>
+    ///     Whether a credential of <paramref name="credentialVenue" /> serves <paramref name="venue" />: one of the venue itself or of
+    ///     the venue its descriptor names as <see cref="IVenueDescriptor.CredentialVenue" /> (ADR 0061).
+    /// </summary>
+    public bool AcceptsCredential(VenueId venue, VenueId credentialVenue)
+    {
+        return credentialVenue == venue || Find(venue.Value)?.CredentialVenue == credentialVenue;
+    }
+
+    /// <summary>
     ///     Refuses a short plan on a venue that does not allow shorts (ADR 0061); a long plan runs anywhere.
     /// </summary>
     public void EnsureDirection(VenueId venue, PositionDirection direction)

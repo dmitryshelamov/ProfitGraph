@@ -2,7 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 
 import { credentialsQuery } from '@/modules/credentials';
-import { instrumentsQuery, venuesQuery, venuesReadWithKey } from '@/modules/market-data';
+import {
+  instrumentsQuery,
+  venuesOfCredential,
+  venuesQuery,
+  venuesReadWithKey,
+} from '@/modules/market-data';
 import {
   isPercentageParameter,
   parameterReadableName,
@@ -32,7 +37,8 @@ const defaultSymbol = 'BTCUSDT';
  * Creates a stopped bot of a saved strategy on a symbol of the chosen key's venue. Parameters start from the strategy's
  * defaults; decimals stay text until the server checks them. A Steam bot trades an item named exactly as Steam writes it
  * (<code>KZT:730:Dreams &amp; Nightmares Case</code>), on Steam's hourly or daily medians, with its own settings. A T-Invest
- * bot trades a MOEX share as <code>TQBR:SBER</code>, found with the chosen key. Timeframes are the venue's own.
+ * bot trades a MOEX share as <code>TQBR:SBER</code>, found with the chosen key. Timeframes are the venue's own. A key that
+ * serves several venues (a Bybit key trades Spot and futures, ADR 0061) also asks for the market; it starts on the key's own.
  */
 export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
   const queryClient = useQueryClient();
@@ -49,8 +55,11 @@ export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) 
   const [allowForeignOrders, setAllowForeignOrders] = useState(false);
   const [steamSettings, setSteamSettings] = useState<SteamBotSettingsDraft | null>(null);
   const [leverage, setLeverage] = useState('1');
+  const [market, setMarket] = useState('');
   const venues = useQuery(venuesQuery());
-  const venue = credentials.data?.find((item) => item.id === credentialId)?.venue;
+  const keyVenue = credentials.data?.find((item) => item.id === credentialId)?.venue;
+  const markets = keyVenue === undefined ? [] : venuesOfCredential(venues.data, keyVenue);
+  const venue = markets.some((item) => item.id === market) ? market : keyVenue;
   const steam = venue === 'steam';
   // Bybit's USDT perpetuals trade at the bot's leverage (ADR 0061).
   const futures = venue === 'bybit-linear';
@@ -72,6 +81,7 @@ export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) 
       createBot({
         strategyId,
         credentialId,
+        venue,
         symbol: steam ? symbol.trim() : symbol.trim().toUpperCase(),
         timeframe: chosenTimeframe,
         parameters: Object.fromEntries(
@@ -103,6 +113,7 @@ export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) 
   function changeCredential(id: string) {
     const next = credentials.data?.find((item) => item.id === id)?.venue;
     setCredentialId(id);
+    setMarket('');
 
     if (next !== undefined && next !== 'bybit' && symbol === defaultSymbol) {
       setSymbol('');
@@ -146,6 +157,21 @@ export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) 
           ))}
         </select>
       </Field>
+      {markets.length > 1 && (
+        <Field label="Рынок">
+          <select
+            className={selectClass}
+            value={venue}
+            onChange={(event) => setMarket(event.target.value)}
+          >
+            {markets.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <Field label="Символ">
         <Input
           value={symbol}
