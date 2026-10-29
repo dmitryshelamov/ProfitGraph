@@ -55,6 +55,50 @@ it('creates an indicator expression and references a shared named period', () =>
   });
 });
 
+it('creates MACD with typed periods and picks its signal line', () => {
+  render(<Field />);
+  fireEvent.change(screen.getByLabelText('Источник Значение'), { target: { value: 'MACD' } });
+  fireEvent.change(screen.getByLabelText('Поле Значение'), { target: { value: 'signal' } });
+  fireEvent.change(screen.getByLabelText('Источник Значение: Медленный период'), {
+    target: { value: 'parameter' },
+  });
+  fireEvent.change(screen.getByLabelText('Ссылка Значение: Медленный период'), {
+    target: { value: 'period' },
+  });
+  expect(screen.getByLabelText('Тип Значение: Быстрый период')).toHaveValue('Integer');
+  expect(JSON.parse(screen.getByLabelText('Выражение').textContent!)).toEqual({
+    kind: 'MACD',
+    field: 'signal',
+    arguments: {
+      in: { kind: 'candle', field: 'Close' },
+      fastPeriod: { kind: 'constant', valueType: 'Integer', number: '12' },
+      slowPeriod: { kind: 'parameter', name: 'period' },
+      signalPeriod: { kind: 'constant', valueType: 'Integer', number: '9' },
+    },
+  });
+});
+
+it('creates Bollinger Bands with a scalar multiplier and RSI with an integer period', () => {
+  render(<Field />);
+  fireEvent.change(screen.getByLabelText('Источник Значение'), { target: { value: 'Bollinger' } });
+  fireEvent.change(screen.getByLabelText('Поле Значение'), { target: { value: 'lower' } });
+  expect(screen.getByLabelText('Тип Значение: Число отклонений')).toHaveValue('Scalar');
+  expect(JSON.parse(screen.getByLabelText('Выражение').textContent!)).toMatchObject({
+    kind: 'Bollinger',
+    field: 'lower',
+    arguments: { multiplier: { kind: 'constant', valueType: 'Scalar', number: '2' } },
+  });
+  fireEvent.change(screen.getByLabelText('Источник Значение'), { target: { value: 'RSI' } });
+  expect(screen.getByLabelText('Тип Значение: Период')).toHaveValue('Integer');
+  expect(JSON.parse(screen.getByLabelText('Выражение').textContent!)).toEqual({
+    kind: 'RSI',
+    arguments: {
+      in: { kind: 'candle', field: 'Close' },
+      period: { kind: 'constant', valueType: 'Integer', number: '14' },
+    },
+  });
+});
+
 it('edits arithmetic operands recursively using named values and candle fields', () => {
   render(<Field />);
   fireEvent.change(screen.getByLabelText('Источник Значение'), { target: { value: 'arithmetic' } });

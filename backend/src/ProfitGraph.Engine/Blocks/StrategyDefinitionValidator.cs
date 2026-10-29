@@ -289,14 +289,19 @@ public sealed class StrategyDefinitionValidator
 
         void PositivePrice(ValueExpression expression, StrategySource source)
         {
-            var visited = new HashSet<string>(StringComparer.Ordinal);
-            var knownValues = new Dictionary<string, decimal?>(StringComparer.Ordinal);
-            decimal? price = Known(expression);
-
-            if (price <= 0m)
+            if (StaticNumber(expression) <= 0m)
             {
                 Add(GraphDiagnosticCode.InvalidParameter, "Conversion price must be positive.", source);
             }
+        }
+
+        // The value an expression has before any candle, from constants and parameter defaults; null when it depends on the market.
+        decimal? StaticNumber(ValueExpression expression)
+        {
+            var visited = new HashSet<string>(StringComparer.Ordinal);
+            var knownValues = new Dictionary<string, decimal?>(StringComparer.Ordinal);
+
+            return Known(expression);
 
             decimal? Known(ValueExpression value)
             {
@@ -410,7 +415,9 @@ public sealed class StrategyDefinitionValidator
         {
             string[] allowedArguments = expression.Kind switch
             {
-                "SMA" => ["in", "period"], "ATR" => ["period"], "previous" => ["in"], "arithmetic" => ["a", "b"], "activeOrder" => ["tag"], _ => []
+                "SMA" or "EMA" or "RSI" => ["in", "period"], "ATR" => ["period"], "Bollinger" => ["in", "period", "multiplier"],
+                "MACD" => ["in", "fastPeriod", "slowPeriod", "signalPeriod"], "previous" => ["in"], "arithmetic" => ["a", "b"], "activeOrder" => ["tag"],
+                _ => []
             };
 
             foreach (string argument in expression.Arguments.Keys)
@@ -451,15 +458,12 @@ public sealed class StrategyDefinitionValidator
             {
                 string[] required = expression.Kind switch
                 {
-                    "SMA" or "previous" => ["in"], "arithmetic" => ["a", "b"], _ => []
+                    "SMA" or "EMA" or "RSI" or "Bollinger" or "MACD" => allowedArguments, "ATR" => ["period"], "previous" => ["in"], "arithmetic" => ["a", "b"],
+                    _ => []
                 };
 
-                if (expression.Kind is "SMA" or "ATR")
-                {
-                    required = required.Append("period").ToArray();
-                }
-
-                if (expression.Kind is not ("constant" or "candle" or "SMA" or "ATR" or "previous" or "balance" or "position" or "activeOrder" or "arithmetic"))
+                if (expression.Kind is not ("constant" or "candle" or "SMA" or "ATR" or "EMA" or "RSI" or "Bollinger" or "MACD" or "previous" or "balance" or
+                    "position" or "activeOrder" or "arithmetic"))
                 {
                     AddExpression(GraphDiagnosticCode.UnknownNodeType, "Unknown value expression kind.", source);
                 }
@@ -489,7 +493,7 @@ public sealed class StrategyDefinitionValidator
                     }
                 }
 
-                if (expression.Kind is "candle" or "balance" or "position" or "activeOrder" && string.IsNullOrWhiteSpace(expression.Field))
+                if (expression.Kind is "candle" or "balance" or "position" or "activeOrder" or "Bollinger" or "MACD" && string.IsNullOrWhiteSpace(expression.Field))
                 {
                     AddExpression(GraphDiagnosticCode.MissingParameter, "Choose a value field.", source);
                 }
@@ -498,7 +502,8 @@ public sealed class StrategyDefinitionValidator
                 {
                     string? typeKey = expression.Kind switch
                     {
-                        "candle" => "CandleField", "balance" => "Balance", "position" => "Position", "activeOrder" => "ActiveOrder", _ => null
+                        "candle" => "CandleField", "balance" => "Balance", "position" => "Position", "activeOrder" => "ActiveOrder",
+                        "Bollinger" => NodeTypeKeys.Bollinger, "MACD" => NodeTypeKeys.Macd, _ => null
                     };
                     INodeDefinition? fieldDefinition = definitions.FirstOrDefault(candidate => candidate.TypeKey == typeKey);
                     bool validField = expression.Kind == "candle"
@@ -530,17 +535,32 @@ public sealed class StrategyDefinitionValidator
                     }
                 }
 
-                if (expression.Arguments.TryGetValue("period", out ValueExpression? period) && period.Kind == "parameter" && period.Name is not null)
+                foreach (string key in new[] { "period", "fastPeriod", "slowPeriod", "signalPeriod" })
                 {
-                    StrategyParameter? parameter = definition.Parameters.FirstOrDefault(candidate => candidate.Name == period.Name);
-
-                    if (parameter is not null && (parameter.ValueType != ValueType.Integer || parameter.DefaultValue < 1m || parameter.DefaultValue > 200m))
+                    if (expression.Arguments.TryGetValue(key, out ValueExpression? period) && period.Kind == "parameter" && period.Name is not null)
                     {
-                        AddExpression(
-                            GraphDiagnosticCode.InvalidParameter,
-                            "Indicator periods must be integers from 1 through 200.",
-                            new StrategySource(ParameterName: parameter.Name));
+                        StrategyParameter? parameter = definition.Parameters.FirstOrDefault(candidate => candidate.Name == period.Name);
+
+                        if (parameter is not null && (parameter.ValueType != ValueType.Integer || parameter.DefaultValue < 1m || parameter.DefaultValue > 200m))
+                        {
+                            AddExpression(
+                                GraphDiagnosticCode.InvalidParameter,
+                                "Indicator periods must be integers from 1 through 200.",
+                                new StrategySource(ParameterName: parameter.Name));
+                        }
                     }
+                }
+
+                if (expression.Kind == "MACD" && expression.Arguments.TryGetValue("fastPeriod", out ValueExpression? fast) &&
+                    expression.Arguments.TryGetValue("slowPeriod", out ValueExpression? slow) && StaticNumber(fast) >= StaticNumber(slow))
+                {
+                    AddExpression(GraphDiagnosticCode.InvalidParameter, "MACD requires fastPeriod < slowPeriod.", source);
+                }
+
+                if (expression.Kind == "Bollinger" && expression.Arguments.TryGetValue("multiplier", out ValueExpression? multiplier) &&
+                    StaticNumber(multiplier) <= 0m)
+                {
+                    AddExpression(GraphDiagnosticCode.InvalidParameter, "Bollinger Bands require a positive multiplier.", source);
                 }
             }
 

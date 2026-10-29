@@ -88,6 +88,16 @@ while its runner was down. Two pull requests: T-Invest with the shared parts fir
 | 13. Ladders without resume blocks | [ADR 0040](adr/0040-upgrade-ladders-saved-without-the-resume-blocks.md): the automatic upgrade (ADR 0038) also adds the resume blocks (`resume`, `resumeExitGuard`) to a saved Ladder that lacks them (the Bybit bot's "Ladder SMA"), so an order the venue cancelled, a start or a reconciliation restores its exit; then the manual-fill reaction. Proven on unit and integration tests only. |
 | 14. Ladders with their own resume | [ADR 0052](adr/0052-manual-fill-reaction-for-ladders-with-their-own-resume.md): a Ladder whose owner added an `OnResume` event under another id (the Steam bot's "CS Dreams & Nightmares Case 1h") gets the manual-fill reaction too; its own resume is kept and the template's resume blocks are not added. Proven on unit tests only. |
 
+## Indicators
+
+Indicator blocks for trend and counter-trend strategies, before templates on them and a real grid
+([ADR 0056](adr/0056-decimal-indicators-and-multi-output-composites.md), [node catalog](node-catalog.md)).
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. EMA, RSI, Bollinger Bands, MACD | Decimal `EMA`, `RSI` and `StdDev` nodes, `Bollinger` and `MACD` composites with output ports, block catalog entries, validation of periods, `fastPeriod < slowPeriod` and a positive multiplier, editor sources | Unit tests with hand-computed values, warm-up boundaries and flat-price cases pass; a MACD crossover backtest is deterministic | Done |
+| 2. Templates | Trend and counter-trend templates on these indicators, with their parameter rules | | Planned |
+
 ## Manual limit order
 
 A limit order in the manual order block of the bot page ([ADR 0046](adr/0046-manual-limit-order.md)), for every venue.

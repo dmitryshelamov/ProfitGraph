@@ -106,6 +106,35 @@ export function formulaTokens(
         ];
       case 'ATR':
         return [{ kind: 'text', text: 'ATR за' }, ...input('period')];
+      case 'EMA':
+      case 'RSI':
+        return [
+          { kind: 'text', text: current.kind === 'EMA' ? 'экспоненциальная средняя' : 'RSI' },
+          ...input('in'),
+          { kind: 'text', text: 'за' },
+          ...input('period'),
+        ];
+      case 'Bollinger':
+        return [
+          { kind: 'text', text: `${lower(fieldLabel(current.field ?? '?'))} Боллинджера` },
+          ...input('in'),
+          { kind: 'text', text: 'за' },
+          ...input('period'),
+          { kind: 'text', text: '±' },
+          ...input('multiplier'),
+          { kind: 'text', text: 'σ' },
+        ];
+      case 'MACD':
+        return [
+          { kind: 'text', text: lower(fieldLabel(current.field ?? '?')) },
+          ...input('in'),
+          { kind: 'text', text: 'за' },
+          ...input('fastPeriod'),
+          { kind: 'text', text: '/' },
+          ...input('slowPeriod'),
+          { kind: 'text', text: '/' },
+          ...input('signalPeriod'),
+        ];
       case 'previous':
         return [...nested('in'), { kind: 'text', text: 'на прошлой свече' }];
       case 'arithmetic': {

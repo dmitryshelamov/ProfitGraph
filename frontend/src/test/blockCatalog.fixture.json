@@ -557,6 +557,162 @@
       "minimumOrderPolicies": null
     },
     {
+      "key": "EMA",
+      "label": "Экспоненциальная средняя (EMA)",
+      "operands": [
+        {
+          "key": "in",
+          "label": "Значение",
+          "valueTypes": ["Integer", "Scalar", "Price", "BaseAmount", "QuoteAmount"],
+          "required": true
+        },
+        {
+          "key": "period",
+          "label": "Период",
+          "valueTypes": ["Integer"],
+          "required": true
+        }
+      ],
+      "outputType": "input",
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "RSI",
+      "label": "Индекс относительной силы (RSI)",
+      "operands": [
+        {
+          "key": "in",
+          "label": "Значение",
+          "valueTypes": ["Integer", "Scalar", "Price", "BaseAmount", "QuoteAmount"],
+          "required": true
+        },
+        {
+          "key": "period",
+          "label": "Период",
+          "valueTypes": ["Integer"],
+          "required": true
+        }
+      ],
+      "outputType": "Scalar",
+      "choices": null,
+      "fields": null,
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "Bollinger",
+      "label": "Полосы Боллинджера",
+      "operands": [
+        {
+          "key": "in",
+          "label": "Значение",
+          "valueTypes": ["Integer", "Scalar", "Price", "BaseAmount", "QuoteAmount"],
+          "required": true
+        },
+        {
+          "key": "period",
+          "label": "Период",
+          "valueTypes": ["Integer"],
+          "required": true
+        },
+        {
+          "key": "multiplier",
+          "label": "Число отклонений",
+          "valueTypes": ["Scalar"],
+          "required": true
+        }
+      ],
+      "outputType": "field",
+      "choices": ["upper", "middle", "lower"],
+      "fields": [
+        {
+          "key": "upper",
+          "label": "Верхняя полоса",
+          "valueTypes": ["input"],
+          "required": false
+        },
+        {
+          "key": "middle",
+          "label": "Средняя линия",
+          "valueTypes": ["input"],
+          "required": false
+        },
+        {
+          "key": "lower",
+          "label": "Нижняя полоса",
+          "valueTypes": ["input"],
+          "required": false
+        }
+      ],
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
+      "key": "MACD",
+      "label": "Схождение-расхождение средних (MACD)",
+      "operands": [
+        {
+          "key": "in",
+          "label": "Значение",
+          "valueTypes": ["Integer", "Scalar", "Price", "BaseAmount", "QuoteAmount"],
+          "required": true
+        },
+        {
+          "key": "fastPeriod",
+          "label": "Быстрый период",
+          "valueTypes": ["Integer"],
+          "required": true
+        },
+        {
+          "key": "slowPeriod",
+          "label": "Медленный период",
+          "valueTypes": ["Integer"],
+          "required": true
+        },
+        {
+          "key": "signalPeriod",
+          "label": "Период сигнальной линии",
+          "valueTypes": ["Integer"],
+          "required": true
+        }
+      ],
+      "outputType": "field",
+      "choices": ["macd", "signal", "histogram"],
+      "fields": [
+        {
+          "key": "macd",
+          "label": "Линия MACD",
+          "valueTypes": ["input"],
+          "required": false
+        },
+        {
+          "key": "signal",
+          "label": "Сигнальная линия",
+          "valueTypes": ["input"],
+          "required": false
+        },
+        {
+          "key": "histogram",
+          "label": "Гистограмма MACD",
+          "valueTypes": ["input"],
+          "required": false
+        }
+      ],
+      "sides": null,
+      "sizeModes": null,
+      "orderKinds": null,
+      "minimumOrderPolicies": null
+    },
+    {
       "key": "previous",
       "label": "Предыдущее значение",
       "operands": [

@@ -164,7 +164,9 @@ export function needsCandle(
       continue;
     }
     seen.add(value);
-    if (['candle', 'SMA', 'ATR', 'previous'].includes(value.kind)) {
+    if (
+      ['candle', 'SMA', 'ATR', 'EMA', 'RSI', 'Bollinger', 'MACD', 'previous'].includes(value.kind)
+    ) {
       return true;
     }
     if (value.kind === 'value' && value.name && values.has(value.name)) {

@@ -8,6 +8,8 @@ public static class BuiltInComposites
         NoActiveOrdersCompositeDefinition.Create(),
         NoActiveTaggedOrderCompositeDefinition.Create(),
         HasBaseBalanceCompositeDefinition.Create(),
-        PositionFlatPreviewCompositeDefinition.Create()
+        PositionFlatPreviewCompositeDefinition.Create(),
+        BollingerBandsCompositeDefinition.Create(),
+        MacdCompositeDefinition.Create()
     ];
 }

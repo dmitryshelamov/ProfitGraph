@@ -19,6 +19,9 @@ public static class NodeTypeRegistrationExtensions
         services.AddSingleton<INodeDefinition, DataSourceNodeDefinition>();
         services.AddSingleton<INodeDefinition, SmaNodeDefinition>();
         services.AddSingleton<INodeDefinition, AtrNodeDefinition>();
+        services.AddSingleton<INodeDefinition, EmaNodeDefinition>();
+        services.AddSingleton<INodeDefinition, RsiNodeDefinition>();
+        services.AddSingleton<INodeDefinition, StandardDeviationNodeDefinition>();
         services.AddSingleton<INodeDefinition, ConstantNodeDefinition>();
         services.AddSingleton<INodeDefinition, ParameterNodeDefinition>();
         services.AddSingleton<INodeDefinition, CandleFieldNodeDefinition>();
