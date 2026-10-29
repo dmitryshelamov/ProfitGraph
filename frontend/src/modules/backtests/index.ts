@@ -17,6 +17,7 @@ export {
 export type {
   BacktestSetupErrors,
   BacktestSetupValues,
+  LimitFill,
   StartBacktestRequest,
 } from './model/backtestSetup';
 export { backtestSetupDefaults, backtestSetupRequest } from './model/backtestSetup';
@@ -31,6 +32,7 @@ export type { RunProgress } from './model/useRunProgress';
 export { useRunProgress } from './model/useRunProgress';
 export { Amount } from './ui/Amount';
 export { BacktestSetupForm } from './ui/BacktestSetupForm';
+export { LimitFillField } from './ui/LimitFillField';
 export { MetricsTable } from './ui/MetricsTable';
 export { RunConfiguration } from './ui/RunConfiguration';
 export { RunFacts } from './ui/RunFacts';

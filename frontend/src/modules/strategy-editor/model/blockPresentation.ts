@@ -43,6 +43,8 @@ const eventNames: Record<string, string> = {
   rejected: 'отклонён',
   cancelled: 'отменён',
   completed: 'отменён',
+  started: 'запущена',
+  stopped: 'остановлена',
 };
 const operators: Record<string, string> = {
   Add: '+',
@@ -209,7 +211,21 @@ function present(
       ]);
     }
   }
-  if (block.kind === 'order' || block.kind === 'cancel') {
+  if (block.kind === 'grid') {
+    mode = 'Сетка · покупки ниже цены старта';
+    details.push(
+      ['Ступеней', expressionText(block.settings?.levels, definition)],
+      ['Шаг', expressionText(block.settings?.step, definition)],
+      ['Прибыль', expressionText(block.settings?.profitStep, definition)],
+      ['Лот', expressionText(block.settings?.lot, definition)],
+    );
+  }
+  if (block.kind === 'cancel' && block.grid) {
+    details.push([
+      'Сетка',
+      definition.blocks.find((item) => item.id === block.grid)?.displayName ?? block.grid,
+    ]);
+  } else if (block.kind === 'order' || block.kind === 'cancel') {
     details.push(['Метка', expressionText(block.tag, definition)]);
   }
   const title = strategyBlockLabel(block, definition, catalog);

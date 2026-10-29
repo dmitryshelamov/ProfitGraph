@@ -5,6 +5,7 @@ namespace ProfitGraph.Api.Backtesting.Contracts;
 ///     values, an omitted version is the current one and an omitted holdout fraction is 0.2. Seller fees replace the limit
 ///     and market rates, and a settlement hold in whole seconds delays selling what was bought (ADR 0022). A venue without
 ///     anonymous market data reads it with the user's credential named by <c>credentialId</c> (ADR 0023, TC6).
+///     <c>limitFill</c> is <c>Touch</c> or <c>Through</c>, by default <c>Through</c> (ADR 0057).
 /// </summary>
 public sealed record StartBacktestRequest(
     Guid StrategyId,
@@ -22,4 +23,5 @@ public sealed record StartBacktestRequest(
     string? OutOfSampleFraction,
     SellerFeeScheduleRequest? SellerFees = null,
     long? SettlementHoldSeconds = null,
-    Guid? CredentialId = null);
+    Guid? CredentialId = null,
+    string? LimitFill = null);

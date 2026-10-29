@@ -12,6 +12,8 @@ using ProfitGraph.Domain.Jobs;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Compilation;
+using ProfitGraph.Engine.Evaluation;
+using ProfitGraph.Engine.Grids;
 
 namespace ProfitGraph.Application.Backtesting.StartBacktest;
 
@@ -41,6 +43,13 @@ internal sealed class StartBacktestCommandHandler(
         CandleSeries series = venues.ResolveSeries(request.Venue, request.Symbol, request.Timeframe);
         await credentials.Check(request.UserId, request.CredentialId, series.Venue, cancellationToken);
         BacktestConfiguration configuration = BacktestFreezing.Freeze(request, series, parameters, plan, clock.GetUtcNow());
+        GridFeeFinding[] errors = [.. GridFeeCheck.Check(plan, EngineExecutionInputs.Empty, configuration.Settings).Where(finding => finding.IsError)];
+
+        if (errors.Length > 0)
+        {
+            throw new ApplicationValidationException([.. errors.Select(error => new InputError(BacktestErrorCodes.GridProfitBelowFees, "LimitFeeRate", error.Message))]);
+        }
+
         var owner = new UserId(request.UserId);
         var jobId = BackgroundJobId.New();
         var run = BacktestRun.Create(new BacktestRunId(jobId), owner, strategy.Id, version.Number, configuration, configuration.ObservedAt);

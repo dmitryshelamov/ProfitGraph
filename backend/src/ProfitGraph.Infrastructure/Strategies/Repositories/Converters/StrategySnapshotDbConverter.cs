@@ -61,6 +61,13 @@ internal sealed class StrategySnapshotDbConverter
                 info.Properties.Single(property => property.Name == "minimumOrderPolicy").ShouldSerialize =
                     (_, value) => value is not null and not "Reject";
             }
+
+            // A grid block's settings and a grid cancel's target (ADR 0058) are stored only where present, so other blocks keep their shape.
+            if (info.Type == typeof(StrategyBlockInternal))
+            {
+                info.Properties.Single(property => property.Name == "settings").ShouldSerialize = (_, value) => value is not null;
+                info.Properties.Single(property => property.Name == "grid").ShouldSerialize = (_, value) => value is not null;
+            }
         });
 
         // jsonb canonicalizes property order, so the discriminator is not necessarily the first property.

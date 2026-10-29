@@ -78,7 +78,9 @@ internal static class StrategyDefinitionHttpConverter
             block.Quantity?.ToInternal(),
             block.Price?.ToInternal(),
             block.SizeMode,
-            block.MinimumOrderPolicy == "Reject" ? null : block.MinimumOrderPolicy);
+            block.MinimumOrderPolicy == "Reject" ? null : block.MinimumOrderPolicy,
+            block.Settings is null ? null : ConvertArguments(block.Settings),
+            block.Grid);
     }
 
     private static StrategyBlockResponse ToResponse(StrategyBlockInternal block)
@@ -106,7 +108,9 @@ internal static class StrategyDefinitionHttpConverter
             block.Quantity?.ToResponse(),
             block.Price?.ToResponse(),
             block.SizeMode,
-            block.MinimumOrderPolicy == "Reject" ? null : block.MinimumOrderPolicy);
+            block.MinimumOrderPolicy == "Reject" ? null : block.MinimumOrderPolicy,
+            block.Settings?.ToDictionary(pair => pair.Key, pair => pair.Value.ToResponse(), StringComparer.Ordinal),
+            block.Grid);
     }
 
     private static ValueExpressionInternal ToInternal(this ValueExpressionRequest expression)

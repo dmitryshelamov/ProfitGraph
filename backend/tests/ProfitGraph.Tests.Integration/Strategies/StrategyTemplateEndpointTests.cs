@@ -24,7 +24,7 @@ namespace ProfitGraph.Tests.Integration.Strategies;
 [NonParallelizable]
 public sealed class StrategyTemplateEndpointTests
 {
-    private static readonly HashSet<string> BlockKinds = ["event", "condition", "order", "cancel"];
+    private static readonly HashSet<string> BlockKinds = ["event", "condition", "order", "cancel", "grid"];
 
     [Test]
     public async Task TemplatesCreateEditableStrategiesWithTemplateLayoutsAndUnchangedReplay()
@@ -33,7 +33,7 @@ public sealed class StrategyTemplateEndpointTests
         using HttpClient client = await application.CreateSignedInClient();
         var templates = (await client.GetFromJsonAsync<JsonArray>("/api/strategy-templates"))!;
         templates.Select(template => template!["kind"]!.GetValue<string>())
-            .ShouldBe(["SmaCrossover", "Ladder", "LadderProfitFox", "LadderSma", "CapitulationDip", "VolumeMomentum", "LadderPlus", "DcaProfitFox"]);
+            .ShouldBe(["SmaCrossover", "Ladder", "LadderProfitFox", "LadderSma", "CapitulationDip", "VolumeMomentum", "LadderPlus", "DcaProfitFox", "Grid"]);
         using IServiceScope scope = application.Services.CreateScope();
         var registry = scope.ServiceProvider.GetRequiredService<INodeTypeRegistry>();
         var repository = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
@@ -85,6 +85,7 @@ public sealed class StrategyTemplateEndpointTests
                 "LadderSma" => LadderSmaStrategyBlockFactory.Create(),
                 "LadderProfitFox" => ProfitFoxLadderStrategyBlockFactory.Create(),
                 "SmaCrossover" => SmaStrategyBlockFactory.Create(),
+                "Grid" => GridStrategyBlockFactory.Create(),
                 _ => LadderResumeStrategyBlockFactory.Create()
             };
             StrategyGraph original = new StrategyDefinitionLowerer(registry.GetAll()).Lower(expectedDefinition).Graph;

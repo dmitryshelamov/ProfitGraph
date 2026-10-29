@@ -80,6 +80,8 @@ describe('backtest setup', () => {
     const drop = within(form).getByLabelText('Снижение для усреднения, %');
     await userEvent.clear(drop);
     await userEvent.type(drop, '2');
+    expect(within(form).getByLabelText('Исполнение лимитов')).toHaveValue('Through');
+    await userEvent.selectOptions(within(form).getByLabelText('Исполнение лимитов'), 'Touch');
     await userEvent.click(within(form).getByRole('button', { name: 'Запустить прогон' }));
 
     await waitFor(() => expect(history.location.pathname).toBe('/backtests/run-1'));
@@ -99,6 +101,7 @@ describe('backtest setup', () => {
         limitFeeRate: '0.001',
         marketFeeRate: '0.001',
         outOfSampleFraction: '0.2',
+        limitFill: 'Touch',
       },
     ]);
   });

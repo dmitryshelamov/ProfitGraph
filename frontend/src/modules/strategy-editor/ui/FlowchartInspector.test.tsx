@@ -5,6 +5,7 @@ import catalogData from '@/test/blockCatalog.fixture.json';
 import templateData from '@/test/strategyTemplates.fixture.json';
 
 import { useEditorStore } from '../model/editorStore';
+import { initialGridSettings } from '../model/gridSettings';
 import { FlowchartInspector } from './FlowchartInspector';
 import { StrategyValuesPanel } from './StrategyValuesPanel';
 
@@ -655,4 +656,49 @@ it('shows order settings as short rows with a plain summary', () => {
   expect(order).toHaveTextContent('Купить на buyAmount 100 по рынку.');
   fireEvent.click(screen.getByRole('button', { name: 'Изменить: Сумма' }));
   expect(screen.getByLabelText('Ссылка Сумма')).toHaveValue('buyAmount');
+});
+
+describe('grid block', () => {
+  const gridDefinition = () => ({
+    ...sma.definition,
+    blocks: [
+      ...sma.definition.blocks,
+      { id: 'grid', kind: 'grid', settings: initialGridSettings() },
+      { id: 'stop', kind: 'cancel', tag: { kind: 'constant', valueType: 'Tag', text: 'buy' } },
+    ],
+  });
+  const block = (id: string) =>
+    useEditorStore.getState().draft!.definition.blocks.find((item) => item.id === id)!;
+
+  beforeEach(() =>
+    useEditorStore
+      .getState()
+      .load(
+        'strategy',
+        1,
+        { name: 'Grid', definition: gridDefinition(), layout: sma.layout },
+        true,
+      ),
+  );
+
+  it('edits every grid setting as a value', () => {
+    render(<Inspector blockId="grid" />);
+    expect(screen.getByRole('group', { name: 'Настройки сетки' })).toBeInTheDocument();
+    const levels = screen.getByRole('textbox', { name: 'Значение Ступеней' });
+    expect(levels).toHaveValue('10');
+    fireEvent.change(levels, { target: { value: '25' } });
+    expect(block('grid').settings?.levels).toMatchObject({ kind: 'constant', number: '25' });
+    expect(screen.getByRole('group', { name: 'Выход запущена' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Выход остановлена' })).toBeInTheDocument();
+  });
+
+  it('turns a cancel block into a grid stop and back', () => {
+    render(<Inspector blockId="stop" />);
+    fireEvent.click(radios('Что отменяет').find((radio) => radio.value === 'grid')!);
+    expect(block('stop')).toMatchObject({ grid: 'grid' });
+    expect(block('stop').tag).toBeUndefined();
+    expect(screen.getByText(/останавливает её без продажи/)).toBeInTheDocument();
+    fireEvent.click(radios('Что отменяет').find((radio) => radio.value === 'tag')!);
+    expect(block('stop').grid).toBeUndefined();
+  });
 });

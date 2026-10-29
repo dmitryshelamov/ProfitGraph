@@ -9,6 +9,7 @@ public sealed class TradingAccount : IGraphAccount
 {
     private readonly OrderSizingService _sizing = new OrderSizingService();
     private readonly SettlementHoldBook? _holds;
+    private readonly Dictionary<long, OrderExecutedTotals> _partials = new Dictionary<long, OrderExecutedTotals>();
     private DateTimeOffset? _marketTime;
     public Portfolio Portfolio { get; }
     public OrderBook Orders { get; }
@@ -23,6 +24,14 @@ public sealed class TradingAccount : IGraphAccount
         Portfolio = new Portfolio(settings.StartingCapital);
         Orders = new OrderBook();
         _holds = settings.SettlementHold is { } hold ? new SettlementHoldBook(hold) : null;
+    }
+
+    /// <summary>
+    ///     Only a sale under a settlement hold fills in parts in replay; every other order fills at once.
+    /// </summary>
+    public OrderExecutedTotals ExecutedTotals(long orderId)
+    {
+        return _partials.GetValueOrDefault(orderId, OrderExecutedTotals.None);
     }
 
     public AccountSnapshot Capture()
@@ -124,7 +133,8 @@ public sealed class TradingAccount : IGraphAccount
     /// <summary>
     ///     Исполняет активный ордер целиком. Рыночный ордер исполняется по опорной цене с неблагоприятным проскальзыванием,
     ///     лимитный — по своей лимитной цене без улучшения (опорная цена для него не используется). Рыночный ордер,
-    ///     который по фактической цене не проходит минимумы, отклоняется с освобождением резерва.
+    ///     который по фактической цене не проходит минимумы, отклоняется с освобождением резерва. Минимальную стоимость рыночной
+    ///     покупки на сумму котируемой валюты задаёт сама сумма, поэтому при исполнении проверяется только её количество.
     /// </summary>
     public OrderExecution Execute(long orderId, decimal referencePrice)
     {
@@ -155,7 +165,10 @@ public sealed class TradingAccount : IGraphAccount
             grossBase = Math.Min(order.Reservation, sellable);
         }
 
-        if (order.Type == OrderType.Market && OrderNormalizer.CheckMinimums(grossBase, price, Rules) is { } reason)
+        // A quote-budget market buy met the minimum notional with its budget at submission; flooring its quantity does not undo that.
+        decimal? minimumPrice = order.QuoteBudget is null ? price : null;
+
+        if (order.Type == OrderType.Market && OrderNormalizer.CheckMinimums(grossBase, minimumPrice, Rules) is { } reason)
         {
             Release(order, OrderStatus.Rejected);
 
@@ -219,6 +232,12 @@ public sealed class TradingAccount : IGraphAccount
                 : FeeCalculator.Calculate(grossQuote, rate, Rules.QuotePrecision);
         decimal realized = Portfolio.Sell(grossBase, grossQuote, sellFee);
         _holds?.Consume(grossBase, RequireMarketTime());
+
+        if (partial)
+        {
+            OrderExecutedTotals before = _partials.GetValueOrDefault(order.Id, OrderExecutedTotals.None);
+            _partials[order.Id] = new OrderExecutedTotals(before.GrossBase + grossBase, before.BaseChange - grossBase, before.QuoteChange + grossQuote - sellFee);
+        }
 
         return new OrderExecution(
             new Fill(order.Id, order.Tag, order.Side, order.Type, price, grossBase, -grossBase, grossQuote - sellFee, sellFee, FeeAsset.Quote, realized),

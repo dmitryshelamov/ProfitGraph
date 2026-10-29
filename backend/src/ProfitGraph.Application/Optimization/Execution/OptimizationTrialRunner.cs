@@ -6,6 +6,7 @@ using System.Threading.Channels;
 using ProfitGraph.Application.Optimization.Contracts;
 using ProfitGraph.Domain.Optimization;
 using ProfitGraph.Domain.Optimization.Search;
+using ProfitGraph.Engine.Grids;
 using ProfitGraph.Engine.Metrics;
 using ProfitGraph.Engine.Replay;
 
@@ -309,7 +310,9 @@ public sealed class OptimizationTrialRunner
             {
                 workersCancellation.Token.ThrowIfCancellationRequested();
 
-                if (TemplateParameterRules.Check(input.Template, input.CompiledGraph, trial.Selections).Count > 0)
+                // A grid whose profit step cannot pay its fees is rejected like a template rule, without spending budget (ADR 0058).
+                if (TemplateParameterRules.Check(input.Template, input.CompiledGraph, trial.Selections).Count > 0 ||
+                    GridFeeCheck.Check(input.CompiledGraph, trial.Selections, input.Settings, input.Rules, input.History.Replay[0].Open).Any(finding => finding.IsError))
                 {
                     await channel.Writer.WriteAsync(
                         persisted.TryGetValue(trial.Index, out OptimizationTrialInternal? stored)
