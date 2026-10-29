@@ -156,3 +156,18 @@ lets each be edited on its own; a direction parameter would put a branch into ev
 3. Scanner: short ideas and backtest, `ScanTrade` direction, cards with direction; integration and app tests.
 4. One authorized real check after the owner's go-ahead: a minimal short and its cover on a liquid pair with
    `Live:Trading:Enabled` on the owner's Worker only.
+
+## Implementation notes
+
+- The engine's leverage is `ExecutionSettings.Leverage`; a margin run's free quote is `quote + signed entry notional − entry
+  notional / leverage − reserves`, so a long at 1× frees exactly what spot does, and every spot replay hash stays the same.
+  Backtests of a short strategy run at 1×; only bots take a leverage.
+- A short strategy's direction is the plan's: a plan with `MarketCover` or `LimitCover` nodes is short, and a plan cannot mix them
+  with long buys or a grid. `baseAvailable` is the position free to close in both directions instead of a new `shortAvailable`
+  field, so no existing node's fingerprint changes.
+- A market short entry needs a reference price for its margin; dispatch passes the market price with every market order.
+- The scanner trade settings keep the leverage (null on spot) and the owner's short strategy; a futures bot's allocation is the
+  trade's margin plus fees at `ScanTrades:FeeRate` on both sides, its largest order and daily loss stay the trade's amount.
+- Bybit's linear fee can be a rebate below zero; it is counted as no fee.
+- Not yet checked on the real venue: the position, leverage and permission answers follow Bybit's documentation and are tested
+  against the mock exchange only.
