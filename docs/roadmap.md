@@ -168,3 +168,16 @@ filled orders.
 | 2. Queue and delivery | `telegram_notifications`, alert handler, `TelegramDeliveryHost` with claims, retries, age and rate limits, bot names, migration of unsent alerts | Integration tests against a fake Bot API: a 429 and a 500 are retried, a 400 fails one row without holding the next, a 403 blocks the chat, old rows are skipped | Done on the fake Bot API |
 | 3. Updates | `TelegramUpdateProcessor`, message and callback handlers, `/help`, the «Принято» button | A pressed button acknowledges the owner's alert and only theirs | Done on the fake Bot API |
 | 4. Trading messages | Lifecycle, closed positions, `BotOrderFilled` and the filled-order message | A partly filled order sends one message when it is filled; Engine hashes unchanged | Done on the scripted venue |
+
+## Market scanner
+
+[ADR 0059](adr/0059-market-scanner.md): a scanner that searches and shows, never trades; Bybit spot first, live over public
+WebSockets in the Worker. After indicators, the trend and counter-trend templates and the real grid. A screener robot that
+trades a strategy on every pair of a list is a later, separate product.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Decision | ADR 0059 | The owner accepted it | Draft |
+| 2. Live table | `IMarketScanSource` and its Bybit implementation (universe, 1-minute backfill and stream, quote snapshot), the Worker's scanner role with warm-up, reconnect and gap backfill, pure metric functions, the stored current snapshot with `NOTIFY` and `/ws/scanner`, the scanner page with filters, sorting, saved and built-in presets and a link to the pair's chart | Against a Bybit stub: the table fills after warm-up, updates every minute, a dropped connection backfills its gap before showing the pair again, a new listing shows empty long-window metrics, a halted pair disappears; metric functions have unit tests on fixed candles | Planned |
+| 3. Alerts | Alert switch per preset (off by default), the «Отключить» button, entry-based reporting with a cooldown, one message per preset and snapshot through the Telegram queue | Against a fake Bot API: a pair entering a preset sends one message, staying in it sends none, the cooldown holds, the button switches the preset off, a user without a chat gets nothing | Planned |
+| 4. Batch backtest | One strategy version on many pairs from the table: history downloads, one run per pair, batch progress, ranking, comparison | Decided before the step begins | Planned |
