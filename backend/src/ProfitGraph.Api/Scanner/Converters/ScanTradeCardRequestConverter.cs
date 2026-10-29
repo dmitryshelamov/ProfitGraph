@@ -24,7 +24,7 @@ internal static class ScanTradeCardRequestConverter
 
         return errors.Count > 0
             ? throw new ApplicationValidationException(errors)
-            : new CreateScanTradeCommand(ownerId, venue, request.Symbol, scenario, entry, stop, target);
+            : new CreateScanTradeCommand(ownerId, venue, request.Symbol, request.Timeframe, scenario, entry, stop, target);
     }
 
     public static SetScanTradeSettingsCommand ToCommand(this ScanTradeSettingsRequest request, Guid ownerId, string venue)

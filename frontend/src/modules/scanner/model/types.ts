@@ -7,6 +7,7 @@ export type ScanPreset = Schemas['ScanPresetResponse'];
 export type ScanCondition = Schemas['ScanConditionResponse'];
 export type ScanPresetInput = Schemas['ScanPresetRequest'];
 export type ScanCandlesPage = Schemas['ScanCandlesResponse'];
+export type ScanLevels = Schemas['ScanLevelsResponse'];
 export type ScanBacktest = Schemas['ScanBacktestResponse'];
 export type ScanBacktestItem = Schemas['ScanBacktestListItemResponse'];
 export type ScanSignal = Schemas['ScanSignalResponse'];

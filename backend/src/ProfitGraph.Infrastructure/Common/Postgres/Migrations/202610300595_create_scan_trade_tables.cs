@@ -4,7 +4,7 @@ namespace ProfitGraph.Infrastructure.Common.Postgres.Migrations;
 
 /// <summary>
 ///     Scanner trade cards (ADR 0060): each owner's settings per venue, and the trades created from cards, each with its own bot. An
-///     owner has at most one live trade on a pair.
+///     owner has at most one live trade with the same scenario and prices on a pair.
 /// </summary>
 [Migration(202610300595)]
 public sealed class CreateScanTradeTablesMigration : Migration
@@ -30,6 +30,7 @@ public sealed class CreateScanTradeTablesMigration : Migration
                 venue varchar(64) NOT NULL,
                 symbol varchar(256) NOT NULL,
                 scenario varchar(32) NOT NULL,
+                levels_timeframe varchar(16) NOT NULL,
                 entry numeric(38, 18) NOT NULL,
                 stop numeric(38, 18) NOT NULL,
                 target numeric(38, 18) NOT NULL,
@@ -48,7 +49,8 @@ public sealed class CreateScanTradeTablesMigration : Migration
                 CHECK (stop > 0 AND stop < entry AND entry < target)
             );
 
-            CREATE UNIQUE INDEX scan_trades_live_pair ON scan_trades (owner_id, venue, symbol) WHERE status IN ('Waiting', 'Open');
+            CREATE UNIQUE INDEX scan_trades_live_proposal ON scan_trades (owner_id, venue, symbol, scenario, entry, stop, target)
+                WHERE status IN ('Waiting', 'Open');
             CREATE INDEX scan_trades_owner_venue_created ON scan_trades (owner_id, venue, created_at DESC);
             CREATE INDEX scan_trades_live ON scan_trades (created_at) WHERE status IN ('Waiting', 'Open');
             CREATE INDEX scan_trades_unreleased ON scan_trades (created_at) WHERE status NOT IN ('Waiting', 'Open') AND NOT bot_released;

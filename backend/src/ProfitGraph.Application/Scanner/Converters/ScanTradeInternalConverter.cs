@@ -12,6 +12,7 @@ internal static class ScanTradeInternalConverter
             trade.Venue.Value,
             trade.Symbol,
             trade.Scenario,
+            trade.LevelsTimeframe.Key,
             trade.Entry,
             trade.Stop,
             trade.Target,

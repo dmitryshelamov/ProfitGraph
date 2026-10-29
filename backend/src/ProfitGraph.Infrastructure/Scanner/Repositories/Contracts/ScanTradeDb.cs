@@ -7,6 +7,7 @@ internal sealed class ScanTradeDb
     public string Venue { get; init; } = "";
     public string Symbol { get; init; } = "";
     public string Scenario { get; init; } = "";
+    public string LevelsTimeframe { get; init; } = "";
     public decimal Entry { get; init; }
     public decimal Stop { get; init; }
     public decimal Target { get; init; }

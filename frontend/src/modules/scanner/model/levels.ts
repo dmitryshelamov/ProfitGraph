@@ -1,18 +1,28 @@
 import type { ChartLevel } from '@/modules/market-chart';
 
-import type { ScanRow } from './types';
+import type { ScanLevels } from './types';
 
-/** The pair's nearest support and resistance as dashed chart levels, from its snapshot row. */
-export function rowLevels(row: ScanRow | undefined): ChartLevel[] {
-  const levels: ChartLevel[] = [];
+/** The pair's nearest support and resistance on the chart's timeframe as dashed chart levels. */
+export function timeframeLevels(levels: ScanLevels | undefined): ChartLevel[] {
+  const result: ChartLevel[] = [];
 
-  if (row?.support) {
-    levels.push({ id: 'support', side: 'Buy', price: row.support, title: 'Поддержка' });
+  if (levels?.support) {
+    result.push({
+      id: 'support',
+      side: 'Buy',
+      price: levels.support,
+      title: `Поддержка ${levels.timeframe}`,
+    });
   }
 
-  if (row?.resistance) {
-    levels.push({ id: 'resistance', side: 'Sell', price: row.resistance, title: 'Сопротивление' });
+  if (levels?.resistance) {
+    result.push({
+      id: 'resistance',
+      side: 'Sell',
+      price: levels.resistance,
+      title: `Сопротивление ${levels.timeframe}`,
+    });
   }
 
-  return levels;
+  return result;
 }

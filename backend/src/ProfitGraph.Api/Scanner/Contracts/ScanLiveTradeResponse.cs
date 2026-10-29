@@ -9,6 +9,7 @@ public sealed record ScanLiveTradeResponse(
     string Venue,
     string Symbol,
     string Scenario,
+    string LevelsTimeframe,
     string Entry,
     string Stop,
     string Target,

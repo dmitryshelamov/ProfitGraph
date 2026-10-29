@@ -6,6 +6,10 @@ real orders with a take profit and a stop loss and follow them ("Делай ка
 the pull request. Builds on ADR 0016, ADR 0042, ADR 0046, ADR 0048, ADR 0055 and ADR 0059 (sections 6 and 8); it is the
 semi-automatic first half of the screener robot (roadmap step 5).
 
+The owner then set the flow (2026-10-30): the scanner catches a pair, its page shows every proposal of every timeframe at once,
+the owner ticks the wanted ones and applies them, each becoming a one-trade bot with its prices ("смотрим все цели по всем ТФ и
+выбираем и применяем нужные"). Levels per chart timeframe (ADR 0059, section 8, point 5) come with this change.
+
 ## Context
 
 The scanner finds pairs and the preset backtest simulates four trade scenarios after a signal (ADR 0059, section 8). The owner
@@ -19,10 +23,13 @@ following them would need a second order path beside the bots with its own recon
 
 ## Decision
 
-### 1. A card is a scenario of the preset backtest for the pair now
+### 1. A card is a scenario of the preset backtest for the pair now, on every timeframe
 
-`ScanTradeIdeas.Of` (Engine) proposes, from the current snapshot's price, support and resistance and the lowest low of the last
-hour's closed candles, the scenarios the backtest simulates, with the price in place of the next minute's open:
+`ScanTradeIdeas.Of` (Engine) proposes the scenarios the backtest simulates, with the price in place of the next minute's open. The
+levels come from each timeframe of `ScanTrades:LevelTimeframes` the venue offers (`1m`, `5m`, `15m`, `1h`, `4h`, `1d`): its last
+168 closed candles at the snapshot price, as the pair page's levels (`ScanTimeframeLevelsReader`). Each timeframe gives its own
+`Levels` and `Target2R`; the pullback comes once, from the last hour, shown under `1h`. A proposal that another timeframe already
+gives with the same prices is listed once, under the shorter timeframe.
 
 | Scenario | Entry (limit) | Stop | Target | The entry waits |
 |---|---|---|---|---|
@@ -30,9 +37,11 @@ hour's closed candles, the scenarios the backtest simulates, with the price in p
 | `Target2R` | the price | the support | two risks above the entry | 1 hour |
 | `Pullback` | halfway down from the price to the hour's lowest low | that low | two risks above the entry | 4 hours |
 
-`Levels` needs a support below and a resistance above the price, `Target2R` a support below, `Pullback` an hour that rose. A card
-shows its reward-to-risk (green from 2), the amount and the loss at the stop. «Отмена» only hides the card on the page. The
-backtest and the cards share the pullback rule and its wait.
+`Levels` needs a support below and a resistance above the price, `Target2R` a support below, `Pullback` an hour that rose. The
+cards are grouped by timeframe; each shows its reward-to-risk (green from 2), the amount and the loss at the stop. The owner ticks
+cards and «Создать выбранные» creates a trade for each, one after another, showing the total amount and the total loss at the
+stops first and each card's bot or error after; «Скрыть» only hides a card. A card whose scenario and prices a live trade already
+has is marked and cannot be ticked. The backtest and the cards share the pullback rule and its wait.
 
 ### 2. «Создать» starts a one-trade bot (owner: "Бот-однодневка")
 
@@ -45,9 +54,11 @@ The trade runs on the bots' order path, not on a new one:
   rules require `stopPrice < entryPrice < targetPrice`.
 - **The owner's strategy.** The first trade creates «Сделка по уровням (сканер)» from the template; every trade's bot runs its
   latest version, so an edit of that strategy changes every live trade, like any strategy shared by bots.
-- **Bot.** One bot per trade, named «HYPEUSDT · откат», with the owner's credential, the pair, the `ScanTrades:Timeframe` candles
-  (`1m`), the trade's prices and amount as parameters, and the amount as its allocation, largest order and daily loss limit, so it
-  cannot spend more. Foreign orders are not allowed. It is started at once; a bot that does not start fails the trade and the
+- **Bot.** One bot per trade, named after the pair, the scenario and its levels' timeframe («HYPEUSDT · уровни 4h»), with the
+  owner's credential, the pair, the `ScanTrades:Timeframe` candles (`1m`), the trade's prices and amount as parameters, and the
+  amount as its allocation, largest order and daily loss limit, so it cannot spend more. It allows foreign orders: the owner's other
+  trades on the same pair place theirs on the same symbol, which would otherwise stop it (`ForeignOrder`, ADR 0017). The trade keeps
+  the timeframe its levels came from. It is started at once; a bot that does not start fails the trade and the
   error reaches the owner.
 - **The stop is software.** It is checked on the closes of minute candles, so it acts up to a minute late and sells by market,
   possibly below the stop; it does not act while the Worker is down. The target rests on the venue. The owner chose this over
@@ -68,8 +79,8 @@ of the scanner's venue.
 - The pair is not in the current snapshot: 409 `scan_trade_pair_not_scanned`.
 - The entry is further than `ScanTrades:MaxEntryDeviation` (5 %) from the current price: 409 `scan_trade_entry_moved`; the
   card's prices are used as shown, not recomputed.
-- A live trade on the pair already exists: 409 `scan_trade_live`; a partial unique index enforces one live trade per owner and
-  pair.
+- A live trade with the same scenario and prices on the pair already exists: 409 `scan_trade_live`; a partial unique index
+  enforces it. Several trades on one pair (other timeframes or scenarios) are allowed.
 
 ### 5. Following the trade
 
@@ -99,6 +110,9 @@ stopped the bot before it bought) or `Failed` (the bot did not start or the venu
 ## Consequences
 
 - Every trade is an ordinary bot on the bots page, with its chart, orders, fills, position and kill switch.
+- The trades' orders are foreign to any other bot of the owner on the same pair and account; such a bot that does not allow
+  foreign orders stops on them. Several trades on one pair share the venue's balance of the pair.
+- Reading the cards reads up to 168 candles of six timeframes per pair through the shared candle cache.
 - A trade costs a live candle subscription while it runs; the tracker stops finished bots.
 - The stop can slip by up to a minute and below its price, and does not act while the Worker is down.
 - On 30 days of «Импульс» every scenario lost after fees (ADR 0059, section 8); the cards place what the owner chooses, and

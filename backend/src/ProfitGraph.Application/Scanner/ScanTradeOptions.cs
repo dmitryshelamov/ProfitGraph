@@ -13,6 +13,11 @@ public sealed class ScanTradeOptions
     public string Timeframe { get; init; } = "1m";
 
     /// <summary>
+    ///     The timeframes whose levels give the cards' proposals, shortest first; those the venue does not offer are skipped.
+    /// </summary>
+    public string[] LevelTimeframes { get; init; } = ["1m", "5m", "15m", "1h", "4h", "1d"];
+
+    /// <summary>
     ///     The fee on each side a card's amount is sized with; the preset backtest assumes the same.
     /// </summary>
     public decimal FeeRate { get; init; } = 0.001m;
@@ -53,7 +58,8 @@ public sealed class ScanTradeOptions
 
     public bool IsValid()
     {
-        return IsTimeframe(Timeframe) && FeeRate is >= 0m and < 0.1m && MaxEntryDeviation is > 0m and < 1m && TrackInterval > TimeSpan.Zero && TrackBatchSize > 0 &&
+        return IsTimeframe(Timeframe) && LevelTimeframes.Length > 0 && LevelTimeframes.All(IsTimeframe) && FeeRate is >= 0m and < 0.1m &&
+            MaxEntryDeviation is > 0m and < 1m && TrackInterval > TimeSpan.Zero && TrackBatchSize > 0 &&
             ListLimit > 0;
     }
 }

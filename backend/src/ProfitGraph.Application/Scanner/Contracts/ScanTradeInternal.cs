@@ -8,6 +8,7 @@ public sealed record ScanTradeInternal(
     string Venue,
     string Symbol,
     ScanScenario Scenario,
+    string LevelsTimeframe,
     decimal Entry,
     decimal Stop,
     decimal Target,

@@ -43,7 +43,7 @@ export function ScanPairTrades({ venue, symbol }: { venue: string; symbol: strin
                   <DateTime value={trade.createdAt} />
                 </td>
                 <td className="px-3 py-2 text-left">
-                  {tradeScenarioLabels[trade.scenario] ?? trade.scenario}
+                  {tradeScenarioLabels[trade.scenario] ?? trade.scenario} {trade.levelsTimeframe}
                 </td>
                 <td className="px-3 py-2">{formatMetric(trade.entry, 6)}</td>
                 <td className="px-3 py-2">{formatMetric(trade.stop, 6)}</td>

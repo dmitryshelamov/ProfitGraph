@@ -6,6 +6,7 @@ import { api, unwrap } from '@/shared/api/client';
 import type {
   ScanBacktest,
   ScanCandlesPage,
+  ScanLevels,
   ScanLiveTrade,
   ScanPreset,
   ScanPresetInput,
@@ -22,6 +23,8 @@ export const scannerKeys = {
     ['scanner', venue, 'candles', symbol, timeframe] as const,
   newCandles: (venue: string, symbol: string, timeframe: string, from: string) =>
     ['scanner', venue, 'new-candles', symbol, timeframe, from] as const,
+  levels: (venue: string, symbol: string, timeframe: string) =>
+    ['scanner', venue, 'levels', symbol, timeframe] as const,
   backtests: (venue: string) => ['scanner', venue, 'backtests'] as const,
   backtest: (id: string) => ['scanner', 'backtests', id] as const,
   tradeIdeas: (venue: string, symbol: string) => ['scanner', venue, 'trade-ideas', symbol] as const,
@@ -140,6 +143,23 @@ export function scanNewCandlesQuery(
   });
 }
 
+/**
+ * A pair's support, resistance and reward-to-risk on the chart's timeframe, from its last closed candles of that timeframe
+ * at the price of its snapshot row; read again every minute as candles close and the price moves.
+ */
+export function scanLevelsQuery(venue: string, symbol: string, timeframe: string) {
+  return queryOptions({
+    queryKey: scannerKeys.levels(venue, symbol, timeframe),
+    queryFn: async (): Promise<ScanLevels> =>
+      unwrap(
+        await api.GET('/api/scanner/{venue}/levels', {
+          params: { path: { venue }, query: { symbol, timeframe } },
+        }),
+      ),
+    refetchInterval: 60_000,
+  });
+}
+
 /** Replays the preset's conditions over the venue's last 30 days in a background job. */
 export async function startScanBacktest(
   venue: string,
@@ -173,7 +193,7 @@ export function scanBacktestQuery(backtestId: string) {
   });
 }
 
-/** The pair's trade cards from the current snapshot (ADR 0060), read again every minute with the snapshot. */
+/** The pair's trade cards on the levels of every timeframe (ADR 0060), read again every minute. */
 export function scanTradeIdeasQuery(venue: string, symbol: string) {
   return queryOptions({
     queryKey: scannerKeys.tradeIdeas(venue, symbol),
@@ -237,6 +257,7 @@ export async function createScanTrade(
       params: { path: { venue } },
       body: {
         symbol,
+        timeframe: idea.timeframe,
         scenario: idea.scenario,
         entry: idea.entry,
         stop: idea.stop,

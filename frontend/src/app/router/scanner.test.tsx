@@ -134,6 +134,28 @@ describe('scanner page', () => {
           candles: [],
         });
       },
+      'GET /api/scanner/bybit/levels': (request) => {
+        const timeframe = new URL(request.url).searchParams.get('timeframe');
+        const hourly = timeframe === '1h';
+
+        return json({
+          venue: 'bybit',
+          symbol: 'SOLUSDT',
+          timeframe,
+          from: '2026-10-22T10:00:00Z',
+          to: '2026-10-29T10:00:00Z',
+          status: 'Complete',
+          errorCode: null,
+          candleCount: 168,
+          price: '187.5',
+          levels: hourly ? ['180', '200'] : ['185', '192'],
+          support: hourly ? '180' : '185',
+          resistance: hourly ? '200' : '192',
+          distanceToSupport: hourly ? '-4' : '-1.3333',
+          distanceToResistance: hourly ? '6.6667' : '2.4',
+          rewardRisk: hourly ? '1.6667' : '1.8',
+        });
+      },
     });
     const candleTimeframes = () =>
       requests
@@ -147,14 +169,24 @@ describe('scanner page', () => {
     expect(await screen.findByRole('heading', { name: 'SOLUSDT' })).toBeInTheDocument();
     expect(await screen.findByText('187.5')).toBeInTheDocument();
     await waitFor(() => expect(candleTimeframes()).toContain('15m'));
+    const levels15m = (await screen.findByRole('heading', { name: 'Уровни 15m' })).closest(
+      'section',
+    )!;
+    expect(await within(levels15m).findByText('1.8')).toBeInTheDocument();
+    expect(within(levels15m).getByText('185')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('link', { name: '1h' }));
 
     await waitFor(() => expect(candleTimeframes()).toContain('1h'));
+    const levels1h = (await screen.findByRole('heading', { name: 'Уровни 1h' })).closest(
+      'section',
+    )!;
+    expect(await within(levels1h).findByText('1.67')).toBeInTheDocument();
+    expect(within(levels1h).getByText('200')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '1h' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('creates a trade from a card with the prices it shows and hides another card', async () => {
+  it('creates the ticked cards of every timeframe with the prices they show', async () => {
     const created = {
       id: 'trade-1',
       venue: 'bybit',
@@ -212,11 +244,10 @@ describe('scanner page', () => {
           venue: 'bybit',
           symbol: 'SOLUSDT',
           price: '100',
-          computedAt: '2026-10-30T10:00:00Z',
           hasSettings: true,
-          hasLiveTrade: trades.length > 0,
           ideas: [
             {
+              timeframe: '15m',
               scenario: 'Levels',
               entry: '100',
               stop: '95',
@@ -225,8 +256,22 @@ describe('scanner page', () => {
               entryValidityMinutes: 60,
               amount: '96.153846153846',
               risk: '5',
+              taken: trades.length > 0,
             },
             {
+              timeframe: '4h',
+              scenario: 'Target2R',
+              entry: '100',
+              stop: '90',
+              target: '120',
+              rewardRisk: '2',
+              entryValidityMinutes: 60,
+              amount: '49.019607843137',
+              risk: '5',
+              taken: false,
+            },
+            {
+              timeframe: '1h',
               scenario: 'Pullback',
               entry: '97.5',
               stop: '95',
@@ -235,6 +280,7 @@ describe('scanner page', () => {
               entryValidityMinutes: 240,
               amount: '187.5',
               risk: '5',
+              taken: false,
             },
           ],
         }),
@@ -248,27 +294,32 @@ describe('scanner page', () => {
 
     renderApp('/scanner/bybit/SOLUSDT');
 
-    const levels = await screen.findByRole('article', { name: 'Идея: Уровни' });
+    const levels = await screen.findByRole('article', { name: 'Идея: Уровни 15m' });
     expect(within(levels).getByText('96.15 USDT')).toBeInTheDocument();
     expect(within(levels).getByText('R:R 2.4')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Идеи по 4h' })).toBeInTheDocument();
     expect(screen.getByText(/Риск на сделку/)).toHaveTextContent('ключ «Основной»');
 
     await userEvent.click(
-      within(screen.getByRole('article', { name: 'Идея: Откат' })).getByRole('button', {
-        name: 'Отмена',
+      within(screen.getByRole('article', { name: 'Идея: Откат 1h' })).getByRole('button', {
+        name: 'Скрыть',
       }),
     );
-    expect(screen.queryByRole('article', { name: 'Идея: Откат' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('article', { name: 'Идея: Откат 1h' })).not.toBeInTheDocument();
 
-    await userEvent.click(within(levels).getByRole('button', { name: 'Создать' }));
+    await userEvent.click(within(levels).getByRole('checkbox'));
+    expect(screen.getByText(/Сумма 96.15 USDT, потеря на всех стопах 5 USDT/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Создать выбранные (1)' }));
 
     expect(await within(levels).findByRole('link', { name: 'бот сделки' })).toHaveAttribute(
       'href',
       '/bots/bot-1',
     );
-    const post = requests.find((request) => request.method === 'POST')!;
-    expect(await post.json()).toEqual({
+    const posts = requests.filter((request) => request.method === 'POST');
+    expect(posts).toHaveLength(1);
+    expect(await posts[0]!.json()).toEqual({
       symbol: 'SOLUSDT',
+      timeframe: '15m',
       scenario: 'Levels',
       entry: '100',
       stop: '95',

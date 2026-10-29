@@ -4,6 +4,7 @@ using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Scanner.Trades;
 using ProfitGraph.Domain.Strategies;
+using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Scanning;
 using ProfitGraph.Infrastructure.Scanner.Repositories.Contracts;
 
@@ -21,6 +22,7 @@ internal static class ScanTradeDbConverter
             new VenueId(row.Venue),
             row.Symbol,
             Enum.Parse<ScanScenario>(row.Scenario),
+            Timeframe.Parse(row.LevelsTimeframe),
             row.Entry,
             row.Stop,
             row.Target,
@@ -47,6 +49,7 @@ internal static class ScanTradeDbConverter
             Venue = trade.Venue.Value,
             Symbol = trade.Symbol,
             Scenario = trade.Scenario.ToString(),
+            LevelsTimeframe = trade.LevelsTimeframe.Key,
             Entry = trade.Entry,
             Stop = trade.Stop,
             Target = trade.Target,

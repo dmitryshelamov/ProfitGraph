@@ -2,6 +2,7 @@ using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Common;
 using ProfitGraph.Domain.MarketData;
+using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Scanning;
 
 namespace ProfitGraph.Domain.Scanner.Trades;
@@ -18,6 +19,12 @@ public sealed class ScanTrade : AggregateRoot
     public VenueId Venue { get; }
     public string Symbol { get; }
     public ScanScenario Scenario { get; }
+
+    /// <summary>
+    ///     The timeframe whose levels the card's prices came from.
+    /// </summary>
+    public Timeframe LevelsTimeframe { get; }
+
     public decimal Entry { get; }
     public decimal Stop { get; }
     public decimal Target { get; }
@@ -67,6 +74,7 @@ public sealed class ScanTrade : AggregateRoot
         VenueId venue,
         string symbol,
         ScanScenario scenario,
+        Timeframe levelsTimeframe,
         decimal entry,
         decimal stop,
         decimal target,
@@ -84,6 +92,7 @@ public sealed class ScanTrade : AggregateRoot
         bool botReleased)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(symbol);
+        ArgumentNullException.ThrowIfNull(levelsTimeframe);
 
         if (stop <= 0m || stop >= entry || target <= entry)
         {
@@ -100,6 +109,7 @@ public sealed class ScanTrade : AggregateRoot
         Venue = venue;
         Symbol = symbol;
         Scenario = scenario;
+        LevelsTimeframe = levelsTimeframe;
         Entry = entry;
         Stop = stop;
         Target = target;
@@ -123,6 +133,7 @@ public sealed class ScanTrade : AggregateRoot
         VenueId venue,
         string symbol,
         ScanScenario scenario,
+        Timeframe levelsTimeframe,
         decimal entry,
         decimal stop,
         decimal target,
@@ -138,6 +149,7 @@ public sealed class ScanTrade : AggregateRoot
             venue,
             symbol,
             scenario,
+            levelsTimeframe,
             entry,
             stop,
             target,
@@ -161,6 +173,7 @@ public sealed class ScanTrade : AggregateRoot
         VenueId venue,
         string symbol,
         ScanScenario scenario,
+        Timeframe levelsTimeframe,
         decimal entry,
         decimal stop,
         decimal target,
@@ -183,6 +196,7 @@ public sealed class ScanTrade : AggregateRoot
             venue,
             symbol,
             scenario,
+            levelsTimeframe,
             entry,
             stop,
             target,
@@ -198,6 +212,14 @@ public sealed class ScanTrade : AggregateRoot
             realizedPnl,
             failureCode,
             botReleased);
+    }
+
+    /// <summary>
+    ///     Whether this trade has the scenario and the prices of a proposal.
+    /// </summary>
+    public bool Takes(ScanScenario scenario, decimal entry, decimal stop, decimal target)
+    {
+        return Scenario == scenario && Entry == entry && Stop == stop && Target == target;
     }
 
     /// <summary>

@@ -2,6 +2,7 @@ using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Scanner.Trades;
+using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Scanning;
 
 using ScanTrade = ProfitGraph.Domain.Scanner.Trades.ScanTrade;
@@ -96,6 +97,16 @@ public sealed class ScanTradeTests
         trade.BotReleased.ShouldBeTrue();
     }
 
+    [Test]
+    public void TakesAProposalWithItsScenarioAndPrices()
+    {
+        ScanTrade trade = Trade();
+
+        trade.Takes(ScanScenario.Levels, entry: 100m, stop: 95m, target: 110m).ShouldBeTrue();
+        trade.Takes(ScanScenario.Target2R, entry: 100m, stop: 95m, target: 110m).ShouldBeFalse();
+        trade.Takes(ScanScenario.Levels, entry: 100m, stop: 95m, target: 112m).ShouldBeFalse();
+    }
+
     [TestCase(arg1: 100, arg2: 100, arg3: 110)]
     [TestCase(arg1: 100, arg2: 95, arg3: 100)]
     [TestCase(arg1: 100, arg2: 0, arg3: 110)]
@@ -124,6 +135,7 @@ public sealed class ScanTradeTests
             new VenueId("bybit"),
             "HYPEUSDT",
             ScanScenario.Levels,
+            Timeframe.Parse("1h"),
             entry,
             stop,
             target,

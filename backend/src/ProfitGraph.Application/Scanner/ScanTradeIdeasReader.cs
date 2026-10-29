@@ -1,43 +1,62 @@
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.MarketData.Charts;
 using ProfitGraph.Application.Scanner.Contracts;
-using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Scanning;
 
 namespace ProfitGraph.Application.Scanner;
 
 /// <summary>
-///     The trade cards' starting point for a pair (ADR 0060): its row of the current snapshot, and the ideas from that row's price and
-///     levels and the lowest low of the last hour's closed minutes. A pair the snapshot does not show has no ideas.
+///     The trade cards' proposals for a pair on every timeframe of <see cref="ScanTradeOptions.LevelTimeframes" /> the venue offers
+///     (ADR 0060): each timeframe's levels at the pair's price give its own levels and 2R trades; the pullback comes once, from the last
+///     hour of the trades' own candles, under <see cref="PullbackTimeframe" />. A trade that another timeframe already proposes with
+///     the same prices is listed once, under the shorter timeframe. Without a price there are no proposals.
 /// </summary>
 public sealed class ScanTradeIdeasReader(
-    IScanSnapshotRepository snapshots,
+    ScanTimeframeLevelsReader levels,
     VenueRegistry venues,
     CandleChartReader chart,
     ScanTradeOptions options,
     TimeProvider clock)
 {
+    /// <summary>
+    ///     The timeframe a pullback is shown and stored under: its range is the last hour.
+    /// </summary>
+    public const string PullbackTimeframe = "1h";
+
     private static readonly TimeSpan LastHour = TimeSpan.FromHours(1);
 
-    public async Task<(ScanSnapshotRowInternal? Row, DateTimeOffset? ComputedAt, IReadOnlyList<ScanTradeIdea> Ideas)> Read(
+    public async Task<(decimal? Price, IReadOnlyList<(string Timeframe, ScanTradeIdea Idea)> Ideas)> Read(
         string venue,
         string symbol,
         CancellationToken cancellationToken)
     {
-        ScanSnapshotInternal? snapshot = await snapshots.Get(venue, cancellationToken);
-        ScanSnapshotRowInternal? row = snapshot?.Rows.FirstOrDefault(item => item.Symbol == symbol);
+        HashSet<string> offered = [.. venues.Find(venue)?.Timeframes.Select(timeframe => timeframe.Key) ?? []];
+        decimal? price = null;
+        List<(string Timeframe, ScanTradeIdea Idea)> ideas = [];
 
-        if (row?.Metrics.Price is not { } price)
+        foreach (string timeframe in options.LevelTimeframes.Where(offered.Contains))
         {
-            return (row, snapshot?.ComputedAt, []);
+            ScanLevelsInternal read = await levels.Read(venue, symbol, timeframe, cancellationToken);
+            price ??= read.Price;
+
+            if (read.Price is { } current)
+            {
+                ideas.AddRange(ScanTradeIdeas.Of(current, read.Support, read.Resistance, lastHourLow: null).Select(idea => (timeframe, idea)));
+            }
         }
 
-        CandleSeries series = venues.ResolveSeries(venue, symbol, options.Timeframe);
-        DateTimeOffset end = series.Timeframe.FloorToGrid(clock.GetUtcNow());
-        CandleChartPage page = await chart.Read(series, end - LastHour, end, Math.Max((int)(LastHour / series.Timeframe.Duration), val2: 1), cancellationToken);
-        decimal? low = page.Candles.Count > 0 ? page.Candles.Min(candle => candle.Low) : null;
+        if (price is { } now && offered.Contains(PullbackTimeframe))
+        {
+            CandleSeries series = venues.ResolveSeries(venue, symbol, options.Timeframe);
+            DateTimeOffset end = series.Timeframe.FloorToGrid(clock.GetUtcNow());
+            CandleChartPage page = await chart.Read(series, end - LastHour, end, Math.Max((int)(LastHour / series.Timeframe.Duration), val2: 1), cancellationToken);
+            decimal? low = page.Candles.Count > 0 ? page.Candles.Min(candle => candle.Low) : null;
+            ideas.AddRange(
+                ScanTradeIdeas.Of(now, support: null, resistance: null, low)
+                    .Select(idea => (PullbackTimeframe, idea)));
+        }
 
-        return (row, snapshot!.ComputedAt, ScanTradeIdeas.Of(price, row.Metrics.Support, row.Metrics.Resistance, low));
+        return (price, [.. ideas.DistinctBy(item => (item.Idea.Scenario, item.Idea.Entry, item.Idea.Stop, item.Idea.Target))]);
     }
 }

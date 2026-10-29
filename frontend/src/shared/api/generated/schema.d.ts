@@ -651,6 +651,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scanner/{venue}/levels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    symbol?: string;
+                    timeframe?: string;
+                };
+                header?: never;
+                path: {
+                    venue: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanLevelsResponse"];
+                        "application/json": components["schemas"]["ScanLevelsResponse"];
+                        "text/json": components["schemas"]["ScanLevelsResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scanner/{venue}/backtests": {
         parameters: {
             query?: never;
@@ -4739,6 +4781,7 @@ export interface components {
         };
         CreateScanTradeRequest: {
             symbol: string;
+            timeframe: string;
             scenario: string;
             entry: string;
             stop: string;
@@ -5170,12 +5213,33 @@ export interface components {
             minimum: null | string;
             maximum: null | string;
         };
+        ScanLevelsResponse: {
+            venue: string;
+            symbol: string;
+            timeframe: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            status: components["schemas"]["CandleHistoryStatus"];
+            errorCode: null | string;
+            /** Format: int32 */
+            candleCount: number;
+            price: null | string;
+            levels: string[];
+            support: null | string;
+            resistance: null | string;
+            distanceToSupport: null | string;
+            distanceToResistance: null | string;
+            rewardRisk: null | string;
+        };
         ScanLiveTradeResponse: {
             /** Format: uuid */
             id: string;
             venue: string;
             symbol: string;
             scenario: string;
+            levelsTimeframe: string;
             entry: string;
             stop: string;
             target: string;
@@ -5297,6 +5361,7 @@ export interface components {
             scenarios: components["schemas"]["ScanScenarioSummaryResponse"][];
         };
         ScanTradeIdeaResponse: {
+            timeframe: string;
             scenario: string;
             entry: string;
             stop: string;
@@ -5306,15 +5371,13 @@ export interface components {
             entryValidityMinutes: number;
             amount: null | string;
             risk: null | string;
+            taken: boolean;
         };
         ScanTradeIdeasResponse: {
             venue: string;
             symbol: string;
             price: null | string;
-            /** Format: date-time */
-            computedAt: null | string;
             hasSettings: boolean;
-            hasLiveTrade: boolean;
             ideas: components["schemas"]["ScanTradeIdeaResponse"][];
         };
         ScanTradeResponse: {

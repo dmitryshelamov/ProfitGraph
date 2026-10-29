@@ -202,6 +202,14 @@ backtest, which replays the same levels without looking ahead.
    signals became trades, the share of profitable ones, mean and median R, total R, the longest losing streak and the mean time in
    a trade; every stored signal carries its four trades.
 4. **Signals kept.** Up to 10,000 signals are stored, so the page can filter one pair's signals over the whole period.
+5. **Levels on the chart's timeframe** (owner, 2026-10-30). A pair's page shows support, resistance, their distances and
+   reward-to-risk for the timeframe its chart shows, to judge an entry on that timeframe. `GET /api/scanner/{venue}/levels`
+   reads the pair's last 168 closed candles of the timeframe through the shared candle cache, applies `ScanLevels` to them and
+   takes the price of the pair's snapshot row (the last close when the snapshot lacks the pair); the page reads it again every
+   minute and draws the two levels, labelled with the timeframe. The scanner's metrics, presets, alerts and backtest stay on
+   hours: a metric that followed whichever chart a viewer opened would make a shared snapshot and its replay disagree. The
+   algorithm is the same on every timeframe, including the 0.5 % merge, which is coarse on minutes; a timeframe-aware merge
+   is a later decision.
 
 ### 7. Order of work
 

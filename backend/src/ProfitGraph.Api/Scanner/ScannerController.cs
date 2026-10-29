@@ -11,6 +11,7 @@ using ProfitGraph.Application.Scanner.DeleteScanPreset;
 using ProfitGraph.Application.Scanner.GetScanBacktest;
 using ProfitGraph.Application.Scanner.GetScanBacktests;
 using ProfitGraph.Application.Scanner.GetScanCandles;
+using ProfitGraph.Application.Scanner.GetScanLevels;
 using ProfitGraph.Application.Scanner.GetScanPresets;
 using ProfitGraph.Application.Scanner.GetScanSnapshot;
 using ProfitGraph.Application.Scanner.GetScanTradeIdeas;
@@ -65,6 +66,22 @@ public sealed class ScannerController(ISender sender) : ControllerBase
             cancellationToken);
 
         return page.ToResponse();
+    }
+
+    /// <summary>
+    ///     A pair's support, resistance and reward-to-risk on the chart's timeframe: the levels of its last 168 closed candles of that
+    ///     timeframe at the price of its snapshot row (ADR 0059, section 8). The scanner's own metrics stay on hours.
+    /// </summary>
+    [HttpGet("{venue}/levels")]
+    public async Task<ActionResult<ScanLevelsResponse>> GetLevels(
+        string venue,
+        [FromQuery] string? symbol,
+        [FromQuery] string? timeframe,
+        CancellationToken cancellationToken)
+    {
+        ScanLevelsInternal levels = await sender.Send(new GetScanLevelsQuery(venue, symbol ?? string.Empty, timeframe ?? string.Empty), cancellationToken);
+
+        return levels.ToResponse();
     }
 
     /// <summary>
@@ -143,7 +160,8 @@ public sealed class ScannerController(ISender sender) : ControllerBase
     }
 
     /// <summary>
-    ///     The pair's trade cards now (ADR 0060): the preset backtest's scenarios from the current snapshot, sized by the owner's settings.
+    ///     The pair's trade cards now (ADR 0060): the preset backtest's scenarios on the levels of every timeframe, sized by the owner's
+    ///     settings.
     /// </summary>
     [HttpGet("{venue}/trade-ideas")]
     public async Task<ActionResult<ScanTradeIdeasResponse>> GetTradeIdeas(string venue, [FromQuery] string? symbol, CancellationToken cancellationToken)

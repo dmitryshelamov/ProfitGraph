@@ -17,6 +17,7 @@ using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Scanner.Trades;
 using ProfitGraph.Domain.Strategies;
+using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Scanning;
 using ProfitGraph.Engine.Templates;
 
@@ -26,9 +27,10 @@ namespace ProfitGraph.Application.Scanner.CreateScanTrade;
 
 /// <summary>
 ///     Refuses a trade without settings, on a pair the snapshot does not show, with an entry further than
-///     <see cref="ScanTradeOptions.MaxEntryDeviation" /> from the current price, or while the owner has a live trade on the pair. The
-///     bot's allocation, largest order and daily loss limit are the trade's amount, so it cannot spend more. A bot that does not start
-///     fails the trade and the error reaches the owner.
+///     <see cref="ScanTradeOptions.MaxEntryDeviation" /> from the current price, or while the owner has a live trade with the same
+///     scenario and prices on the pair. The bot's allocation, largest order and daily loss limit are the trade's amount, so it cannot
+///     spend more; it allows foreign orders, since the owner's other trades on the pair place theirs on the same symbol. A bot that
+///     does not start fails the trade and the error reaches the owner.
 /// </summary>
 internal sealed class CreateScanTradeCommandHandler(
     IEnumerable<IMarketScanSource> sources,
@@ -53,9 +55,11 @@ internal sealed class CreateScanTradeCommandHandler(
             throw new StateConflictException("Set the risk and the credential of trades first.", ScanTradeErrorCodes.NoSettings);
         await EnsureEntryNearPrice(command, cancellationToken);
 
-        if (await trades.HasLive(owner, venue, command.Symbol, cancellationToken))
+        IReadOnlyList<ScanTrade> pairTrades = await trades.List(owner, venue, command.Symbol, options.ListLimit, cancellationToken);
+
+        if (pairTrades.Any(trade => trade.IsLive && trade.Takes(command.Scenario, command.Entry, command.Stop, command.Target)))
         {
-            throw new StateConflictException("A trade on this pair is still live.", ScanTradeErrorCodes.LiveTradeExists);
+            throw new StateConflictException("A live trade already has this scenario and these prices.", ScanTradeErrorCodes.LiveTradeExists);
         }
 
         (decimal amount, decimal risk) = sizing.Size(command.Entry, command.Stop, options.FeeRate);
@@ -75,7 +79,7 @@ internal sealed class CreateScanTradeCommandHandler(
                 amount,
                 amount,
                 amount,
-                AllowForeignOrders: false),
+                AllowForeignOrders: true),
             cancellationToken);
         await sender.Send(new RenameBotCommand(command.OwnerId, bot.Id, Name(command)), cancellationToken);
         var trade = ScanTrade.Create(
@@ -84,6 +88,7 @@ internal sealed class CreateScanTradeCommandHandler(
             venue,
             command.Symbol,
             command.Scenario,
+            Timeframe.Parse(command.Timeframe),
             command.Entry,
             command.Stop,
             command.Target,
@@ -131,8 +136,8 @@ internal sealed class CreateScanTradeCommandHandler(
     {
         string scenario = command.Scenario switch
         {
-            ScanScenario.Levels or ScanScenario.LevelsRewardRisk2 => "уровни",
-            ScanScenario.Target2R => "цель 2R",
+            ScanScenario.Levels or ScanScenario.LevelsRewardRisk2 => $"уровни {command.Timeframe}",
+            ScanScenario.Target2R => $"цель 2R от поддержки {command.Timeframe}",
             _ => "откат"
         };
 

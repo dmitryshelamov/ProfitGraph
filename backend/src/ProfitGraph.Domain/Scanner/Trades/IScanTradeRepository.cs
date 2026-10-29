@@ -20,11 +20,6 @@ public interface IScanTradeRepository
     Task<ScanTrade?> GetForUpdate(ScanTradeId id, CancellationToken cancellationToken);
 
     /// <summary>
-    ///     Whether the owner has a live trade on the pair.
-    /// </summary>
-    Task<bool> HasLive(UserId ownerId, VenueId venue, string symbol, CancellationToken cancellationToken);
-
-    /// <summary>
     ///     Every live trade of every owner, oldest first.
     /// </summary>
     Task<IReadOnlyList<ScanTrade>> ListLive(int limit, CancellationToken cancellationToken);

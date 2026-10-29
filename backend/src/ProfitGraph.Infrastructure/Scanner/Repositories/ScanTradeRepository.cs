@@ -40,12 +40,6 @@ internal sealed class ScanTradeRepository(NpgsqlConnection connection, PostgresT
         return Single(ScanTradeQueries.GetForUpdate, new { Id = id.Value }, cancellationToken);
     }
 
-    public Task<bool> HasLive(UserId ownerId, VenueId venue, string symbol, CancellationToken cancellationToken)
-    {
-        return connection.ExecuteScalarAsync<bool>(
-            Command(ScanTradeQueries.HasLive, new { OwnerId = ownerId.Value, Venue = venue.Value, Symbol = symbol }, cancellationToken));
-    }
-
     public Task<IReadOnlyList<ScanTrade>> ListLive(int limit, CancellationToken cancellationToken)
     {
         return Many(ScanTradeQueries.ListLive, new { Limit = limit }, cancellationToken);

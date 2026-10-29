@@ -12,11 +12,10 @@ internal static class ScanTradeCardResponseConverter
             ideas.Venue,
             ideas.Symbol,
             ScanSnapshotResponseConverter.Text(ideas.Price),
-            ideas.ComputedAt,
             ideas.HasSettings,
-            ideas.HasLiveTrade,
             [
                 .. ideas.Ideas.Select(idea => new ScanTradeIdeaResponse(
+                    idea.Timeframe,
                     idea.Scenario.ToString(),
                     ExactGraphNumberParser.Format(idea.Entry),
                     ExactGraphNumberParser.Format(idea.Stop),
@@ -24,7 +23,8 @@ internal static class ScanTradeCardResponseConverter
                     ExactGraphNumberParser.Format(idea.RewardRisk),
                     (int)idea.EntryValidity.TotalMinutes,
                     ScanSnapshotResponseConverter.Text(idea.Amount),
-                    ScanSnapshotResponseConverter.Text(idea.Risk)))
+                    ScanSnapshotResponseConverter.Text(idea.Risk),
+                    idea.Taken))
             ]);
     }
 
@@ -44,6 +44,7 @@ internal static class ScanTradeCardResponseConverter
             trade.Venue,
             trade.Symbol,
             trade.Scenario.ToString(),
+            trade.LevelsTimeframe,
             ExactGraphNumberParser.Format(trade.Entry),
             ExactGraphNumberParser.Format(trade.Stop),
             ExactGraphNumberParser.Format(trade.Target),

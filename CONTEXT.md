@@ -258,8 +258,9 @@ A rule the preset backtest simulates after each signal: where it enters, its sto
 
 ### Trade Card
 
-A trade scenario for a scanner pair now, shown on the pair's page with its entry, stop, target, reward-to-risk and the amount the
-owner's risk gives. «Создать» turns it into a Scanner Trade; «Отмена» hides it. See ADR 0060.
+A trade scenario for a scanner pair now on the levels of one timeframe, shown on the pair's page with its entry, stop, target,
+reward-to-risk and the amount the owner's risk gives. The owner ticks cards of any timeframes and creates a Scanner Trade for
+each; «Скрыть» hides one. See ADR 0060.
 
 ### Scanner Trade
 

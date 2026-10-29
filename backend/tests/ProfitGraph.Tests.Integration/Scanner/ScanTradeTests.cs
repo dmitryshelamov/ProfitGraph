@@ -29,8 +29,9 @@ using ProfitGraph.Tests.Integration.MarketData;
 namespace ProfitGraph.Tests.Integration.Scanner;
 
 /// <summary>
-///     Scanner trade cards over HTTP (ADR 0060) on the test venue: settings with the owner's credential, cards from the snapshot, a
-///     created trade with its own started bot of the level trade strategy, the trade following the bot's events, and the Worker's
+///     Scanner trade cards over HTTP (ADR 0060) on the test venue: settings with the owner's credential, cards on the levels of every
+///     timeframe the venue offers (hours and days, shaped as in <see cref="ScanLevelsTests" />), created trades with their own started
+///     bots of the level trade strategy, the trade following the bot's events, and the Worker's
 ///     tracking that ends a trade whose bot the owner stopped and stops the bot of a finished trade. Values are invented; no venue is
 ///     contacted.
 /// </summary>
@@ -41,6 +42,7 @@ public sealed class ScanTradeTests
     private static readonly JsonSerializerOptions WebJson = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
     private ProfitGraphApiFactory _api = null!;
+    private FakeHistorySource _history = null!;
 
     [OneTimeSetUp]
     public void Start()
@@ -49,6 +51,14 @@ public sealed class ScanTradeTests
         Dictionary<string, string> settings = BotApi.Settings();
         settings["ScanTrades:Timeframe"] = "1h";
         _api = new ProfitGraphApiFactory(settings, services: services => services.AddSingleton<IMarketScanSource, TestScanSource>());
+        _history = _api.Services.GetRequiredService<FakeHistorySource>();
+    }
+
+    [SetUp]
+    public void ShapeVenue()
+    {
+        _history.Reset();
+        _history.Candles = ScanLevelsTests.Shaped;
     }
 
     [OneTimeTearDown]
@@ -83,12 +93,18 @@ public sealed class ScanTradeTests
     {
         BotOwner owner = await SetUp("TRADEAUSDT");
 
-        var ideas = (await owner.Client.GetFromJsonAsync<ScanTradeIdeasResponse>($"/api/scanner/{Venue}/trade-ideas?symbol=TRADEAUSDT", WebJson))!;
-        ScanTradeIdeaResponse levels = ideas.Ideas.Single(idea => idea.Scenario == nameof(ScanScenario.Levels));
+        ScanTradeIdeasResponse ideas = await Ideas(owner, "TRADEAUSDT");
 
-        (ideas.Price, ideas.HasSettings, ideas.HasLiveTrade).ShouldBe(("100", true, false));
-        (levels.Entry, levels.Stop, levels.Target, levels.RewardRisk, levels.EntryValidityMinutes).ShouldBe(("100", "95", "112", "2.4", 60));
-        levels.Amount.ShouldNotBeNull();
+        // Hours: support 90, resistance 110; days: support 95, resistance 120; the last hour did not rise, so no pullback.
+        (ideas.Price, ideas.HasSettings).ShouldBe(("100", true));
+        ideas.Ideas.Select(idea => (idea.Timeframe, idea.Scenario, idea.Stop, idea.Target, idea.Taken))
+            .ShouldBe(
+            [
+                ("1h", "Levels", "90", "110", false), ("1h", "Target2R", "90", "120", false), ("1d", "Levels", "95", "120", false),
+                ("1d", "Target2R", "95", "110", false)
+            ]);
+        ScanTradeIdeaResponse levels = ideas.Ideas[2];
+        (levels.Entry, levels.RewardRisk, levels.EntryValidityMinutes).ShouldBe(("100", "4", 60));
 
         HttpResponseMessage created = await Create(owner, "TRADEAUSDT", levels);
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
@@ -97,7 +113,8 @@ public sealed class ScanTradeTests
 
         // A 5 % stop and 0.1 % on each side lose 5.2 % of the amount: 5 / 0.052 = 96.15 after rounding down to cents.
         (trade.Status, trade.Amount, trade.Scenario).ShouldBe(("Waiting", "96.15", nameof(ScanScenario.Levels)));
-        bot.GetProperty("name").GetString().ShouldBe("TRADEAUSDT · уровни");
+        bot.GetProperty("name").GetString().ShouldBe("TRADEAUSDT · уровни 1d");
+        bot.GetProperty("allowForeignOrders").GetBoolean().ShouldBeTrue();
         bot.GetProperty("desiredState").GetString().ShouldBe("Running");
         bot.GetProperty("timeframe").GetString().ShouldBe("1h");
         bot.GetProperty("parameters").GetProperty("entryPrice").GetString().ShouldBe("100");
@@ -106,12 +123,15 @@ public sealed class ScanTradeTests
         HttpResponseMessage twice = await Create(owner, "TRADEAUSDT", levels);
         twice.StatusCode.ShouldBe(HttpStatusCode.Conflict);
         (await BotApi.Code(twice)).ShouldBe("scan_trade_live");
+        (await Ideas(owner, "TRADEAUSDT")).Ideas.Select(idea => idea.Taken).ShouldBe([false, false, true, false]);
+        HttpResponseMessage another = await Create(owner, "TRADEAUSDT", ideas.Ideas[1]);
+        another.StatusCode.ShouldBe(HttpStatusCode.Created, await another.Content.ReadAsStringAsync());
 
         var botId = new BotId(trade.BotId);
         await Publish(new BotPositionOpened(botId, BotPositionCycleId.New(), DateTimeOffset.UtcNow));
         await Publish(new BotOrderFilled(botId, Sale(LevelTradeStrategyBlockFactory.TargetTag), DateTimeOffset.UtcNow));
         await Publish(new BotPositionClosed(botId, BotPositionCycleId.New(), DateTimeOffset.UtcNow, RealizedPnl: 11.4m));
-        ScanLiveTradeResponse closed = (await Trades(owner, "TRADEAUSDT")).Single();
+        ScanLiveTradeResponse closed = (await Trades(owner, "TRADEAUSDT")).Single(item => item.Id == trade.Id);
 
         (closed.Status, closed.RealizedPnl).ShouldBe(("TookProfit", "11.4"));
 
@@ -128,10 +148,10 @@ public sealed class ScanTradeTests
 
         HttpResponseMessage moved = await owner.Client.PostAsJsonAsync(
             $"/api/scanner/{Venue}/trades",
-            new { symbol = "TRADEBUSDT", scenario = "Pullback", entry = "90", stop = "85", target = "100" });
+            new { symbol = "TRADEBUSDT", timeframe = "1h", scenario = "Pullback", entry = "90", stop = "85", target = "100" });
         HttpResponseMessage missing = await owner.Client.PostAsJsonAsync(
             $"/api/scanner/{Venue}/trades",
-            new { symbol = "TRADEZUSDT", scenario = "Levels", entry = "100", stop = "95", target = "112" });
+            new { symbol = "TRADEZUSDT", timeframe = "1h", scenario = "Levels", entry = "100", stop = "95", target = "112" });
 
         moved.StatusCode.ShouldBe(HttpStatusCode.Conflict);
         (await BotApi.Code(moved)).ShouldBe("scan_trade_entry_moved");
@@ -143,7 +163,7 @@ public sealed class ScanTradeTests
     public async Task AWaitingTradeWhoseBotTheOwnerStoppedIsCancelled()
     {
         BotOwner owner = await SetUp("TRADECUSDT");
-        var ideas = (await owner.Client.GetFromJsonAsync<ScanTradeIdeasResponse>($"/api/scanner/{Venue}/trade-ideas?symbol=TRADECUSDT", WebJson))!;
+        ScanTradeIdeasResponse ideas = await Ideas(owner, "TRADECUSDT");
         var trade = (await (await Create(owner, "TRADECUSDT", ideas.Ideas[0])).Content.ReadFromJsonAsync<ScanLiveTradeResponse>(WebJson))!;
         (await owner.Client.PostAsync($"{BotApi.Path}/{trade.BotId}/stop", content: null)).StatusCode.ShouldBe(HttpStatusCode.OK);
 
@@ -159,7 +179,7 @@ public sealed class ScanTradeTests
         ScanLiveTradeResponse cancelled = (await Trades(owner, "TRADECUSDT")).Single();
 
         cancelled.Status.ShouldBe("Cancelled");
-        (await owner.Client.GetFromJsonAsync<ScanTradeIdeasResponse>($"/api/scanner/{Venue}/trade-ideas?symbol=TRADECUSDT", WebJson))!.HasLiveTrade.ShouldBeFalse();
+        (await Ideas(owner, "TRADECUSDT")).Ideas.ShouldAllBe(idea => !idea.Taken);
     }
 
     private static BotOrderFill Sale(string tag)
@@ -185,11 +205,17 @@ public sealed class ScanTradeTests
             new
             {
                 symbol,
+                timeframe = idea.Timeframe,
                 scenario = idea.Scenario,
                 entry = idea.Entry,
                 stop = idea.Stop,
                 target = idea.Target
             });
+    }
+
+    private static async Task<ScanTradeIdeasResponse> Ideas(BotOwner owner, string symbol)
+    {
+        return (await owner.Client.GetFromJsonAsync<ScanTradeIdeasResponse>($"/api/scanner/{Venue}/trade-ideas?symbol={symbol}", WebJson))!;
     }
 
     private static async Task<IReadOnlyList<ScanLiveTradeResponse>> Trades(BotOwner owner, string symbol)
@@ -203,7 +229,7 @@ public sealed class ScanTradeTests
         (await owner.Client.PutAsJsonAsync($"/api/scanner/{Venue}/trade-settings", new { credentialId = owner.CredentialId, risk = "5", maxAmount = "1000" }))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
         using IServiceScope scope = _api.Services.CreateScope();
-        var row = new ScanSnapshotRowInternal(symbol, new ScanMetrics { Price = 100m, Support = 95m, Resistance = 112m }, Incomplete: false);
+        var row = new ScanSnapshotRowInternal(symbol, new ScanMetrics { Price = 100m }, Incomplete: false);
         await scope.ServiceProvider.GetRequiredService<ISender>().Send(new ReplaceScanSnapshotCommand(new ScanSnapshotInternal(Venue, DateTimeOffset.UtcNow, [row])));
 
         return owner;

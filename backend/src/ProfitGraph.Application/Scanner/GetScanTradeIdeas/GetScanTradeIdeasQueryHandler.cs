@@ -7,6 +7,8 @@ using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Scanner.Trades;
 using ProfitGraph.Engine.Scanning;
 
+using ScanTrade = ProfitGraph.Domain.Scanner.Trades.ScanTrade;
+
 namespace ProfitGraph.Application.Scanner.GetScanTradeIdeas;
 
 internal sealed class GetScanTradeIdeasQueryHandler(
@@ -21,23 +23,23 @@ internal sealed class GetScanTradeIdeasQueryHandler(
         sources.Find(query.Venue);
         var owner = new UserId(query.OwnerId);
         var venue = new VenueId(query.Venue);
-        (ScanSnapshotRowInternal? row, DateTimeOffset? computedAt, IReadOnlyList<ScanTradeIdea> ideas) = await reader.Read(query.Venue, query.Symbol, cancellationToken);
+        (decimal? price, IReadOnlyList<(string Timeframe, ScanTradeIdea Idea)> ideas) = await reader.Read(query.Venue, query.Symbol, cancellationToken);
         ScanTradeSettings? sizing = await settings.Get(owner, venue, cancellationToken);
-        bool live = await trades.HasLive(owner, venue, query.Symbol, cancellationToken);
+        ScanTrade[] live = [.. (await trades.List(owner, venue, query.Symbol, options.ListLimit, cancellationToken)).Where(trade => trade.IsLive)];
 
         return new ScanTradeIdeasInternal(
             query.Venue,
             query.Symbol,
-            row?.Metrics.Price,
-            computedAt,
+            price,
             sizing is not null,
-            live,
             [
-                .. ideas.Select(idea =>
+                .. ideas.Select(item =>
                 {
+                    ScanTradeIdea idea = item.Idea;
                     (decimal Amount, decimal Risk)? size = sizing?.Size(idea.Entry, idea.Stop, options.FeeRate);
 
                     return new ScanTradeIdeaInternal(
+                        item.Timeframe,
                         idea.Scenario,
                         idea.Entry,
                         idea.Stop,
@@ -45,7 +47,8 @@ internal sealed class GetScanTradeIdeasQueryHandler(
                         idea.RewardRisk,
                         idea.EntryValidity,
                         size?.Amount,
-                        size?.Risk);
+                        size?.Risk,
+                        live.Any(trade => trade.Takes(idea.Scenario, idea.Entry, idea.Stop, idea.Target)));
                 })
             ]);
     }
