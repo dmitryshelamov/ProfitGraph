@@ -220,6 +220,27 @@ chat; it is sent at least once, retried while Telegram is unavailable and skippe
 A bot's order that the venue executed completely. It sends one Telegram message with the order's totals, whatever number
 of fills it took; an order cancelled after a partial fill is not a filled order.
 
+### Market Scanner
+
+A live table of a venue's instruments with metrics computed from their recent candles, filtered by a preset, with optional
+Telegram alerts. It searches and shows; a human decides, and it never places an order. Not a screener robot.
+See [ADR 0059](docs/adr/0059-market-scanner.md).
+
+### Scanner Metric
+
+A value of one instrument computed by a pure function from its closed candles over a rolling window, such as the change over an
+hour or the efficiency ratio over a day. A metric without enough history is empty, never computed on a shorter window.
+
+### Scanner Preset
+
+A user's named set of conditions on scanner metrics (minimum, maximum) with a sort, and its own alert switch, off by default.
+Built-in presets are read-only and can be copied.
+
+### Screener Robot
+
+A later product, not designed yet: one strategy cloned onto every instrument of a list, with a shared deposit and a shared limit
+of positions, that trades by itself. Discouraged: calling the market scanner a screener.
+
 ### Composition Root
 
 A host project that wires the application together: `ProfitGraph.Api` for HTTP and `ProfitGraph.Worker` for the

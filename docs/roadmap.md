@@ -202,3 +202,16 @@ scanner. The edge over Bybit's free grid bots is a configurable backtest, so fil
 | 3. Grid on live bots | ADR 0058 sections 9–10: `IVenueRestingOrderCapacity` for Bybit and the scripted venue, grid state in the checkpoint, start refusal on other venues, the fee check at start | A grid bot passes its scenarios on the scripted venue and the mock Bybit: restart with levels, owner cancel, venue cancel, partial fill, kill switch | Done on the scripted venue (`GridBotTests`: restart with levels, venue cancel, kill switch, start refused without room) and in engine tests (partial fill, owner cancel, checkpoint restore); not yet on the mock Bybit exchange |
 | 4. T-Invest and Steam grids | Their own scenarios: DAY orders carried over every night, the single Steam buy slot in replay and live | | Not started |
 | 5. Grid levels on the bot chart | The grid's levels and anchor on the bot chart | | Not started |
+
+## Market scanner
+
+[ADR 0059](adr/0059-market-scanner.md): a scanner that searches and shows, never trades; Bybit spot first, live over public
+WebSockets in the Worker. After indicators, the trend and counter-trend templates and the real grid. A screener robot that
+trades a strategy on every pair of a list is a later, separate product.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Decision | ADR 0059 | The owner accepted it | Done |
+| 2. Live table | `IMarketScanSource` and its Bybit implementation (universe, 1-minute backfill and stream, quote snapshot), the Worker's `scanner` role with warm-up, reconnect, gap backfill and the shared REST budget, the `worker-scanner` production service, pure metric functions, the stored current snapshot with `NOTIFY` and `/ws/scanner`, the scanner page with filters, sorting, saved and built-in presets and a link to the pair's chart | Against a Bybit stub: the table fills after warm-up, updates every minute, a dropped connection backfills its gap before showing the pair again, a new listing shows empty long-window metrics, a halted pair disappears; metric functions have unit tests on fixed candles | In review: #204 metrics, #205 Bybit source, #207 Worker role, #210 API, #211 page; the link from a row to the pair's chart remains |
+| 3. Alerts | Alert switch per preset (off by default), the «Отключить» button, entry-based reporting with a cooldown, one message per preset and snapshot through the Telegram queue | Against a fake Bot API: a pair entering a preset sends one message, staying in it sends none, the cooldown holds, the button switches the preset off, a user without a chat gets nothing | Planned |
+| 4. Batch backtest | One strategy version on many pairs from the table: history downloads, one run per pair, batch progress, ranking, comparison | Decided before the step begins | Planned |
