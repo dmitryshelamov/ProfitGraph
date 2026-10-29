@@ -28,6 +28,7 @@ internal static class BacktestConfigurationDbConverter
             WarmupCandles = configuration.WarmupCandles,
             SellerFees = configuration.Settings.SellerFees is { } fees ? fees.ToDb() : null,
             SettlementHoldSeconds = configuration.Settings.SettlementHold is { } hold ? (long)hold.TotalSeconds : null,
+            LimitFill = configuration.Settings.LimitFill == LimitFillMode.Touch ? null : configuration.Settings.LimitFill.ToString(),
             ExecutionPolicy = configuration.ExecutionPolicy,
             Fingerprint = configuration.Fingerprint
         };
@@ -53,6 +54,8 @@ internal static class BacktestConfigurationDbConverter
         ExecutionSettings settings = row.SellerFees is { } fees
             ? new ExecutionSettings(row.StartingCapital, row.Slippage, fees.ToDomain())
             : new ExecutionSettings(row.StartingCapital, row.Slippage, row.LimitFeeRate, row.MarketFeeRate);
+
+        settings = settings.WithLimitFill(row.LimitFill is { } mode ? Enum.Parse<LimitFillMode>(mode) : LimitFillMode.Touch);
 
         return row.SettlementHoldSeconds is { } hold ? settings.WithSettlementHold(TimeSpan.FromSeconds(hold)) : settings;
     }

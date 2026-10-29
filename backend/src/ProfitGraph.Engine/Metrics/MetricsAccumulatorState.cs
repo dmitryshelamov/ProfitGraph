@@ -70,7 +70,10 @@ internal readonly struct MetricsAccumulatorState
                 candle.UnrealizedPnl,
                 candle.Account.RealizedPnl,
                 candle.Account.FeesBase,
-                candle.Account.FeesQuote),
+                candle.Account.FeesQuote,
+                candle.Account.CostBasis,
+                candle.Account.QuoteReserved,
+                candle.InPosition),
             newExecutions);
     }
 
@@ -171,6 +174,12 @@ internal readonly struct MetricsAccumulatorState
             Calculate(() => state.EndFeesBase - state.BoundaryFeesBase, "FeesBase"),
             Calculate(() => state.EndFeesQuote - state.BoundaryFeesQuote, "FeesQuote"),
             state.MaxDrawdownPercent,
-            state.Executions);
+            state.Executions,
+            state.MaxDeployed,
+            Calculate(() => state.MaxDeployed / startingCapital * 100m, "MaxCapitalDeployedPercent"),
+            state.MaxCommitted,
+            (decimal)state.InPositionCandles / state.ObservedCandles * 100m,
+            (decimal)state.UnderWaterCandles / state.ObservedCandles * 100m,
+            state.LongestUnderWaterRun);
     }
 }

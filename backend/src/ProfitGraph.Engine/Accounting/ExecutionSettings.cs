@@ -22,6 +22,11 @@ public sealed record ExecutionSettings
     /// </summary>
     public TimeSpan? SettlementHold { get; private init; }
 
+    /// <summary>
+    ///     When a resting limit order fills in replay (ADR 0057); live bots never read it.
+    /// </summary>
+    public LimitFillMode LimitFill { get; private init; }
+
     public ExecutionSettings(decimal startingCapital, decimal slippage, decimal limitFeeRate, decimal marketFeeRate)
         : this(startingCapital, slippage, limitFeeRate, marketFeeRate, sellerFees: null)
     {
@@ -62,6 +67,19 @@ public sealed record ExecutionSettings
         }
 
         return this with { SettlementHold = hold };
+    }
+
+    /// <summary>
+    ///     The same parameters with the given limit fill mode.
+    /// </summary>
+    public ExecutionSettings WithLimitFill(LimitFillMode mode)
+    {
+        if (!Enum.IsDefined(mode))
+        {
+            throw new TradingInvariantException("Unknown limit fill mode.");
+        }
+
+        return this with { LimitFill = mode };
     }
 
     public decimal FeeRate(OrderType type)
