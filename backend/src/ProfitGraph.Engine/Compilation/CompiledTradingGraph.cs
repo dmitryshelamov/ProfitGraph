@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Dispatch;
 using ProfitGraph.Engine.Graphs;
 using ProfitGraph.Engine.Nodes;
@@ -19,6 +20,11 @@ public sealed class CompiledTradingGraph
     public IReadOnlyList<CompiledTradingNode> Nodes { get; }
     public int WarmupCandles { get; }
     public IReadOnlyList<GraphConnection> DeferredLifecycleRoutes { get; }
+
+    /// <summary>
+    ///     A plan that covers with its buys is short (ADR 0061); every other plan is long.
+    /// </summary>
+    public PositionDirection Direction { get; }
     internal IReadOnlyList<CompiledTradingNode> StaticNodes { get; }
     internal IReadOnlyList<CompiledTradingNode> CandleNodes { get; }
     internal IReadOnlyList<CompiledTradingNode> DispatchNodes { get; }
@@ -59,6 +65,9 @@ public sealed class CompiledTradingGraph
                     _ => EventKind.Rejected
                 })
                 .ToDictionary(group => group.Key, group => (IReadOnlyList<CompiledTradingNode>)Array.AsReadOnly(group.ToArray())));
+        Direction = Nodes.Any(node => node.TradingBehavior is TradingNodeBehavior.MarketCover or TradingNodeBehavior.LimitCover)
+            ? PositionDirection.Short
+            : PositionDirection.Long;
         WarmupCandles = warmupCandles;
         DeferredLifecycleRoutes = Array.AsReadOnly(deferredLifecycleRoutes.ToArray());
     }

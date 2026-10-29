@@ -30,6 +30,17 @@ public sealed class TradingGraphCompiler
             return new TradingGraphCompilationResult(Graph: null, validation);
         }
 
+        // A long's buy spends quote and a short's cover gives base; one plan cannot do both (ADR 0061).
+        if (graph.Nodes.Any(node => node.TypeKey is nameof(TradingNodeBehavior.MarketCover) or nameof(TradingNodeBehavior.LimitCover)) &&
+            graph.Nodes.FirstOrDefault(node => node.TypeKey is nameof(TradingNodeBehavior.MarketBuy) or nameof(TradingNodeBehavior.LimitBuy)
+                or nameof(TradingNodeBehavior.Grid)) is { } buy)
+        {
+            return new TradingGraphCompilationResult(
+                Graph: null,
+                new GraphValidationResult(
+                    Array.AsReadOnly(new[] { new GraphDiagnostic(GraphDiagnosticCode.InvalidNodeMetadata, "A plan that covers a short cannot buy long.", buy.Id) })));
+        }
+
         IReadOnlyDictionary<PortReference, ValueType> outputTypes = analysis.OutputTypes!;
         IReadOnlyDictionary<string, NodeClock> clocks = analysis.Clocks!;
         int warmup = analysis.WarmupCandles;

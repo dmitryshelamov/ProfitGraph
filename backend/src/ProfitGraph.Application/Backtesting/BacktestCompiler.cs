@@ -101,6 +101,7 @@ public sealed class BacktestCompiler(INodeTypeRegistry registry)
             definition.Values,
             definition.Blocks,
             definition.Wires,
-            definition.TemplateKind);
+            definition.TemplateKind,
+            definition.Direction);
     }
 }

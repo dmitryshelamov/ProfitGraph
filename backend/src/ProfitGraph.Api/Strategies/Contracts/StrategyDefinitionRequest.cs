@@ -5,4 +5,5 @@ public sealed record StrategyDefinitionRequest(
     IReadOnlyList<StrategyValueRequest> Values,
     IReadOnlyList<StrategyBlockRequest> Blocks,
     IReadOnlyList<StrategyWireRequest> Wires,
-    string? TemplateKind = null);
+    string? TemplateKind = null,
+    string? Direction = null);

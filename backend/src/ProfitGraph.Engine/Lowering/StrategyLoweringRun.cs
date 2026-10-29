@@ -233,7 +233,10 @@ internal sealed class StrategyLoweringRun
             parameters["minimumOrderPolicy"] = Text(block.MinimumOrderPolicy);
         }
 
-        string type = block.Kind == "cancel" ? "CancelOrder" : block.OrderKind + block.Side;
+        // A short's buy covers what it owes (ADR 0061).
+        string type = block.Kind == "cancel"
+            ? "CancelOrder"
+            : block.OrderKind + (block.Side == "Buy" && _definition.Direction == PositionDirection.Short ? "Cover" : block.Side);
         Node(block.Id, type, source, parameters, mode: ActionEvaluationMode.OnEvent, name: block.DisplayName);
 
         if (block.Kind == "order")
@@ -256,8 +259,8 @@ internal sealed class StrategyLoweringRun
     private void OrderInputs(StrategyBlock block, StrategySource source)
     {
         string identity = "block:" + StrategyDefinitionLowerer.Encode(block.Id);
-        string sizeMode = block.SizeMode ?? (block.Side == "Buy" ? "amount" : "quantity");
-        string inputKey = block.Side == "Buy" ? "amount" : "quantity";
+        string inputKey = StrategyBlockSchema.NativeSize(block.Side, _definition.Direction);
+        string sizeMode = block.SizeMode ?? inputKey;
         ValueExpression? size = sizeMode == "amount" ? block.Amount : block.Quantity;
         bool inverse = sizeMode != inputKey;
         PortReference? price = block.Price is not null && inverse
@@ -271,7 +274,7 @@ internal sealed class StrategyLoweringRun
             if (inverse && price is not null)
             {
                 (PortReference safePrice, PortReference positive) = ConversionPrice(price, identity + ":conversion", source);
-                value = Arithmetic(block.Side == "Buy" ? "Multiply" : "Divide", value, safePrice, identity + ":size", source);
+                value = Arithmetic(inputKey == "amount" ? "Multiply" : "Divide", value, safePrice, identity + ":size", source);
                 string filter = StrategyDefinitionLowerer.GeneratedId(identity + ":positivePriceEvent");
                 Node(filter, "FilterEvent", source);
                 Wire(positive, filter, "condition");
@@ -362,7 +365,7 @@ internal sealed class StrategyLoweringRun
 
         if (check.Type == "OrderSizePreviewValid")
         {
-            string input = check.Side == "Buy" ? "amount" : "quantity";
+            string input = StrategyBlockSchema.NativeSize(check.Side, _definition.Direction);
             string selected = check.SizeMode ?? input;
             bool inverse = selected != input;
             PortReference? price = check.Operands.TryGetValue("price", out ValueExpression? priceExpression) && (inverse || check.OrderKind == "Limit")
@@ -378,7 +381,7 @@ internal sealed class StrategyLoweringRun
                 {
                     (PortReference safePrice, PortReference validPrice) = ConversionPrice(price, identity + ":conversion", source);
                     positive = validPrice;
-                    size = Arithmetic(check.Side == "Buy" ? "Multiply" : "Divide", size, safePrice, identity + ":size", source);
+                    size = Arithmetic(input == "amount" ? "Multiply" : "Divide", size, safePrice, identity + ":size", source);
                 }
 
                 Wire(size, id, input);
@@ -409,7 +412,7 @@ internal sealed class StrategyLoweringRun
 
         foreach ((string key, ValueExpression operand) in check.Operands.OrderBy(pair => pair.Key, StringComparer.Ordinal))
         {
-            if (check.Type == "OrderSizePreviewValid" && key != (check.Side == "Buy" ? "amount" : "quantity") &&
+            if (check.Type == "OrderSizePreviewValid" && key != StrategyBlockSchema.NativeSize(check.Side, _definition.Direction) &&
                 !(key == "price" && check.OrderKind == "Limit"))
             {
                 continue;

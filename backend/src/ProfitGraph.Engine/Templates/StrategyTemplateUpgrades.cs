@@ -59,7 +59,8 @@ public static class StrategyTemplateUpgrades
             definition.Values,
             [.. definition.Blocks, .. blocks],
             [.. definition.Wires, .. LadderResumeRestore.Wires()],
-            definition.TemplateKind);
+            definition.TemplateKind,
+            definition.Direction);
     }
 
     private static bool HasWires(StrategyDefinition definition)
@@ -91,7 +92,8 @@ public static class StrategyTemplateUpgrades
             definition.Values,
             [.. definition.Blocks, .. blocks],
             [.. definition.Wires, .. LadderManualFillRebuild.Wires()],
-            definition.TemplateKind);
+            definition.TemplateKind,
+            definition.Direction);
     }
 
     private static bool IsResumeEvent(StrategyBlock block)

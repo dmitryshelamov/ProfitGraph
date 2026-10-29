@@ -8,13 +8,24 @@ namespace ProfitGraph.Engine.Accounting;
 public sealed class AccountSnapshot
 {
     private readonly decimal _pendingFeeReserve;
+    private readonly decimal _marginRelease;
     public decimal StartingCapital { get; }
     public decimal QuoteTotal { get; }
     public decimal QuoteReserved { get; }
-    public decimal QuoteAvailable => QuoteTotal - QuoteReserved - _pendingFeeReserve;
+    public decimal QuoteAvailable => QuoteTotal - QuoteReserved - _pendingFeeReserve + _marginRelease;
     public decimal BaseTotal { get; }
     public decimal BaseReserved { get; }
-    public decimal BaseAvailable => BaseTotal - BaseReserved;
+
+    /// <summary>
+    ///     The position quantity free to close: held base of a long, owed base of a short (ADR 0061), less working exits.
+    /// </summary>
+    public decimal BaseAvailable => Math.Abs(BaseTotal) - BaseReserved;
+
+    /// <summary>
+    ///     A margin run's position notional at its entry prices; zero in a spot run.
+    /// </summary>
+    internal decimal EntryNotional { get; }
+
     public decimal CostBasis { get; }
     public decimal RealizedPnl { get; }
     public decimal FeesBase { get; }
@@ -29,6 +40,8 @@ public sealed class AccountSnapshot
         QuoteTotal = portfolio.QuoteTotal;
         QuoteReserved = portfolio.QuoteReserved;
         _pendingFeeReserve = portfolio.PendingFeeReserve;
+        _marginRelease = portfolio.MarginRelease;
+        EntryNotional = portfolio.EntryNotional;
         BaseTotal = portfolio.BaseTotal;
         BaseReserved = portfolio.BaseReserved;
         CostBasis = portfolio.CostBasis;
@@ -61,12 +74,15 @@ public sealed class AccountSnapshot
         IEnumerable<OrderSnapshot> orders,
         bool allowPending,
         decimal pendingFeeReserve = 0m,
-        bool allowQuoteShortfall = false)
+        bool allowQuoteShortfall = false,
+        decimal entryNotional = 0m,
+        decimal marginRelease = 0m,
+        bool allowShort = false)
     {
         OrderSnapshot[] copied = orders.ToArray();
 
         if (startingCapital <= 0m || (!allowQuoteShortfall && (quoteTotal < 0m || quoteReserved > quoteTotal)) || quoteReserved < 0m || pendingFeeReserve < 0m ||
-            baseTotal < 0m || baseReserved < 0m || baseReserved > baseTotal || costBasis < 0m ||
+            (!allowShort && baseTotal < 0m) || baseReserved < 0m || baseReserved > Math.Abs(baseTotal) || costBasis < 0m || entryNotional < 0m ||
             feesBase < 0m || feesQuote < 0m || lastBuyPrice <= 0m ||
             copied.Any(order => order is null || order.Id <= 0 || order.Reservation < 0m || order.EligibleFromCandleIndex < 0 ||
                 (order.Status != OrderStatus.Active && (!allowPending || order.Status is not (OrderStatus.PendingSubmit or OrderStatus.PendingCancel))) ||
@@ -80,6 +96,8 @@ public sealed class AccountSnapshot
         QuoteTotal = quoteTotal;
         QuoteReserved = quoteReserved;
         _pendingFeeReserve = pendingFeeReserve;
+        _marginRelease = marginRelease;
+        EntryNotional = entryNotional;
         BaseTotal = baseTotal;
         BaseReserved = baseReserved;
         CostBasis = costBasis;
@@ -136,7 +154,10 @@ public sealed class AccountSnapshot
         decimal? lastBuyPrice,
         IEnumerable<OrderSnapshot> orders,
         decimal pendingFeeReserve = 0m,
-        bool allowQuoteShortfall = false)
+        bool allowQuoteShortfall = false,
+        decimal entryNotional = 0m,
+        decimal marginRelease = 0m,
+        bool allowShort = false)
     {
         ArgumentNullException.ThrowIfNull(orders);
 
@@ -154,7 +175,10 @@ public sealed class AccountSnapshot
             orders,
             allowPending: true,
             pendingFeeReserve,
-            allowQuoteShortfall);
+            allowQuoteShortfall,
+            entryNotional,
+            marginRelease,
+            allowShort);
     }
 
     public static AccountSnapshot Capture(TradingAccount account)

@@ -48,6 +48,13 @@ public sealed class StrategyDefinitionValidator
             Add(GraphDiagnosticCode.EmptyGraph, "Add at least one block.", new StrategySource());
         }
 
+        // A short strategy covers with its buy blocks; a graph without them would run long (ADR 0061). Grids buy first.
+        if (definition.Direction == PositionDirection.Short &&
+            (!definition.Blocks.Any(block => block is { Kind: "order", Side: "Buy" }) || definition.Blocks.Any(block => block.Kind == "grid")))
+        {
+            Add(GraphDiagnosticCode.InvalidParameter, "A short strategy needs a buy block to cover and has no grid.", new StrategySource());
+        }
+
         foreach (StrategyParameter parameter in definition.Parameters)
         {
             if (!UnitAlgebra.IsNumeric(parameter.ValueType) ||
@@ -121,7 +128,7 @@ public sealed class StrategyDefinitionValidator
                         {
                             "Compare" or "CrossesAbove" or "CrossesBelow" => ["a", "b"],
                             "PositionFlatPreview" => ["quantity"],
-                            "OrderSizePreviewValid" => [check.SizeMode ?? (check.Side == "Buy" ? "amount" : "quantity")],
+                            "OrderSizePreviewValid" => [check.SizeMode ?? StrategyBlockSchema.NativeSize(check.Side, definition.Direction)],
                             "PositionFlat" or "NoActiveOrders" or "NoActiveTaggedOrder" or "HasBaseBalance" => [],
                             _ => []
                         };
@@ -147,14 +154,14 @@ public sealed class StrategyDefinitionValidator
                             OrderSettings(check.OrderKind, check.Side, source);
                             MinimumPolicy(check.MinimumOrderPolicy, check.Side, source);
 
-                            string checkSize = check.SizeMode ?? (check.Side == "Buy" ? "amount" : "quantity");
+                            string checkSize = check.SizeMode ?? StrategyBlockSchema.NativeSize(check.Side, definition.Direction);
 
                             if (!StrategyBlockSchema.SizeModes.Contains(checkSize))
                             {
                                 Add(GraphDiagnosticCode.InvalidParameter, "Choose an amount or quantity order size.", source);
                             }
 
-                            bool inverse = checkSize != (check.Side == "Buy" ? "amount" : "quantity");
+                            bool inverse = checkSize != StrategyBlockSchema.NativeSize(check.Side, definition.Direction);
 
                             if (inverse && check.Operands.TryGetValue("price", out ValueExpression? conversionPrice))
                             {
@@ -195,22 +202,28 @@ public sealed class StrategyDefinitionValidator
                     OrderSettings(block.OrderKind, block.Side, source);
                     MinimumPolicy(block.MinimumOrderPolicy, block.Side, source);
 
-                    string sizeMode = block.SizeMode ?? (block.Side == "Buy" ? "amount" : "quantity");
+                    string sizeMode = block.SizeMode ?? StrategyBlockSchema.NativeSize(block.Side, definition.Direction);
 
                     if (!StrategyBlockSchema.SizeModes.Contains(sizeMode))
                     {
                         Add(GraphDiagnosticCode.InvalidParameter, "Choose an amount or quantity order size.", source);
                     }
 
-                    bool inverseOrder = sizeMode != (block.Side == "Buy" ? "amount" : "quantity");
+                    bool inverseOrder = sizeMode != StrategyBlockSchema.NativeSize(block.Side, definition.Direction);
 
                     if (inverseOrder && block.Price is not null)
                     {
                         PositivePrice(block.Price, source);
                     }
 
-                    bool requiresPrice = block.OrderKind == "Limit" || (block.OrderKind == "Market" &&
-                        ((block.Side == "Buy" && sizeMode == "quantity") || (block.Side == "Sell" && sizeMode == "amount")));
+                    bool requiresPrice = block.OrderKind == "Limit" || (block.OrderKind == "Market" && inverseOrder);
+
+                    // A short's buy covers what it owes, so it gives a base quantity (ADR 0061).
+                    if (definition.Direction == PositionDirection.Short && block.Side == "Buy" &&
+                        (sizeMode != "quantity" || block.MinimumOrderPolicy == "RaiseToExchangeMinimum"))
+                    {
+                        Add(GraphDiagnosticCode.InvalidParameter, "A short strategy buys back a base quantity.", source);
+                    }
 
                     if ((sizeMode == "amount" && block.Amount is null) || (sizeMode == "quantity" && block.Quantity is null) ||
                         (requiresPrice && block.Price is null))

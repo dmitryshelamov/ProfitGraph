@@ -24,7 +24,10 @@ internal readonly record struct AccountValuation(decimal Equity, decimal Unreali
             decimal markedBase = checked(baseTotal * reachedPrice);
             decimal equity = checked(quoteTotal + markedBase);
 
-            return new AccountValuation(equity, checked(markedBase - costBasis), checked(equity - startingCapital));
+            // A short's cost basis is its net proceeds (ADR 0061): it gains what it received over what buying back costs now.
+            decimal unrealized = baseTotal >= 0m ? checked(markedBase - costBasis) : checked(markedBase + costBasis);
+
+            return new AccountValuation(equity, unrealized, checked(equity - startingCapital));
         }
         catch (OverflowException exception)
         {

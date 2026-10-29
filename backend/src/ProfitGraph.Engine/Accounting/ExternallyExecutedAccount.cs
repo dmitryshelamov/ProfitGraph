@@ -20,7 +20,7 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
     {
         _account = new TradingAccount(settings, rules);
 
-        if (rules.BuyFeeAsset == FeeAsset.Quote)
+        if (rules.BuyFeeAsset == FeeAsset.Quote && !settings.IsMargin)
         {
             _account.Portfolio.ConfigureExternalQuoteFees();
         }
@@ -43,7 +43,10 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
             portfolio.LastBuyPrice,
             _account.Orders.Active.Select(OrderSnapshot.Capture),
             portfolio.PendingFeeReserve,
-            Rules.BuyFeeAsset == FeeAsset.Quote);
+            Rules.BuyFeeAsset == FeeAsset.Quote,
+            portfolio.EntryNotional,
+            portfolio.MarginRelease,
+            Settings.Direction == PositionDirection.Short);
     }
 
     public OrderSubmission Submit(OrderRequest request)
@@ -165,7 +168,8 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
             _account.Orders.LastIssuedId,
             _account.Orders.Active.Select(OrderSnapshot.Capture).ToImmutableArray(),
             _account.Orders.Active.Select(order => _progress[order.Id].Capture(order.Id)).ToImmutableArray(),
-            _feeReceipts.Count == 0 ? default : _feeReceipts.Values.OrderBy(receipt => receipt.OrderId).ToImmutableArray());
+            _feeReceipts.Count == 0 ? default : _feeReceipts.Values.OrderBy(receipt => receipt.OrderId).ToImmutableArray(),
+            portfolio.EntryNotional);
     }
 
     internal OrderRejection RejectSimulatedMarketOrder(long orderId, RejectionReason reason)
@@ -194,10 +198,12 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
             checkpoint.FeesQuote,
             checkpoint.LastBuyPrice,
             checkpoint.Orders,
-            allowQuoteShortfall: rules.BuyFeeAsset == FeeAsset.Quote);
+            allowQuoteShortfall: rules.BuyFeeAsset == FeeAsset.Quote,
+            entryNotional: checkpoint.EntryNotional,
+            allowShort: settings.Direction == PositionDirection.Short);
 
-        if (checkpoint.Orders.Sum(order => order.Side == OrderSide.Buy ? order.Reservation : 0m) != checkpoint.QuoteReserved ||
-            checkpoint.Orders.Sum(order => order.Side == OrderSide.Sell ? order.Reservation : 0m) != checkpoint.BaseReserved ||
+        if (checkpoint.Orders.Sum(order => order.Side == settings.OpeningSide ? order.Reservation : 0m) != checkpoint.QuoteReserved ||
+            checkpoint.Orders.Sum(order => order.Side != settings.OpeningSide ? order.Reservation : 0m) != checkpoint.BaseReserved ||
             checkpoint.Progress.Length != checkpoint.Orders.Length ||
             checkpoint.Progress.Select(progress => progress.OrderId).Distinct().Count() != checkpoint.Progress.Length ||
             checkpoint.Orders.Any(order => checkpoint.Progress.All(progress => progress.OrderId != order.Id)))
@@ -216,7 +222,7 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
 
         foreach (ExternalFeeReceiptCheckpoint receipt in checkpoint.FeeReceipts.IsDefault ? [] : checkpoint.FeeReceipts)
         {
-            if (rules.BuyFeeAsset != FeeAsset.Quote || receipt.OrderId <= 0 || receipt.OrderId > checkpoint.NextOrderId ||
+            if (rules.BuyFeeAsset != FeeAsset.Quote || settings.IsMargin || receipt.OrderId <= 0 || receipt.OrderId > checkpoint.NextOrderId ||
                 receipt.GrossBase <= 0m || receipt.GrossQuote <= 0m || receipt.Fee < 0m || receipt.RemainingShares < 0m || receipt.PendingFeeReserve < 0m ||
                 receipt.RemainingShares > receipt.GrossBase || (receipt.Side == OrderSide.Sell && receipt.RemainingShares != 0m) ||
                 !account._feeReceipts.TryAdd(receipt.OrderId, receipt))
@@ -356,8 +362,9 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
         ExternalFeeReceiptCheckpoint? previousReceipt = _feeReceipts.GetValueOrDefault(order.Id);
         bool partitioned = previousReceipt is null || (update.CommissionPartitioned && FeeSlices(previousReceipt).All(slice => !slice.CommissionPending));
         bool pending = update.CommissionPending || !partitioned;
+        bool receipts = Rules.BuyFeeAsset == FeeAsset.Quote && !Settings.IsMargin;
 
-        if (Rules.BuyFeeAsset == FeeAsset.Quote && deltaBase > 0m && !partitioned)
+        if (receipts && deltaBase > 0m && !partitioned)
         {
             fee = progress.Fee;
             deltaFee = 0m;
@@ -365,9 +372,11 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
 
         if ((deltaBase == 0m && (!final || deltaQuote != 0m || deltaFee != 0m)) ||
             (deltaBase > 0m && (deltaQuote <= 0m || deltaFee < 0m)) ||
-            (order.Side == OrderSide.Buy
-                ? deltaQuote > order.Reservation
-                : deltaBase > order.Reservation))
+            (Settings.IsMargin
+                ? order.Side == Settings.OpeningSide ? order.QuoteBudget is { } budget && grossQuote > budget : deltaBase > order.Reservation
+                : order.Side == OrderSide.Buy
+                    ? deltaQuote > order.Reservation
+                    : deltaBase > order.Reservation))
         {
             return ExternalOrderUpdateResult.Ignored("DuplicateOrInvalidFill");
         }
@@ -379,7 +388,7 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
             progress.GrossQuote = grossQuote;
             progress.Fee = fee;
 
-            if (Rules.BuyFeeAsset == FeeAsset.Quote)
+            if (receipts)
             {
                 decimal remaining = previousReceipt?.RemainingShares ?? 0m;
                 ExternalFeeSliceCheckpoint[] slices = (previousReceipt is null ? [] : FeeSlices(previousReceipt))
@@ -424,6 +433,13 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
     private void ApplyFillDelta(Order order, ExternalOrderProgress progress, decimal grossBase, decimal grossQuote, decimal fee)
     {
         decimal price = grossQuote / grossBase;
+
+        if (Settings.IsMargin)
+        {
+            ApplyMarginFillDelta(order, progress, grossBase, grossQuote, fee, price);
+
+            return;
+        }
 
         if (order.Side == OrderSide.Buy)
         {
@@ -471,9 +487,56 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
         }
     }
 
+    /// <summary>
+    ///     A fill of a margin run's order (ADR 0061). An entry consumes the margin and fee it reserved for what filled and opens or adds
+    ///     to the position; an exit consumes the position it reserved and closes that part. Fees are final quote fees.
+    /// </summary>
+    private void ApplyMarginFillDelta(Order order, ExternalOrderProgress progress, decimal grossBase, decimal grossQuote, decimal fee, decimal price)
+    {
+        bool @long = Settings.Direction == PositionDirection.Long;
+
+        if (order.Side == Settings.OpeningSide)
+        {
+            decimal consumed = Math.Min(order.Reservation, grossQuote / Settings.Leverage!.Value + fee);
+            _account.Portfolio.ReleaseQuote(consumed);
+            order.ConsumeReservation(consumed);
+
+            if (@long)
+            {
+                _account.Portfolio.OpenLong(grossQuote, grossBase, fee, price);
+                progress.BaseChange += grossBase;
+                progress.QuoteChange -= grossQuote + fee;
+            }
+            else
+            {
+                _account.Portfolio.OpenShort(grossBase, grossQuote, fee, price);
+                progress.BaseChange -= grossBase;
+                progress.QuoteChange += grossQuote - fee;
+            }
+
+            return;
+        }
+
+        _account.Portfolio.ReleaseBase(grossBase);
+        order.ConsumeReservation(grossBase);
+
+        if (@long)
+        {
+            progress.RealizedPnl += _account.Portfolio.Sell(grossBase, grossQuote, fee);
+            progress.BaseChange -= grossBase;
+            progress.QuoteChange += grossQuote - fee;
+        }
+        else
+        {
+            progress.RealizedPnl += _account.Portfolio.Cover(grossBase, grossQuote, fee);
+            progress.BaseChange += grossBase;
+            progress.QuoteChange -= grossQuote + fee;
+        }
+    }
+
     private ExternalOrderUpdateResult CorrectFee(ExternalOrderUpdate update)
     {
-        if (Rules.BuyFeeAsset != FeeAsset.Quote || !_feeReceipts.TryGetValue(update.OrderId, out ExternalFeeReceiptCheckpoint? receipt) ||
+        if (Rules.BuyFeeAsset != FeeAsset.Quote || Settings.IsMargin || !_feeReceipts.TryGetValue(update.OrderId, out ExternalFeeReceiptCheckpoint? receipt) ||
             update.CumulativeFee is not { } fee)
         {
             return ExternalOrderUpdateResult.Ignored("InvalidFeeCorrection");
@@ -558,7 +621,7 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
 
     private void Release(Order order, OrderStatus status)
     {
-        if (order.Side == OrderSide.Buy)
+        if (order.Side == Settings.OpeningSide)
         {
             _account.Portfolio.ReleaseQuote(order.Reservation);
         }

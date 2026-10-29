@@ -73,6 +73,17 @@ internal sealed class TemplateParameterCheck(CompiledTradingGraph graph, IReadOn
                 Require(entry < Positive("targetPrice"), "targetPrice", "A level trade requires entryPrice < targetPrice.", ["entryPrice", "targetPrice"]);
 
                 break;
+            case StrategyTemplateKind.LevelTradeShort:
+                decimal? shortEntry = Positive("entryPrice");
+                Positive("sellAmount");
+                Require(
+                    Positive("targetPrice") < shortEntry,
+                    "targetPrice",
+                    "A short level trade requires targetPrice < entryPrice.",
+                    ["targetPrice", "entryPrice"]);
+                Require(shortEntry < Positive("stopPrice"), "stopPrice", "A short level trade requires entryPrice < stopPrice.", ["entryPrice", "stopPrice"]);
+
+                break;
             case StrategyTemplateKind.Grid:
                 Require(Positive("gridLevels") <= 200m, "gridLevels", "A grid requires 1 <= gridLevels <= 200.");
                 Require(Positive("gridStep") < 1m, "gridStep", "A grid requires 0 < gridStep < 1.");

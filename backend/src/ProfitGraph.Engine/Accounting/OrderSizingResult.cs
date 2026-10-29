@@ -7,5 +7,10 @@ public readonly record struct OrderSizingResult(decimal? Quantity, decimal? Pric
 {
     public decimal QuoteFee { get; init; }
 
+    /// <summary>
+    ///     A margin run's market buy spends up to this quote while it reserves only its margin (ADR 0061); null otherwise.
+    /// </summary>
+    public decimal? QuoteBudget { get; init; }
+
     public bool IsValid => Reason is null;
 }

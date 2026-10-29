@@ -75,7 +75,8 @@ public sealed class GraphCompilationFingerprintTests
                 definition.Values,
                 definition.Blocks,
                 definition.Wires,
-                definition.TemplateKind);
+                definition.TemplateKind,
+                definition.Direction);
 
             GraphCompilationFingerprint.Calculate(Compile(changed)).ShouldBe(fingerprint);
         }
@@ -118,6 +119,7 @@ public sealed class GraphCompilationFingerprintTests
             StrategyTemplateKind.RsiReversion => RsiReversionStrategyBlockFactory.Create(),
             StrategyTemplateKind.BollingerReversion => BollingerReversionStrategyBlockFactory.Create(),
             StrategyTemplateKind.LevelTrade => LevelTradeStrategyBlockFactory.Create(),
+            StrategyTemplateKind.LevelTradeShort => LevelTradeShortStrategyBlockFactory.Create(),
             _ => throw new ArgumentOutOfRangeException(nameof(kind))
         };
     }

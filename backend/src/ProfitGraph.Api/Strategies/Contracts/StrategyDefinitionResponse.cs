@@ -5,4 +5,5 @@ public sealed record StrategyDefinitionResponse(
     IReadOnlyList<StrategyValueResponse> Values,
     IReadOnlyList<StrategyBlockResponse> Blocks,
     IReadOnlyList<StrategyWireResponse> Wires,
-    string? TemplateKind = null);
+    string? TemplateKind = null,
+    string? Direction = null);

@@ -54,7 +54,7 @@ internal static class PositionHoldingPeriod
             return true;
         }
 
-        decimal normalized = OrderNormalizer.NormalizeQuantity(quantity, rules);
+        decimal normalized = OrderNormalizer.NormalizeQuantity(Math.Abs(quantity), rules);
         decimal sellPrice = SlippageModel.Apply(referencePrice, OrderSide.Sell, settings.Slippage);
         RejectionReason? reason = OrderNormalizer.CheckMinimums(normalized, sellPrice, rules);
 

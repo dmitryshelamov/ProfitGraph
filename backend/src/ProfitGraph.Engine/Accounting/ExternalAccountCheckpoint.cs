@@ -16,7 +16,8 @@ public sealed record ExternalAccountCheckpoint(
     long NextOrderId,
     ImmutableArray<OrderSnapshot> Orders,
     ImmutableArray<ExternalOrderProgressCheckpoint> Progress,
-    ImmutableArray<ExternalFeeReceiptCheckpoint> FeeReceipts = default)
+    ImmutableArray<ExternalFeeReceiptCheckpoint> FeeReceipts = default,
+    decimal EntryNotional = 0m)
 {
     public ImmutableArray<ExternalFeeReceiptCheckpoint> FeeReceipts { get; init; } = FeeReceipts.IsDefault ? [] : FeeReceipts;
 }

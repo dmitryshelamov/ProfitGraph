@@ -12,7 +12,8 @@ public static class StrategyDefinitionInternalConverter
             value.Values.Select(item => item.ToDomain()).ToArray(),
             value.Blocks.Select(item => item.ToDomain()).ToArray(),
             value.Wires.Select(item => item.ToDomain()).ToArray(),
-            value.TemplateKind);
+            value.TemplateKind,
+            value.Direction);
     }
 
     public static StrategyDefinitionInternal ToInternal(this StrategyDefinition value)
@@ -22,6 +23,7 @@ public static class StrategyDefinitionInternalConverter
             value.Values.Select(item => item.ToInternal()).ToArray(),
             value.Blocks.Select(item => item.ToInternal()).ToArray(),
             value.Wires.Select(item => item.ToInternal()).ToArray(),
-            value.TemplateKind);
+            value.TemplateKind,
+            value.Direction);
     }
 }

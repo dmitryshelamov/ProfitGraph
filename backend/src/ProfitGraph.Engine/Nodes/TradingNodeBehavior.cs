@@ -20,5 +20,7 @@ public enum TradingNodeBehavior
     LimitSell,
     CancelOrder,
     Grid,
-    CancelGrid
+    CancelGrid,
+    MarketCover,
+    LimitCover
 }

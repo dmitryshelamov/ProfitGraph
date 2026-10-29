@@ -4,10 +4,14 @@ namespace ProfitGraph.Engine.Accounting;
 ///     Балансы одного прогона: итоговые и зарезервированные суммы обоих активов, средневзвешенная стоимость позиции,
 ///     реализованный результат и удержанные комиссии. Equity включает резервы, поэтому выставление ордера не меняет PnL.
 ///     Стоимость позиции не округляется к шагу количества; пыль остаётся в позиции и в equity.
+///     A margin run (ADR 0061) keeps the same cash view: a short holds a negative base balance and its proceeds in quote, so equity
+///     stays quote + base × close; what may still open is the quote less the margin of the position at its entry notional.
 /// </summary>
 public sealed class Portfolio
 {
     private bool _externalQuoteShortfallAllowed;
+    private decimal? _leverage;
+    private PositionDirection _direction;
     internal decimal PendingFeeReserve { get; private set; }
     public decimal StartingCapital { get; private set; }
     public decimal QuoteTotal { get; private set; }
@@ -20,8 +24,23 @@ public sealed class Portfolio
     public decimal FeesQuote { get; private set; }
     public decimal? LastBuyPrice { get; private set; }
 
-    public decimal QuoteAvailable => QuoteTotal - QuoteReserved - PendingFeeReserve;
-    public decimal BaseAvailable => BaseTotal - BaseReserved;
+    /// <summary>
+    ///     The notional of a margin run's position at its entry prices, without fees; zero in a spot run.
+    /// </summary>
+    public decimal EntryNotional { get; private set; }
+
+    public decimal QuoteAvailable => QuoteTotal - QuoteReserved - PendingFeeReserve + MarginRelease;
+
+    /// <summary>
+    ///     The position quantity free to close: the base a long holds or the base a short owes, less what working exits reserve.
+    /// </summary>
+    public decimal BaseAvailable => Math.Abs(BaseTotal) - BaseReserved;
+
+    /// <summary>
+    ///     What a margin run's open position adds to the quote that may open more: the entry notional a long paid or a short received
+    ///     back out of the cash view, less the position's margin. Zero in a spot run and when flat.
+    /// </summary>
+    internal decimal MarginRelease => _leverage is { } leverage ? (BaseTotal >= 0m ? EntryNotional : -EntryNotional) - EntryNotional / leverage : 0m;
 
     internal Portfolio(decimal startingCapital)
     {
@@ -45,7 +64,18 @@ public sealed class Portfolio
         FeesBase = checkpoint.FeesBase;
         FeesQuote = checkpoint.FeesQuote;
         LastBuyPrice = checkpoint.LastBuyPrice;
+        EntryNotional = checkpoint.EntryNotional;
         EnsureInvariants();
+    }
+
+    /// <summary>
+    ///     Makes the portfolio a margin run's (ADR 0061); only before anything is traded or restored.
+    /// </summary>
+    internal void ConfigureMargin(decimal leverage, PositionDirection direction)
+    {
+        _leverage = leverage;
+        _direction = direction;
+        _externalQuoteShortfallAllowed = true;
     }
 
     public decimal Equity(decimal close)
@@ -55,7 +85,7 @@ public sealed class Portfolio
 
     public decimal UnrealizedPnl(decimal close)
     {
-        return BaseTotal * close - CostBasis;
+        return BaseTotal >= 0m ? BaseTotal * close - CostBasis : BaseTotal * close + CostBasis;
     }
 
     /// <summary>
@@ -121,6 +151,51 @@ public sealed class Portfolio
     ///     Списывает потраченную котируемую валюту и зачисляет базовый актив за вычетом комиссии; стоимость позиции растёт
     ///     на всю потраченную сумму.
     /// </summary>
+    /// <summary>
+    ///     Opens or adds to a margin run's long: the whole notional and its fee leave the cash view, the position's margin stays
+    ///     reserved through <see cref="MarginRelease" />.
+    /// </summary>
+    internal void OpenLong(decimal quoteSpent, decimal grossBase, decimal fee, decimal price)
+    {
+        EntryNotional += quoteSpent;
+        BuyWithQuoteFee(quoteSpent, grossBase, fee, price);
+    }
+
+    /// <summary>
+    ///     Opens or adds to a short: the base balance goes below zero by the quantity sold, the proceeds less the fee are credited and
+    ///     kept as the short's cost basis, and the price is the last entry price.
+    /// </summary>
+    internal void OpenShort(decimal grossBase, decimal grossQuote, decimal fee, decimal price)
+    {
+        QuoteTotal += grossQuote - fee;
+        BaseTotal -= grossBase;
+        CostBasis += grossQuote - fee;
+        EntryNotional += grossQuote;
+        FeesQuote += fee;
+        LastBuyPrice = price;
+        EnsureInvariants();
+    }
+
+    /// <summary>
+    ///     Buys back part or all of a short. The cover is charged the share of the short's net proceeds of the quantity it covers;
+    ///     realized profit = that share − the cover's cost − its fee.
+    /// </summary>
+    internal decimal Cover(decimal grossBase, decimal grossQuote, decimal fee)
+    {
+        decimal owed = -BaseTotal;
+        decimal allocated = grossBase == owed ? CostBasis : CostBasis * grossBase / owed;
+        decimal realized = allocated - grossQuote - fee;
+        EntryNotional -= grossBase == owed ? EntryNotional : EntryNotional * grossBase / owed;
+        BaseTotal += grossBase;
+        QuoteTotal -= grossQuote + fee;
+        CostBasis -= allocated;
+        RealizedPnl += realized;
+        FeesQuote += fee;
+        EnsureInvariants();
+
+        return realized;
+    }
+
     internal void Buy(decimal quoteSpent, decimal grossBase, decimal fee, decimal price)
     {
         QuoteTotal -= quoteSpent;
@@ -139,6 +214,12 @@ public sealed class Portfolio
     {
         decimal allocated = grossBase == BaseTotal ? CostBasis : CostBasis * grossBase / BaseTotal;
         decimal realized = grossQuote - fee - allocated;
+
+        if (_leverage is not null)
+        {
+            EntryNotional -= grossBase == BaseTotal ? EntryNotional : EntryNotional * grossBase / BaseTotal;
+        }
+
         BaseTotal -= grossBase;
         QuoteTotal += grossQuote - fee;
         CostBasis -= allocated;
@@ -180,7 +261,10 @@ public sealed class Portfolio
 
     private void EnsureInvariants()
     {
-        if (QuoteReserved < 0m || BaseReserved < 0m || (!_externalQuoteShortfallAllowed && QuoteReserved > QuoteTotal) || BaseReserved > BaseTotal || CostBasis < 0m)
+        bool wrongSide = _direction == PositionDirection.Long ? BaseTotal < 0m : BaseTotal > 0m;
+
+        if (QuoteReserved < 0m || BaseReserved < 0m || (!_externalQuoteShortfallAllowed && QuoteReserved > QuoteTotal) || BaseReserved > Math.Abs(BaseTotal) ||
+            CostBasis < 0m || wrongSide || EntryNotional < 0m || (_leverage is null && EntryNotional != 0m))
         {
             throw new TradingInvariantException(
                 $"Portfolio invariant violated: quote {QuoteTotal} (reserved {QuoteReserved}), base {BaseTotal} (reserved {BaseReserved}), cost basis {CostBasis}.");
