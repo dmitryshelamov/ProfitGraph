@@ -44,6 +44,9 @@ internal sealed class StrategyDefinitionInternalValidator : AbstractValidator<St
                 block.RuleFor(value => value.Amount).Must(value => value is null || IsWellFormed(value));
                 block.RuleFor(value => value.Quantity).Must(value => value is null || IsWellFormed(value));
                 block.RuleFor(value => value.Price).Must(value => value is null || IsWellFormed(value));
+                block.RuleFor(value => value.Settings)
+                    .Must(settings =>
+                        settings is null || settings.All(pair => !string.IsNullOrWhiteSpace(pair.Key) && pair.Value is not null && IsWellFormed(pair.Value)));
                 block.RuleFor(value => value.Checks)
                     .Must(checks => checks is null || (checks.Count <= StrategyAuthoringLimits.ChecksPerBlock && checks.All(check => check is not null &&
                         !string.IsNullOrWhiteSpace(check.Type) && (check.Tag is null || IsWellFormed(check.Tag)) &&
@@ -109,9 +112,15 @@ internal sealed class StrategyDefinitionInternalValidator : AbstractValidator<St
         foreach (StrategyBlockInternal block in definition.Blocks ?? [])
         {
             if (block is null || !Text(block.Id, identifier: true) || !Text(block.DisplayName) || !Text(block.Kind) || !Text(block.Source) ||
-                !Text(block.Join) || !Text(block.Side) || !Text(block.OrderKind) || !Text(block.SizeMode) || !Text(block.MinimumOrderPolicy))
+                !Text(block.Join) || !Text(block.Side) || !Text(block.OrderKind) || !Text(block.SizeMode) || !Text(block.MinimumOrderPolicy) ||
+                !Text(block.Grid, identifier: true) || (block.Settings?.Keys.Any(key => !Text(key, identifier: true)) ?? false))
             {
                 return false;
+            }
+
+            foreach (ValueExpressionInternal setting in block.Settings?.Values ?? [])
+            {
+                Push(setting);
             }
 
             Push(block.Amount);

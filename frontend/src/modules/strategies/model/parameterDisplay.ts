@@ -16,6 +16,14 @@ const readableNames: Record<string, string> = {
   profitTarget: 'Цель по прибыли',
   maxHold: 'Максимум свечей в позиции',
   interval: 'Интервал покупок в свечах',
+  gridLevels: 'Ступеней сетки',
+  gridStep: 'Шаг ступени',
+  gridProfitStep: 'Шаг прибыли',
+  gridLot: 'Лот ступени',
+  gridMaxOpenBuys: 'Покупок в рынке',
+  gridShiftThreshold: 'Сдвиг сетки вверх',
+  gridAnchorCeiling: 'Потолок сдвига',
+  gridStopBelow: 'Стоп ниже сетки',
 };
 
 export function parameterReadableName(name: string): string {

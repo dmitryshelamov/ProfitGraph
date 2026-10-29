@@ -45,7 +45,10 @@ export function strategyBlockLabel(
     return index !== undefined && index >= 0 ? `Условие ${index + 1}` : 'Условие';
   }
   if (block.kind === 'cancel') {
-    return 'Отмена ордера';
+    return block.grid ? 'Остановка сетки' : 'Отмена ордера';
+  }
+  if (block.kind === 'grid') {
+    return 'Сетка';
   }
   return block.orderKind === 'Limit'
     ? `Лимитная ${block.side === 'Sell' ? 'продажа' : 'покупка'}`
