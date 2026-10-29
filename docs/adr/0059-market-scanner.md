@@ -55,7 +55,8 @@ sources, history downloads as background jobs, backtests, comparison, and Telegr
    and in the same binary and image, holds the subscription continuously and computes the metrics; the page and the alerts
    only read the result. One process holds it at a time (a PostgreSQL lease or advisory lock), so a second Worker does not
    double the connections.
-2. **A separate container in production** (owner). Locally and in tests one process runs every role, as today. In production
+2. **A separate container in production** (owner). The default roles stay `jobs,live`, so tests and an ordinary Worker never
+   open the scanner's venue connections; the Development settings list all three roles for one local process. In production
    `docker-compose.prod.yml` adds a `worker-scanner` service from the same image with `Worker__Roles=scanner`, and the main
    `worker` lists `jobs,live` explicitly. A crash, a memory leak, a stall on hundreds of sockets or a warm-up of the scanner
    then never touches the live bots.
@@ -63,7 +64,8 @@ sources, history downloads as background jobs, backtests, comparison, and Telegr
    to `api.bybit.com`, the bots' private order calls included, and a ban lasts at least 10 minutes. A separate container does
    not separate the IP: a scanner that gets banned stops every Bybit bot on the server for that time. So the scanner keeps its
    REST calls at 10 per second (a twelfth of the limit) and, at its first 403, stops all its REST calls for 10 minutes and
-   reports the ban in readiness. WebSocket subscriptions do not count against this limit.
+   logs the ban; readiness turns Degraded when the stored snapshot is older than five minutes. WebSocket subscriptions do not
+   count against this limit.
 4. **One topic per pair:** `kline.1.{symbol}`. Hourly candles are aggregated from the minutes in memory, the 24-hour figures
    come from candles, not from the ticker topic, so every value is reproducible from candles. About 500 pairs take 5
    connections of 100 topics.
@@ -79,8 +81,9 @@ sources, history downloads as background jobs, backtests, comparison, and Telegr
    closed hour, aggregated from its minutes, is appended to the 7-day series and the oldest hour dropped. The forming minute
    only sets the price.
 6. **Reconnect.** A lost connection reconnects with backoff (as ADR 0044) and repeats steps 1–3 for the missed minutes; until the
-   gap is closed the pair is marked as incomplete. A minute the venue reports without trades counts as a flat candle with zero
-   volume; whether Bybit returns such candles is checked in the implementation.
+   gap is closed the pair is marked as incomplete. A minute the venue reports nowhere had no trades and is a flat candle with
+   zero volume: a hole the REST history leaves, and a minute the stream skips while connected. A real candle that arrives later
+   for a flat minute replaces it.
 7. **Memory, not the candle cache.** Scanner candles live only in the role's memory (about 500 × 1,440 minutes and 500 × 168
    hours, some tens of megabytes). They are not written to the shared candle cache; a batch backtest (step 3) downloads its
    history through the ordinary history download. A restart of the Worker loses them and warms up again; meanwhile the page
@@ -108,7 +111,7 @@ as the engine's indicators are (ADR 0056); they live in the engine's `Scanning/`
 | Efficiency ratio 24h | \|C_t − C_{t−24}\| / Σ\|ΔC\| over hourly closes: 0 is a range, 1 a trend. |
 | Distance to high and low, 24h and 7d | (C − High_N) / High_N and (C − Low_N) / Low_N, %. |
 | Spread | (ask − bid) / mid from the minute's quote snapshot, %. |
-| Listing age | Days since the pair's listing. |
+| Listing age | Days since the pair's listing: the venue's listing time, or the first candle when the 7-day history starts later than asked; empty for older pairs when the venue publishes no listing time (Bybit Spot). |
 | Stale | The last minute with volume ended more than 15 minutes ago, or there is none. |
 
 RSI and other indicators are added when their engine nodes exist, computed by the engine's code. Order book depth, correlation
@@ -170,5 +173,4 @@ Three steps, each useful and checked on its own (owner): the live table, then al
 ## Open questions
 
 - The default thresholds of the two built-in presets.
-- Whether Bybit returns 1-minute candles for minutes without trades.
 - The batch backtest details listed in section 6.
