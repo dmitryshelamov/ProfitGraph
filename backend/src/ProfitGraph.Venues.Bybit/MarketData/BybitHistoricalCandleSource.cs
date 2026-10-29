@@ -192,7 +192,7 @@ internal sealed class BybitHistoricalCandleSource(HttpClient httpClient, ILogger
         }
     }
 
-    private static KlineInterval Interval(Timeframe timeframe)
+    internal static KlineInterval Interval(Timeframe timeframe)
     {
         return timeframe.Key switch
         {

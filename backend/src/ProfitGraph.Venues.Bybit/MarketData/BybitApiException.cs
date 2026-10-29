@@ -33,6 +33,11 @@ internal sealed class BybitApiException : Exception
             Code is RateLimited or 10000 or 10016 or 170007 ||
             ErrorType is ErrorType.Timeout or ErrorType.NetworkError or ErrorType.UnableToConnect);
 
+    /// <summary>
+    ///     Bybit answered 403: the server's IP made too many requests and is banned for at least 10 minutes.
+    /// </summary>
+    public bool IsForbidden => StatusCode == HttpStatusCode.Forbidden;
+
     public bool IsInvalidRequest => Code is 10001 or 10029 or 170121 or 170130 || ErrorType is ErrorType.InvalidParameter or ErrorType.MissingParameter;
 
     public BybitApiException(HttpResult result)

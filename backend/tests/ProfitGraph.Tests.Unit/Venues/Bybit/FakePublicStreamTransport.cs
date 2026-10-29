@@ -15,11 +15,18 @@ internal sealed class FakePublicStreamTransport : IBybitPublicStreamTransport
 
     public int Connections => Volatile.Read(ref _connections);
 
-    public string? LastTopic { get; private set; }
+    public string? LastTopic => LastTopics?.Single();
 
-    public async IAsyncEnumerable<string> Connect(string topic, [EnumeratorCancellation] CancellationToken cancellationToken)
+    public IReadOnlyList<string>? LastTopics { get; private set; }
+
+    public IAsyncEnumerable<string> Connect(string topic, CancellationToken cancellationToken)
     {
-        LastTopic = topic;
+        return Connect([topic], cancellationToken);
+    }
+
+    public async IAsyncEnumerable<string> Connect(IReadOnlyList<string> topics, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        LastTopics = topics;
         var channel = Channel.CreateUnbounded<string>();
         Interlocked.Exchange(ref _current, channel);
         Interlocked.Increment(ref _connections);

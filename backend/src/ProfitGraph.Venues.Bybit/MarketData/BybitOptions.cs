@@ -110,6 +110,22 @@ public sealed class BybitOptions
     /// </summary>
     public TimeSpan AbsenceClockSkew { get; init; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    ///     The quote asset of the market scanner's universe: only pairs quoted in it are scanned (ADR 0059).
+    /// </summary>
+    public string ScannerQuoteAsset { get; init; } = "USDT";
+
+    /// <summary>
+    ///     The market scanner's REST budget. Bybit counts every request of the server's IP, the bots' orders included, so the
+    ///     scanner stays far below the limit (ADR 0059).
+    /// </summary>
+    public int ScannerRequestsPerSecond { get; init; } = 10;
+
+    /// <summary>
+    ///     How long the market scanner sends no REST request after Bybit answered 403, which bans the IP for at least 10 minutes.
+    /// </summary>
+    public TimeSpan ScannerBanPause { get; init; } = TimeSpan.FromMinutes(10);
+
     public bool IsValid()
     {
         return IsValidBaseAddress(BaseAddress) &&
@@ -126,7 +142,8 @@ public sealed class BybitOptions
             ServerClockLifetime > TimeSpan.Zero && ServerClockMaxRoundTrip > TimeSpan.Zero &&
             PrivateStreamAuthLifetime > TimeSpan.Zero && PrivateStreamConfirmTimeout > TimeSpan.Zero && PrivateStreamPingInterval > TimeSpan.Zero &&
             PrivateStreamCloseTimeout > TimeSpan.Zero &&
-            AbsenceSettleDelay > TimeSpan.Zero && AbsenceMaxAge > AbsenceSettleDelay && AbsenceMaxAge < TimeSpan.FromDays(7) && AbsenceClockSkew >= TimeSpan.Zero;
+            AbsenceSettleDelay > TimeSpan.Zero && AbsenceMaxAge > AbsenceSettleDelay && AbsenceMaxAge < TimeSpan.FromDays(7) && AbsenceClockSkew >= TimeSpan.Zero &&
+            !string.IsNullOrWhiteSpace(ScannerQuoteAsset) && ScannerRequestsPerSecond is > 0 and <= 100 && ScannerBanPause >= TimeSpan.FromMinutes(10);
     }
 
     /// <summary>
