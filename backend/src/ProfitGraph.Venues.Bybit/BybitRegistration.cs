@@ -56,6 +56,7 @@ public static class BybitRegistration
         services.AddSingleton(provider => new BybitServerClock(provider.GetRequiredService<BybitOptions>(), TimeProvider.System));
         services.AddHttpClient<BybitReadClient>(Configure).RemoveAllLoggers();
         services.AddTransient<IVenueFeeRateReader, BybitFeeRateReader>();
+        services.AddTransient<IVenueRestingOrderCapacity, BybitRestingOrderCapacity>();
         services.AddTransient<IAccountBalanceReader, BybitAccountBalanceReader>();
         services.AddTransient<IVenueAccountIdentityReader, BybitAccountIdentityReader>();
         services.AddSingleton<IVenueCredentialSchema, BybitCredentialSchema>();

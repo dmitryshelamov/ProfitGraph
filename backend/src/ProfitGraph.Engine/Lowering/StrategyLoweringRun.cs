@@ -203,6 +203,26 @@ internal sealed class StrategyLoweringRun
             return;
         }
 
+        if (block.Kind == "grid")
+        {
+            Node(block.Id, "Grid", source, parameters, mode: ActionEvaluationMode.OnEvent, name: block.DisplayName);
+
+            foreach ((string key, ValueExpression setting) in block.Settings.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+            {
+                Wire(Expression(setting, "block:" + StrategyDefinitionLowerer.Encode(block.Id) + ":" + StrategyDefinitionLowerer.Encode(key), source), block.Id, key);
+            }
+
+            return;
+        }
+
+        if (block.Kind == "cancel" && block.Grid is not null)
+        {
+            parameters["grid"] = Text(block.Grid);
+            Node(block.Id, "CancelGrid", source, parameters, mode: ActionEvaluationMode.OnEvent, name: block.DisplayName);
+
+            return;
+        }
+
         if (block.Tag is not null)
         {
             parameters["tag"] = Binding(block.Tag, "block:" + StrategyDefinitionLowerer.Encode(block.Id) + ":tag", source);

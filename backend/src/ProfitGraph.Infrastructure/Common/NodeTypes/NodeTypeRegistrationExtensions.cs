@@ -55,6 +55,8 @@ public static class NodeTypeRegistrationExtensions
         services.AddSingleton<INodeDefinition, MarketSellNodeDefinition>();
         services.AddSingleton<INodeDefinition, LimitSellNodeDefinition>();
         services.AddSingleton<INodeDefinition, CancelOrderNodeDefinition>();
+        services.AddSingleton<INodeDefinition, GridNodeDefinition>();
+        services.AddSingleton<INodeDefinition, CancelGridNodeDefinition>();
 
         foreach (CompositeNodeDefinition definition in BuiltInComposites.Definitions)
         {

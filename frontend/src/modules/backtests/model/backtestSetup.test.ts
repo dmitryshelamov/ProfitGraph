@@ -82,8 +82,15 @@ describe('backtest setup', () => {
         limitFeeRate: '0.001',
         marketFeeRate: '0.001',
         outOfSampleFraction: '0.2',
+        limitFill: 'Through',
       },
     });
+  });
+
+  it('keeps a fill on touch when the user picks it', () => {
+    const result = backtestSetupRequest('strategy', 1, definition, values({ limitFill: 'Touch' }));
+
+    expect(result).toMatchObject({ request: { limitFill: 'Touch' } });
   });
 
   it('leaves an open period to the venue’s first and latest closed candle', () => {

@@ -64,6 +64,7 @@ public sealed record EventOccurrence
             (EventKind.Filled, EventPayloadType.Fill) or
             (EventKind.Rejected, EventPayloadType.Rejection) or
             (EventKind.CancelCompleted, EventPayloadType.CancelResult) or
-            (EventKind.Resume, EventPayloadType.Resume);
+            (EventKind.Resume, EventPayloadType.Resume) or
+            (EventKind.GridStarted or EventKind.GridStopped, EventPayloadType.Grid);
     }
 }

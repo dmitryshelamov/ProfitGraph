@@ -41,6 +41,7 @@ internal static class BotsRegistration
         services.AddScoped(provider => provider.GetRequiredService<IOptionsMonitor<OrderDispatchOptions>>().CurrentValue);
         services.AddHealthChecks().AddCheck<LiveRuntimeHealthCheck>(LiveRuntimeHealthCheck.Name, tags: [HealthTags.Ready]);
         services.AddScoped<IBotRepository, BotRepository>();
+        services.AddScoped<BotGridRules>();
         services.AddScoped<IBotLeaseRepository, BotLeaseRepository>();
         services.AddScoped<IBotCheckpointRepository, BotCheckpointRepository>();
         services.AddScoped<IOrderIntentRepository, OrderIntentRepository>();

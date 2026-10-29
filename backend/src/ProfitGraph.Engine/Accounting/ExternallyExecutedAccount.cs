@@ -73,6 +73,13 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
         return request.Disposition == ExternalCancelDisposition.Pending ? _account.Orders.Get(request.OrderId!.Value) : null;
     }
 
+    public OrderExecutedTotals ExecutedTotals(long orderId)
+    {
+        return _progress.TryGetValue(orderId, out ExternalOrderProgress? progress)
+            ? new OrderExecutedTotals(progress.GrossBase, progress.BaseChange, progress.QuoteChange)
+            : OrderExecutedTotals.None;
+    }
+
     public ExternalCancelRequest RequestCancel(long orderId)
     {
         return RequestCancel(_account.Orders.Get(orderId));

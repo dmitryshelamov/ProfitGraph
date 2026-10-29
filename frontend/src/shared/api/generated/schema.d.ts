@@ -3612,6 +3612,7 @@ export interface components {
             sellerFees: null | components["schemas"]["SellerFeeScheduleResponse"];
             /** Format: int64 */
             settlementHoldSeconds: null | number;
+            limitFill: string;
         };
         BacktestDiagnosticResponse: {
             /** Format: int64 */
@@ -4496,6 +4497,13 @@ export interface components {
             maxDrawdownPercent: null | string;
             /** Format: int64 */
             executions: number;
+            maxCapitalDeployed: null | string;
+            maxCapitalDeployedPercent: null | string;
+            maxCapitalCommitted: null | string;
+            timeInPositionPercent: null | string;
+            timeUnderWaterPercent: null | string;
+            /** Format: int32 */
+            longestUnderWaterCandles: null | number;
         };
         SaveStrategyRequest: {
             /** Format: int32 */
@@ -4547,6 +4555,7 @@ export interface components {
             settlementHoldSeconds?: null | number;
             /** Format: uuid */
             credentialId?: null | string;
+            limitFill?: null | string;
         };
         StartCredentialEnrollmentRequest: {
             venue: null | string;
@@ -4587,6 +4596,10 @@ export interface components {
             price?: null | components["schemas"]["ValueExpressionRequest"];
             sizeMode?: null | string;
             minimumOrderPolicy?: null | string;
+            settings?: null | {
+                [key: string]: components["schemas"]["ValueExpressionRequest"];
+            };
+            grid?: null | string;
         };
         StrategyBlockResponse: {
             id: string;
@@ -4603,6 +4616,10 @@ export interface components {
             price?: null | components["schemas"]["ValueExpressionResponse"];
             sizeMode?: null | string;
             minimumOrderPolicy?: null | string;
+            settings?: null | {
+                [key: string]: components["schemas"]["ValueExpressionResponse"];
+            };
+            grid?: null | string;
         };
         StrategyCheckRequest: {
             type: string;

@@ -98,6 +98,25 @@ internal sealed class RuntimeScenario
     /// </summary>
     public static async Task<IReadOnlyList<Bot>> RunningLadders(IHost host, int count, UserId? existingOwner = null, bool resuming = false)
     {
+        return await RunningBots(
+            host,
+            count,
+            existingOwner,
+            resuming
+                ? LadderResumeStrategyBlockFactory.Create(buyAmount: 10m, allocationCap: 100m, drop: 0.05m, rise: 0.05m)
+                : LadderStrategyBlockFactory.Create(buyAmount: 10m, allocationCap: 100m, drop: 0.05m, rise: 0.05m));
+    }
+
+    /// <summary>
+    ///     A grid bot (ADR 0058) that should run: its start places the grid's buys below the flat price.
+    /// </summary>
+    public static async Task<Bot> RunningGrid(IHost host, StrategyDefinition definition)
+    {
+        return (await RunningBots(host, count: 1, existingOwner: null, definition))[0];
+    }
+
+    private static async Task<IReadOnlyList<Bot>> RunningBots(IHost host, int count, UserId? existingOwner, StrategyDefinition definition)
+    {
         UserId owner = existingOwner ?? UserId.New();
         ExchangeCredentialId[] credentials = [.. Enumerable.Range(start: 0, count).Select(_ => ExchangeCredentialId.New())];
 
@@ -121,9 +140,6 @@ internal sealed class RuntimeScenario
             }
         }
 
-        StrategyDefinition definition = resuming
-            ? LadderResumeStrategyBlockFactory.Create(buyAmount: 10m, allocationCap: 100m, drop: 0.05m, rise: 0.05m)
-            : LadderStrategyBlockFactory.Create(buyAmount: 10m, allocationCap: 100m, drop: 0.05m, rise: 0.05m);
         using IServiceScope scope = host.Services.CreateScope();
         StrategyInternal strategy = await scope.ServiceProvider.GetRequiredService<ISender>()
             .Send(

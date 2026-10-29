@@ -13,5 +13,6 @@ public enum StrategyTemplateKind
     CapitulationDip,
     VolumeMomentum,
     LadderPlus,
-    DcaProfitFox
+    DcaProfitFox,
+    Grid
 }

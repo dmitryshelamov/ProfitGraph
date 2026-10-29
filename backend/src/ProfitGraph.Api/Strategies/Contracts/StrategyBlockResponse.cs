@@ -17,4 +17,8 @@ public sealed record StrategyBlockResponse(
     ValueExpressionResponse? Price = null,
     string? SizeMode = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? MinimumOrderPolicy = null);
+    string? MinimumOrderPolicy = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyDictionary<string, ValueExpressionResponse>? Settings = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? Grid = null);

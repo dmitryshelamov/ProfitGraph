@@ -1,12 +1,13 @@
 using System.Collections.Immutable;
 
 using ProfitGraph.Engine.Accounting;
+using ProfitGraph.Engine.Grids;
 using ProfitGraph.Engine.Market;
 
 namespace ProfitGraph.Engine.Dispatch;
 
 /// <summary>
-///     Between-roots engine state; indicator samples are reconstructed from closed candles.
+///     Between-roots engine state; indicator samples are reconstructed from closed candles. Grids carry their levels (ADR 0058).
 /// </summary>
 public sealed record GraphEngineCheckpoint(
     ExternalAccountCheckpoint Account,
@@ -20,4 +21,8 @@ public sealed record GraphEngineCheckpoint(
     bool Started,
     string GraphVersionId,
     ImmutableDictionary<long, string> OrderGraphVersions,
-    DateTimeOffset? PositionOpenedAt = null);
+    DateTimeOffset? PositionOpenedAt = null,
+    ImmutableArray<GridCheckpoint> Grids = default)
+{
+    public ImmutableArray<GridCheckpoint> Grids { get; init; } = Grids.IsDefault ? [] : Grids;
+}
