@@ -11,9 +11,9 @@ using Npgsql;
 
 using ProfitGraph.Api.Bots.Contracts;
 using ProfitGraph.Application.Accounts.Contracts;
-using ProfitGraph.Application.Bots.GetBotCandles;
 using ProfitGraph.Application.Common.Operations;
 using ProfitGraph.Application.Common.Transactions;
+using ProfitGraph.Application.MarketData.Charts;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.Bots;
@@ -67,7 +67,7 @@ public sealed class SteamBotCandlesTests
         var page = (await response.Content.ReadFromJsonAsync<BotCandlesResponse>(WebJson))!;
         page.Venue.ShouldBe(SteamVenue.VenueId.Value);
         page.Timeframe.ShouldBe("1d");
-        page.Status.ShouldBe(BotCandleHistoryStatus.Partial);
+        page.Status.ShouldBe(CandleHistoryStatus.Partial);
         page.ErrorCode.ShouldBeNull();
         page.Candles.Select(candle => candle.OpenTime)
             .ShouldBe([.. Enumerable.Range(start: -44, count: 13).Where(day => !quiet.Contains(day)).Select(day => today.AddDays(day))]);

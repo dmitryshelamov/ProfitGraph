@@ -1,4 +1,4 @@
-import { mergeCandlePages, pageBefore, tooFarBehind } from './botCandles';
+import { mergeCandlePages } from './botCandles';
 import type { BotCandlesPage } from './types';
 
 const candle = (openTime: string) => ({
@@ -28,14 +28,6 @@ const page = (
 });
 
 describe('bot candles', () => {
-  it('asks for a page of 500 candles before the given end', () => {
-    expect(pageBefore('2026-10-25T00:00:00.000Z', '1h')).toEqual({
-      from: '2026-10-04T04:00:00.000Z',
-      to: '2026-10-25T00:00:00.000Z',
-    });
-    expect(pageBefore('2026-10-25T00:00:00.000Z', '1m').from).toBe('2026-10-24T15:40:00.000Z');
-  });
-
   it('merges pages into one history without repeats, oldest first', () => {
     const merged = mergeCandlePages([
       page(
@@ -55,12 +47,5 @@ describe('bot candles', () => {
       '2026-10-24T11:00:00Z',
     ]);
     expect(merged.fills.map((fill) => fill.id)).toEqual(['a', 'b']);
-  });
-
-  it('starts over when the candles closed since no longer fit in one request', () => {
-    const now = new Date('2026-10-25T00:00:00Z');
-
-    expect(tooFarBehind('2026-10-24T06:00:00Z', now, '1m')).toBe(true);
-    expect(tooFarBehind('2026-10-24T06:00:00Z', now, '1h')).toBe(false);
   });
 });

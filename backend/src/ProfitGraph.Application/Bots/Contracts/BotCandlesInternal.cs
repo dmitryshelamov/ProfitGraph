@@ -1,4 +1,4 @@
-using ProfitGraph.Application.Bots.GetBotCandles;
+using ProfitGraph.Application.MarketData.Charts;
 using ProfitGraph.Application.MarketData.Contracts;
 
 namespace ProfitGraph.Application.Bots.Contracts;
@@ -15,7 +15,7 @@ public sealed record BotCandlesInternal(
     DateTimeOffset From,
     DateTimeOffset To,
     DateTimeOffset LatestClosed,
-    BotCandleHistoryStatus Status,
+    CandleHistoryStatus Status,
     string? ErrorCode,
     IReadOnlyList<CandleInternal> Candles,
     IReadOnlyList<BotChartFillInternal> Fills,

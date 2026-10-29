@@ -11,8 +11,8 @@ using Microsoft.Extensions.DependencyInjection;
 using ProfitGraph.Api.Bots.Contracts;
 using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.CreateExchangeCredential;
-using ProfitGraph.Application.Bots.GetBotCandles;
 using ProfitGraph.Application.Common.Transactions;
+using ProfitGraph.Application.MarketData.Charts;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.Bots;
@@ -97,7 +97,7 @@ public sealed class TInvestBotCandlesTests
         var page = (await response.Content.ReadFromJsonAsync<BotCandlesResponse>(WebJson))!;
         page.Venue.ShouldBe("tinvest");
         page.Timeframe.ShouldBe("1m");
-        page.Status.ShouldBe(BotCandleHistoryStatus.Complete, page.ErrorCode);
+        page.Status.ShouldBe(CandleHistoryStatus.Complete, page.ErrorCode);
         page.Candles.Count.ShouldBe(8 * 60);
         page.Candles[0].OpenTime.ShouldBe(Monday.AddHours(7));
         page.Candles[^1].OpenTime.ShouldBe(Monday.AddHours(15).AddMinutes(-1));

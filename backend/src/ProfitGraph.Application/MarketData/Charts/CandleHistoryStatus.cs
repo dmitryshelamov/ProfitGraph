@@ -1,9 +1,9 @@
-namespace ProfitGraph.Application.Bots.GetBotCandles;
+namespace ProfitGraph.Application.MarketData.Charts;
 
 /// <summary>
-///     How completely the venue's history covers a requested range of the bot's chart.
+///     How completely the venue's history covers a requested range of a chart.
 /// </summary>
-public enum BotCandleHistoryStatus
+public enum CandleHistoryStatus
 {
     /// <summary>
     ///     Every interval of the range is a stored candle or lies in a market closure the venue reported.

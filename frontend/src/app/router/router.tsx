@@ -10,6 +10,7 @@ import {
 } from '@tanstack/react-router';
 
 import { currentUserQuery } from '@/modules/accounts';
+import { scanChartTimeframe } from '@/modules/scanner';
 
 import { AppShell } from './AppShell';
 import { NotFoundPage } from './NotFoundPage';
@@ -231,6 +232,17 @@ const scannerRoute = createRoute({
   component: lazyRouteComponent(() => import('@/pages/scanner/ScannerPage'), 'ScannerPage'),
 });
 
+const scanPairRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/scanner/$venue/$symbol',
+  validateSearch: (search: Record<string, unknown>): { timeframe?: string } => {
+    const timeframe = scanChartTimeframe(search.timeframe);
+
+    return timeframe ? { timeframe } : {};
+  },
+  component: lazyRouteComponent(() => import('@/pages/scanner/ScanPairPage'), 'ScanPairPage'),
+});
+
 const profileRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/profile',
@@ -264,6 +276,7 @@ const routeTree = rootRoute.addChildren([
       botRoute,
       credentialsRoute,
       scannerRoute,
+      scanPairRoute,
       profileRoute,
     ]),
     strategyEditorRoute,

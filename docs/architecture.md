@@ -263,7 +263,9 @@ src/
 - **Market scanner.** `modules/scanner` shows a venue's shared snapshot from `/api/scanner/{venue}/snapshot` and reads it again
   whenever `/ws/scanner` (SignalR) announces a new one. A preset's conditions, sort and stale switch filter and order the rows on
   the page, comparing exact decimal strings (`compareDecimals`); the preset being edited applies at once, and saving stores the
-  user's own preset, a built-in one as a copy ([ADR 0059](adr/0059-market-scanner.md)).
+  user's own preset, a built-in one as a copy. A pair opens `/scanner/{venue}/{symbol}`: its chart from
+  `/api/scanner/{venue}/candles` (`CandleHistoryChart`, paged back like a bot's chart with the shared helpers of
+  `modules/market-chart`) and its metrics from the snapshot ([ADR 0059](adr/0059-market-scanner.md)).
 - **API client.** `shared/api/client.ts` is the only HTTP client. Its types come from
   `shared/api/generated/schema.d.ts`, generated from the API's OpenAPI document with `npm run generate:api` and never
   edited by hand. Failures surface as `ApiError` built from Problem Details.
