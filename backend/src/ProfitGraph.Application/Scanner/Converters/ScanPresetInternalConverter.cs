@@ -5,7 +5,7 @@ namespace ProfitGraph.Application.Scanner.Converters;
 
 internal static class ScanPresetInternalConverter
 {
-    public static ScanPresetInternal ToInternal(this ScanPreset preset)
+    public static ScanPresetInternal ToInternal(this ScanPreset preset, bool alertsEnabled)
     {
         return new ScanPresetInternal(
             preset.Id.Value,
@@ -15,7 +15,8 @@ internal static class ScanPresetInternalConverter
             preset.Sort.Metric.ToString(),
             preset.Sort.Descending,
             preset.HideStale,
-            BuiltIn: false);
+            BuiltIn: false,
+            alertsEnabled);
     }
 
     /// <summary>

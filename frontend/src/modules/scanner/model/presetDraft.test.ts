@@ -10,6 +10,7 @@ const builtIn: ScanPreset = {
   sortDescending: true,
   hideStale: true,
   builtIn: true,
+  alertsEnabled: false,
 };
 
 describe('preset drafts', () => {

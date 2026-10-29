@@ -4,7 +4,8 @@ internal sealed class TelegramNotificationDb
 {
     public Guid Id { get; init; }
     public Guid OwnerId { get; init; }
-    public Guid BotId { get; init; }
+    public Guid? BotId { get; init; }
+    public Guid? ScanPresetId { get; init; }
     public string Kind { get; init; } = string.Empty;
     public Guid? AlertId { get; init; }
     public string Details { get; init; } = "{}";

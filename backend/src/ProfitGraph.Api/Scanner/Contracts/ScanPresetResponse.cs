@@ -11,4 +11,5 @@ public sealed record ScanPresetResponse(
     string SortMetric,
     bool SortDescending,
     bool HideStale,
-    bool BuiltIn);
+    bool BuiltIn,
+    bool AlertsEnabled);

@@ -236,6 +236,11 @@ hour or the efficiency ratio over a day. A metric without enough history is empt
 A user's named set of conditions on scanner metrics (minimum, maximum) with a sort, and its own alert switch, off by default.
 Built-in presets are read-only and can be copied.
 
+### Scanner Alert
+
+A Telegram message about pairs that entered a saved scanner preset's result since the previous snapshot, at most once an hour per
+pair and preset. Sent only while the preset's alerts are on; the «Отключить» button in the message switches them off.
+
 ### Screener Robot
 
 A later product, not designed yet: one strategy cloned onto every instrument of a list, with a shared deposit and a shared limit

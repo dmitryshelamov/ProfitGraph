@@ -24,7 +24,8 @@ internal static class BybitScanPresets
             "Change1h",
             SortDescending: true,
             HideStale: true,
-            BuiltIn: true),
+            BuiltIn: true,
+            AlertsEnabled: false),
         new ScanPresetInternal(
             Id: null,
             BybitVenue.VenueId.Value,
@@ -37,6 +38,7 @@ internal static class BybitScanPresets
             "Natr24h",
             SortDescending: true,
             HideStale: true,
-            BuiltIn: true)
+            BuiltIn: true,
+            AlertsEnabled: false)
     ];
 }

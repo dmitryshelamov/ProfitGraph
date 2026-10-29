@@ -2,6 +2,7 @@ using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Bots.Alerts;
 using ProfitGraph.Domain.Notifications;
+using ProfitGraph.Domain.Scanner;
 
 namespace ProfitGraph.Tests.Unit.Domain.Notifications;
 
@@ -195,6 +196,62 @@ public sealed class TelegramNotificationTests
         details["extra"] = "added";
 
         notification.Details.ShouldBe(new Dictionary<string, string> { ["kind"] = nameof(BotAlertKind.Degraded) });
+    }
+
+    [Test]
+    public void ScanAlertNamesItsPresetAndNoBot()
+    {
+        var presetId = ScanPresetId.New();
+
+        TelegramNotification alert = TelegramNotification.QueueScanAlert(TelegramNotificationId.New(), UserId.New(), presetId, new Dictionary<string, string>(), Now);
+
+        (alert.Kind, alert.PresetId, alert.BotId, alert.AlertId).ShouldBe((TelegramNotificationKind.ScanAlert, (ScanPresetId?)presetId, (BotId?)null, (BotAlertId?)null));
+        Should.Throw<ArgumentException>(() => TelegramNotification.Restore(
+            TelegramNotificationId.New(),
+            UserId.New(),
+            BotId.New(),
+            presetId,
+            TelegramNotificationKind.ScanAlert,
+            alertId: null,
+            new Dictionary<string, string>(),
+            Now,
+            TelegramNotificationStatus.Pending,
+            attempts: 0,
+            Now,
+            claimId: null,
+            claimedUntil: null,
+            sentAt: null,
+            lastError: null));
+        Should.Throw<ArgumentException>(() => TelegramNotification.Restore(
+            TelegramNotificationId.New(),
+            UserId.New(),
+            botId: null,
+            presetId: null,
+            TelegramNotificationKind.Started,
+            alertId: null,
+            new Dictionary<string, string>(),
+            Now,
+            TelegramNotificationStatus.Pending,
+            attempts: 0,
+            Now,
+            claimId: null,
+            claimedUntil: null,
+            sentAt: null,
+            lastError: null));
+    }
+
+    [Test]
+    public void ScanAlertIsSkippedAfterFifteenMinutes()
+    {
+        TelegramNotification alert = TelegramNotification.QueueScanAlert(
+            TelegramNotificationId.New(),
+            UserId.New(),
+            ScanPresetId.New(),
+            new Dictionary<string, string>(),
+            Now);
+
+        alert.IsTooOld(Now.AddMinutes(15)).ShouldBeFalse();
+        alert.IsTooOld(Now.AddMinutes(15).AddSeconds(1)).ShouldBeTrue();
     }
 
     private static TelegramNotification Alert()

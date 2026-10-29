@@ -4,6 +4,7 @@ using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Bots.Alerts;
 using ProfitGraph.Domain.Notifications;
+using ProfitGraph.Domain.Scanner;
 using ProfitGraph.Infrastructure.Notifications.Repositories.Contracts;
 
 namespace ProfitGraph.Infrastructure.Notifications.Repositories.Converters;
@@ -15,7 +16,8 @@ internal static class TelegramNotificationDbConverter
         return TelegramNotification.Restore(
             new TelegramNotificationId(row.Id),
             new UserId(row.OwnerId),
-            new BotId(row.BotId),
+            row.BotId is { } botId ? new BotId(botId) : null,
+            row.ScanPresetId is { } presetId ? new ScanPresetId(presetId) : null,
             Enum.Parse<TelegramNotificationKind>(row.Kind),
             row.AlertId is { } alertId ? new BotAlertId(alertId) : null,
             JsonSerializer.Deserialize<Dictionary<string, string>>(row.Details) ?? [],
@@ -35,7 +37,8 @@ internal static class TelegramNotificationDbConverter
         {
             Id = notification.Id.Value,
             OwnerId = notification.OwnerId.Value,
-            BotId = notification.BotId.Value,
+            BotId = notification.BotId?.Value,
+            ScanPresetId = notification.PresetId?.Value,
             Kind = notification.Kind.ToString(),
             AlertId = notification.AlertId?.Value,
             Details = JsonSerializer.Serialize(notification.Details),

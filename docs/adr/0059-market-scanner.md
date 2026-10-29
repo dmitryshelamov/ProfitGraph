@@ -2,7 +2,7 @@
 
 Status: Accepted, 2026-10-29. The owner chose the shape in a design conversation (points marked "owner" below) and accepted
 the draft ("ок, давай разрабатывать"); the remaining details are the analyst's proposals. Implementation follows the roadmap. Builds on ADR 0003,
-ADR 0010, ADR 0011, ADR 0027 and ADR 0042.
+ADR 0010, ADR 0011, ADR 0027 and ADR 0042; amends ADR 0042 (a Telegram notification may report a scanner preset instead of a bot).
 
 ## Context
 
@@ -138,6 +138,20 @@ to BTC and cross-venue gaps are out of scope.
    named.
 3. Delivery goes through the Telegram queue of ADR 0042 and needs a linked chat; without one the switch explains why it does
    nothing.
+4. Implementation:
+   - **Own presets only.** Built-in presets live in code and have no row to switch; the page asks to save one or a copy first.
+   - **Watch.** A preset whose alerts are on has a `scan_alert_watches` row (`ScanAlertWatch`): the time of the last snapshot
+     checked and the pairs it remembers (in the result, or reported and still in their one-hour cooldown). Switching alerts off
+     deletes the row. State lives in the database, so a scanner restart neither repeats nor loses alerts.
+   - **Checking.** `ReplaceScanSnapshot` stores the snapshot and checks every watch of the venue in the same transaction, filtering
+     rows as the page does (`ScanPreset.Keeps`: bounds inclusive, an empty metric fails, stale pairs dropped when asked). A row whose
+     candles are being repaired counts as outside every result. The first check after alerts are switched on only records the
+     result, so switching on never reports the pairs already in it; a changed preset records its result again in the same way. A
+     snapshot not newer than the last check changes nothing.
+   - **Message.** One `ScanAlert` notification per preset and snapshot (`telegram_notifications.scan_preset_id`, no bot): the
+     preset, the venue, how many pairs entered, and the first ten with the price, the preset's condition metrics and its sort
+     metric, rounded as on the page. It is skipped when older than 15 minutes. The «Отключить» button (`scanoff:{presetId}`)
+     switches the preset's alerts off for the chat's own user only and removes the button.
 
 ### 6. Batch backtest (step 3)
 

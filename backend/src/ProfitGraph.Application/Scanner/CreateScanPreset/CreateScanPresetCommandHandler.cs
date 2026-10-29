@@ -33,6 +33,6 @@ internal sealed class CreateScanPresetCommandHandler(IEnumerable<IMarketScanSour
             clock.GetUtcNow());
         await presets.Add(preset, cancellationToken);
 
-        return preset.ToInternal();
+        return preset.ToInternal(alertsEnabled: false);
     }
 }
