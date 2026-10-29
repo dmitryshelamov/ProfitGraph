@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 
 import { credentialsQuery } from '@/modules/credentials';
+import { acceptsCredential, venuesQuery } from '@/modules/market-data';
 import { ApiErrorMessage } from '@/shared/ui/ApiErrorMessage';
 import { Button } from '@/shared/ui/Button';
 import { Field } from '@/shared/ui/Field';
@@ -16,8 +17,8 @@ import { useScanQuote } from './useScanQuote';
 const selectClass = 'rounded-md border border-line bg-panel px-3 py-2 text-sm';
 
 /**
- * How the trade cards trade on the venue (ADR 0060): the owner's key of that venue, the quote a stop may lose and the most a trade may
- * spend, and on futures the leverage of the trades' bots (ADR 0061). Shown as a summary once set; «Изменить» opens the form again.
+ * How the trade cards trade on the venue (ADR 0060): the owner's key the venue takes (on futures the Spot key, ADR 0061), the quote a
+ * stop may lose and the most a trade may spend, and on futures the leverage of the trades' bots (ADR 0061). Shown as a summary once set; «Изменить» opens the form again.
  */
 export function ScanTradeSettingsForm({
   venue,
@@ -73,7 +74,9 @@ function SettingsEditor({
   const queryClient = useQueryClient();
   const quote = useScanQuote(venue);
   const credentials = useQuery(credentialsQuery());
-  const own = credentials.data?.filter((item) => item.venue === venue) ?? [];
+  const venues = useQuery(venuesQuery());
+  const own =
+    credentials.data?.filter((item) => acceptsCredential(venues.data, venue, item.venue)) ?? [];
   const [credentialId, setCredentialId] = useState(settings?.credentialId ?? '');
   const [risk, setRisk] = useState(settings?.risk ?? '');
   const [maxAmount, setMaxAmount] = useState(settings?.maxAmount ?? '');

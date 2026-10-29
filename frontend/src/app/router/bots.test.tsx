@@ -97,6 +97,60 @@ describe('bots', () => {
     ]);
   });
 
+  it('creates a futures bot with the Spot key, which serves both markets', async () => {
+    const created: unknown[] = [];
+    const venue = {
+      timeframes: ['1h'],
+      executionDefaults: null,
+      botSettings: null,
+      backtestLimits: [],
+    };
+    fakeApi({
+      ...botRoutes(),
+      'GET /api/bots': () => json([]),
+      'GET /api/strategies': () => json([summary]),
+      [`GET /api/strategies/${strategy.id}`]: () => json(strategy),
+      'GET /api/exchange-credentials': () => json([credential]),
+      'GET /api/market-data/venues': () =>
+        json([
+          { ...venue, id: 'bybit', name: 'Bybit', credentialVenue: null },
+          { ...venue, id: 'bybit-linear', name: 'Bybit Futures', credentialVenue: 'bybit' },
+          { ...venue, id: 'tinvest', name: 'T-Invest', credentialVenue: null },
+        ]),
+      'POST /api/bots': async (request) => {
+        created.push(await request.json());
+
+        return json({ ...bot, venue: 'bybit-linear' }, 201);
+      },
+    });
+    renderApp('/bots');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Новый бот' }));
+    await userEvent.selectOptions(screen.getByLabelText('Стратегия'), strategy.id);
+    await userEvent.selectOptions(await screen.findByLabelText('Ключ биржи'), credential.id);
+    const market = await screen.findByLabelText('Рынок');
+    expect(
+      within(market)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['Bybit', 'Bybit Futures']);
+    expect(market).toHaveValue('bybit');
+    await userEvent.selectOptions(market, 'bybit-linear');
+    await userEvent.clear(await screen.findByLabelText('Плечо'));
+    await userEvent.type(screen.getByLabelText('Плечо'), '3');
+    await screen.findByLabelText('Снижение для усреднения, %');
+    await userEvent.click(screen.getByRole('button', { name: 'Создать бота' }));
+
+    await waitFor(() => expect(created).toHaveLength(1));
+    expect(created[0]).toEqual(
+      expect.objectContaining({
+        credentialId: credential.id,
+        venue: 'bybit-linear',
+        venueSettings: { leverage: '3' },
+      }),
+    );
+  });
+
   it('shows the bot’s open orders with their fill', async () => {
     fakeApi({
       ...botRoutes(),

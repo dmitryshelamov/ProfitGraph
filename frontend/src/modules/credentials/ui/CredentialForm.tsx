@@ -20,7 +20,8 @@ const ineligibility: Record<string, string> = {
 };
 
 /**
- * Adds an exchange key. A Bybit key is an API key and secret with Spot trading and without withdrawals. A T-Invest key is
+ * Adds an exchange key. A Bybit key is an API key and secret without withdrawals; it trades Spot and, with contract orders and
+ * positions allowed, USDT perpetuals too (ADR 0061), so futures need no key of their own. A T-Invest key is
  * a token and the brokerage account it trades: the token loads the accounts, one eligible account is chosen, and saving
  * checks it again. A Steam key links a new Steam Guard authenticator in steps. Secrets are sent once, never cached and
  * never shown again.
@@ -92,7 +93,7 @@ export function CredentialForm({ onCreated }: { onCreated?: () => void }) {
         value={venue}
         onChange={(event) => changeVenue(event.target.value)}
       >
-        <option value="bybit">Bybit (Spot)</option>
+        <option value="bybit">Bybit (Spot и фьючерсы)</option>
         <option value="tinvest">T-Invest (MOEX)</option>
         <option value="steam">Steam Community Market</option>
       </select>

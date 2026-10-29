@@ -71,6 +71,8 @@ export function botAccountQuery(id: string) {
 export interface CreateBotInput {
   readonly strategyId: string;
   readonly credentialId: string;
+  /** The bot's venue, one that takes the key (ADR 0061); the key's own when absent. */
+  readonly venue?: string;
   readonly symbol: string;
   readonly timeframe: string;
   readonly parameters: Readonly<Record<string, string>>;

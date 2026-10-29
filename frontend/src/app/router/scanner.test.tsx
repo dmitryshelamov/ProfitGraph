@@ -482,6 +482,103 @@ describe('scanner page', () => {
     });
   });
 
+  it('offers the Spot key for futures trades and saves it', async () => {
+    const venue = {
+      timeframes: ['15m'],
+      executionDefaults: null,
+      botSettings: null,
+      backtestLimits: [],
+    };
+    const key = {
+      label: 'Основной',
+      apiKeyLast4: 'abcd',
+      publicId: null,
+      createdAt: '2026-10-24T08:00:00Z',
+    };
+    const saved: unknown[] = [];
+    fakeApi({
+      'GET /api/auth/me': () => json(user),
+      'GET /api/scanner/venues': () =>
+        json([{ venue: 'bybit-linear', name: 'Bybit Futures', supportsShort: true }]),
+      'GET /api/market-data/venues': () =>
+        json([
+          { ...venue, id: 'bybit', name: 'Bybit', credentialVenue: null },
+          { ...venue, id: 'bybit-linear', name: 'Bybit Futures', credentialVenue: 'bybit' },
+        ]),
+      'GET /api/scanner/bybit-linear/snapshot': () =>
+        json({
+          ...snapshot([{ ...emptyMetrics, symbol: 'SOLUSDT', price: '100' }]),
+          venue: 'bybit-linear',
+        }),
+      'GET /api/scanner/bybit-linear/candles': (request) => {
+        const query = new URL(request.url).searchParams;
+
+        return json({
+          venue: 'bybit-linear',
+          symbol: 'SOLUSDT',
+          timeframe: query.get('timeframe'),
+          from: query.get('from'),
+          to: query.get('to'),
+          latestClosed: query.get('to'),
+          status: 'Complete',
+          errorCode: null,
+          candles: [],
+        });
+      },
+      'GET /api/exchange-credentials': () =>
+        json([
+          { ...key, id: 'key-spot', venue: 'bybit' },
+          { ...key, id: 'key-broker', venue: 'tinvest', label: 'Брокер' },
+        ]),
+      'GET /api/scanner/bybit-linear/trade-settings': () => json({ settings: null }),
+      'PUT /api/scanner/bybit-linear/trade-settings': async (request) => {
+        saved.push(await request.json());
+
+        return json({
+          venue: 'bybit-linear',
+          credentialId: 'key-spot',
+          risk: '5',
+          maxAmount: '1000',
+          leverage: '2',
+        });
+      },
+      'GET /api/scanner/bybit-linear/trade-ideas': () =>
+        json({
+          venue: 'bybit-linear',
+          symbol: 'SOLUSDT',
+          price: '100',
+          hasSettings: false,
+          ideas: [],
+        }),
+      'GET /api/scanner/bybit-linear/trades': () => json([]),
+    });
+
+    renderApp('/scanner/bybit-linear/SOLUSDT');
+
+    const form = await screen.findByRole('form', { name: 'Настройки сделок' });
+    const keys = within(form).getByLabelText('Ключ биржи');
+    await waitFor(() =>
+      expect(
+        within(keys)
+          .getAllByRole('option')
+          .map((option) => option.textContent),
+      ).toEqual(['Основной']),
+    );
+    await userEvent.type(within(form).getByLabelText(/Риск на сделку/), '5');
+    await userEvent.type(within(form).getByLabelText(/Не больше на сделку/), '1000');
+    await userEvent.clear(within(form).getByLabelText('Плечо'));
+    await userEvent.type(within(form).getByLabelText('Плечо'), '2');
+    await userEvent.click(within(form).getByRole('button', { name: 'Сохранить' }));
+
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0]).toEqual({
+      credentialId: 'key-spot',
+      risk: '5',
+      maxAmount: '1000',
+      leverage: '2',
+    });
+  });
+
   it('switches on the alerts of an own preset and warns without a linked chat', async () => {
     const own = { ...impulse, id: 'p1', name: 'Мой', builtIn: false };
     let alertsEnabled = false;

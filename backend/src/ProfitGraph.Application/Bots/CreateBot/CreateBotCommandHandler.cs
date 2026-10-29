@@ -24,7 +24,7 @@ namespace ProfitGraph.Application.Bots.CreateBot;
 
 /// <summary>
 ///     Checks everything a later start needs: the latest strategy version compiles with the bot's values, the credential
-///     belongs to the owner, the instrument exists on the credential's venue and its fee rates can be read.
+///     belongs to the owner and the bot's venue accepts it, the instrument exists on that venue and its fee rates can be read.
 /// </summary>
 internal sealed class CreateBotCommandHandler(
     IStrategyRepository strategies,
@@ -49,7 +49,14 @@ internal sealed class CreateBotCommandHandler(
         BotParameterRules.Ensure(version.Definition, parameters);
         CompiledTradingGraph plan = compiler.Compile(version.Definition, parameters);
         ExchangeCredential credential = await credentials.GetOwned(command.CredentialId, command.OwnerId, cancellationToken);
-        CandleSeries series = venues.ResolveSeries(credential.Venue.Value, command.Symbol, command.Timeframe);
+        CandleSeries series = venues.ResolveSeries(command.Venue ?? credential.Venue.Value, command.Symbol, command.Timeframe);
+
+        if (!venues.AcceptsCredential(series.Venue, credential.Venue))
+        {
+            throw new ApplicationValidationException(
+                [new InputError(MarketDataCredentials.VenueMismatch, nameof(command.CredentialId), "The credential belongs to another venue.")]);
+        }
+
         venues.EnsureDirection(series.Venue, plan.Direction);
         IVenueFeeRateReader reader = feeReaders.Find(series.Venue) ?? throw new VenueFeeRatesUnavailableException("This venue cannot run bots in this deployment.");
         IInstrumentRulesSource source = rules.Find(series.Venue) ?? throw new VenueFeeRatesUnavailableException("The venue has no instrument rules.");
