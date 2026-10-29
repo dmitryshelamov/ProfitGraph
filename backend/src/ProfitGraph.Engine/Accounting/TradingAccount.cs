@@ -124,7 +124,8 @@ public sealed class TradingAccount : IGraphAccount
     /// <summary>
     ///     Исполняет активный ордер целиком. Рыночный ордер исполняется по опорной цене с неблагоприятным проскальзыванием,
     ///     лимитный — по своей лимитной цене без улучшения (опорная цена для него не используется). Рыночный ордер,
-    ///     который по фактической цене не проходит минимумы, отклоняется с освобождением резерва.
+    ///     который по фактической цене не проходит минимумы, отклоняется с освобождением резерва. Минимальную стоимость рыночной
+    ///     покупки на сумму котируемой валюты задаёт сама сумма, поэтому при исполнении проверяется только её количество.
     /// </summary>
     public OrderExecution Execute(long orderId, decimal referencePrice)
     {
@@ -155,7 +156,10 @@ public sealed class TradingAccount : IGraphAccount
             grossBase = Math.Min(order.Reservation, sellable);
         }
 
-        if (order.Type == OrderType.Market && OrderNormalizer.CheckMinimums(grossBase, price, Rules) is { } reason)
+        // A quote-budget market buy met the minimum notional with its budget at submission; flooring its quantity does not undo that.
+        decimal? minimumPrice = order.QuoteBudget is null ? price : null;
+
+        if (order.Type == OrderType.Market && OrderNormalizer.CheckMinimums(grossBase, minimumPrice, Rules) is { } reason)
         {
             Release(order, OrderStatus.Rejected);
 

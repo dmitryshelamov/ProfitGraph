@@ -118,7 +118,7 @@ public sealed class ReplayOutputRegressionTests
             pinned.TemplateKind);
     }
 
-    [TestCase("LadderNearMinimum", "35908746BA5F2AC434EF9E421AC59173E1BD77BA368E6CF3B800B11EACE3710C")]
+    [TestCase("LadderNearMinimum", "0D8A8ED2098CB0B6027DCA2EE0C17189D15B8B85805BEF621816CAC3BB350268")]
     [TestCase("LadderExhaustedCap", "ABE57DA4EFE970C594ECC1C39D29AC732D77662FA428121A233A9741687FEC86")]
     [TestCase("SmaShortPeriods", "E3DAE6B3C9173FD2F4B5344FDB5BE5F67CB42E63C187DE76AACE1B191DA40ABC")]
     [TestCase("LadderTagConflict", "C0CB94F2A1F5547B673FAED257A68912E32DC01B75EB777AE071FC10DCA46C69")]
@@ -161,11 +161,10 @@ public sealed class ReplayOutputRegressionTests
         switch (workload)
         {
             case "LadderNearMinimum":
-                // The 1.00001 quote budget falls below the 1 quote minimum after quantity normalization.
-                result.FillCount.ShouldBe(0);
-                result.Ledger.Where(entry => entry.Rejection is not null)
-                    .Select(entry => entry.Rejection!.Reason)
-                    .ShouldBe(new[] { RejectionReason.BelowMinNotional });
+                // The 1.00001 quote budget meets the 1 quote minimum; its normalized quantity is worth less and still fills.
+                result.FillCount.ShouldBe(113);
+                result.Ledger.ShouldNotContain(entry => entry.Rejection != null);
+                result.Ledger.Count(entry => entry.Fill is { Tag: "ladder.entry" } && entry.Fill.GrossBase * entry.Fill.Price < 1m).ShouldBe(55);
 
                 break;
             case "LadderExhaustedCap":
