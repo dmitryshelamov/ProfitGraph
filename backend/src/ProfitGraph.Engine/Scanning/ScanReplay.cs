@@ -248,19 +248,20 @@ public sealed class ScanReplay
     }
 
     /// <summary>
-    ///     The median turnover of the last 167 hours up to the hour at <paramref name="last" />; empty below 72 hours or when it is zero.
+    ///     The median turnover of the hours with trades among the last 167 hours up to the hour at <paramref name="last" />; empty below
+    ///     72 such hours or when it is zero.
     /// </summary>
     private static decimal? Median(ScanCandle[] hours, int last)
     {
         int first = Math.Max(val1: 0, last - SpikeBaselineHours + 1);
-        int count = last - first + 1;
+        decimal[] baseline = [.. hours[first..(last + 1)].Where(hour => hour.Volume > 0).Select(hour => hour.Turnover).Order()];
+        int count = baseline.Length;
 
         if (count < SpikeMinimumHours)
         {
             return null;
         }
 
-        decimal[] baseline = [.. hours[first..(last + 1)].Select(hour => hour.Turnover).Order()];
         int middle = count / 2;
         decimal median = count % 2 == 1 ? baseline[middle] : (baseline[middle - 1] + baseline[middle]) / 2m;
 

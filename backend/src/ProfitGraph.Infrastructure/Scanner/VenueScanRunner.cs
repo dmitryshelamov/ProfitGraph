@@ -220,7 +220,7 @@ internal sealed class VenueScanRunner(
                 watchdog.CancelAfter(options.StreamStallTimeout);
                 subscribed.TrySetResult();
 
-                if (bySymbol.TryGetValue(update.Symbol, out ScanSeries? series))
+                if (!update.IsAlive && bySymbol.TryGetValue(update.Symbol, out ScanSeries? series))
                 {
                     series.Accept(update);
                 }

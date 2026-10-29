@@ -8,8 +8,10 @@ import { Field } from '@/shared/ui/Field';
 import { Input } from '@/shared/ui/Input';
 
 import { scannerKeys, setScanTradeSettings } from '../api/scannerApi';
+import { withQuote } from '../model/format';
 import { settingsProblem } from '../model/trades';
 import type { ScanTradeSettings, ScanTradeSettingsInput } from '../model/types';
+import { useScanQuote } from './useScanQuote';
 
 const selectClass = 'rounded-md border border-line bg-panel px-3 py-2 text-sm';
 
@@ -25,6 +27,7 @@ export function ScanTradeSettingsForm({
   settings: ScanTradeSettings | null;
 }) {
   const [editing, setEditing] = useState(false);
+  const quote = useScanQuote(venue);
   const credentials = useQuery(credentialsQuery());
   const label = credentials.data?.find((item) => item.id === settings?.credentialId)?.label;
 
@@ -32,8 +35,8 @@ export function ScanTradeSettingsForm({
     return (
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-secondary">
         <span>
-          Риск на сделку <span className="text-text">{settings.risk} USDT</span>, не больше{' '}
-          <span className="text-text">{settings.maxAmount} USDT</span> на сделку
+          Риск на сделку <span className="text-text">{withQuote(settings.risk, quote)}</span>, не
+          больше <span className="text-text">{withQuote(settings.maxAmount, quote)}</span> на сделку
           {label && <>, ключ «{label}»</>}
         </span>
         <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
@@ -56,6 +59,7 @@ function SettingsEditor({
   onDone: () => void;
 }) {
   const queryClient = useQueryClient();
+  const quote = useScanQuote(venue);
   const credentials = useQuery(credentialsQuery());
   const own = credentials.data?.filter((item) => item.venue === venue) ?? [];
   const [credentialId, setCredentialId] = useState(settings?.credentialId ?? '');
@@ -97,14 +101,14 @@ function SettingsEditor({
             ))}
           </select>
         </Field>
-        <Field label="Риск на сделку, USDT">
+        <Field label={withQuote('Риск на сделку,', quote, 'Риск на сделку')}>
           <Input
             inputMode="decimal"
             value={risk}
             onChange={(event) => setRisk(event.target.value)}
           />
         </Field>
-        <Field label="Не больше на сделку, USDT">
+        <Field label={withQuote('Не больше на сделку,', quote, 'Не больше на сделку')}>
           <Input
             inputMode="decimal"
             value={maxAmount}

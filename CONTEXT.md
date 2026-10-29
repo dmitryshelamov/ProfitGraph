@@ -224,7 +224,14 @@ of fills it took; an order cancelled after a partial fill is not a filled order.
 
 A live table of a venue's instruments with metrics computed from their recent candles, filtered by a preset, with optional
 Telegram alerts. It searches and shows; a human decides, and it never places an order. Not a screener robot.
-See [ADR 0059](docs/adr/0059-market-scanner.md).
+See [ADR 0059](docs/adr/0059-market-scanner.md). Bybit Spot pairs and T-Invest MOEX shares; T-Invest is read with the
+Scanner Credential.
+
+### Scanner Credential
+
+The stored credential a venue without anonymous market data reads its scanner's data with, for every user of that venue's
+scanner: the Worker's scan and backtests, and the pair's chart, levels and cards. It is named in configuration, not chosen per
+user, and is not the credential the cards' bots trade with. See [ADR 0062](docs/adr/0062-tinvest-market-scanner.md).
 
 ### Scanner Metric
 

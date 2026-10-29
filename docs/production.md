@@ -63,7 +63,8 @@ the Worker.
 - `TELEGRAM_ENABLED=true` with `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_USERNAME`.
 - `STEAM_ENABLED=true` with `STEAM_MARKET_DATA_CREDENTIAL_ID` once the Steam credential exists
   ([Steam owner checklist](steam-owner-checklist.md)).
-- `TINVEST_ENABLED=true`.
+- `TINVEST_ENABLED=true`; with `TINVEST_SCANNER_CREDENTIAL_ID` (a stored T-Invest credential, ideally with a read-only token) MOEX
+  shares join the market scanner ([ADR 0062](adr/0062-tinvest-market-scanner.md)). Restart `api` and `worker-scanner` too.
 
 ## First setup
 

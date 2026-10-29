@@ -62,7 +62,8 @@ describe('scanner page', () => {
     ]);
     fakeApi({
       'GET /api/auth/me': () => json(user),
-      'GET /api/scanner/venues': () => json([{ venue: 'bybit', name: 'Bybit' }]),
+      'GET /api/scanner/venues': () =>
+        json([{ venue: 'bybit', name: 'Bybit', quoteAsset: 'USDT' }]),
       'GET /api/scanner/bybit/presets': () => json([impulse]),
       'GET /api/scanner/bybit/snapshot': () => json(current),
     });
@@ -83,10 +84,51 @@ describe('scanner page', () => {
     expect(await within(table).findByText('ETHUSDT')).toBeInTheDocument();
   });
 
+  it('switches to T-Invest and shows its shares with its own presets', async () => {
+    fakeApi({
+      'GET /api/auth/me': () => json(user),
+      'GET /api/scanner/venues': () =>
+        json([
+          { venue: 'bybit', name: 'Bybit', quoteAsset: 'USDT' },
+          { venue: 'tinvest', name: 'T-Invest (MOEX)', quoteAsset: 'RUB' },
+        ]),
+      'GET /api/scanner/bybit/presets': () => json([impulse]),
+      'GET /api/scanner/bybit/snapshot': () => json(snapshot([])),
+      'GET /api/scanner/tinvest/presets': () =>
+        json([
+          {
+            ...impulse,
+            venue: 'tinvest',
+            conditions: [{ metric: 'Change1h', minimum: '2', maximum: null }],
+          },
+        ]),
+      'GET /api/scanner/tinvest/snapshot': () =>
+        json({
+          ...snapshot([
+            { ...emptyMetrics, symbol: 'TQBR:SBER', change1h: '2.5' },
+            { ...emptyMetrics, symbol: 'TQBR:GAZP', change1h: '1' },
+          ]),
+          venue: 'tinvest',
+        }),
+    });
+
+    renderApp('/scanner');
+
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: 'Биржа' }),
+      'tinvest',
+    );
+
+    const table = await screen.findByRole('table');
+    expect(await within(table).findByText('TQBR:SBER')).toBeInTheDocument();
+    expect(within(table).queryByText('TQBR:GAZP')).not.toBeInTheDocument();
+  });
+
   it('saves a copy of the built-in preset as the user own one', async () => {
     const requests = fakeApi({
       'GET /api/auth/me': () => json(user),
-      'GET /api/scanner/venues': () => json([{ venue: 'bybit', name: 'Bybit' }]),
+      'GET /api/scanner/venues': () =>
+        json([{ venue: 'bybit', name: 'Bybit', quoteAsset: 'USDT' }]),
       'GET /api/scanner/bybit/presets': () => json([impulse]),
       'GET /api/scanner/bybit/snapshot': () => json(snapshot([])),
       'POST /api/scanner/bybit/presets': async (request) =>
@@ -115,7 +157,8 @@ describe('scanner page', () => {
   it('opens a pair chart from its row and switches the timeframe', async () => {
     const requests = fakeApi({
       'GET /api/auth/me': () => json(user),
-      'GET /api/scanner/venues': () => json([{ venue: 'bybit', name: 'Bybit' }]),
+      'GET /api/scanner/venues': () =>
+        json([{ venue: 'bybit', name: 'Bybit', quoteAsset: 'USDT' }]),
       'GET /api/scanner/bybit/presets': () => json([impulse]),
       'GET /api/scanner/bybit/snapshot': () =>
         json(snapshot([{ ...emptyMetrics, symbol: 'SOLUSDT', change1h: '4.25', price: '187.5' }])),
@@ -209,6 +252,8 @@ describe('scanner page', () => {
     let trades: object[] = [];
     const requests = fakeApi({
       'GET /api/auth/me': () => json(user),
+      'GET /api/scanner/venues': () =>
+        json([{ venue: 'bybit', name: 'Bybit', quoteAsset: 'USDT' }]),
       'GET /api/scanner/bybit/snapshot': () =>
         json(snapshot([{ ...emptyMetrics, symbol: 'SOLUSDT', price: '100' }])),
       'GET /api/scanner/bybit/candles': (request) => {
@@ -333,7 +378,8 @@ describe('scanner page', () => {
     let alertsEnabled = false;
     const requests = fakeApi({
       'GET /api/auth/me': () => json(user),
-      'GET /api/scanner/venues': () => json([{ venue: 'bybit', name: 'Bybit' }]),
+      'GET /api/scanner/venues': () =>
+        json([{ venue: 'bybit', name: 'Bybit', quoteAsset: 'USDT' }]),
       'GET /api/scanner/bybit/presets': () => json([{ ...own, alertsEnabled }]),
       'GET /api/scanner/bybit/snapshot': () => json(snapshot([])),
       'GET /api/profile/telegram': () =>
@@ -440,7 +486,8 @@ describe('scanner page', () => {
     };
     const requests = fakeApi({
       'GET /api/auth/me': () => json(user),
-      'GET /api/scanner/venues': () => json([{ venue: 'bybit', name: 'Bybit' }]),
+      'GET /api/scanner/venues': () =>
+        json([{ venue: 'bybit', name: 'Bybit', quoteAsset: 'USDT' }]),
       'GET /api/scanner/bybit/presets': () => json([impulse]),
       'GET /api/scanner/bybit/snapshot': () => json(snapshot([])),
       'GET /api/scanner/bybit/backtests': () => json([]),

@@ -106,7 +106,7 @@ as the engine's indicators are (ADR 0056); they live in the engine's `Scanning/`
 | Price | Last price of the current 1-minute candle. |
 | Change 5m, 15m, 1h, 4h, 24h | (Close of the last minute − Open of the first) / Open of the first, over the last N closed minutes, %. |
 | Turnover 1h, 24h | Sum of quote turnover of the last 60 and 1,440 minutes, USDT. |
-| Volume spike | Turnover of the last hour / median hourly turnover of the previous 167 hours; empty below 72 hours of history. |
+| Volume spike | Turnover of the last hour / median hourly turnover of the hours with trades among the previous 167 hours; empty below 72 such hours (amended by ADR 0062: nights and weekends of a market that closes must not pull the median to zero). |
 | Volatility (NATR 24h) | Simple mean of true range / close over the last 24 closed hourly candles, %. |
 | Efficiency ratio 24h | \|C_t − C_{t−24}\| / Σ\|ΔC\| over hourly closes: 0 is a range, 1 a trend. |
 | Distance to high and low, 24h and 7d | (C − High_N) / High_N and (C − Low_N) / Low_N, %. |

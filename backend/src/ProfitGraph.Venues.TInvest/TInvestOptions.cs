@@ -37,6 +37,8 @@ public sealed class TInvestOptions
 
     public TInvestHistoryOptions History { get; init; } = new TInvestHistoryOptions();
 
+    public TInvestScannerOptions Scanner { get; init; } = new TInvestScannerOptions();
+
     /// <summary>
     ///     How long after a candle closes the live feed waits before it reads the interval, so late trades are in.
     /// </summary>
@@ -192,7 +194,7 @@ public sealed class TInvestOptions
             ShareReuse < TimeSpan.Zero || ScheduleLifetime < TimeSpan.Zero || ScheduleFailureLifetime < TimeSpan.Zero || PriceBandLifetime < TimeSpan.Zero ||
             OrderStreamMaxReads <= 0 || OperationPageSize is <= 0 or > 1000 || OperationMaxPages <= 0 || AbsenceFutureSkew < TimeSpan.Zero ||
             LiveRememberedQuietCandles <= 0 || RateLimitDefaultReset <= TimeSpan.Zero ||
-            !Limits.IsValid() || !History.IsValid() ||
+            !Limits.IsValid() || !History.IsValid() || !Scanner.IsValid() ||
             string.IsNullOrWhiteSpace(AppName) ||
             string.IsNullOrWhiteSpace(TrustedRootsPath))
         {

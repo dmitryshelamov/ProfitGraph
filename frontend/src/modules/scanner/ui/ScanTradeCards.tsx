@@ -7,9 +7,10 @@ import { addDecimals, compareDecimals } from '@/shared/lib/decimal';
 import { Button } from '@/shared/ui/Button';
 
 import { createScanTrade, scannerKeys } from '../api/scannerApi';
-import { formatMetric } from '../model/format';
+import { formatMetric, withQuote } from '../model/format';
 import { tradeScenarioHints, tradeScenarioLabels } from '../model/trades';
 import type { ScanTradeIdea, ScanTradeIdeas } from '../model/types';
+import { useScanQuote } from './useScanQuote';
 
 const createErrors: Record<string, string> = {
   scan_trade_live: 'Такая сделка уже живёт.',
@@ -28,6 +29,7 @@ type Outcome = { readonly botId: string } | { readonly error: string };
  */
 export function ScanTradeCards({ venue, ideas }: { venue: string; ideas: ScanTradeIdeas }) {
   const queryClient = useQueryClient();
+  const quote = useScanQuote(venue);
   const [hidden, setHidden] = useState<readonly string[]>([]);
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [outcomes, setOutcomes] = useState<Readonly<Record<string, Outcome>>>({});
@@ -86,6 +88,7 @@ export function ScanTradeCards({ venue, ideas }: { venue: string; ideas: ScanTra
                 <TradeCard
                   key={key(idea)}
                   idea={idea}
+                  quote={quote}
                   checked={selected.includes(key(idea))}
                   outcome={outcomes[key(idea)]}
                   disabled={creating || !ideas.hasSettings}
@@ -115,12 +118,12 @@ export function ScanTradeCards({ venue, ideas }: { venue: string; ideas: ScanTra
               total(chosen, (idea) => idea.amount),
               2,
             )}{' '}
-            USDT, потеря на всех стопах{' '}
+            {quote}, потеря на всех стопах{' '}
             {formatMetric(
               total(chosen, (idea) => idea.risk),
               2,
             )}{' '}
-            USDT
+            {quote}
           </span>
         )}
         {selected.length > 0 && !creating && (
@@ -135,6 +138,7 @@ export function ScanTradeCards({ venue, ideas }: { venue: string; ideas: ScanTra
 
 function TradeCard({
   idea,
+  quote,
   checked,
   outcome,
   disabled,
@@ -142,6 +146,7 @@ function TradeCard({
   onHide,
 }: {
   idea: ScanTradeIdea;
+  quote: string;
   checked: boolean;
   outcome: Outcome | undefined;
   disabled: boolean;
@@ -186,9 +191,13 @@ function TradeCard({
         <dt className="text-text-secondary">Стоп</dt>
         <dd className="text-right text-down">{formatMetric(idea.stop, 6)}</dd>
         <dt className="text-text-secondary">Сумма</dt>
-        <dd className="text-right">{idea.amount ? `${formatMetric(idea.amount, 2)} USDT` : '—'}</dd>
+        <dd className="text-right">
+          {idea.amount ? withQuote(formatMetric(idea.amount, 2), quote) : '—'}
+        </dd>
         <dt className="text-text-secondary">Потеря на стопе</dt>
-        <dd className="text-right">{idea.risk ? `${formatMetric(idea.risk, 2)} USDT` : '—'}</dd>
+        <dd className="text-right">
+          {idea.risk ? withQuote(formatMetric(idea.risk, 2), quote) : '—'}
+        </dd>
       </dl>
       <p className="text-xs text-muted">
         Лимитка ждёт {hours >= 1 ? `${hours} ч` : `${idea.entryValidityMinutes} мин`}, потом

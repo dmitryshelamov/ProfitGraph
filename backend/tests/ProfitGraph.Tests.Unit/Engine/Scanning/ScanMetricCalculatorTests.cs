@@ -46,6 +46,18 @@ public sealed class ScanMetricCalculatorTests
     }
 
     [Test]
+    public void VolumeSpikeLeavesHoursWithoutTradesOutOfTheBaseline()
+    {
+        // A market closed every other hour (a night, a weekend) would make the median of all hours zero (ADR 0062).
+        DateTimeOffset windowStart = Start + 167 * Hour;
+        List<ScanCandle> hours = Series(Start, Hour, count: 167, index => Flat(Start, price: 100, index % 2 == 0 ? 0 : 10));
+        List<ScanCandle> minutes = Series(windowStart, Minute, count: 60, _ => Flat(windowStart, price: 100, turnover: 1));
+
+        Calculate(minutes, hours).VolumeSpike.ShouldBe(6m);
+        Calculate(minutes, hours[^143..]).VolumeSpike.ShouldBeNull();
+    }
+
+    [Test]
     public void VolumeSpikeIsEmptyBelowSeventyTwoHoursOrOnAZeroMedian()
     {
         DateTimeOffset windowStart = Start + 71 * Hour;

@@ -16,6 +16,7 @@ public sealed class ScanTradeIdeasReader(
     ScanTimeframeLevelsReader levels,
     VenueRegistry venues,
     CandleChartReader chart,
+    ScanMarketDataAccess access,
     ScanTradeOptions options,
     TimeProvider clock)
 {
@@ -50,6 +51,7 @@ public sealed class ScanTradeIdeasReader(
         {
             CandleSeries series = venues.ResolveSeries(venue, symbol, options.Timeframe);
             DateTimeOffset end = series.Timeframe.FloorToGrid(clock.GetUtcNow());
+            using IDisposable reads = MarketDataAccess.Use(await access.Read(venue, cancellationToken));
             CandleChartPage page = await chart.Read(series, end - LastHour, end, Math.Max((int)(LastHour / series.Timeframe.Duration), val2: 1), cancellationToken);
             decimal? low = page.Candles.Count > 0 ? page.Candles.Min(candle => candle.Low) : null;
             ideas.AddRange(

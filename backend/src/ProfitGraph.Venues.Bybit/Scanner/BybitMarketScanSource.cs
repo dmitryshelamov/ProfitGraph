@@ -52,6 +52,8 @@ internal sealed class BybitMarketScanSource(
 
     public IReadOnlyList<ScanPresetInternal> BuiltInPresets => BybitScanPresets.All;
 
+    public string QuoteAsset => options.ScannerQuoteAsset;
+
     public void Dispose()
     {
         _klines.Bybit.Dispose();

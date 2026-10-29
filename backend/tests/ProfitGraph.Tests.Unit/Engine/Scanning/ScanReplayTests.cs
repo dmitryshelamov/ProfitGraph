@@ -30,6 +30,24 @@ public sealed class ScanReplayTests
     }
 
     [Test]
+    public void AMarketWithNightsAndWeekendsMatchesTheCalculatorToo()
+    {
+        // MOEX-like sessions (ADR 0062): trades from 04:00 to 20:50 UTC on weekdays only; the scanner fills the rest flat.
+        List<ScanCandle> minutes = Sessions(RandomMinutes(count: 14_400, seed: 11));
+        var replay = new ScanReplay(minutes, listedAt: null);
+
+        foreach (int index in Enumerable.Range(start: 0, count: 14_400).Where(index => index % 37 == 0 || index == 14_399))
+        {
+            List<ScanCandle> window = minutes[Math.Max(val1: 0, index - 1439)..(index + 1)];
+            var input = new ScanInput(window, replay.HoursAt(index), LastPrice: null, BestBid: null, BestAsk: null, ListedAt: null, replay.EndOf(index));
+
+            replay.At(index).ShouldBe(ScanMetricCalculator.Calculate(input), $"minute {index}");
+        }
+
+        replay.At(index: 14_399).VolumeSpike.ShouldNotBeNull();
+    }
+
+    [Test]
     public void LaterMetricsAppearOnceTheirHistoryIsLongEnough()
     {
         var replay = new ScanReplay(RandomMinutes(count: 13_700, seed: 3), listedAt: null);
@@ -50,6 +68,22 @@ public sealed class ScanReplayTests
         minutes.RemoveAt(index: 4);
 
         Should.Throw<ScanInputException>(() => new ScanReplay(minutes, listedAt: null));
+    }
+
+    private static List<ScanCandle> Sessions(List<ScanCandle> minutes)
+    {
+        List<ScanCandle> sessions = [];
+
+        foreach (ScanCandle minute in minutes)
+        {
+            TimeSpan time = minute.OpenTime.TimeOfDay;
+            bool open = minute.OpenTime.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday) && time >= TimeSpan.FromHours(4) &&
+                time < new TimeSpan(hours: 20, minutes: 50, seconds: 0);
+            decimal close = sessions.Count > 0 ? sessions[^1].Close : minute.Open;
+            sessions.Add(open ? minute : new ScanCandle(minute.OpenTime, close, close, close, close, Volume: 0, Turnover: 0));
+        }
+
+        return sessions;
     }
 
     internal static List<ScanCandle> RandomMinutes(int count, int seed)

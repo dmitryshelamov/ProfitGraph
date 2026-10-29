@@ -24,6 +24,11 @@ public interface IMarketScanSource : IVenuePort
     /// </summary>
     IReadOnlyList<ScanPresetInternal> BuiltInPresets { get; }
 
+    /// <summary>
+    ///     The currency turnover, trade amounts and results are in, or null when the venue's instruments have no common quote.
+    /// </summary>
+    string? QuoteAsset => null;
+
     Task<IReadOnlyList<ScanInstrumentInternal>> Universe(CancellationToken cancellationToken);
 
     /// <summary>
@@ -41,7 +46,8 @@ public interface IMarketScanSource : IVenuePort
 
     /// <summary>
     ///     Closed and forming 1-minute candles of the given instruments over one connection; it throws or ends when the connection
-    ///     is lost, and the caller connects again.
+    ///     is lost, and the caller connects again. A venue whose stream is silent while its market is closed sends
+    ///     <see cref="ScanCandleUpdateInternal.Alive" /> once it is subscribed and then on the venue's pings (ADR 0062).
     /// </summary>
     IAsyncEnumerable<ScanCandleUpdateInternal> Stream(IReadOnlyList<InstrumentSymbol> symbols, CancellationToken cancellationToken);
 }

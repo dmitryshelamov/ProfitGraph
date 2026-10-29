@@ -42,6 +42,7 @@ public static class ScannerRegistration
         services.AddScoped(provider => provider.GetRequiredService<IOptionsMonitor<ScanTradeOptions>>().CurrentValue);
         services.AddScoped<IScanTradeRepository, ScanTradeRepository>();
         services.AddScoped<IScanTradeSettingsRepository, ScanTradeSettingsRepository>();
+        services.AddScoped<ScanMarketDataAccess>();
         services.AddScoped<ScanTimeframeLevelsReader>();
         services.AddScoped<ScanTradeIdeasReader>();
         services.AddSingleton<IScanSnapshotNotifications, ScanSnapshotNotifications>();

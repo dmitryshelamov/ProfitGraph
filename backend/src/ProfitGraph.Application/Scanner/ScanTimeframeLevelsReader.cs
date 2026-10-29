@@ -10,16 +10,28 @@ namespace ProfitGraph.Application.Scanner;
 /// <summary>
 ///     A pair's levels on one timeframe (ADR 0059, section 8): its last <see cref="ScanLevels.MaximumCandles" /> closed candles of the
 ///     timeframe read through the shared candle cache, their levels applied at the price of the pair's snapshot row, or at the last
-///     close when the snapshot lacks the pair. The pair page's levels and the trade cards (ADR 0060) read the same.
+///     close when the snapshot lacks the pair. The pair page's levels and the trade cards (ADR 0060) read the same, with the scanner's
+///     market data access of the venue (ADR 0062).
 /// </summary>
-public sealed class ScanTimeframeLevelsReader(VenueRegistry venues, CandleChartReader chart, IScanSnapshotRepository snapshots, TimeProvider clock)
+public sealed class ScanTimeframeLevelsReader(
+    VenueRegistry venues,
+    CandleChartReader chart,
+    ScanMarketDataAccess access,
+    IScanSnapshotRepository snapshots,
+    TimeProvider clock)
 {
     public async Task<ScanLevelsInternal> Read(string venue, string symbol, string timeframe, CancellationToken cancellationToken)
     {
         CandleSeries series = venues.ResolveSeries(venue, symbol, timeframe);
         DateTimeOffset now = clock.GetUtcNow();
         DateTimeOffset from = now - series.Timeframe.Duration * ScanLevels.MaximumCandles;
-        CandleChartPage page = await chart.Read(series, from, now, ScanLevels.MaximumCandles, cancellationToken);
+        CandleChartPage page;
+
+        using (MarketDataAccess.Use(await access.Read(venue, cancellationToken)))
+        {
+            page = await chart.Read(series, from, now, ScanLevels.MaximumCandles, cancellationToken);
+        }
+
         List<ScanCandle> candles =
         [
             .. page.Candles.Select(candle => new ScanCandle(

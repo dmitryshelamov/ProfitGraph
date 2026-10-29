@@ -7,8 +7,8 @@ using Tinkoff.InvestApi.V1;
 namespace ProfitGraph.Tests.Unit.Venues.TInvest;
 
 /// <summary>
-///     Invented MOEX shares and their exchange candles behind the mock Invest API: <c>ShareBy</c>, <c>FindInstrument</c> and
-///     <c>GetCandles</c>, which refuses <c>limit</c> together with the exchange source (<c>30220</c>) like the real API.
+///     Invented MOEX shares and their exchange candles behind the mock Invest API: <c>ShareBy</c>, <c>Shares</c>,
+///     <c>FindInstrument</c> and <c>GetCandles</c>, which refuses <c>limit</c> together with the exchange source (<c>30220</c>) like the real API.
 /// </summary>
 internal sealed class MockTInvestMarket
 {
@@ -20,6 +20,7 @@ internal sealed class MockTInvestMarket
     public MockTInvestMarket(MockTInvestApi api)
     {
         api.On<InstrumentRequest, ShareResponse>(InstrumentsService.Descriptor, "ShareBy", ShareBy);
+        api.On<InstrumentsRequest, SharesResponse>(InstrumentsService.Descriptor, "Shares", All);
         api.On<FindInstrumentRequest, FindInstrumentResponse>(InstrumentsService.Descriptor, "FindInstrument", Find);
         api.On<GetCandlesRequest, GetCandlesResponse>(MarketDataService.Descriptor, "GetCandles", Candles);
     }
@@ -35,6 +36,8 @@ internal sealed class MockTInvestMarket
             Lot = lot,
             Currency = currency,
             ApiTradeAvailableFlag = apiTrading,
+            BuyAvailableFlag = true,
+            SellAvailableFlag = true,
             Exchange = "moex_mrng_evng_e_wknd_dlr",
             MinPriceIncrement = Quotation(increment),
             First1MinCandleDate = Timestamp.FromDateTimeOffset(firstMinute),
@@ -78,6 +81,14 @@ internal sealed class MockTInvestMarket
         return _shares.TryGetValue(request.Id, out Share? share) && share.ClassCode == request.ClassCode
             ? new ShareResponse { Instrument = share }
             : throw MockTInvestApi.Refusal(StatusCode.NotFound, "50002");
+    }
+
+    private SharesResponse All(InstrumentsRequest request)
+    {
+        var response = new SharesResponse();
+        response.Instruments.AddRange(_shares.Values);
+
+        return response;
     }
 
     private FindInstrumentResponse Find(FindInstrumentRequest request)
