@@ -3,6 +3,7 @@ import { parameterReadableName, parameterValueDisplay } from './parameterDisplay
 describe('parameter display', () => {
   it('names known parameters and keeps unknown names', () => {
     expect(parameterReadableName('drop')).toBe('Снижение для усреднения');
+    expect(parameterReadableName('rsiEntry')).toBe('Уровень RSI для входа');
     expect(parameterReadableName('custom')).toBe('custom');
   });
 

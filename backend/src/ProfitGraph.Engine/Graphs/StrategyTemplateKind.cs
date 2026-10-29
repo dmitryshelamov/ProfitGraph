@@ -14,5 +14,9 @@ public enum StrategyTemplateKind
     VolumeMomentum,
     LadderPlus,
     DcaProfitFox,
-    Grid
+    Grid,
+    EmaCrossover,
+    MacdTrend,
+    RsiReversion,
+    BollingerReversion
 }

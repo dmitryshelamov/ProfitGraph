@@ -35,6 +35,12 @@ internal static class StrategyTemplateLayouts
         return CapitulationDip();
     }
 
+    // The indicator templates (EMA crossover, MACD trend, RSI and Bollinger reversion) mirror the capitulation dip block identities.
+    public static GraphLayout IndicatorSignal()
+    {
+        return CapitulationDip();
+    }
+
     private static GraphLayout Empty()
     {
         return new GraphLayout(new Dictionary<string, NodePosition>(StringComparer.Ordinal));

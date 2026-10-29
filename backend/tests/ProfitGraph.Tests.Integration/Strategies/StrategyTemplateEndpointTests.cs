@@ -33,7 +33,11 @@ public sealed class StrategyTemplateEndpointTests
         using HttpClient client = await application.CreateSignedInClient();
         var templates = (await client.GetFromJsonAsync<JsonArray>("/api/strategy-templates"))!;
         templates.Select(template => template!["kind"]!.GetValue<string>())
-            .ShouldBe(["SmaCrossover", "Ladder", "LadderProfitFox", "LadderSma", "CapitulationDip", "VolumeMomentum", "LadderPlus", "DcaProfitFox", "Grid"]);
+            .ShouldBe(
+            [
+                "SmaCrossover", "Ladder", "LadderProfitFox", "LadderSma", "CapitulationDip", "VolumeMomentum", "LadderPlus", "DcaProfitFox", "Grid",
+                "EmaCrossover", "MacdTrend", "RsiReversion", "BollingerReversion"
+            ]);
         using IServiceScope scope = application.Services.CreateScope();
         var registry = scope.ServiceProvider.GetRequiredService<INodeTypeRegistry>();
         var repository = scope.ServiceProvider.GetRequiredService<IStrategyRepository>();
@@ -53,7 +57,8 @@ public sealed class StrategyTemplateEndpointTests
             var id = created["id"]!.GetValue<Guid>();
             StrategyVersion version = (await repository.GetVersion(new StrategyId(id), StrategyVersionNumber.First, CancellationToken.None))!;
 
-            if (version.Definition.TemplateKind is StrategyTemplateKind.CapitulationDip or StrategyTemplateKind.VolumeMomentum)
+            if (version.Definition.TemplateKind is StrategyTemplateKind.CapitulationDip or StrategyTemplateKind.VolumeMomentum or StrategyTemplateKind.EmaCrossover
+                or StrategyTemplateKind.MacdTrend or StrategyTemplateKind.RsiReversion or StrategyTemplateKind.BollingerReversion)
             {
                 version.Layout.Positions.Keys
                     .Order()
@@ -86,6 +91,10 @@ public sealed class StrategyTemplateEndpointTests
                 "LadderProfitFox" => ProfitFoxLadderStrategyBlockFactory.Create(),
                 "SmaCrossover" => SmaStrategyBlockFactory.Create(),
                 "Grid" => GridStrategyBlockFactory.Create(),
+                "EmaCrossover" => EmaCrossoverStrategyBlockFactory.Create(),
+                "MacdTrend" => MacdTrendStrategyBlockFactory.Create(),
+                "RsiReversion" => RsiReversionStrategyBlockFactory.Create(),
+                "BollingerReversion" => BollingerReversionStrategyBlockFactory.Create(),
                 _ => LadderResumeStrategyBlockFactory.Create()
             };
             StrategyGraph original = new StrategyDefinitionLowerer(registry.GetAll()).Lower(expectedDefinition).Graph;
@@ -137,7 +146,7 @@ public sealed class StrategyTemplateEndpointTests
         {
             JsonObject positions = template!["layout"]!["positions"]!.AsObject();
 
-            if (template["kind"]!.GetValue<string>() is "CapitulationDip" or "VolumeMomentum")
+            if (template["kind"]!.GetValue<string>() is "CapitulationDip" or "VolumeMomentum" or "EmaCrossover" or "MacdTrend" or "RsiReversion" or "BollingerReversion")
             {
                 positions
                     .Select(position => position.Key)

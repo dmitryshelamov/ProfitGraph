@@ -113,6 +113,10 @@ public sealed class GraphCompilationFingerprintTests
             StrategyTemplateKind.LadderPlus => LadderPlusStrategyBlockFactory.Create(),
             StrategyTemplateKind.DcaProfitFox => ProfitFoxDcaStrategyBlockFactory.Create(),
             StrategyTemplateKind.Grid => GridStrategyBlockFactory.Create(),
+            StrategyTemplateKind.EmaCrossover => EmaCrossoverStrategyBlockFactory.Create(),
+            StrategyTemplateKind.MacdTrend => MacdTrendStrategyBlockFactory.Create(),
+            StrategyTemplateKind.RsiReversion => RsiReversionStrategyBlockFactory.Create(),
+            StrategyTemplateKind.BollingerReversion => BollingerReversionStrategyBlockFactory.Create(),
             _ => throw new ArgumentOutOfRangeException(nameof(kind))
         };
     }

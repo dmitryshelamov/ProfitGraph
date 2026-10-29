@@ -366,7 +366,8 @@ represent user-authored value dependencies.
 
 ### Strategy Template
 
-A ready-made, editable block definition available to the user. SMA has five visible blocks and Ladder has thirteen.
+A ready-made, editable block definition available to the user ([list](docs/strategy-templates.md)). SMA has five
+visible blocks and Ladder has thirteen.
 The user can edit blocks, checks, wires, parameters and shared values directly. Layout starts without saved
 positions; the editor supplies a grid layout and preserves explicitly saved positions.
 

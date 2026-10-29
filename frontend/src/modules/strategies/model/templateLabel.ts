@@ -9,6 +9,10 @@ const labels: Record<string, string> = {
   LadderPlus: 'Ladder+',
   DcaProfitFox: 'DCA (как в Profit Fox)',
   Grid: 'Сетка',
+  EmaCrossover: 'EMA Crossover',
+  MacdTrend: 'MACD по тренду',
+  RsiReversion: 'Отскок RSI',
+  BollingerReversion: 'Возврат от полосы Боллинджера',
 };
 
 /** The template a strategy was created from; a strategy without a template marker is the user's own. */

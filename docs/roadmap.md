@@ -96,7 +96,7 @@ Indicator blocks for trend and counter-trend strategies, before templates on the
 | Step | Scope | Done when | Status |
 |---|---|---|---|
 | 1. EMA, RSI, Bollinger Bands, MACD | Decimal `EMA`, `RSI` and `StdDev` nodes, `Bollinger` and `MACD` composites with output ports, block catalog entries, validation of periods, `fastPeriod < slowPeriod` and a positive multiplier, editor sources | Unit tests with hand-computed values, warm-up boundaries and flat-price cases pass; a MACD crossover backtest is deterministic | Done |
-| 2. Templates | Trend and counter-trend templates on these indicators, with their parameter rules | | Planned |
+| 2. Templates | Trend and counter-trend templates on these indicators, with their parameter rules ([strategy templates](strategy-templates.md)): EMA crossover, MACD with a trend EMA, RSI return above oversold, Bollinger lower band to middle, each with a stop-loss | Block layout, warm-up and parameter rule tests pass; each template trades as described on crafted candles | Done |
 
 ## Manual limit order
 
