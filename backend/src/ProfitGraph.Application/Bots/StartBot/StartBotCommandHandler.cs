@@ -29,6 +29,7 @@ internal sealed class StartBotCommandHandler(
     ITradingHaltRepository halts,
     IStrategyRepository strategies,
     BacktestCompiler compiler,
+    BotGridRules gridRules,
     TimeProvider clock) : IRequestHandler<StartBotCommand, BotInternal>
 {
     public async Task<BotInternal> Handle(StartBotCommand command, CancellationToken cancellationToken)
@@ -60,7 +61,12 @@ internal sealed class StartBotCommandHandler(
 
             fitted = bot.FitParameters(latest.Definition.Parameters, now);
             BotParameterRules.Ensure(latest.Definition, bot.Parameters.Values);
-            compiler.Compile(latest.Definition, bot.Parameters.Values);
+            gridRules.Ensure(bot.Series, bot.FeeRates, compiler.Compile(latest.Definition, bot.Parameters.Values));
+        }
+        else if (BotGridRules.HasGrid(latest.Definition))
+        {
+            // A grid needs a venue that holds its orders and fees its profit step pays (ADR 0058); a stored run checks the version it takes next.
+            gridRules.Ensure(bot.Series, bot.FeeRates, compiler.Compile(latest.Definition, bot.Parameters.Fit(latest.Definition.Parameters).Values));
         }
 
         if (bot.Start(latest.Id, checkpoint is not null, halt.IsHalted, now) || fitted)
