@@ -12,7 +12,7 @@ namespace ProfitGraph.Domain.Scanner;
 /// </summary>
 public sealed class ScanBacktest : AggregateRoot
 {
-    public const int MaxStoredSignals = 2000;
+    public const int MaxStoredSignals = 10_000;
 
     public ScanBacktestId Id { get; }
     public UserId OwnerId { get; }
