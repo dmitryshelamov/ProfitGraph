@@ -45,6 +45,13 @@ export function AppShell() {
             Боты
           </Link>
           <Link
+            to="/scanner"
+            className="text-text-secondary hover:text-text"
+            activeProps={{ className: 'text-text', 'aria-current': 'page' }}
+          >
+            Сканер
+          </Link>
+          <Link
             to="/credentials"
             className="text-text-secondary hover:text-text"
             activeProps={{ className: 'text-text', 'aria-current': 'page' }}

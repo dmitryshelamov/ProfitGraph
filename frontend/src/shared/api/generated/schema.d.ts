@@ -531,6 +531,214 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scanner/venues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanVenueResponse"][];
+                        "application/json": components["schemas"]["ScanVenueResponse"][];
+                        "text/json": components["schemas"]["ScanVenueResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scanner/{venue}/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    venue: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanSnapshotResponse"];
+                        "application/json": components["schemas"]["ScanSnapshotResponse"];
+                        "text/json": components["schemas"]["ScanSnapshotResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scanner/{venue}/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    venue: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanPresetResponse"][];
+                        "application/json": components["schemas"]["ScanPresetResponse"][];
+                        "text/json": components["schemas"]["ScanPresetResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    venue: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ScanPresetRequest"];
+                    "text/json": components["schemas"]["ScanPresetRequest"];
+                    "application/*+json": components["schemas"]["ScanPresetRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanPresetResponse"];
+                        "application/json": components["schemas"]["ScanPresetResponse"];
+                        "text/json": components["schemas"]["ScanPresetResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scanner/presets/{presetId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    presetId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ScanPresetRequest"];
+                    "text/json": components["schemas"]["ScanPresetRequest"];
+                    "application/*+json": components["schemas"]["ScanPresetRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanPresetResponse"];
+                        "application/json": components["schemas"]["ScanPresetResponse"];
+                        "text/json": components["schemas"]["ScanPresetResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    presetId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/optimizations": {
         parameters: {
             query?: never;
@@ -4505,6 +4713,67 @@ export interface components {
             layout: components["schemas"]["GraphLayoutRequest"];
             /** @default false */
             confirmLiveImpact: boolean;
+        };
+        ScanConditionRequest: {
+            metric: string;
+            minimum: null | string;
+            maximum: null | string;
+        };
+        ScanConditionResponse: {
+            metric: string;
+            minimum: null | string;
+            maximum: null | string;
+        };
+        ScanPresetRequest: {
+            name: string;
+            conditions: components["schemas"]["ScanConditionRequest"][];
+            sortMetric: string;
+            sortDescending: boolean;
+            hideStale: boolean;
+        };
+        ScanPresetResponse: {
+            /** Format: uuid */
+            id: null | string;
+            venue: string;
+            name: string;
+            conditions: components["schemas"]["ScanConditionResponse"][];
+            sortMetric: string;
+            sortDescending: boolean;
+            hideStale: boolean;
+            builtIn: boolean;
+        };
+        ScanSnapshotResponse: {
+            venue: string;
+            /** Format: date-time */
+            computedAt: null | string;
+            rows: components["schemas"]["ScanSnapshotRowResponse"][];
+        };
+        ScanSnapshotRowResponse: {
+            symbol: string;
+            price: null | string;
+            change5m: null | string;
+            change15m: null | string;
+            change1h: null | string;
+            change4h: null | string;
+            change24h: null | string;
+            turnover1h: null | string;
+            turnover24h: null | string;
+            volumeSpike: null | string;
+            natr24h: null | string;
+            efficiencyRatio24h: null | string;
+            distanceToHigh24h: null | string;
+            distanceToLow24h: null | string;
+            distanceToHigh7d: null | string;
+            distanceToLow7d: null | string;
+            spread: null | string;
+            /** Format: int32 */
+            listingAgeDays: null | number;
+            stale: boolean;
+            incomplete: boolean;
+        };
+        ScanVenueResponse: {
+            venue: string;
+            name: string;
         };
         SellerFeeScheduleRequest: {
             rates: null | string[];
