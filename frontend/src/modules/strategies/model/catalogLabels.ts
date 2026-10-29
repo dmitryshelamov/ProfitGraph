@@ -70,6 +70,16 @@ const fields: Record<string, string> = {
   feeBase: 'Комиссия в активе',
   feeQuote: 'Комиссия в котируемой валюте',
   attemptId: 'ID попытки',
+  multiplier: 'Число отклонений',
+  fastPeriod: 'Быстрый период',
+  slowPeriod: 'Медленный период',
+  signalPeriod: 'Период сигнальной линии',
+  upper: 'Верхняя полоса',
+  middle: 'Средняя линия',
+  lower: 'Нижняя полоса',
+  macd: 'Линия MACD',
+  signal: 'Сигнальная линия',
+  histogram: 'Гистограмма MACD',
 };
 
 const valueTypes: Record<string, string> = {

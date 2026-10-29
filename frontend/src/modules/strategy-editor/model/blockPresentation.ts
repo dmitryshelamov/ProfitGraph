@@ -108,8 +108,18 @@ export function expressionText(
       cache.set(name, text);
       return text;
     }
-    if (current.kind === 'SMA' || current.kind === 'ATR') {
+    if (['SMA', 'ATR', 'EMA', 'RSI'].includes(current.kind)) {
       return compact(`${current.kind} ${input('period')}`);
+    }
+    if (current.kind === 'Bollinger') {
+      return compact(
+        `BB ${input('period')}×${input('multiplier')}: ${portLabel(current.field ?? '?')}`,
+      );
+    }
+    if (current.kind === 'MACD') {
+      return compact(
+        `MACD ${input('fastPeriod')}/${input('slowPeriod')}/${input('signalPeriod')}: ${portLabel(current.field ?? '?')}`,
+      );
     }
     if (current.kind === 'previous') {
       return compact(`Предыдущее: ${input('in')}`);

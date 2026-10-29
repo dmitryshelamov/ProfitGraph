@@ -12,6 +12,11 @@ public static class NodeTypeKeys
     public const string Parameter = "Parameter";
     public const string Sma = "SMA";
     public const string Atr = "ATR";
+    public const string Ema = "EMA";
+    public const string Rsi = "RSI";
+    public const string StandardDeviation = "StdDev";
+    public const string Bollinger = "Bollinger";
+    public const string Macd = "MACD";
     public const string PreviousCandleValue = "PreviousCandleValue";
     public const string Arithmetic = "Arithmetic";
     public const string Compare = "Compare";

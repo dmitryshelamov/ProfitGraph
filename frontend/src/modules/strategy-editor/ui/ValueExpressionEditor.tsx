@@ -17,6 +17,8 @@ const types: Record<string, string> = {
   RejectionReason: 'Причина отклонения',
 };
 export const expressionTypeLabel = (type: string) => types[type] ?? type;
+/** Value sources computed from the closed-candle history; their operands are edited as nested expressions. */
+const indicatorKinds = ['SMA', 'ATR', 'EMA', 'RSI', 'Bollinger', 'MACD'];
 
 export function newExpression(
   kind: string,
@@ -52,6 +54,36 @@ export function newExpression(
       return {
         kind,
         arguments: { period: { kind: 'constant', valueType: 'Integer', number: '14' } },
+      };
+    case 'EMA':
+    case 'RSI':
+      return {
+        kind,
+        arguments: {
+          in: { kind: 'candle', field: 'Close' },
+          period: { kind: 'constant', valueType: 'Integer', number: kind === 'EMA' ? '20' : '14' },
+        },
+      };
+    case 'Bollinger':
+      return {
+        kind,
+        field: 'upper',
+        arguments: {
+          in: { kind: 'candle', field: 'Close' },
+          period: { kind: 'constant', valueType: 'Integer', number: '20' },
+          multiplier: { kind: 'constant', valueType: 'Scalar', number: '2' },
+        },
+      };
+    case 'MACD':
+      return {
+        kind,
+        field: 'macd',
+        arguments: {
+          in: { kind: 'candle', field: 'Close' },
+          fastPeriod: { kind: 'constant', valueType: 'Integer', number: '12' },
+          slowPeriod: { kind: 'constant', valueType: 'Integer', number: '26' },
+          signalPeriod: { kind: 'constant', valueType: 'Integer', number: '9' },
+        },
       };
     case 'previous':
       return { kind, arguments: { in: { kind: 'candle', field: 'Close' } } };
@@ -286,7 +318,7 @@ export function ValueExpressionEditor({
               </select>
             </label>
           )}
-          {['SMA', 'ATR', 'previous', 'arithmetic'].includes(current.kind) &&
+          {indicatorKinds.concat('previous', 'arithmetic').includes(current.kind) &&
             source?.operands.map((operand) => (
               <ValueExpressionEditor
                 key={operand.key}
@@ -294,7 +326,7 @@ export function ValueExpressionEditor({
                 expression={current.arguments?.[operand.key]}
                 definition={definition}
                 catalog={catalog}
-                valueType={operand.key === 'period' ? 'Integer' : valueType}
+                valueType={operand.valueTypes.length === 1 ? operand.valueTypes[0] : valueType}
                 excludeValue={excludeValue}
                 onBlur={onBlur}
                 onChange={(next) =>

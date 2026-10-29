@@ -19,6 +19,36 @@ internal static class CandleIndicators
         return value.HasValue ? EngineValue.Numeric(type, value.Value) : EngineValue.Unavailable(type);
     }
 
+    /// <summary>
+    ///     Экспоненциальная средняя в decimal; первое значение — простое среднее первых period отсчётов.
+    /// </summary>
+    public static EngineValue Ema(CandleIndicatorState state, EngineValue sample, int period, ValueType type)
+    {
+        state.Ema ??= new ExponentialMovingAverage(period);
+
+        return Ready(state, state.Ema.Add(sample.IsAvailable ? sample.Number : null), type);
+    }
+
+    /// <summary>
+    ///     RSI Уайлдера в decimal; первое значение — после period изменений, то есть period + 1 отсчётов.
+    /// </summary>
+    public static EngineValue Rsi(CandleIndicatorState state, EngineValue sample, int period)
+    {
+        state.Rsi ??= new WilderRelativeStrength(period);
+
+        return Ready(state, state.Rsi.Add(sample.IsAvailable ? sample.Number : null), ValueType.Scalar);
+    }
+
+    /// <summary>
+    ///     Стандартное отклонение генеральной совокупности за последние period отсчётов в decimal.
+    /// </summary>
+    public static EngineValue StandardDeviation(CandleIndicatorState state, EngineValue sample, int period, ValueType type)
+    {
+        state.Deviation ??= new RollingStandardDeviation(period);
+
+        return Ready(state, state.Deviation.Add(sample.IsAvailable ? sample.Number : null), type);
+    }
+
     public static EngineValue Previous(CandleIndicatorState state, EngineValue sample, ValueType type)
     {
         EngineValue value = state.PreviousA ?? EngineValue.Unavailable(type);
@@ -51,6 +81,13 @@ internal static class CandleIndicators
     {
         state.Buffer ??= new LibraryIndicatorBuffer(period);
         decimal? value = previous is not null ? state.Buffer.AddTrueRange(candle.OpenTime.UtcDateTime, candle, previous) : null;
+        state.Ready = value.HasValue;
+
+        return value.HasValue ? EngineValue.Numeric(type, value.Value) : EngineValue.Unavailable(type);
+    }
+
+    private static EngineValue Ready(CandleIndicatorState state, decimal? value, ValueType type)
+    {
         state.Ready = value.HasValue;
 
         return value.HasValue ? EngineValue.Numeric(type, value.Value) : EngineValue.Unavailable(type);

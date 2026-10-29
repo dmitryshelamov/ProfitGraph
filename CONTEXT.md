@@ -299,6 +299,24 @@ An internal element of StrategyGraph that receives, computes or consumes data an
 to lowering, validation, compilation and frozen execution snapshots; they are not the strategy-authoring model.
 The catalog documentation describes the user-facing model and lists internal primitives separately.
 
+### Composite Node
+
+A node with its own ports and parameters that is expanded into primitive nodes before validation, so one node can
+publish several outputs. Bollinger Bands and MACD are composites; a block expression picks one of their outputs with
+its `field`. See [ADR 0056](docs/adr/0056-decimal-indicators-and-multi-output-composites.md).
+
+### Indicator
+
+A value computed from closed candles: SMA, ATR, EMA, RSI, Bollinger Bands and MACD. It advances once per closed candle,
+never looks ahead and is unavailable until it is warmed up. Formulas, warm-up and edge cases are in
+[the node catalog](docs/node-catalog.md).
+
+### Warm-up
+
+The closed candles an indicator needs before its first value, such as `period` for SMA and EMA, `period + 1` for ATR
+and RSI and `slowPeriod + signalPeriod − 1` for MACD. A run reads the strategy's warm-up before its start so that
+indicators are ready on the first replayed candle.
+
 ### Connection
 
 A typed link between compatible ports in the internal StrategyGraph. Value connections carry calculations and

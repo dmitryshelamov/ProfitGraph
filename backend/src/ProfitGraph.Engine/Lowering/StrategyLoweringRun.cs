@@ -119,8 +119,8 @@ internal sealed class StrategyLoweringRun
         string type = expression.Kind switch
         {
             "constant" => "Constant", "candle" => "CandleField", "previous" => "PreviousCandleValue", "arithmetic" => "Arithmetic",
-            "balance" => "Balance", "position" => "Position", "activeOrder" => "ActiveOrder", "SMA" => "SMA", "ATR" => "ATR",
-            _ => throw new ArgumentException("Unknown value expression kind: " + expression.Kind)
+            "balance" => "Balance", "position" => "Position", "activeOrder" => "ActiveOrder", "SMA" => "SMA", "ATR" => "ATR", "EMA" => "EMA",
+            "RSI" => "RSI", "Bollinger" => "Bollinger", "MACD" => "MACD", _ => throw new ArgumentException("Unknown value expression kind: " + expression.Kind)
         };
         var parameters = new Dictionary<string, ParamValue>();
 
@@ -150,7 +150,7 @@ internal sealed class StrategyLoweringRun
         {
             PortReference operand = Expression(argument, identity + ":" + StrategyDefinitionLowerer.Encode(key), source);
 
-            if (key is "period" or "tag")
+            if (key is "period" or "fastPeriod" or "slowPeriod" or "signalPeriod" or "multiplier" or "tag")
             {
                 ReplaceParameter(id, key, new WiredParamValue(operand));
             }
@@ -160,7 +160,7 @@ internal sealed class StrategyLoweringRun
             }
         }
 
-        return new PortReference(id, expression.Kind is "balance" or "position" or "activeOrder" ? expression.Field! : "out");
+        return new PortReference(id, expression.Kind is "balance" or "position" or "activeOrder" or "Bollinger" or "MACD" ? expression.Field! : "out");
     }
 
     private void Block(StrategyBlock block)
