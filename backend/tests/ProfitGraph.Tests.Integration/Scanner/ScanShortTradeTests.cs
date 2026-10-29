@@ -69,6 +69,12 @@ public sealed class ScanShortTradeTests
     [OneTimeTearDown]
     public async Task Stop()
     {
+        // The database is shared by the run's fixtures; tests that read every venue's snapshot expect none of this venue.
+        using (IServiceScope scope = _api.Services.CreateScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<ISender>().Send(new ReplaceScanSnapshotCommand(new ScanSnapshotInternal(Venue, DateTimeOffset.UtcNow, [])));
+        }
+
         await _api.DisposeAsync();
     }
 
