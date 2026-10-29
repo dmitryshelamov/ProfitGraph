@@ -131,6 +131,37 @@ public sealed class TradingAccountTests
     }
 
     [Test]
+    public void MarketBuyWithQuoteFee_NeedsTheBudgetAndItsFee_WithoutNegativeBalance()
+    {
+        // GAZP, September 2023: lots rounded at the next open spent 90 060.5736 of 90 052.72.
+        var rules = new InstrumentRules(
+            quantityStep: 10m,
+            priceTick: 0.01m,
+            minQuantity: 10m,
+            minNotional: 0m,
+            basePrecision: 0,
+            quotePrecision: 2,
+            FeeAsset.Quote,
+            exactQuoteFees: true);
+        var settings = new ExecutionSettings(startingCapital: 90052.72m, slippage: 0m, limitFeeRate: 0.003m, marketFeeRate: 0.003m);
+        var underfunded = new TradingAccount(settings, rules);
+
+        OrderSubmission rejected = underfunded.Submit(Request(OrderSide.Buy, OrderType.Market, amount: 90000m));
+
+        rejected.IsAccepted.ShouldBeFalse();
+        rejected.Rejection!.Reason.ShouldBe(RejectionReason.InsufficientQuote);
+        underfunded.Portfolio.QuoteAvailable.ShouldBe(90052.72m);
+
+        var funded = new TradingAccount(new ExecutionSettings(startingCapital: 90270m, slippage: 0m, limitFeeRate: 0.003m, marketFeeRate: 0.003m), rules);
+        Order order = Submit(funded, Request(OrderSide.Buy, OrderType.Market, amount: 90000m));
+        Fill fill = Execute(funded, order, referencePrice: 166.28m);
+
+        fill.BaseChange.ShouldBe(540m);
+        fill.QuoteChange.ShouldBe(-90060.5736m);
+        funded.Portfolio.QuoteAvailable.ShouldBe(209.4264m);
+    }
+
+    [Test]
     public void SellAndBuyReservations_DoNotConflict()
     {
         TradingAccount account = CreateAccount(marketFee: 0m);
