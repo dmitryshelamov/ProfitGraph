@@ -1,7 +1,7 @@
 # ADR 0059: Market Scanner
 
-Status: Draft, 2026-10-29. The owner chose the shape in a design conversation (points marked "owner" below); the remaining
-details are the analyst's proposals and are reviewed in the pull request. Nothing here is implemented. Builds on ADR 0003,
+Status: Accepted, 2026-10-29. The owner chose the shape in a design conversation (points marked "owner" below) and accepted
+the draft ("ок, давай разрабатывать"); the remaining details are the analyst's proposals. Implementation follows the roadmap. Builds on ADR 0003,
 ADR 0010, ADR 0011, ADR 0027 and ADR 0042.
 
 ## Context
