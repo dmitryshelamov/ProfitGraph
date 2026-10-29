@@ -225,6 +225,12 @@ const credentialsRoute = createRoute({
   ),
 });
 
+const scannerRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/scanner',
+  component: lazyRouteComponent(() => import('@/pages/scanner/ScannerPage'), 'ScannerPage'),
+});
+
 const profileRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/profile',
@@ -257,6 +263,7 @@ const routeTree = rootRoute.addChildren([
       botsRoute,
       botRoute,
       credentialsRoute,
+      scannerRoute,
       profileRoute,
     ]),
     strategyEditorRoute,
