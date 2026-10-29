@@ -20,6 +20,7 @@ internal static class TInvestRejections
             30052 or 30079 => RejectionReason.InstrumentUnavailable,
             30042 => RejectionReason.RiskLimit,
             30051 => RejectionReason.MarginTradingUnavailable,
+            30057 => RejectionReason.DuplicateRequest,
             _ => RejectionReason.BrokerRejected
         };
 

@@ -113,9 +113,11 @@ const rejectionLabels: Readonly<Record<string, string>> = {
   KillSwitch: 'бот остановлен аварийно',
   InstrumentUnavailable: 'инструмент сейчас недоступен',
   BrokerRejected: 'биржа отклонила заявку',
+  DuplicateRequest:
+    'брокер уже получал заявку с этим ключом, например от копии бота; ничего не выставлено',
 };
 
-/** The owner-facing reason of a rejected manual order; an unknown code is shown as it is. */
+/** The owner-facing reason of a rejected order; an unknown code is shown as it is. */
 export function rejectionLabel(code: string): string {
   return rejectionLabels[code] ?? code;
 }

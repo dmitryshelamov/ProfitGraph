@@ -21,5 +21,10 @@ public enum RejectionReason
     /// <summary>
     ///     The venue's gateway proved on its own evidence that the venue never took the order (ADR 0030).
     /// </summary>
-    AbsenceProven
+    AbsenceProven,
+
+    /// <summary>
+    ///     The venue already knows the order's request key from another order, so it placed nothing for this one.
+    /// </summary>
+    DuplicateRequest
 }

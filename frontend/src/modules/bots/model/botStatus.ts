@@ -1,5 +1,6 @@
 import type { StatusTone } from '@/shared/ui/StatusBadge';
 
+import { rejectionLabel } from './manualOrder';
 import type { Bot, BotAlertKind, BotFeedKind, BotRuntimeStatus, BotStatusReason } from './types';
 
 const runtimeLabels: Record<BotRuntimeStatus, string> = {
@@ -69,6 +70,11 @@ export function diagnosticLabel(diagnostic: string): string {
 
 export function reasonLabel(reason: string): string {
   return reason in reasonLabels ? reasonLabels[reason as BotStatusReason] : reason;
+}
+
+/** A feed entry's reason: a rejected order names why the order was rejected, other entries why the bot stopped. */
+export function feedReasonLabel(kind: BotFeedKind, reason: string): string {
+  return kind === 'OrderRejected' ? rejectionLabel(reason) : reasonLabel(reason);
 }
 
 export function alertLabel(kind: BotAlertKind): string {

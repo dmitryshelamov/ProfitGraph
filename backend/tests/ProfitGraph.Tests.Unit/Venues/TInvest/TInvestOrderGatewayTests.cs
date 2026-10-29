@@ -138,6 +138,22 @@ public sealed class TInvestOrderGatewayTests
     }
 
     [Test]
+    public async Task ARequestKeyTInvestAlreadyKnowsIsADuplicateRequest_AndNothingIsSentAgain()
+    {
+        _orders.LastPrice = 99m;
+        _orders.NextPostFailure = MockTInvestApi.Refusal(StatusCode.InvalidArgument, "30057");
+
+        ExternalOrderUpdate? rejected = await _gateway.Submit(Submit(MarketBuy(id: 1, budget: 10_100m)), NoOp, CancellationToken.None);
+        ExternalOrderUpdate? again = await _gateway.Submit(Submit(MarketBuy(id: 1, budget: 10_100m), mustLookUp: true), NoOp, CancellationToken.None);
+
+        ExternalOrderUpdate expected = ExternalOrderUpdate.Reject(orderId: 1, RejectionReason.DuplicateRequest, "T-Invest rejected the order (code 30057).");
+        rejected.ShouldBe(expected);
+        again.ShouldBe(expected);
+        _orders.Posted.Count.ShouldBe(1);
+        _attempts.All.ShouldHaveSingleItem().BrokerCode.ShouldBe(30057);
+    }
+
+    [Test]
     public async Task AnUnknownBrokerCodeIsABrokerRejection_AndAStatusWithoutACodeIsUnknown()
     {
         _orders.NextPostFailure = MockTInvestApi.Refusal(StatusCode.InvalidArgument, "39999");
