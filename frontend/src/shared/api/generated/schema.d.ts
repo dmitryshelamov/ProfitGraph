@@ -4596,6 +4596,10 @@ export interface components {
             price?: null | components["schemas"]["ValueExpressionRequest"];
             sizeMode?: null | string;
             minimumOrderPolicy?: null | string;
+            settings?: null | {
+                [key: string]: components["schemas"]["ValueExpressionRequest"];
+            };
+            grid?: null | string;
         };
         StrategyBlockResponse: {
             id: string;
@@ -4612,6 +4616,10 @@ export interface components {
             price?: null | components["schemas"]["ValueExpressionResponse"];
             sizeMode?: null | string;
             minimumOrderPolicy?: null | string;
+            settings?: null | {
+                [key: string]: components["schemas"]["ValueExpressionResponse"];
+            };
+            grid?: null | string;
         };
         StrategyCheckRequest: {
             type: string;

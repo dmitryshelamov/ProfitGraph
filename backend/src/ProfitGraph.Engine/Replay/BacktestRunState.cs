@@ -1,6 +1,7 @@
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Dispatch;
 using ProfitGraph.Engine.Graphs;
+using ProfitGraph.Engine.Grids;
 using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Metrics;
 
@@ -53,8 +54,26 @@ internal sealed class BacktestRunState
         var outcome = BacktestOutcome.Completed;
         BacktestDiagnostic? failure = null;
 
+        // A grid whose profit step cannot pay the round trip's fees fails before any candle (ADR 0058, section 8).
+        foreach (GridFeeFinding finding in GridFeeCheck.Check(_input.Graph, _input.Selections, _input.Settings, _input.Rules, _input.Replay[0].Open))
+        {
+            var diagnostic = new BacktestDiagnostic(finding.Code, finding.Message, finding.GridNodeId);
+            AddDiagnostic(diagnostic);
+
+            if (finding.IsError && failure is null)
+            {
+                outcome = BacktestOutcome.Failed;
+                failure = diagnostic;
+            }
+        }
+
         try
         {
+            if (failure is not null)
+            {
+                throw new GridFeeRejectedException();
+            }
+
             _dispatcher = new CausalDispatcher(_input.Graph, _account, _input.Selections, closures: _input.Closures);
             var historyIndex = 0;
 
@@ -112,6 +131,10 @@ internal sealed class BacktestRunState
             outcome = BacktestOutcome.Cancelled;
             failure = new BacktestDiagnostic("Cancelled", "Replay was cancelled at the reached market cursor.", CandleIndex: _candleIndex);
             _diagnostics.Add(failure);
+        }
+        catch (GridFeeRejectedException)
+        {
+            // The fee check's diagnostic is already the failure.
         }
         catch (Exception exception)
         {

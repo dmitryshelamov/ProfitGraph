@@ -1,5 +1,7 @@
 import type { StrategyBlock } from '@/modules/strategies';
 
+import { initialGridSettings } from './gridSettings';
+
 export function createBlock(type: string, id: string): StrategyBlock {
   if (
     [
@@ -18,6 +20,9 @@ export function createBlock(type: string, id: string): StrategyBlock {
   }
   if (type === 'cancel') {
     return { id, kind: 'cancel' };
+  }
+  if (type === 'grid') {
+    return { id, kind: 'grid', settings: initialGridSettings() };
   }
   if (['MarketBuy', 'MarketSell', 'LimitBuy', 'LimitSell'].includes(type)) {
     return {

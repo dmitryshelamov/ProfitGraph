@@ -8,5 +8,6 @@ public enum EventPayloadType
     Order,
     Rejection,
     CancelResult,
-    Resume
+    Resume,
+    Grid
 }

@@ -1,7 +1,8 @@
 # ADR 0058: The Grid Block
 
-Status: Accepted by the owner in the design interview of 2026-10-29 (questions 1–7). Sections 9 and 10 (live) are built in a
-second pull request. Supplements ADR 0007 (single strategy format), ADR 0016 (live bot runtime), ADR 0048 and ADR 0051 (owner
+Status: Accepted by the owner in the design interview of 2026-10-29 (questions 1–7). Sections 1–8 and the engine part of
+section 10 (checkpoint, resume, cancels) are built with the backtests; the bot runtime's part of sections 9 and 10 is a second
+pull request. Supplements ADR 0007 (single strategy format), ADR 0016 (live bot runtime), ADR 0048 and ADR 0051 (owner
 cancel); uses the fill mode and metrics of ADR 0057.
 
 ## Context
@@ -72,11 +73,13 @@ a buy of initial base is not part of it.
 On its start, on every fill, cancellation and rejection of its own orders, at every candle close and at every resume, the grid
 computes the orders it wants and reconciles the book with them:
 
-- Every held level wants its sale: quantity = the level's base rounded down to the quantity step, price = the level's average
-  buy price × (1 + profitStep) rounded up to the tick. A buy partly filled and then cancelled leaves a held level with the
-  part it bought.
+- Every held level wants its sale: quantity = the level's base rounded down to the quantity step, price = the quote the level
+  paid divided by the base it holds (so the buy fee is already in it) × (1 + profitStep), rounded up to the tick. A buy partly
+  filled and then cancelled leaves a held level with the part it bought; the account reports what an order executed so far
+  (`IGraphAccount.ExecutedTotals`), because a partial fill publishes no event.
 - The free levels whose price is below the evaluation's market price want a buy of `lot`, highest first, until
-  `maxOpenBuys` buys are wanted (buying levels count). A buy the account cannot fund is not submitted.
+  `maxOpenBuys` buys are wanted (a buy that already bought part of its lot keeps working and counts). A buy the available
+  quote cannot fund (its lot plus the limit fee) is not submitted.
 - A resting grid order that is not wanted, or wanted at another price, is cancelled; a wanted order whose tag is free is
   submitted. A higher level freed by a sale therefore displaces the lowest resting buy when the limit is reached.
 - A level whose buy or sale was rejected is not retried before the next candle close, so a rejection cannot cascade.
@@ -102,21 +105,26 @@ each level takes its own profit.
 
 ### 7. Stopping a grid from the graph
 
-A cancel block may name a grid block instead of a tag. Cancelling a grid cancels all its orders and stops it without selling:
-its levels' base stays in the account for the strategy's other blocks. Its completion fires when no grid order is active.
+A cancel block may name a grid block instead of a tag (`grid` instead of `tag`; lowered to a `CancelGrid` node). Cancelling a
+grid cancels all its orders and stops it without selling: its levels' base stays in the account for the strategy's other
+blocks. The cancel block's `completed` fires once the grid has asked for its cancels; the grid's `stopped` fires when none of
+its orders is active any more.
 
 ### 8. Fee check
 
 The engine offers a pure check of a grid's static settings against the run's or the bot's fees:
 
-- Error: `profitStep` ≤ 2 × the limit fee rate. Every round trip loses; a backtest, optimization or walk-forward is refused,
-  and a bot neither starts nor takes such parameters.
-- Warning: `step` or `profitStep` below 2 × the limit fee rate + slippage, a margin for the stop's market sale and the tick
-  rounding. The form shows it and the run records it as a diagnostic; nothing is refused.
-- An optimization candidate that fails the error check is not replayed and spends no budget, like a candidate the template's
-  parameter rules reject (`RejectedByTemplate`), with its own diagnostic.
-- With seller fees per unit (ADR 0022) the check takes the effective rate at the run's first replay close or the bot's last
-  close. A venue's fixed minimum commission (such as T-Invest's) is not part of the formula.
+The round trip costs 2 × the limit fee rate; with seller fees per unit (ADR 0022) it costs the effective seller rate at a
+reference price (the run's first replay open, the bot's last close), since the buyer pays none.
+
+- Error (`GridProfitBelowFees`): `profitStep` ≤ the round trip. Every cycle loses. Starting a backtest with rate fees is
+  refused with `grid_profit_below_fees`; a replay, including one with seller fees that the request could not price, fails
+  before its first candle with that diagnostic; a bot neither starts nor takes such parameters (section 9).
+- Warning (`GridStepNearFees`): `step` or `profitStep` below the round trip + slippage, a margin for the stop's market sale
+  and the tick rounding. The run records it as a diagnostic; nothing is refused.
+- An optimization candidate that fails the error check is not replayed and spends no budget: it is `RejectedByTemplate`, as
+  when the template's parameter rules reject it.
+- A venue's fixed minimum commission (such as T-Invest's) is not part of the formula.
 
 ### 9. Live: venues that can hold a grid
 
@@ -131,7 +139,8 @@ a venue without the port shows a warning that replay assumes unlimited resting o
 ### 10. Live: checkpoint, resume and the owner's actions
 
 - The engine checkpoint carries every grid's state (`GraphEngineCheckpoint.Grids`), so a restarted bot continues with its
-  anchors and its levels' lots; a checkpoint without the field has no grid.
+  anchors and its levels' lots; a checkpoint without the field has no grid. A grid's state is kept by its block id, so a
+  graph change that keeps the block keeps the grid.
 - A resume (restart, graph change, the reconciliation's extra resume of ADR 0035) evaluates every grid: orders the venue
   removed meanwhile are placed again, filled ones are booked to their levels first.
 - An owner's cancel of a grid order (ADR 0048) or a venue's cancel nobody asked for (ADR 0039) ends that order; the grid's

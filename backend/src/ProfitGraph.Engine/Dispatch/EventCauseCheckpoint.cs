@@ -27,7 +27,8 @@ public sealed record EventCauseCheckpoint(
     EventCauseCheckpoint? NestedCause,
     ResumeReason? ResumeReason,
     string? PreviousGraphVersionId,
-    string? CurrentGraphVersionId)
+    string? CurrentGraphVersionId,
+    decimal? GridAnchor = null)
 {
     public static EventCauseCheckpoint Capture(EventOccurrence occurrence)
     {
@@ -52,12 +53,14 @@ public sealed record EventCauseCheckpoint(
             {
                 FillPayload fill => fill.OriginNodeId,
                 CancelResultPayload cancel => cancel.OriginNodeId,
+                GridPayload grid => grid.OriginNodeId,
                 _ => null
             },
             occurrence.Payload is CancelResultPayload result ? Capture(result.Cause) : null,
             (occurrence.Payload as ResumePayload)?.Reason,
             (occurrence.Payload as ResumePayload)?.PreviousGraphVersionId,
-            (occurrence.Payload as ResumePayload)?.CurrentGraphVersionId);
+            (occurrence.Payload as ResumePayload)?.CurrentGraphVersionId,
+            (occurrence.Payload as GridPayload)?.Anchor);
     }
 
     public EventOccurrence Restore()
@@ -71,6 +74,7 @@ public sealed record EventCauseCheckpoint(
             EventKind.Rejected => new RejectionPayload(AttemptId!.Value, Rejection!),
             EventKind.CancelCompleted => new CancelResultPayload(Cancelled!.Value, CancelledOrderId, OriginNodeId!, NestedCause!.Restore()),
             EventKind.Resume => new ResumePayload(ResumeReason!.Value, PreviousGraphVersionId!, CurrentGraphVersionId!),
+            EventKind.GridStarted or EventKind.GridStopped => new GridPayload(OriginNodeId!, GridAnchor),
             _ => throw new ArgumentException("Invalid checkpoint event kind.")
         };
 
