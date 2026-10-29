@@ -24,6 +24,8 @@ internal sealed class FakeMarketScanSource(params string[] universe) : IMarketSc
 
     public int MaxSymbolsPerStream => 100;
 
+    public IReadOnlyList<ScanPresetInternal> BuiltInPresets => [];
+
     public Task<IReadOnlyList<ScanInstrumentInternal>> Universe(CancellationToken cancellationToken)
     {
         Calls.Enqueue("universe");

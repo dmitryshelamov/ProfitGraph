@@ -50,6 +50,8 @@ internal sealed class BybitMarketScanSource(
 
     public int MaxSymbolsPerStream => TopicsPerConnection;
 
+    public IReadOnlyList<ScanPresetInternal> BuiltInPresets => BybitScanPresets.All;
+
     public void Dispose()
     {
         _klines.Bybit.Dispose();

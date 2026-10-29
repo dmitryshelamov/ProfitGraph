@@ -20,4 +20,16 @@ internal static class ScanSnapshotQueries
                                     """;
 
     internal const string Newest = "SELECT max(computed_at) FROM scan_snapshot_rows";
+
+    internal const string Get = """
+                                SELECT venue AS Venue, symbol AS Symbol, computed_at AS ComputedAt, price AS Price, change_5m AS Change5m,
+                                    change_15m AS Change15m, change_1h AS Change1h, change_4h AS Change4h, change_24h AS Change24h, turnover_1h AS Turnover1h,
+                                    turnover_24h AS Turnover24h, volume_spike AS VolumeSpike, natr_24h AS Natr24h, efficiency_ratio_24h AS EfficiencyRatio24h,
+                                    distance_to_high_24h AS DistanceToHigh24h, distance_to_low_24h AS DistanceToLow24h, distance_to_high_7d AS DistanceToHigh7d,
+                                    distance_to_low_7d AS DistanceToLow7d, spread AS Spread, listing_age_days AS ListingAgeDays, stale AS Stale,
+                                    incomplete AS Incomplete
+                                FROM scan_snapshot_rows
+                                WHERE venue = @Venue
+                                ORDER BY symbol
+                                """;
 }

@@ -19,6 +19,11 @@ public interface IMarketScanSource : IVenuePort
     /// </summary>
     int MaxSymbolsPerStream { get; }
 
+    /// <summary>
+    ///     The venue's read-only presets, tuned to its quote currency and fees (ADR 0059, section 4).
+    /// </summary>
+    IReadOnlyList<ScanPresetInternal> BuiltInPresets { get; }
+
     Task<IReadOnlyList<ScanInstrumentInternal>> Universe(CancellationToken cancellationToken);
 
     /// <summary>
