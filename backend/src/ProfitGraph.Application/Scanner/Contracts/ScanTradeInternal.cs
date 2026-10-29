@@ -1,5 +1,5 @@
-using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Domain.Scanner.Trades;
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Scanning;
 
 namespace ProfitGraph.Application.Scanner.Contracts;

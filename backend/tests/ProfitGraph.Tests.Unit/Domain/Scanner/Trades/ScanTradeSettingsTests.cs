@@ -48,6 +48,21 @@ public sealed class ScanTradeSettingsTests
             .ShouldBe((credential, 5m, 50m, (StrategyId?)strategy, Now.AddMinutes(2)));
     }
 
+    [Test]
+    public void KeepsTheShortStrategyAndTheLeverageApart()
+    {
+        var settings = ScanTradeSettings.Create(UserId.New(), new VenueId("futures"), ExchangeCredentialId.New(), risk: 10m, maxAmount: 1000m, Now, leverage: 3m);
+        var strategy = StrategyId.New();
+
+        settings.UseShortStrategy(strategy, Now.AddMinutes(1));
+
+        (settings.ShortStrategyId, settings.StrategyId, settings.Leverage).ShouldBe(((StrategyId?)strategy, (StrategyId?)null, (decimal?)3m));
+
+        // A short's stop above its entry sizes like a long's below it.
+        settings.Size(entry: 100m, stop: 105m, feeRate: 0.001m).Amount.ShouldBe(10m / 0.052m);
+        Should.Throw<ScanTradeRuleException>(() => settings.Change(settings.CredentialId, risk: 10m, maxAmount: 1000m, Now, leverage: 0.5m));
+    }
+
     [TestCase(arg1: 0, arg2: 100)]
     [TestCase(arg1: 10, arg2: 0)]
     public void RefusesANonPositiveRiskOrAmount(decimal risk, decimal maxAmount)

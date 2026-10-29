@@ -91,7 +91,7 @@ internal sealed class BybitOrderReads(BybitReadClient read)
         DateTimeOffset until,
         CancellationToken cancellationToken)
     {
-        string query = string.Create(
+        var query = string.Create(
             CultureInfo.InvariantCulture,
             $"category={context.Market.Name}&symbol={Uri.EscapeDataString(context.Symbol)}&startTime={since.ToUnixTimeMilliseconds()}&endTime={until.ToUnixTimeMilliseconds()}&limit=100");
 
@@ -235,6 +235,7 @@ internal sealed class BybitOrderReads(BybitReadClient read)
             try
             {
                 JsonElement result = listed.Body.GetProperty("result");
+
                 // A USDT perpetual's funding is an execution of no order (ADR 0061).
                 ids.AddRange(
                     result.GetProperty("list")

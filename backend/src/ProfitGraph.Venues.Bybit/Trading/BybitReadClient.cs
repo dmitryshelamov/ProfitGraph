@@ -9,7 +9,10 @@ namespace ProfitGraph.Venues.Bybit.Trading;
 internal sealed class BybitReadClient(HttpClient http, BybitServerClock serverClock)
 {
     private static readonly string[] SignedPaths =
-        ["/v5/account/fee-rate", "/v5/order/realtime", "/v5/order/history", "/v5/execution/list", "/v5/user/query-api", "/v5/account/wallet-balance"];
+    [
+        "/v5/account/fee-rate", "/v5/order/realtime", "/v5/order/history", "/v5/execution/list", "/v5/user/query-api", "/v5/account/wallet-balance",
+        "/v5/position/list"
+    ];
 
     public Task<BybitRestResult> Get(ExchangeCredentialSecretsInternal credential, string path, string query, CancellationToken cancellationToken)
     {

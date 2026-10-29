@@ -10,6 +10,8 @@ const texts: Record<string, string> = {
   trading_status: 'Статус торгов инструмента не моделируется.',
   gap_fills_at_limit: 'Лимитная заявка, перекрытая гэпом на открытии, исполняется по своей цене.',
   no_trades_fill_nothing: 'На свече без сделок ордера не исполняются.',
+  funding_not_modelled:
+    'Фандинг фьючерсов не моделируется: результат не учитывает платежи по позиции.',
 };
 
 export function backtestLimitTexts(codes: readonly string[] | undefined): string[] {

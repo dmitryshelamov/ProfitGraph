@@ -1,4 +1,3 @@
-using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Application.Scanner.Contracts;
 using ProfitGraph.Domain.Scanner.Trades;
 

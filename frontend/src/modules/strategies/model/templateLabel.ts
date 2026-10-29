@@ -14,6 +14,7 @@ const labels: Record<string, string> = {
   RsiReversion: 'Отскок RSI',
   BollingerReversion: 'Возврат от полосы Боллинджера',
   LevelTrade: 'Сделка по уровням',
+  LevelTradeShort: 'Сделка по уровням, шорт',
 };
 
 /** The template a strategy was created from; a strategy without a template marker is the user's own. */

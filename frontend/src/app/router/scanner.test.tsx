@@ -339,18 +339,18 @@ describe('scanner page', () => {
 
     renderApp('/scanner/bybit/SOLUSDT');
 
-    const levels = await screen.findByRole('article', { name: 'Идея: Уровни 15m' });
+    const levels = await screen.findByRole('article', { name: 'Идея: Лонг Уровни 15m' });
     expect(within(levels).getByText('96.15 USDT')).toBeInTheDocument();
     expect(within(levels).getByText('R:R 2.4')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Идеи по 4h' })).toBeInTheDocument();
     expect(screen.getByText(/Риск на сделку/)).toHaveTextContent('ключ «Основной»');
 
     await userEvent.click(
-      within(screen.getByRole('article', { name: 'Идея: Откат 1h' })).getByRole('button', {
+      within(screen.getByRole('article', { name: 'Идея: Лонг Откат 1h' })).getByRole('button', {
         name: 'Скрыть',
       }),
     );
-    expect(screen.queryByRole('article', { name: 'Идея: Откат 1h' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('article', { name: 'Идея: Лонг Откат 1h' })).not.toBeInTheDocument();
 
     await userEvent.click(within(levels).getByRole('checkbox'));
     expect(screen.getByText(/Сумма 96.15 USDT, потеря на всех стопах 5 USDT/)).toBeInTheDocument();
@@ -371,6 +371,115 @@ describe('scanner page', () => {
       target: '112',
     });
     expect(await screen.findByText('Ждёт входа')).toBeInTheDocument();
+  });
+
+  it('shows short cards on futures and creates a short trade at the settings leverage', async () => {
+    const requests = fakeApi({
+      'GET /api/auth/me': () => json(user),
+      'GET /api/scanner/venues': () =>
+        json([{ venue: 'bybit-linear', name: 'Bybit Futures', supportsShort: true }]),
+      'GET /api/scanner/bybit-linear/snapshot': () =>
+        json({
+          ...snapshot([{ ...emptyMetrics, symbol: 'SOLUSDT', price: '100' }]),
+          venue: 'bybit-linear',
+        }),
+      'GET /api/scanner/bybit-linear/candles': (request) => {
+        const query = new URL(request.url).searchParams;
+
+        return json({
+          venue: 'bybit-linear',
+          symbol: 'SOLUSDT',
+          timeframe: query.get('timeframe'),
+          from: query.get('from'),
+          to: query.get('to'),
+          latestClosed: query.get('to'),
+          status: 'Complete',
+          errorCode: null,
+          candles: [],
+        });
+      },
+      'GET /api/exchange-credentials': () => json([]),
+      'GET /api/scanner/bybit-linear/trade-settings': () =>
+        json({
+          settings: {
+            venue: 'bybit-linear',
+            credentialId: 'key-1',
+            risk: '5',
+            maxAmount: '1000',
+            leverage: '3',
+          },
+        }),
+      'GET /api/scanner/bybit-linear/trade-ideas': () =>
+        json({
+          venue: 'bybit-linear',
+          symbol: 'SOLUSDT',
+          price: '100',
+          hasSettings: true,
+          ideas: [
+            {
+              timeframe: '15m',
+              scenario: 'Levels',
+              entry: '100',
+              stop: '105',
+              target: '88',
+              rewardRisk: '2.4',
+              entryValidityMinutes: 60,
+              amount: '96.15',
+              risk: '5',
+              taken: false,
+              direction: 'Short',
+            },
+          ],
+        }),
+      'GET /api/scanner/bybit-linear/trades': () => json([]),
+      'POST /api/scanner/bybit-linear/trades': () =>
+        json(
+          {
+            id: 'trade-2',
+            venue: 'bybit-linear',
+            symbol: 'SOLUSDT',
+            scenario: 'Levels',
+            levelsTimeframe: '15m',
+            entry: '100',
+            stop: '105',
+            target: '88',
+            amount: '96.15',
+            risk: '5',
+            botId: 'bot-2',
+            createdAt: '2026-10-30T10:00:00Z',
+            expiresAt: '2026-10-30T11:00:00Z',
+            status: 'Waiting',
+            openedAt: null,
+            closedAt: null,
+            realizedPnl: null,
+            failureCode: null,
+            direction: 'Short',
+          },
+          201,
+        ),
+    });
+
+    renderApp('/scanner/bybit-linear/SOLUSDT');
+
+    const card = await screen.findByRole('article', { name: 'Идея: Шорт Уровни 15m' });
+    expect(within(card).getByText(/Продажа по текущей цене/)).toBeInTheDocument();
+    expect(within(card).getByText('Продажа, лимит')).toBeInTheDocument();
+    expect(await screen.findByText(/Риск на сделку/)).toHaveTextContent('плечо 3×');
+
+    await userEvent.click(within(card).getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Создать выбранные (1)' }));
+
+    expect(await within(card).findByRole('link', { name: 'бот сделки' })).toHaveAttribute(
+      'href',
+      '/bots/bot-2',
+    );
+    const post = requests.find((request) => request.method === 'POST')!;
+    expect(await post.json()).toMatchObject({
+      scenario: 'Levels',
+      stop: '105',
+      target: '88',
+      direction: 'Short',
+    });
   });
 
   it('switches on the alerts of an own preset and warns without a linked chat', async () => {

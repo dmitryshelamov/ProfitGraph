@@ -1,4 +1,3 @@
-using ProfitGraph.Engine.Accounting;
 using MediatR;
 
 using ProfitGraph.Application.Scanner.Contracts;

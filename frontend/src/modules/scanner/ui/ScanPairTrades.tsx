@@ -6,7 +6,12 @@ import { StatusBadge } from '@/shared/ui/StatusBadge';
 
 import { scanPairTradesQuery } from '../api/scannerApi';
 import { formatMetric, withQuote } from '../model/format';
-import { tradeFailure, tradeScenarioLabels, tradeStatus } from '../model/trades';
+import {
+  tradeDirectionLabel,
+  tradeFailure,
+  tradeScenarioLabels,
+  tradeStatus,
+} from '../model/trades';
 import { useScanQuote } from './useScanQuote';
 
 /** The owner's trades from cards on the pair (ADR 0060), newest first, each with its bot. */
@@ -45,6 +50,7 @@ export function ScanPairTrades({ venue, symbol }: { venue: string; symbol: strin
                   <DateTime value={trade.createdAt} />
                 </td>
                 <td className="px-3 py-2 text-left">
+                  {trade.direction === 'Short' && `${tradeDirectionLabel(trade.direction)} · `}
                   {tradeScenarioLabels[trade.scenario] ?? trade.scenario} {trade.levelsTimeframe}
                 </td>
                 <td className="px-3 py-2">{formatMetric(trade.entry, 6)}</td>

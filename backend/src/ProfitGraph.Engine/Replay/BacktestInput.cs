@@ -49,6 +49,7 @@ public sealed class BacktestInput
     {
         Graph = graph;
         Selections = new EngineExecutionInputs(selections.OptimizedValues);
+
         // A short plan replays on a margin account (ADR 0061).
         Settings = graph.Direction == PositionDirection.Short && settings.Direction != PositionDirection.Short
             ? settings.WithDirection(PositionDirection.Short)

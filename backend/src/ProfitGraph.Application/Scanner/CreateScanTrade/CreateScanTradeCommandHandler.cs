@@ -1,7 +1,5 @@
-using ProfitGraph.Application.MarketData;
-using ProfitGraph.Engine.Accounting;
-using System.Text.Json;
 using System.Globalization;
+using System.Text.Json;
 
 using MediatR;
 
@@ -11,6 +9,7 @@ using ProfitGraph.Application.Bots.RenameBot;
 using ProfitGraph.Application.Bots.StartBot;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Common.Transactions;
+using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.Scanner.Contracts;
 using ProfitGraph.Application.Scanner.Converters;
 using ProfitGraph.Application.Scanner.Ports;
@@ -20,6 +19,7 @@ using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Scanner.Trades;
 using ProfitGraph.Domain.Strategies;
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Scanning;
 using ProfitGraph.Engine.Templates;

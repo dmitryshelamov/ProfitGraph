@@ -25,6 +25,7 @@ public sealed class CompiledTradingGraph
     ///     A plan that covers with its buys is short (ADR 0061); every other plan is long.
     /// </summary>
     public PositionDirection Direction { get; }
+
     internal IReadOnlyList<CompiledTradingNode> StaticNodes { get; }
     internal IReadOnlyList<CompiledTradingNode> CandleNodes { get; }
     internal IReadOnlyList<CompiledTradingNode> DispatchNodes { get; }

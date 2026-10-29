@@ -70,6 +70,7 @@ internal sealed class BybitMarketScanSource(
         {
             return await LinearUniverse(cancellationToken);
         }
+
         BybitResponse<BybitSpotSymbol> data = await Execute(
             "instrument list",
             token => _quotes.Bybit.V5Api.ExchangeData.GetSpotSymbolsAsync(ct: token),
@@ -150,6 +151,7 @@ internal sealed class BybitMarketScanSource(
         {
             return await LinearQuotes(cancellationToken);
         }
+
         BybitResponse<BybitSpotTicker> data = await Execute(
             "ticker",
             token => _quotes.Bybit.V5Api.ExchangeData.GetSpotTickersAsync(ct: token),

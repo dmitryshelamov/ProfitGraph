@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { DateTime } from '@/shared/ui/DateTime';
 
 import { formatMetric } from '../model/format';
-import { scanScenarios, tradeResult } from '../model/scenarios';
+import { shownScenarios, tradeResult } from '../model/scenarios';
 import type { ScanSignal } from '../model/types';
 
 const scenarioShort = {
@@ -28,6 +28,8 @@ export function ScanSignalsTable({
   venue: string;
   signals: readonly ScanSignal[];
 }) {
+  const scenarios = shownScenarios(signals);
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-right text-sm">
@@ -42,9 +44,10 @@ export function ScanSignalsTable({
             <th className="py-2 pl-3">24 ч, %</th>
             <th className="py-2 pl-3">Макс. рост, %</th>
             <th className="py-2 pl-3">Макс. просадка, %</th>
-            {scanScenarios.map(({ scenario, label }) => (
-              <th key={scenario} className="py-2 pl-3" title={label}>
-                R: {scenarioShort[scenario]}
+            {scenarios.map(({ scenario, direction, label }) => (
+              <th key={`${direction}:${scenario}`} className="py-2 pl-3" title={label}>
+                R: {direction === 'Short' ? 'шорт ' : ''}
+                {scenarioShort[scenario]}
               </th>
             ))}
           </tr>
@@ -71,9 +74,9 @@ export function ScanSignalsTable({
               <td className="py-1.5 pl-3 font-mono">{percent(signal.change24h)}</td>
               <td className="py-1.5 pl-3 font-mono">{percent(signal.maxRise24h)}</td>
               <td className="py-1.5 pl-3 font-mono">{percent(signal.maxDrop24h)}</td>
-              {scanScenarios.map(({ scenario }) => (
-                <td key={scenario} className="py-1.5 pl-3 font-mono">
-                  {percent(tradeResult(signal, scenario))}
+              {scenarios.map(({ scenario, direction }) => (
+                <td key={`${direction}:${scenario}`} className="py-1.5 pl-3 font-mono">
+                  {percent(tradeResult(signal, scenario, direction))}
                 </td>
               ))}
             </tr>

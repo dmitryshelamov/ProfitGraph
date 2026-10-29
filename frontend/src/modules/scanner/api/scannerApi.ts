@@ -262,6 +262,7 @@ export async function createScanTrade(
         entry: idea.entry,
         stop: idea.stop,
         target: idea.target,
+        direction: idea.direction,
       },
     }),
   );

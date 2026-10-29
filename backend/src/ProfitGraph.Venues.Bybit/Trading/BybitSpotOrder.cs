@@ -30,7 +30,8 @@ internal sealed record BybitSpotOrder(
         {
             hasFeeDetail = item.TryGetProperty("cumExecFee", out JsonElement linearFee) && linearFee.ValueKind == JsonValueKind.String;
 
-            if (hasFeeDetail && decimal.Parse(linearFee.GetString()!, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture) is var paid)
+            if (hasFeeDetail &&
+                decimal.Parse(linearFee.GetString()!, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture) is var paid)
             {
                 fees[linearFeeAsset] = Math.Max(paid, val2: 0m);
             }

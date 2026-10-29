@@ -1,8 +1,9 @@
 import { scenarioTotals, tradeResult } from './scenarios';
 import type { ScanSignal } from './types';
 
-const trade = (scenario: string, resultR: string) => ({
+const trade = (scenario: string, resultR: string, direction = 'Long') => ({
   scenario,
+  direction,
   entry: '100',
   stop: '98',
   target: '104',
@@ -25,11 +26,25 @@ describe('scenario totals', () => {
 
     expect(totals.find((total) => total.scenario === 'Levels')).toEqual({
       scenario: 'Levels',
+      direction: 'Long',
       trades: 2,
       wins: 1,
       totalR: '0.85',
     });
     expect(totals.find((total) => total.scenario === 'Pullback')?.totalR).toBeNull();
+  });
+
+  it('keeps shorts apart and shows them only once a signal traded short', () => {
+    const signals = [signal([trade('Levels', '1.9'), trade('Levels', '-1', 'Short')])];
+    const totals = scenarioTotals(signals);
+
+    expect(totals).toHaveLength(8);
+    expect(
+      totals.find((total) => total.scenario === 'Levels' && total.direction === 'Short')?.totalR,
+    ).toBe('-1');
+    expect(tradeResult(signals[0]!, 'Levels')).toBe('1.9');
+    expect(tradeResult(signals[0]!, 'Levels', 'Short')).toBe('-1');
+    expect(scenarioTotals([signal([trade('Levels', '1.9')])])).toHaveLength(4);
   });
 
   it('reads a signal result per scenario', () => {

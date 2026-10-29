@@ -264,7 +264,7 @@ internal sealed class BybitOrderGateway(
     /// </summary>
     private async Task SetLeverage(BybitBotContext context, CancellationToken cancellationToken)
     {
-        string leverage = context.Leverage.ToString(CultureInfo.InvariantCulture);
+        var leverage = context.Leverage.ToString(CultureInfo.InvariantCulture);
         string body = JsonSerializer.Serialize(new { category = "linear", symbol = context.Symbol, buyLeverage = leverage, sellLeverage = leverage });
         BybitRestResult set = await trade.Post(context.Credential, "/v5/position/set-leverage", body, beforeSend: null, cancellationToken);
 

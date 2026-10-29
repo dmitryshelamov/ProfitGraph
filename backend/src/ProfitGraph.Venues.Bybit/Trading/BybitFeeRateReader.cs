@@ -20,7 +20,11 @@ internal sealed class BybitFeeRateReader(BybitReadClient client, BybitMarket? ma
 
     public async Task<VenueFeeRatesInternal> Read(ExchangeCredentialSecretsInternal credential, InstrumentSymbol symbol, CancellationToken cancellationToken)
     {
-        BybitRestResult result = await client.Get(credential, "/v5/account/fee-rate", $"category={_market.Name}&symbol={Uri.EscapeDataString(symbol.Value)}", cancellationToken);
+        BybitRestResult result = await client.Get(
+            credential,
+            "/v5/account/fee-rate",
+            $"category={_market.Name}&symbol={Uri.EscapeDataString(symbol.Value)}",
+            cancellationToken);
 
         try
         {

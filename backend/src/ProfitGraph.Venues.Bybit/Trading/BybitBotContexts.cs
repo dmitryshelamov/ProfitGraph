@@ -1,4 +1,3 @@
-using ProfitGraph.Domain.Strategies;
 using MediatR;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -7,6 +6,7 @@ using ProfitGraph.Application.Accounts.Contracts;
 using ProfitGraph.Application.Accounts.ReadExchangeCredentialSecrets;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Strategies;
 
 namespace ProfitGraph.Venues.Bybit.Trading;
 

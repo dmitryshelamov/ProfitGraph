@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { formatMetric } from '../model/format';
-import { scanScenarios, scenarioTotals } from '../model/scenarios';
+import { scenarioLabel, scenarioTotals } from '../model/scenarios';
 import type { ScanSignal } from '../model/types';
 import { ScanSignalsTable } from './ScanSignalsTable';
 
@@ -48,9 +48,9 @@ export function ScanBacktestSignals({
       {totals.length > 0 && (
         <ul aria-label="Итоги пары" className="grid gap-1 text-sm sm:grid-cols-2">
           {totals.map((total) => (
-            <li key={total.scenario}>
-              {scanScenarios.find((item) => item.scenario === total.scenario)?.label}:{' '}
-              {total.trades} сд., прибыльных {total.wins}, сумма{' '}
+            <li key={`${total.direction}:${total.scenario}`}>
+              {scenarioLabel(total.scenario, total.direction)}: {total.trades} сд., прибыльных{' '}
+              {total.wins}, сумма{' '}
               {total.totalR === null ? '—' : `${formatMetric(total.totalR, 2)} R`}
             </li>
           ))}

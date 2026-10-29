@@ -19,14 +19,19 @@ using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Accounting;
+using ProfitGraph.Engine.Blocks;
+using ProfitGraph.Engine.Graphs;
 using ProfitGraph.Engine.Market;
+using ProfitGraph.Engine.Templates;
+using ProfitGraph.Venues.Bybit;
 using ProfitGraph.Venues.Bybit.MarketData;
 using ProfitGraph.Venues.Bybit.Trading;
 
 namespace ProfitGraph.Tests.Unit.Venues.Bybit;
 
 /// <summary>
-///     The Bybit order gateway wired to <see cref="MockBybitExchange" /> with one bot on BTCUSDT and an invented credential.
+///     The Bybit order gateway wired to <see cref="MockBybitExchange" /> with one bot on BTCUSDT and an invented credential; on USDT
+///     perpetuals (ADR 0061) the bot runs a strategy of the given direction at the given leverage.
 /// </summary>
 internal sealed class BybitGatewayHarness
 {
@@ -37,6 +42,16 @@ internal sealed class BybitGatewayHarness
         minNotional: 5m,
         basePrecision: 4,
         quotePrecision: 8);
+
+    public static readonly InstrumentRules LinearRules = new InstrumentRules(
+        quantityStep: 0.001m,
+        priceTick: 0.1m,
+        minQuantity: 0.001m,
+        minNotional: 5m,
+        basePrecision: 3,
+        quotePrecision: 8,
+        FeeAsset.Quote,
+        exactQuoteFees: true);
 
     public MockBybitExchange Exchange { get; } = new MockBybitExchange();
     public Bot Bot { get; }
@@ -58,20 +73,36 @@ internal sealed class BybitGatewayHarness
     /// </summary>
     public PrivateStreamReconnectPolicy Reconnect { get; } = new PrivateStreamReconnectPolicy { Delays = [TimeSpan.FromSeconds(1)], Budget = TimeSpan.FromSeconds(10) };
 
-    public BybitGatewayHarness()
+    public BybitGatewayHarness(bool linear = false, PositionDirection direction = PositionDirection.Long, decimal leverage = 1m)
     {
+        BybitMarket market = linear ? BybitMarket.Linear : BybitMarket.Spot;
+        Exchange.Linear = linear;
         Bot = Bot.Create(
             BotId.New(),
             UserId.New(),
             StrategyId.New(),
             StrategyVersionId.New(),
             ExchangeCredentialId.New(),
-            new CandleSeries(new VenueId("bybit"), new InstrumentSymbol("BTCUSDT"), Timeframe.Parse("1h")),
+            new CandleSeries(market.Venue, new InstrumentSymbol("BTCUSDT"), Timeframe.Parse("1h")),
             new BotParameters(new Dictionary<string, decimal>()),
             allocationCap: 100m,
             new BotRiskLimits(maxOrderQuote: 20m, dailyLossLimitQuote: 10m),
             new BotFeeRates(limitRate: 0.001m, marketRate: 0.001m, DateTimeOffset.UtcNow),
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            linear ? BybitLinearBotSettingsSchema.Write(leverage) : null);
+        var strategies = Substitute.For<IStrategyRepository>();
+        StrategyDefinition definition = direction == PositionDirection.Short ? LevelTradeShortStrategyBlockFactory.Create() : LevelTradeStrategyBlockFactory.Create();
+        strategies.GetVersions(Bot.StrategyId, Arg.Any<CancellationToken>())
+            .Returns(
+            [
+                new StrategyVersion(
+                    Bot.StrategyVersionId,
+                    Bot.StrategyId,
+                    StrategyVersionNumber.First,
+                    definition,
+                    new GraphLayout(new Dictionary<string, NodePosition>()),
+                    DateTimeOffset.UtcNow)
+            ]);
         var bots = Substitute.For<IBotRepository>();
         bots.Get(Bot.Id, Arg.Any<CancellationToken>()).Returns(Bot);
         var sender = Substitute.For<ISender>();
@@ -80,20 +111,24 @@ internal sealed class BybitGatewayHarness
         sender.Send(Arg.Any<GetBotOrdersToRefreshQuery>(), Arg.Any<CancellationToken>())
             .Returns(_ => new BotReconcileInternal(Bot.Id, AllowForeignOrders: false, [.. OrdersToRefresh]));
         var rules = Substitute.For<IInstrumentRulesSource>();
-        rules.Venue.Returns(new VenueId("bybit"));
+        rules.Venue.Returns(market.Venue);
         rules.Get(Arg.Any<InstrumentSymbol>(), Arg.Any<CancellationToken>())
             .Returns(
                 new InstrumentRulesDefinitionInternal(
-                    "bybit",
+                    market.Venue.Value,
                     "test",
-                    "spot",
+                    market.Name,
                     "BTCUSDT",
                     "BTC",
                     "USDT",
                     BasePrecisionIncrement: 0.0001m,
                     QuotePrecisionIncrement: 0.01m,
-                    Rules));
-        ServiceProvider services = new ServiceCollection().AddSingleton(bots).AddSingleton(sender).AddSingleton(rules).BuildServiceProvider();
+                    linear ? LinearRules : Rules));
+        ServiceProvider services = new ServiceCollection().AddSingleton(bots)
+            .AddSingleton(sender)
+            .AddSingleton(rules)
+            .AddSingleton(strategies)
+            .BuildServiceProvider();
         var http = new HttpClient(Exchange) { BaseAddress = new Uri("https://bybit.invalid/") };
 
         // A frozen host clock makes Bybit's server time exact, so signed timestamps and auth expiries are predictable.
@@ -117,8 +152,9 @@ internal sealed class BybitGatewayHarness
                 NullLogger<BybitPrivateStreams>.Instance),
             new BybitBotContexts(services.GetRequiredService<IServiceScopeFactory>()),
             Updates,
-            new BybitAbsenceProofs(reads, new BybitOptions(), Time));
-        FeeRates = new BybitFeeRateReader(read);
+            new BybitAbsenceProofs(reads, new BybitOptions(), Time),
+            market);
+        FeeRates = new BybitFeeRateReader(read, market);
     }
 
     public static OrderSnapshot MarketBuy(long id, decimal quoteBudget)

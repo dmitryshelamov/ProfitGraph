@@ -68,6 +68,7 @@ public sealed class BotEngineSessionFactory(
         {
             throw new OrderGatewaySafetyException(BotStatusReason.UnknownVenue, "A short strategy runs only on a margin venue.");
         }
+
         Timeframe timeframe = bot.Series.Timeframe;
         DateTimeOffset to = timeframe.FloorToGrid(clock.GetUtcNow());
         DateTimeOffset through = stored?.Engine.LastClosedCandle.OpenTime ?? to - timeframe.Duration;

@@ -4692,7 +4692,7 @@ export interface components {
         /** @enum {unknown} */
         BotRuntimeStatus: "Created" | "Starting" | "Running" | "Degraded" | "Stopped";
         /** @enum {unknown} */
-        BotStatusReason: "RuntimeFailure" | "NoGateway" | "UnknownVenue" | "IntentFailed" | "UnresolvedOrder" | "ForeignOrder" | "KeyPermissions" | "UnsupportedFeeAsset" | "InsufficientBalance" | "HistoryDataCorrection" | "VenueAccountProtection" | "Killed" | "DailyLossLimit" | null;
+        BotStatusReason: "RuntimeFailure" | "NoGateway" | "UnknownVenue" | "IntentFailed" | "UnresolvedOrder" | "ForeignOrder" | "KeyPermissions" | "UnsupportedFeeAsset" | "InsufficientBalance" | "HistoryDataCorrection" | "VenueAccountProtection" | "Killed" | "DailyLossLimit" | "VenuePositionMode" | null;
         BotUnresolvedOrderResponse: {
             /** Format: uuid */
             intentId: string;
@@ -4786,6 +4786,7 @@ export interface components {
             entry: string;
             stop: string;
             target: string;
+            direction?: null | string;
         };
         CreateStrategyRequest: {
             name: string;
@@ -5258,6 +5259,7 @@ export interface components {
             closedAt: null | string;
             realizedPnl: null | string;
             failureCode: null | string;
+            direction: string;
         };
         ScanOutcomeSummaryResponse: {
             /** Format: int32 */
@@ -5300,6 +5302,7 @@ export interface components {
             /** Format: int32 */
             longestLosingStreak: number;
             meanMinutes: null | string;
+            direction: string;
         };
         ScanSignalResponse: {
             symbol: string;
@@ -5372,6 +5375,7 @@ export interface components {
             amount: null | string;
             risk: null | string;
             taken: boolean;
+            direction: string;
         };
         ScanTradeIdeasResponse: {
             venue: string;
@@ -5393,12 +5397,14 @@ export interface components {
             reason: string;
             resultR: string;
             resultPercent: string;
+            direction: string;
         };
         ScanTradeSettingsRequest: {
             /** Format: uuid */
             credentialId: string;
             risk: string;
             maxAmount: string;
+            leverage?: null | string;
         };
         ScanTradeSettingsResponse: {
             venue: string;
@@ -5406,6 +5412,7 @@ export interface components {
             credentialId: string;
             risk: string;
             maxAmount: string;
+            leverage: null | string;
         };
         ScanTradeSettingsStateResponse: {
             settings: null | components["schemas"]["ScanTradeSettingsResponse"];
@@ -5414,6 +5421,7 @@ export interface components {
             venue: string;
             name: string;
             quoteAsset: null | string;
+            supportsShort: boolean;
         };
         SellerFeeScheduleRequest: {
             rates: null | string[];
@@ -5552,6 +5560,7 @@ export interface components {
             blocks: components["schemas"]["StrategyBlockRequest"][];
             wires: components["schemas"]["StrategyWireRequest"][];
             templateKind?: null | string;
+            direction?: null | string;
         };
         StrategyDefinitionResponse: {
             parameters: components["schemas"]["StrategyParameterResponse"][];
@@ -5559,6 +5568,7 @@ export interface components {
             blocks: components["schemas"]["StrategyBlockResponse"][];
             wires: components["schemas"]["StrategyWireResponse"][];
             templateKind?: null | string;
+            direction?: null | string;
         };
         StrategyDiagnosticResponse: {
             code: string;

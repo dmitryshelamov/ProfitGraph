@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { scanTradeIdeasQuery, scanTradeSettingsQuery } from '../api/scannerApi';
+import { scanTradeIdeasQuery, scanTradeSettingsQuery, scanVenuesQuery } from '../api/scannerApi';
 import { ScanPairTrades } from './ScanPairTrades';
 import { ScanTradeCards } from './ScanTradeCards';
 import { ScanTradeSettingsForm } from './ScanTradeSettingsForm';
@@ -9,10 +9,14 @@ import { ScanTradeSettingsForm } from './ScanTradeSettingsForm';
 export function ScanTradePanel({ venue, symbol }: { venue: string; symbol: string }) {
   const settings = useQuery(scanTradeSettingsQuery(venue));
   const ideas = useQuery(scanTradeIdeasQuery(venue, symbol));
+  const venues = useQuery(scanVenuesQuery());
+  const margin = venues.data?.find((item) => item.venue === venue)?.supportsShort ?? false;
 
   return (
     <div className="space-y-4">
-      {settings.isSuccess && <ScanTradeSettingsForm venue={venue} settings={settings.data} />}
+      {settings.isSuccess && (
+        <ScanTradeSettingsForm venue={venue} settings={settings.data} margin={margin} />
+      )}
       {ideas.data ? (
         <ScanTradeCards venue={venue} ideas={ideas.data} />
       ) : (

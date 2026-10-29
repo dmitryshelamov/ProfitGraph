@@ -56,15 +56,15 @@ internal sealed class BybitLinearInstrumentCatalog(
             return
             [
                 .. (await BybitLinearInstruments.All(_client, resilience, take: null, cancellationToken))
-                    .Where(BybitLinearInstruments.IsTradable)
-                    .Select(instrument => new InstrumentInternal(
-                        BybitMarket.Linear.Venue.Value,
-                        instrument.Name,
-                        instrument.BaseAsset,
-                        instrument.QuoteAsset,
-                        BybitInstrumentCatalog.Appearance(instrument.BaseAsset)))
-                    .DistinctBy(instrument => instrument.Symbol)
-                    .OrderBy(instrument => instrument.Symbol, StringComparer.Ordinal)
+                .Where(BybitLinearInstruments.IsTradable)
+                .Select(instrument => new InstrumentInternal(
+                    BybitMarket.Linear.Venue.Value,
+                    instrument.Name,
+                    instrument.BaseAsset,
+                    instrument.QuoteAsset,
+                    BybitInstrumentCatalog.Appearance(instrument.BaseAsset)))
+                .DistinctBy(instrument => instrument.Symbol)
+                .OrderBy(instrument => instrument.Symbol, StringComparer.Ordinal)
             ];
         }
         catch (BybitPayloadException exception)

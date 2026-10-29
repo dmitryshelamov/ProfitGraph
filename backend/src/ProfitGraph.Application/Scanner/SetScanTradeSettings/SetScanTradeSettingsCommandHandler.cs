@@ -1,9 +1,9 @@
-using ProfitGraph.Application.MarketData;
-using ProfitGraph.Application.Bots.Ports;
 using MediatR;
 
 using ProfitGraph.Application.Accounts;
+using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.Common.Exceptions;
+using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.Scanner.Contracts;
 using ProfitGraph.Application.Scanner.Converters;
 using ProfitGraph.Application.Scanner.Ports;

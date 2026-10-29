@@ -65,8 +65,8 @@ public static class StrategyTemplateUpgrades
 
     private static bool HasWires(StrategyDefinition definition)
     {
-        return RequiredWires.All(
-            wire => definition.Wires.Any(candidate => candidate.From.Block == wire.From && candidate.From.Exit == wire.Exit && candidate.To == wire.To));
+        return RequiredWires.All(wire =>
+            definition.Wires.Any(candidate => candidate.From.Block == wire.From && candidate.From.Exit == wire.Exit && candidate.To == wire.To));
     }
 
     /// <summary>
