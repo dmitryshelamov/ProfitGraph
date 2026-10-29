@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 using ProfitGraph.Application.Scanner.Ports;
+using ProfitGraph.Domain.Scanner;
 using ProfitGraph.Infrastructure.Common;
 using ProfitGraph.Infrastructure.Scanner.Repositories;
 
@@ -11,7 +12,7 @@ namespace ProfitGraph.Infrastructure.Scanner;
 public static class ScannerRegistration
 {
     /// <summary>
-    ///     The snapshot store and the scanner's readiness, for every host.
+    ///     The snapshot and preset stores and the scanner's readiness, for every host.
     /// </summary>
     internal static IServiceCollection AddScanner(this IServiceCollection services, IConfiguration configuration)
     {
@@ -20,6 +21,8 @@ public static class ScannerRegistration
             .Validate(options => options.IsValid(), "Scanner needs positive delays, a snapshot delay under 50 s and a snapshot age over a minute.")
             .ValidateOnStart();
         services.AddScoped<IScanSnapshotRepository, ScanSnapshotRepository>();
+        services.AddScoped<IScanPresetRepository, ScanPresetRepository>();
+        services.AddSingleton<IScanSnapshotNotifications, ScanSnapshotNotifications>();
         services.AddHealthChecks().AddCheck<ScannerHealthCheck>(ScannerHealthCheck.Name, tags: [HealthTags.Ready]);
 
         return services;

@@ -6,6 +6,8 @@ using ProfitGraph.Application.Scanner.Contracts;
 using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Engine.Scanning;
 using ProfitGraph.Infrastructure.Common.Postgres;
+using ProfitGraph.Infrastructure.Scanner.Repositories.Contracts;
+using ProfitGraph.Infrastructure.Scanner.Repositories.Converters;
 using ProfitGraph.Infrastructure.Scanner.Repositories.Queries;
 
 namespace ProfitGraph.Infrastructure.Scanner.Repositories;
@@ -44,6 +46,17 @@ internal sealed class ScanSnapshotRepository(NpgsqlConnection connection, Postgr
         };
 
         await connection.ExecuteAsync(new CommandDefinition(ScanSnapshotQueries.Replace, parameters, transactions.Current, cancellationToken: cancellationToken));
+    }
+
+    public async Task<ScanSnapshotInternal?> Get(string venue, CancellationToken cancellationToken)
+    {
+        List<ScanSnapshotRowDb> rows =
+        [
+            .. await connection.QueryAsync<ScanSnapshotRowDb>(
+                new CommandDefinition(ScanSnapshotQueries.Get, new { Venue = venue }, transactions.Current, cancellationToken: cancellationToken))
+        ];
+
+        return rows.Count == 0 ? null : new ScanSnapshotInternal(venue, rows.Max(row => row.ComputedAt), [.. rows.Select(row => row.ToInternal())]);
     }
 
     private static T[] Column<T>(IReadOnlyList<ScanSnapshotRowInternal> rows, Func<ScanSnapshotRowInternal, T> value)
