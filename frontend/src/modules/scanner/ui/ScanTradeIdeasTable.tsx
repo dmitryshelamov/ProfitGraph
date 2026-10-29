@@ -44,10 +44,13 @@ const filterButton =
 export function ScanTradeIdeasTable({
   venue,
   ideas,
+  scanned = true,
   onPreview,
 }: {
   venue: string;
   ideas: ScanTradeIdeas;
+  /** Whether the latest snapshot has the pair: without it the entries come from old closes and the API refuses new trades. */
+  scanned?: boolean;
   onPreview?: (ideas: readonly ScanTradeIdea[]) => void;
 }) {
   const queryClient = useQueryClient();
@@ -59,6 +62,7 @@ export function ScanTradeIdeasTable({
   const [hovered, setHovered] = useState<string | null>(null);
   const [direction, setDirection] = useState<Direction>('All');
   const [sort, setSort] = useState<Sort>('none');
+  const blocked = !ideas.hasSettings || !scanned;
   const rows = useMemo<Row[]>(
     () => ideas.ideas.map((idea) => ({ key: key(idea), idea, outcome: ideaOutcome(idea) })),
     [ideas.ideas],
@@ -126,7 +130,17 @@ export function ScanTradeIdeasTable({
 
   return (
     <div className="space-y-3">
-      {!ideas.hasSettings && (
+      {!scanned && (
+        <p
+          role="status"
+          className="rounded-md border border-warning-border bg-warning-bg px-3 py-2 text-sm text-warning-text"
+        >
+          Пары нет в последнем снимке сканера: вход посчитан по закрытию последней свечи каждого
+          таймфрейма и может быть далёк от цены. Сделку можно будет создать, когда пара появится в
+          снимке.
+        </p>
+      )}
+      {scanned && !ideas.hasSettings && (
         <p
           role="status"
           className="rounded-md border border-warning-border bg-warning-bg px-3 py-2 text-sm text-warning-text"
@@ -197,7 +211,7 @@ export function ScanTradeIdeasTable({
                 quote={quote}
                 checked={selected.includes(row.key)}
                 outcome={outcomes[row.key]}
-                disabled={creating || !ideas.hasSettings}
+                disabled={creating || blocked}
                 onToggle={(on) => toggle(row.key, on)}
                 onHide={() => setHidden((current) => [...current, row.key])}
                 onHover={(on) =>
@@ -217,7 +231,7 @@ export function ScanTradeIdeasTable({
         <Button
           variant="primary"
           size="sm"
-          disabled={chosen.length === 0 || creating || !ideas.hasSettings}
+          disabled={chosen.length === 0 || creating || blocked}
           onClick={() => void createChosen()}
         >
           {creating ? 'Создаю…' : `Создать выбранные (${chosen.length})`}
@@ -411,7 +425,7 @@ function IdeaRow({
         ) : idea.taken ? (
           <span className="text-text-secondary">Уже живёт</span>
         ) : (
-          <Button size="sm" variant="ghost" onClick={onHide} disabled={disabled}>
+          <Button size="sm" variant="ghost" onClick={onHide}>
             Скрыть
           </Button>
         )}

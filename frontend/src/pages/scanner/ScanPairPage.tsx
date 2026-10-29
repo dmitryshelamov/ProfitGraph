@@ -122,7 +122,12 @@ export function ScanPairPage() {
           </Card>
           <Card title="Идеи входа по всем таймфреймам">
             {ideas.data ? (
-              <ScanTradeIdeasTable venue={venue} ideas={ideas.data} onPreview={setPreview} />
+              <ScanTradeIdeasTable
+                venue={venue}
+                ideas={ideas.data}
+                scanned={row !== undefined || snapshot.isPending}
+                onPreview={setPreview}
+              />
             ) : (
               <p className="text-sm text-muted">
                 {ideas.isError ? 'Идеи не загрузились.' : 'Загрузка…'}

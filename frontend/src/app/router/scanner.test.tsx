@@ -392,6 +392,64 @@ describe('scanner page', () => {
     expect(await screen.findByText('Ждёт входа')).toBeInTheDocument();
   });
 
+  it('does not let ideas of a pair missing from the snapshot be ticked', async () => {
+    fakeApi({
+      'GET /api/auth/me': () => json(user),
+      'GET /api/scanner/venues': () =>
+        json([{ venue: 'bybit', name: 'Bybit', quoteAsset: 'USDT' }]),
+      'GET /api/scanner/bybit/snapshot': () => json(snapshot([])),
+      'GET /api/scanner/bybit/candles': (request) => {
+        const query = new URL(request.url).searchParams;
+
+        return json({
+          venue: 'bybit',
+          symbol: 'SOLUSDT',
+          timeframe: query.get('timeframe'),
+          from: query.get('from'),
+          to: query.get('to'),
+          latestClosed: query.get('to'),
+          status: 'Complete',
+          errorCode: null,
+          candles: [],
+        });
+      },
+      'GET /api/exchange-credentials': () => json([]),
+      'GET /api/scanner/bybit/trade-settings': () =>
+        json({ settings: { venue: 'bybit', credentialId: 'key-1', risk: '5', maxAmount: '1000' } }),
+      'GET /api/scanner/bybit/trade-ideas': () =>
+        json({
+          venue: 'bybit',
+          symbol: 'SOLUSDT',
+          price: '100',
+          hasSettings: true,
+          ideas: [
+            {
+              timeframe: '1d',
+              scenario: 'Levels',
+              entry: '110',
+              stop: '105',
+              target: '120',
+              rewardRisk: '2',
+              entryValidityMinutes: 60,
+              amount: '96.15',
+              risk: '5',
+              taken: false,
+            },
+          ],
+        }),
+      'GET /api/scanner/bybit/trades': () => json([]),
+    });
+
+    renderApp('/scanner/bybit/SOLUSDT');
+
+    const row = await screen.findByRole('row', { name: 'Идея: Лонг Уровни 1d' });
+    expect(within(row).getByRole('checkbox')).toBeDisabled();
+    expect(within(row).getByRole('button', { name: 'Скрыть' })).toBeEnabled();
+    expect(
+      screen.getByText(/Пары нет в последнем снимке сканера: вход посчитан/),
+    ).toBeInTheDocument();
+  });
+
   it('shows short cards on futures and creates a short trade at the settings leverage', async () => {
     const requests = fakeApi({
       'GET /api/auth/me': () => json(user),
