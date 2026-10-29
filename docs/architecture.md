@@ -80,7 +80,7 @@ Venues.Bybit/
 - **Engine** is organized by engine subsystem instead of product feature: `Common/`, `Market/`, `Accounting/`,
   `Graphs/` (with `Validation/`, `Dependencies/`, `Composites/`), `Nodes/` (node types, `BuiltIn/`), `Blocks/`,
   `Lowering/`, `Compilation/`, `Evaluation/`, `Dispatch/`, `Grids/` (grid levels and their plan, ADR 0058), `Replay/`,
-  `Metrics/`, `Templates/`.
+  `Metrics/`, `Templates/`, `Scanning/` (market scanner metrics, ADR 0059).
   Engine exceptions derive from `Common/EngineException`.
 - **Use cases** get their own folder named after the use case (`CreateStrategy/`). It holds the command or query, its
   handler and its validator; nothing else.
