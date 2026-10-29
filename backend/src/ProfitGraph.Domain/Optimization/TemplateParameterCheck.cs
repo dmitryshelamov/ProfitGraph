@@ -41,6 +41,32 @@ internal sealed class TemplateParameterCheck(CompiledTradingGraph graph, IReadOn
                 Positive("maxHold");
 
                 break;
+            case StrategyTemplateKind.EmaCrossover:
+                Require(Positive("emaFast") < Positive("emaSlow"), "emaFast", "EMA crossover requires emaFast < emaSlow.", ["emaFast", "emaSlow"]);
+                StopLoss("EMA crossover");
+
+                break;
+            case StrategyTemplateKind.MacdTrend:
+                Require(Positive("macdFast") < Positive("macdSlow"), "macdFast", "MACD trend requires macdFast < macdSlow.", ["macdFast", "macdSlow"]);
+                Positive("macdSignal");
+                Positive("trendPeriod");
+                StopLoss("MACD trend");
+
+                break;
+            case StrategyTemplateKind.RsiReversion:
+                decimal? exit = Positive("rsiExit");
+                Positive("rsiPeriod");
+                Require(Positive("rsiEntry") < exit, "rsiEntry", "RSI reversion requires rsiEntry < rsiExit.", ["rsiEntry", "rsiExit"]);
+                Require(exit < 100m, "rsiExit", "RSI reversion requires rsiExit < 100.");
+                StopLoss("RSI reversion");
+
+                break;
+            case StrategyTemplateKind.BollingerReversion:
+                Positive("bandPeriod");
+                Positive("bandWidth");
+                StopLoss("Bollinger reversion");
+
+                break;
             case StrategyTemplateKind.Grid:
                 Require(Positive("gridLevels") <= 200m, "gridLevels", "A grid requires 1 <= gridLevels <= 200.");
                 Require(Positive("gridStep") < 1m, "gridStep", "A grid requires 0 < gridStep < 1.");
@@ -70,6 +96,11 @@ internal sealed class TemplateParameterCheck(CompiledTradingGraph graph, IReadOn
         }
 
         return _diagnostics.AsReadOnly();
+    }
+
+    private void StopLoss(string template)
+    {
+        Require(Positive("stopLoss") < 1m, "stopLoss", $"{template} requires 0 < stopLoss < 1.");
     }
 
     /// <summary>

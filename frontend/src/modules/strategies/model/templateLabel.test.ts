@@ -3,6 +3,7 @@ import { strategyTemplateLabel } from './templateLabel';
 describe('strategyTemplateLabel', () => {
   it('names known templates', () => {
     expect(strategyTemplateLabel('LadderSma')).toBe('Ladder SMA');
+    expect(strategyTemplateLabel('RsiReversion')).toBe('Отскок RSI');
   });
 
   it('treats a missing or unknown marker as the user’s own strategy', () => {

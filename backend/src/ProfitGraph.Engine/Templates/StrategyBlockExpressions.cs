@@ -44,6 +44,29 @@ internal static class StrategyBlockExpressions
             arguments: new Dictionary<string, ValueExpression> { ["a"] = a, ["b"] = b });
     }
 
+    internal static ValueExpression Indicator(string kind, ValueExpression input, ValueExpression period)
+    {
+        return new ValueExpression(kind, arguments: new Dictionary<string, ValueExpression> { ["in"] = input, ["period"] = period });
+    }
+
+    internal static ValueExpression Previous(ValueExpression input)
+    {
+        return new ValueExpression("previous", arguments: new Dictionary<string, ValueExpression> { ["in"] = input });
+    }
+
+    /// <summary>
+    ///     The stop of a single-entry position: the last buy price lowered by the <c>stopLoss</c> fraction.
+    /// </summary>
+    internal static ValueExpression StopPrice()
+    {
+        return Arithmetic("Multiply", Position("lastBuyPrice"), Arithmetic("Subtract", Constant(number: 1m, ValueType.Scalar), Parameter("stopLoss")));
+    }
+
+    internal static StrategyCheck Cross(string type, ValueExpression a, ValueExpression b)
+    {
+        return new StrategyCheck(type, operands: new Dictionary<string, ValueExpression> { ["a"] = a, ["b"] = b });
+    }
+
     internal static StrategyCheck Compare(string operation, ValueExpression a, ValueExpression b)
     {
         return new StrategyCheck(

@@ -24,6 +24,17 @@ const readableNames: Record<string, string> = {
   gridShiftThreshold: 'Сдвиг сетки вверх',
   gridAnchorCeiling: 'Потолок сдвига',
   gridStopBelow: 'Стоп ниже сетки',
+  emaFast: 'Период быстрой EMA',
+  emaSlow: 'Период медленной EMA',
+  macdFast: 'Быстрый период MACD',
+  macdSlow: 'Медленный период MACD',
+  macdSignal: 'Период сигнальной линии MACD',
+  trendPeriod: 'Период EMA тренда',
+  rsiPeriod: 'Период RSI',
+  rsiEntry: 'Уровень RSI для входа',
+  rsiExit: 'Уровень RSI для выхода',
+  bandPeriod: 'Период полос Боллинджера',
+  bandWidth: 'Ширина полос в σ',
 };
 
 export function parameterReadableName(name: string): string {

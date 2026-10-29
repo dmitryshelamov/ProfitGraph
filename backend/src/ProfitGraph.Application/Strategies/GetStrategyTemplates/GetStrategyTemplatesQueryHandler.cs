@@ -27,6 +27,10 @@ internal sealed class GetStrategyTemplatesQueryHandler : IRequestHandler<GetStra
         StrategyDefinition ladderPlus = LadderPlusStrategyBlockFactory.Create();
         StrategyDefinition dca = ProfitFoxDcaStrategyBlockFactory.Create();
         StrategyDefinition grid = GridStrategyBlockFactory.Create();
+        StrategyDefinition emaCrossover = EmaCrossoverStrategyBlockFactory.Create();
+        StrategyDefinition macdTrend = MacdTrendStrategyBlockFactory.Create();
+        StrategyDefinition rsiReversion = RsiReversionStrategyBlockFactory.Create();
+        StrategyDefinition bollingerReversion = BollingerReversionStrategyBlockFactory.Create();
         IReadOnlyList<StrategyTemplateInternal> templates =
         [
             new StrategyTemplateInternal(
@@ -82,7 +86,31 @@ internal sealed class GetStrategyTemplatesQueryHandler : IRequestHandler<GetStra
                 "Сетка",
                 "Лимитные покупки ступенями ниже цены старта, у каждой ступени свой лот и своя продажа с шагом прибыли; спот, только long.",
                 grid.ToInternal(),
-                StrategyTemplateLayouts.Ladder().ToInternal())
+                StrategyTemplateLayouts.Ladder().ToInternal()),
+            new StrategyTemplateInternal(
+                emaCrossover.TemplateKind!.Value,
+                "EMA Crossover",
+                "Покупка, когда быстрая EMA пересекает медленную вверх; выход на обратном пересечении или по стопу.",
+                emaCrossover.ToInternal(),
+                StrategyTemplateLayouts.IndicatorSignal().ToInternal()),
+            new StrategyTemplateInternal(
+                macdTrend.TemplateKind!.Value,
+                "MACD по тренду",
+                "Покупка, когда линия MACD пересекает сигнальную вверх при цене выше EMA тренда; выход на обратном пересечении или по стопу.",
+                macdTrend.ToInternal(),
+                StrategyTemplateLayouts.IndicatorSignal().ToInternal()),
+            new StrategyTemplateInternal(
+                rsiReversion.TemplateKind!.Value,
+                "Отскок RSI",
+                "Покупка, когда RSI возвращается выше уровня перепроданности; выход при RSI на уровне выхода или по стопу.",
+                rsiReversion.ToInternal(),
+                StrategyTemplateLayouts.IndicatorSignal().ToInternal()),
+            new StrategyTemplateInternal(
+                bollingerReversion.TemplateKind!.Value,
+                "Возврат от полосы Боллинджера",
+                "Покупка после закрытия ниже нижней полосы Боллинджера; выход при возврате к средней линии или по стопу.",
+                bollingerReversion.ToInternal(),
+                StrategyTemplateLayouts.IndicatorSignal().ToInternal())
         ];
 
         return Task.FromResult(templates);

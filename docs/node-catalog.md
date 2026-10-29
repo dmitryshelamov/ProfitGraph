@@ -3,6 +3,7 @@
 The strategy engine's indicator nodes, their formulas, warm-up and edge cases. Blocks reach them as value sources of the
 block catalog (`GET /api/block-catalog`); the lowerer turns a value expression of that kind into the node of
 the same key. Decisions behind this page: [ADR 0056](adr/0056-decimal-indicators-and-multi-output-composites.md).
+Templates built on these indicators: [strategy templates](strategy-templates.md).
 
 ## Common rules
 

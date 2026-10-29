@@ -16,7 +16,8 @@ public sealed class TemplateParameterRulesTests
     [
         SmaStrategyBlockFactory.Create(), LadderStrategyBlockFactory.Create(), LadderResumeStrategyBlockFactory.Create(), LadderSmaStrategyBlockFactory.Create(),
         ProfitFoxLadderStrategyBlockFactory.Create(), LadderPlusStrategyBlockFactory.Create(), ProfitFoxDcaStrategyBlockFactory.Create(),
-        CapitulationDipStrategyBlockFactory.Create(), VolumeMomentumStrategyBlockFactory.Create()
+        CapitulationDipStrategyBlockFactory.Create(), VolumeMomentumStrategyBlockFactory.Create(), EmaCrossoverStrategyBlockFactory.Create(),
+        MacdTrendStrategyBlockFactory.Create(), RsiReversionStrategyBlockFactory.Create(), BollingerReversionStrategyBlockFactory.Create()
     ];
 
     [TestCaseSource(nameof(Templates))]
@@ -36,6 +37,13 @@ public sealed class TemplateParameterRulesTests
         AssertSingle(ProfitFoxDcaStrategyBlockFactory.Create(buyAmount: 1001m), "allocationCap", "DCA requires buyAmount <= allocationCap.");
         AssertSingle(CapitulationDipStrategyBlockFactory.Create(drop: 1m), "drop", "Capitulation dip requires 0 < drop < 1.");
         AssertSingle(VolumeMomentumStrategyBlockFactory.Create(stopLoss: 1m), "stopLoss", "Volume momentum requires 0 < stopLoss < 1.");
+        AssertSingle(EmaCrossoverStrategyBlockFactory.Create(emaFast: 26, emaSlow: 26), "emaFast", "EMA crossover requires emaFast < emaSlow.");
+        AssertSingle(EmaCrossoverStrategyBlockFactory.Create(stopLoss: 1m), "stopLoss", "EMA crossover requires 0 < stopLoss < 1.");
+        AssertSingle(MacdTrendStrategyBlockFactory.Create(stopLoss: 1.5m), "stopLoss", "MACD trend requires 0 < stopLoss < 1.");
+        AssertSingle(RsiReversionStrategyBlockFactory.Create(rsiEntry: 70m), "rsiEntry", "RSI reversion requires rsiEntry < rsiExit.");
+        AssertSingle(RsiReversionStrategyBlockFactory.Create(rsiExit: 100m), "rsiExit", "RSI reversion requires rsiExit < 100.");
+        AssertSingle(RsiReversionStrategyBlockFactory.Create(stopLoss: 1m), "stopLoss", "RSI reversion requires 0 < stopLoss < 1.");
+        AssertSingle(BollingerReversionStrategyBlockFactory.Create(stopLoss: 1m), "stopLoss", "Bollinger reversion requires 0 < stopLoss < 1.");
     }
 
     [Test]
@@ -44,6 +52,7 @@ public sealed class TemplateParameterRulesTests
         AssertSingle(SmaStrategyBlockFactory.Create(buyAmount: 0m), "buyAmount", "Template parameter 'buyAmount' must be positive.");
         AssertSingle(LadderStrategyBlockFactory.Create(allocationCap: 0m), "allocationCap", "Template parameter 'allocationCap' must be positive.");
         AssertSingle(ProfitFoxDcaStrategyBlockFactory.Create(interval: 0), "interval", "Template parameter 'interval' must be positive.");
+        AssertSingle(RsiReversionStrategyBlockFactory.Create(rsiEntry: 0m), "rsiEntry", "Template parameter 'rsiEntry' must be positive.");
     }
 
     [Test]
@@ -67,6 +76,19 @@ public sealed class TemplateParameterRulesTests
         GraphDiagnostic diagnostic = TemplateParameterRules.Check(definition.TemplateKind, graph, Select(range.Reference, value: 4m)).ShouldHaveSingleItem();
         diagnostic.Message.ShouldBe("SMA requires fastPeriod < slowPeriod.");
         diagnostic.NodeId.ShouldBe(StrategyDefinitionLowerer.ParameterNodeId("fastPeriod"));
+    }
+
+    [Test]
+    public void MacdTrend_RejectsAnOptimizedFastPeriodNotBelowTheSlowOne()
+    {
+        var ranges = new Dictionary<string, DecimalOptimizeParamValue> { ["macdFast"] = new DecimalOptimizeParamValue(Min: 12m, Max: 30m, Step: 2m) };
+        StrategyDefinition definition = MacdTrendStrategyBlockFactory.Create();
+        CompiledTradingGraph graph = Compile(definition, ranges);
+        PortReference reference = OptimizationSearchSpace.FromGraph(graph).Parameters.ShouldHaveSingleItem().Reference;
+        TemplateParameterRules.Check(definition.TemplateKind, graph, Select(reference, value: 24m)).ShouldBeEmpty();
+        GraphDiagnostic diagnostic = TemplateParameterRules.Check(definition.TemplateKind, graph, Select(reference, value: 26m)).ShouldHaveSingleItem();
+        diagnostic.Message.ShouldBe("MACD trend requires macdFast < macdSlow.");
+        diagnostic.NodeId.ShouldBe(StrategyDefinitionLowerer.ParameterNodeId("macdFast"));
     }
 
     private static void AssertSingle(StrategyDefinition definition, string parameter, string message)
