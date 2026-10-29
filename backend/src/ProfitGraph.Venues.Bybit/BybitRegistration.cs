@@ -8,9 +8,11 @@ using ProfitGraph.Application.Accounts.Ports;
 using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Application.MarketData.Ports;
+using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Venues.Bybit.Instruments;
 using ProfitGraph.Venues.Bybit.LiveData;
 using ProfitGraph.Venues.Bybit.MarketData;
+using ProfitGraph.Venues.Bybit.Scanner;
 using ProfitGraph.Venues.Bybit.Simulation;
 using ProfitGraph.Venues.Bybit.Trading;
 
@@ -18,8 +20,12 @@ namespace ProfitGraph.Venues.Bybit;
 
 public static class BybitRegistration
 {
+    private const string ScanKlineClient = "bybit-scan-klines";
+    private const string ScanQuoteClient = "bybit-scan-quotes";
+
     /// <summary>
-    ///     Registers Bybit Spot: its descriptor, public history, live candles, tradable pairs, instrument rules and the read-only fee rates of a credential. No order can be sent.
+    ///     Registers Bybit Spot: its descriptor, public history, live candles, tradable pairs, instrument rules, the market scanner's data and the read-only fee rates of a credential. No
+    ///     order can be sent.
     /// </summary>
     public static IServiceCollection AddBybitVenue(this IServiceCollection services, IConfiguration configuration)
     {
@@ -53,6 +59,18 @@ public static class BybitRegistration
         services.AddTransient<IAccountBalanceReader, BybitAccountBalanceReader>();
         services.AddTransient<IVenueAccountIdentityReader, BybitAccountIdentityReader>();
         services.AddSingleton<IVenueCredentialSchema, BybitCredentialSchema>();
+        services.AddSingleton(provider => new BybitScanRequestBudget(provider.GetRequiredService<BybitOptions>(), TimeProvider.System));
+        services.AddHttpClient(ScanKlineClient, Configure).AddHttpMessageHandler<BybitResponseGuardHandler>();
+        services.AddHttpClient(ScanQuoteClient, Configure);
+        services.AddTransient<IMarketScanSource>(provider =>
+        {
+            var clients = provider.GetRequiredService<IHttpClientFactory>();
+
+            return ActivatorUtilities.CreateInstance<BybitMarketScanSource>(
+                provider,
+                clients.CreateClient(ScanKlineClient),
+                clients.CreateClient(ScanQuoteClient));
+        });
 
         return services;
     }

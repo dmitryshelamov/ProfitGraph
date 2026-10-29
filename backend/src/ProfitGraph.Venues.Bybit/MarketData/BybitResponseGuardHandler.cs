@@ -61,7 +61,8 @@ internal sealed class BybitResponseGuardHandler : DelegatingHandler
                 throw new FormatException();
             }
 
-            for (var index = 1; index <= 5; index++)
+            // Open, high, low, close, volume and, when Bybit sends it, turnover.
+            for (var index = 1; index < Math.Min(row.GetArrayLength(), val2: 7); index++)
             {
                 BybitExactDecimal.Validate(row[index]);
             }

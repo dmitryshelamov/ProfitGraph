@@ -32,7 +32,7 @@ Inside a project, the first folder level is a **feature**, never a technical typ
 layer lives in that feature's folder. Shared base types and cross-cutting mechanisms live in `Common/`.
 
 Features: `Strategies`, `Backtesting`, `Optimization`, `MarketData`, `Bots`, `Trading`, `Accounts`, `Notifications`,
-`Jobs`. Add a new feature folder only for a new product area, and list it here. In Domain, a feature with several
+`Jobs`, `Scanner`. Add a new feature folder only for a new product area, and list it here. In Domain, a feature with several
 aggregates keeps the main aggregate at its root and gives each other aggregate a subfolder with its identifier,
 values, events and repository contract (`Domain/Bots/OrderIntents/`). A cohesive part of one aggregate's rules that
 other code uses on its own, such as walk-forward analysis or a search algorithm, may get a subfolder too
