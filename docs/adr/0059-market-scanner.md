@@ -175,6 +175,34 @@ to BTC and cross-venue gaps are out of scope.
    minutes at the Worker's 25 requests a second in production. History is not cached, so each backtest reads it again. A pair
    whose history cannot be read is listed as failed; a REST pause after a ban fails the job.
 
+### 8. Levels and trade scenarios (step 5a)
+
+The owner wants entries, exits and stops from history at the moment the scanner finds a pair, and support, resistance and the
+reward-to-risk ratio next to its metrics (2026-10-29). Levels are shown at once; whether trading them pays is measured by the preset
+backtest, which replays the same levels without looking ahead.
+
+1. **Levels.** From the closed hours the scanner holds (up to 168): swing highs and lows (an hour whose high is above the two hours
+   before it and not below the two after it, and the mirror for lows) and the extremes of those hours. Prices within 0.5 % of each
+   other merge into one level, their mean. `Engine/Scanning/ScanLevels` computes them; the live calculator and the replay call the
+   same function, so both see the same levels.
+2. **Metrics.** The nearest resistance is the lowest level more than 0.1 % above the price, the nearest support the highest level
+   more than 0.1 % below it; each is shown with its distance in percent. Reward-to-risk is the distance to resistance over the
+   distance to support, for a long position from the current price. All five are ordinary metrics: columns, conditions in presets
+   (for example `RewardRisk ≥ 2`), alert lines; the pair's chart draws the two levels.
+3. **Scenarios.** The backtest simulates four trades after every signal, on the minutes that follow it:
+   - **Levels:** entry at the next minute's open, stop at the support, target at the resistance.
+   - **Levels, R:R ≥ 2:** the same, only when the entry's reward-to-risk is at least 2.
+   - **Target 2R:** entry at the next open, stop at the support, target two risks above the entry.
+   - **Pullback:** a limit at half of the last hour's rise (from its lowest low to the signal's close), valid for 4 hours; stop at
+     that lowest low, target 2R.
+
+   A trade without a support below its entry (or a resistance above, where it is the target) is not taken. A trade exits at the stop,
+   the target or, 24 hours after its entry, at that minute's close; when one minute touches both, the stop counts. The result is in
+   percent and in R (the entry-to-stop distance) after an assumed 0.1 % fee on each side. Per scenario the backtest shows how many
+   signals became trades, the share of profitable ones, mean and median R, total R, the longest losing streak and the mean time in
+   a trade; every stored signal carries its four trades.
+4. **Signals kept.** Up to 10,000 signals are stored, so the page can filter one pair's signals over the whole period.
+
 ### 7. Order of work
 
 Three steps, each useful and checked on its own (owner): the live table, then alerts, then the preset backtest. See
