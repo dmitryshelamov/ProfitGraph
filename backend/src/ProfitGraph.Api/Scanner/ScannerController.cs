@@ -8,11 +8,14 @@ using ProfitGraph.Api.Scanner.Converters;
 using ProfitGraph.Application.Scanner.Contracts;
 using ProfitGraph.Application.Scanner.CreateScanPreset;
 using ProfitGraph.Application.Scanner.DeleteScanPreset;
+using ProfitGraph.Application.Scanner.GetScanBacktest;
+using ProfitGraph.Application.Scanner.GetScanBacktests;
 using ProfitGraph.Application.Scanner.GetScanCandles;
 using ProfitGraph.Application.Scanner.GetScanPresets;
 using ProfitGraph.Application.Scanner.GetScanSnapshot;
 using ProfitGraph.Application.Scanner.GetScanVenues;
 using ProfitGraph.Application.Scanner.SetScanPresetAlerts;
+using ProfitGraph.Application.Scanner.StartScanBacktest;
 using ProfitGraph.Application.Scanner.UpdateScanPreset;
 
 namespace ProfitGraph.Api.Scanner;
@@ -59,6 +62,37 @@ public sealed class ScannerController(ISender sender) : ControllerBase
             cancellationToken);
 
         return page.ToResponse();
+    }
+
+    /// <summary>
+    ///     Replays a preset's conditions (saved or not) over the venue's last 30 days in a background job and answers the backtest; follow
+    ///     its job, then read it again for the result (ADR 0059, section 6).
+    /// </summary>
+    [HttpPost("{venue}/backtests")]
+    public async Task<ActionResult<ScanBacktestResponse>> StartBacktest(string venue, ScanPresetRequest request, CancellationToken cancellationToken)
+    {
+        ScanBacktestInternal backtest = await sender.Send(new StartScanBacktestCommand(UserId(), venue, request.ToInternal()), cancellationToken);
+
+        return StatusCode(StatusCodes.Status202Accepted, backtest.ToResponse());
+    }
+
+    /// <summary>
+    ///     The user's ten latest backtests on the venue, newest first, without their signals.
+    /// </summary>
+    [HttpGet("{venue}/backtests")]
+    public async Task<ActionResult<IReadOnlyList<ScanBacktestListItemResponse>>> GetBacktests(string venue, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<ScanBacktestListItemInternal> backtests = await sender.Send(new GetScanBacktestsQuery(UserId(), venue), cancellationToken);
+
+        return Ok(backtests.Select(backtest => backtest.ToResponse()).ToList());
+    }
+
+    [HttpGet("backtests/{backtestId:guid}")]
+    public async Task<ActionResult<ScanBacktestResponse>> GetBacktest(Guid backtestId, CancellationToken cancellationToken)
+    {
+        ScanBacktestInternal backtest = await sender.Send(new GetScanBacktestQuery(UserId(), backtestId), cancellationToken);
+
+        return backtest.ToResponse();
     }
 
     [HttpGet("{venue}/presets")]

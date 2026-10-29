@@ -23,6 +23,8 @@ public sealed class ScanPreset : AggregateRoot
     public DateTimeOffset CreatedAt { get; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
+    public ScanFilter Filter => new ScanFilter(Conditions, HideStale);
+
     private ScanPreset(
         ScanPresetId id,
         UserId ownerId,
@@ -100,7 +102,7 @@ public sealed class ScanPreset : AggregateRoot
     {
         ArgumentNullException.ThrowIfNull(metrics);
 
-        return !(HideStale && metrics.Stale) && Conditions.All(condition => condition.Holds(metrics));
+        return Filter.Keeps(metrics);
     }
 
     private static IReadOnlyList<ScanCondition> Checked(IReadOnlyList<ScanCondition> conditions)

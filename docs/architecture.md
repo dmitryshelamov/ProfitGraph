@@ -80,7 +80,7 @@ Venues.Bybit/
 - **Engine** is organized by engine subsystem instead of product feature: `Common/`, `Market/`, `Accounting/`,
   `Graphs/` (with `Validation/`, `Dependencies/`, `Composites/`), `Nodes/` (node types, `BuiltIn/`), `Blocks/`,
   `Lowering/`, `Compilation/`, `Evaluation/`, `Dispatch/`, `Grids/` (grid levels and their plan, ADR 0058), `Replay/`,
-  `Metrics/`, `Templates/`, `Scanning/` (market scanner metrics, ADR 0059).
+  `Metrics/`, `Templates/`, `Scanning/` (market scanner metrics and their replay over history, ADR 0059).
   Engine exceptions derive from `Common/EngineException`.
 - **Use cases** get their own folder named after the use case (`CreateStrategy/`). It holds the command or query, its
   handler and its validator; nothing else.
@@ -266,7 +266,9 @@ src/
   user's own preset, a built-in one as a copy. A pair opens `/scanner/{venue}/{symbol}`: its chart from
   `/api/scanner/{venue}/candles` (`CandleHistoryChart`, paged back like a bot's chart with the shared helpers of
   `modules/market-chart`) and its metrics from the snapshot. A saved preset's «Алерты в Telegram» switch calls
-  `PUT /api/scanner/presets/{id}/alerts` and warns when no chat is linked ([ADR 0059](adr/0059-market-scanner.md)).
+  `PUT /api/scanner/presets/{id}/alerts` and warns when no chat is linked. «Проверить на истории» starts a backtest of the preset
+  being edited; `/scanner/backtests/{id}` follows its job (`JobProgress`) and then shows the summary per horizon and the signals
+  ([ADR 0059](adr/0059-market-scanner.md)).
 - **API client.** `shared/api/client.ts` is the only HTTP client. Its types come from
   `shared/api/generated/schema.d.ts`, generated from the API's OpenAPI document with `npm run generate:api` and never
   edited by hand. Failures surface as `ApiError` built from Problem Details.

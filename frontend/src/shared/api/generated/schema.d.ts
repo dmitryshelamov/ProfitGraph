@@ -651,6 +651,113 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scanner/{venue}/backtests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    venue: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanBacktestListItemResponse"][];
+                        "application/json": components["schemas"]["ScanBacktestListItemResponse"][];
+                        "text/json": components["schemas"]["ScanBacktestListItemResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    venue: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ScanPresetRequest"];
+                    "text/json": components["schemas"]["ScanPresetRequest"];
+                    "application/*+json": components["schemas"]["ScanPresetRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanBacktestResponse"];
+                        "application/json": components["schemas"]["ScanBacktestResponse"];
+                        "text/json": components["schemas"]["ScanBacktestResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scanner/backtests/{backtestId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    backtestId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanBacktestResponse"];
+                        "application/json": components["schemas"]["ScanBacktestResponse"];
+                        "text/json": components["schemas"]["ScanBacktestResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scanner/{venue}/presets": {
         parameters: {
             query?: never;
@@ -4811,6 +4918,48 @@ export interface components {
             /** @default false */
             confirmLiveImpact: boolean;
         };
+        ScanBacktestListItemResponse: {
+            /** Format: uuid */
+            id: string;
+            presetName: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** Format: uuid */
+            jobId: string;
+            jobStatus: null | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            completedAt: null | string;
+            /** Format: int32 */
+            signals: null | number;
+        };
+        ScanBacktestResponse: {
+            /** Format: uuid */
+            id: string;
+            venue: string;
+            presetName: string;
+            conditions: components["schemas"]["ScanConditionResponse"][];
+            hideStale: boolean;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** Format: uuid */
+            jobId: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            completedAt: null | string;
+            /** Format: int32 */
+            pairs: null | number;
+            failedPairs: null | string[];
+            summary: null | components["schemas"]["ScanStudySummaryResponse"];
+            signals: null | components["schemas"]["ScanSignalResponse"][];
+            signalsTruncated: boolean;
+        };
         ScanCandlesResponse: {
             venue: string;
             symbol: string;
@@ -4835,6 +4984,13 @@ export interface components {
             minimum: null | string;
             maximum: null | string;
         };
+        ScanOutcomeSummaryResponse: {
+            /** Format: int32 */
+            count: number;
+            risingShare: null | string;
+            mean: null | string;
+            median: null | string;
+        };
         ScanPresetAlertsRequest: {
             enabled: boolean;
         };
@@ -4856,6 +5012,19 @@ export interface components {
             hideStale: boolean;
             builtIn: boolean;
             alertsEnabled: boolean;
+        };
+        ScanSignalResponse: {
+            symbol: string;
+            /** Format: date-time */
+            at: string;
+            entryPrice: null | string;
+            metrics: components["schemas"]["ScanSnapshotRowResponse"];
+            change15m: null | string;
+            change1h: null | string;
+            change4h: null | string;
+            change24h: null | string;
+            maxRise24h: null | string;
+            maxDrop24h: null | string;
         };
         ScanSnapshotResponse: {
             venue: string;
@@ -4885,6 +5054,16 @@ export interface components {
             listingAgeDays: null | number;
             stale: boolean;
             incomplete: boolean;
+        };
+        ScanStudySummaryResponse: {
+            /** Format: int32 */
+            signals: number;
+            change15m: components["schemas"]["ScanOutcomeSummaryResponse"];
+            change1h: components["schemas"]["ScanOutcomeSummaryResponse"];
+            change4h: components["schemas"]["ScanOutcomeSummaryResponse"];
+            change24h: components["schemas"]["ScanOutcomeSummaryResponse"];
+            maxRise24h: components["schemas"]["ScanOutcomeSummaryResponse"];
+            maxDrop24h: components["schemas"]["ScanOutcomeSummaryResponse"];
         };
         ScanVenueResponse: {
             venue: string;

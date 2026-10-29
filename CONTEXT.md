@@ -241,6 +241,11 @@ Built-in presets are read-only and can be copied.
 A Telegram message about pairs that entered a saved scanner preset's result since the previous snapshot, at most once an hour per
 pair and preset. Sent only while the preset's alerts are on; the «Отключить» button in the message switches them off.
 
+### Scanner Backtest
+
+A replay of a preset's conditions over the last 30 days of every pair's minutes that lists the moments pairs entered its result
+and what the price did 15 minutes, 1 hour, 4 hours and 24 hours later. It tests a preset; it runs no strategy.
+
 ### Screener Robot
 
 A later product, not designed yet: one strategy cloned onto every instrument of a list, with a shared deposit and a shared limit

@@ -243,6 +243,15 @@ const scanPairRoute = createRoute({
   component: lazyRouteComponent(() => import('@/pages/scanner/ScanPairPage'), 'ScanPairPage'),
 });
 
+const scanBacktestRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/scanner/backtests/$backtestId',
+  component: lazyRouteComponent(
+    () => import('@/pages/scanner/ScanBacktestPage'),
+    'ScanBacktestPage',
+  ),
+});
+
 const profileRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/profile',
@@ -277,6 +286,7 @@ const routeTree = rootRoute.addChildren([
       credentialsRoute,
       scannerRoute,
       scanPairRoute,
+      scanBacktestRoute,
       profileRoute,
     ]),
     strategyEditorRoute,

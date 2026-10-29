@@ -186,4 +186,93 @@ describe('scanner page', () => {
     expect(await screen.findByRole('checkbox', { name: 'Алерты в Telegram' })).toBeChecked();
     expect(await screen.findByText(/Чат Telegram не привязан/)).toBeInTheDocument();
   });
+
+  it('starts a backtest of the preset being edited and shows its result', async () => {
+    const outcome = (count: number, share: string | null, mean: string | null) => ({
+      count,
+      risingShare: share,
+      mean,
+      median: mean,
+    });
+    const completed = {
+      id: 'b1',
+      venue: 'bybit',
+      presetName: 'Импульс (копия)',
+      conditions: [{ metric: 'Change1h', minimum: '3', maximum: null }],
+      hideStale: true,
+      from: '2026-09-29T10:00:00Z',
+      to: '2026-10-29T10:00:00Z',
+      jobId: 'j1',
+      createdAt: '2026-10-29T10:00:00Z',
+      completedAt: '2026-10-29T10:20:00Z',
+      pairs: 388,
+      failedPairs: ['BADUSDT'],
+      summary: {
+        signals: 3,
+        change15m: outcome(3, '0.6666666666666666666666666667', '1.25'),
+        change1h: outcome(3, '0.3333333333333333333333333333', '-0.5'),
+        change4h: outcome(2, '0.5', '0'),
+        change24h: outcome(0, null, null),
+        maxRise24h: outcome(0, null, null),
+        maxDrop24h: outcome(0, null, null),
+      },
+      signals: [
+        {
+          symbol: 'HYPEUSDT',
+          at: '2026-10-28T11:46:00Z',
+          entryPrice: '87.439',
+          metrics: { ...emptyMetrics, symbol: 'HYPEUSDT' },
+          change15m: '1.2345',
+          change1h: '-0.5',
+          change4h: null,
+          change24h: null,
+          maxRise24h: null,
+          maxDrop24h: null,
+        },
+      ],
+      signalsTruncated: false,
+    };
+    const requests = fakeApi({
+      'GET /api/auth/me': () => json(user),
+      'GET /api/scanner/venues': () => json([{ venue: 'bybit', name: 'Bybit' }]),
+      'GET /api/scanner/bybit/presets': () => json([impulse]),
+      'GET /api/scanner/bybit/snapshot': () => json(snapshot([])),
+      'GET /api/scanner/bybit/backtests': () => json([]),
+      'POST /api/scanner/bybit/backtests': () =>
+        json(
+          {
+            ...completed,
+            completedAt: null,
+            summary: null,
+            signals: null,
+            pairs: null,
+            failedPairs: null,
+          },
+          202,
+        ),
+      'GET /api/scanner/backtests/b1': () => json(completed),
+    });
+
+    renderApp('/scanner');
+
+    // The built-in preset fills the editor once it loads.
+    await screen.findByRole('textbox', { name: 'От' });
+    await userEvent.click(screen.getByRole('button', { name: 'Проверить на истории (30 дней)' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Проверка пресета «Импульс (копия)»' }),
+    ).toBeInTheDocument();
+    const sent = await requests.find((request) => request.method === 'POST')!.json();
+    expect(sent).toMatchObject({
+      name: 'Импульс (копия)',
+      conditions: [{ metric: 'Change1h', minimum: '3', maximum: null }],
+    });
+    expect(await screen.findByText('Сигналов: 3')).toBeInTheDocument();
+    const summary = screen.getAllByRole('table')[0]!;
+    const quarterHour = within(summary).getByRole('row', { name: /Через 15 мин/ });
+    expect(within(quarterHour).getByText('67%')).toBeInTheDocument();
+    expect(within(quarterHour).getAllByText('1.25%')).toHaveLength(2);
+    expect(screen.getByText(/История не загрузилась у 1: BADUSDT/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'HYPEUSDT' })).toBeInTheDocument();
+  });
 });

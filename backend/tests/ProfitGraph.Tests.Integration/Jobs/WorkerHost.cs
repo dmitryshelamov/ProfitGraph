@@ -13,11 +13,14 @@ namespace ProfitGraph.Tests.Integration.Jobs;
 
 /// <summary>
 ///     The Worker's job runner and run compaction, hosted in the test process against this run's database with the test kind of work.
-///     Start the API factory first: it applies the migrations.
+///     Start the API factory first: it applies the migrations. A test may add or replace services, such as a venue's scan source.
 /// </summary>
 public static class WorkerHost
 {
-    public static IHost Create(TimeSpan? pollingInterval = null, IReadOnlyDictionary<string, string?>? settings = null)
+    public static IHost Create(
+        TimeSpan? pollingInterval = null,
+        IReadOnlyDictionary<string, string?>? settings = null,
+        Action<IServiceCollection>? services = null)
     {
         HostApplicationBuilder builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { EnvironmentName = "Testing" });
         builder.Configuration.AddInMemoryCollection(
@@ -38,6 +41,7 @@ public static class WorkerHost
         builder.Services.AddTestJob();
         builder.Services.AddTestHistory();
         builder.Services.AddBacktestCompaction();
+        services?.Invoke(builder.Services);
 
         return builder.Build();
     }
