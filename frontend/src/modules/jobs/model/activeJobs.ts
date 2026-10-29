@@ -12,6 +12,7 @@ const kindLabels: Record<string, string> = {
   backtest: 'Прогон',
   optimization: 'Оптимизация',
   historical_download: 'Загрузка истории',
+  scan_backtest: 'Проверка пресета',
 };
 
 export function jobLaneLabel(lane: string): string {

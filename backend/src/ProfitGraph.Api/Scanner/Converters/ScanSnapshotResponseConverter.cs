@@ -15,7 +15,7 @@ internal static class ScanSnapshotResponseConverter
             [.. snapshot.Rows.Select(ToResponse)]);
     }
 
-    private static ScanSnapshotRowResponse ToResponse(ScanSnapshotRowInternal row)
+    internal static ScanSnapshotRowResponse ToResponse(this ScanSnapshotRowInternal row)
     {
         ScanMetrics metrics = row.Metrics;
 
@@ -42,7 +42,7 @@ internal static class ScanSnapshotResponseConverter
             row.Incomplete);
     }
 
-    private static string? Text(decimal? value)
+    internal static string? Text(decimal? value)
     {
         return value is { } number ? ExactGraphNumberParser.Format(number) : null;
     }

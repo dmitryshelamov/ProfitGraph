@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 
 import {
@@ -12,16 +13,19 @@ import {
   PresetAlerts,
   type PresetDraft,
   PresetEditor,
+  ScanBacktestList,
   scannerKeys,
   ScannerTable,
   type ScanPreset,
   scanPresetsQuery,
   scanSnapshotQuery,
   scanVenuesQuery,
+  startScanBacktest,
   updateScanPreset,
   useScanSnapshotUpdates,
 } from '@/modules/scanner';
 import { ApiErrorMessage } from '@/shared/ui/ApiErrorMessage';
+import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
 import { DateTime } from '@/shared/ui/DateTime';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -75,6 +79,13 @@ export function ScannerPage() {
       setSelected(presetKey(preset));
       setDraft(draftOf(preset));
     },
+  });
+
+  const navigate = useNavigate();
+  const backtest = useMutation({
+    mutationFn: () => startScanBacktest(current!, draftInput(view)),
+    onSuccess: (started) =>
+      navigate({ to: '/scanner/backtests/$backtestId', params: { backtestId: started.id } }),
   });
 
   const remove = useMutation({
@@ -194,6 +205,21 @@ export function ScannerPage() {
               saving={save.isPending || remove.isPending}
               problem={problem}
             />
+            <div className="space-y-2 border-t border-line pt-3">
+              <Button
+                disabled={backtest.isPending || problem !== null}
+                onClick={() => backtest.mutate()}
+              >
+                {backtest.isPending ? 'Запуск…' : 'Проверить на истории (30 дней)'}
+              </Button>
+              <p className="text-xs text-muted">
+                Что было с парами после входа в результат пресета: через 15 мин, 1 ч, 4 ч и 24 ч.
+              </p>
+              {backtest.isError && (
+                <ApiErrorMessage error={backtest.error} fallback="Не удалось запустить проверку." />
+              )}
+              {current && <ScanBacktestList venue={current} />}
+            </div>
             <div className="border-t border-line pt-3">
               <PresetAlerts
                 preset={presets.data?.find(

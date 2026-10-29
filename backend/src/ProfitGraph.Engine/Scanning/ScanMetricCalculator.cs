@@ -235,7 +235,7 @@ public static class ScanMetricCalculator
         return window;
     }
 
-    private static void Validate(IReadOnlyList<ScanCandle> candles, Timeframe timeframe, string name)
+    internal static void Validate(IReadOnlyList<ScanCandle> candles, Timeframe timeframe, string name)
     {
         for (var i = 0; i < candles.Count; i++)
         {

@@ -153,16 +153,31 @@ to BTC and cross-venue gaps are out of scope.
      metric, rounded as on the page. It is skipped when older than 15 minutes. The «Отключить» button (`scanoff:{presetId}`)
      switches the preset's alerts off for the chat's own user only and removes the button.
 
-### 6. Batch backtest (step 3)
+### 6. Preset backtest (step 3)
 
-From the table or a preset's result the user picks pairs and runs one saved strategy version on each with the same period,
-timeframe and capital. Missing history is downloaded by the ordinary download jobs, each pair is an ordinary deterministic
-backtest run, and the batch shows overall progress and a ranking of its runs that can go to comparison. Its own details
-(limits on pairs per batch, the ranking objective, what a failed pair does to the batch) are decided before step 3 begins.
+1. **What it answers** (owner, 2026-10-29): what the price did after a preset's signals, with no strategy. Running a saved
+   strategy on the pairs a preset finds is left for later; the screener robot (a scenario that waits for a pullback and confirms an
+   entry) builds on the rules this backtest proves.
+2. **Signal.** The preset's conditions are checked at the end of every minute of the last 30 days (owner) on every pair of the
+   venue's current universe; a pair signals when it enters the result, at most once an hour, as the alerts do, and the first minute
+   only records the result. Conditions on the spread are not checked: history has no quotes. Pairs delisted before today are not
+   in the universe, so the result leans towards pairs that survived.
+3. **Outcome.** Entry at the next minute's open, no fees; the change to the closes 15 minutes, 1 hour, 4 hours and 24 hours later
+   and the largest rise and drop within 24 hours (to the highs and lows). A horizon the history does not reach yet is empty. The
+   summary gives per outcome the count, the share above zero, the mean and the median; the newest 2,000 signals are stored.
+4. **Replay.** `Engine/Scanning/ScanReplay` computes the live metrics at the end of every minute in constant time (sliding sums,
+   monotonic queues, per-hour medians and hourly NATR and ER), over the last 1,440 minutes and the last 168 hours aggregated from
+   the minutes; tests prove it equal to `ScanMetricCalculator` on the same window. `ScanStudy` finds the signals and outcomes;
+   both are deterministic.
+5. **Job.** `POST /api/scanner/{venue}/backtests` stores a `scan_backtests` row with a copy of the conditions and queues a
+   `scan_backtest` job (ADR 0011). The Worker reads each pair's minutes of the period and the eight days before it (the longest
+   window) through the scanner's REST budget, eight pairs at a time, replays them and keeps nothing else: about 22,000 requests, 15
+   minutes at the Worker's 25 requests a second in production. History is not cached, so each backtest reads it again. A pair
+   whose history cannot be read is listed as failed; a REST pause after a ban fails the job.
 
 ### 7. Order of work
 
-Three steps, each useful and checked on its own (owner): the live table, then alerts, then the batch backtest. See
+Three steps, each useful and checked on its own (owner): the live table, then alerts, then the preset backtest. See
 [roadmap](../roadmap.md#market-scanner).
 
 ## Alternatives
@@ -188,5 +203,5 @@ Three steps, each useful and checked on its own (owner): the live table, then al
 
 ## Open questions
 
-- The default thresholds of the two built-in presets.
-- The batch backtest details listed in section 6.
+- The default thresholds of the two built-in presets; the preset backtest gives the numbers to tune them.
+- A history cache for preset backtests, if running them often makes the 15-minute read a burden.

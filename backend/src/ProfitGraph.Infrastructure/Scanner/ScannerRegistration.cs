@@ -3,9 +3,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 using ProfitGraph.Application.Scanner.Alerts;
+using ProfitGraph.Application.Scanner.Contracts;
 using ProfitGraph.Application.Scanner.Ports;
+using ProfitGraph.Application.Scanner.RunScanBacktest;
 using ProfitGraph.Domain.Scanner;
 using ProfitGraph.Infrastructure.Common;
+using ProfitGraph.Infrastructure.Jobs;
 using ProfitGraph.Infrastructure.Scanner.Repositories;
 
 namespace ProfitGraph.Infrastructure.Scanner;
@@ -25,6 +28,10 @@ public static class ScannerRegistration
         services.AddScoped<IScanPresetRepository, ScanPresetRepository>();
         services.AddScoped<IScanAlertWatchRepository, ScanAlertWatchRepository>();
         services.AddScoped<ScanAlertQueue>();
+        services.AddScoped<ScanBacktestRepository>();
+        services.AddScoped<IScanBacktestRepository>(provider => provider.GetRequiredService<ScanBacktestRepository>());
+        services.AddScoped<IScanBacktestReader>(provider => provider.GetRequiredService<ScanBacktestRepository>());
+        services.AddBackgroundJob<RunScanBacktestCommand, ScanBacktestCompletedInternal>();
         services.AddSingleton<IScanSnapshotNotifications, ScanSnapshotNotifications>();
         services.AddHealthChecks().AddCheck<ScannerHealthCheck>(ScannerHealthCheck.Name, tags: [HealthTags.Ready]);
 

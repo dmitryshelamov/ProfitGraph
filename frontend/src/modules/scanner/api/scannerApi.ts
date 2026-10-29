@@ -3,7 +3,7 @@ import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 import { pageBefore } from '@/modules/market-chart';
 import { api, unwrap } from '@/shared/api/client';
 
-import type { ScanCandlesPage, ScanPreset, ScanPresetInput } from '../model/types';
+import type { ScanBacktest, ScanCandlesPage, ScanPreset, ScanPresetInput } from '../model/types';
 
 export const scannerKeys = {
   venues: ['scanner', 'venues'] as const,
@@ -13,6 +13,8 @@ export const scannerKeys = {
     ['scanner', venue, 'candles', symbol, timeframe] as const,
   newCandles: (venue: string, symbol: string, timeframe: string, from: string) =>
     ['scanner', venue, 'new-candles', symbol, timeframe, from] as const,
+  backtests: (venue: string) => ['scanner', venue, 'backtests'] as const,
+  backtest: (id: string) => ['scanner', 'backtests', id] as const,
 };
 
 export function scanVenuesQuery() {
@@ -122,5 +124,38 @@ export function scanNewCandlesQuery(
     queryKey: scannerKeys.newCandles(venue, symbol, timeframe, from),
     queryFn: async () => scanCandles(venue, symbol, timeframe, from, new Date().toISOString()),
     refetchInterval: 60_000,
+  });
+}
+
+/** Replays the preset's conditions over the venue's last 30 days in a background job. */
+export async function startScanBacktest(
+  venue: string,
+  input: ScanPresetInput,
+): Promise<ScanBacktest> {
+  return unwrap(
+    await api.POST('/api/scanner/{venue}/backtests', { params: { path: { venue } }, body: input }),
+  );
+}
+
+/** The user's ten latest backtests on the venue, newest first. */
+export function scanBacktestsQuery(venue: string) {
+  return queryOptions({
+    queryKey: scannerKeys.backtests(venue),
+    queryFn: async () =>
+      unwrap(await api.GET('/api/scanner/{venue}/backtests', { params: { path: { venue } } })),
+  });
+}
+
+/** A backtest, read again every few seconds until its result is stored. */
+export function scanBacktestQuery(backtestId: string) {
+  return queryOptions({
+    queryKey: scannerKeys.backtest(backtestId),
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/api/scanner/backtests/{backtestId}', {
+          params: { path: { backtestId } },
+        }),
+      ),
+    refetchInterval: (query) => (query.state.data?.completedAt ? false : 3000),
   });
 }
