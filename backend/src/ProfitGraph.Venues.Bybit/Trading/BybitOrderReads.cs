@@ -139,10 +139,10 @@ internal sealed class BybitOrderReads(BybitReadClient read)
     }
 
     /// <summary>
-    ///     The bot's side of a USDT perpetual in hedge mode (ADR 0061): its size, positive for a long and negative for a short, or
-    ///     null when the symbol is in one-way mode. An unreadable answer throws.
+    ///     The USDT perpetual's position (ADR 0061): its mode, the bot's side in hedge mode and the net position in one-way mode. An
+    ///     unreadable answer throws.
     /// </summary>
-    public async Task<decimal?> HedgePosition(BybitBotContext context, CancellationToken cancellationToken)
+    public async Task<BybitLinearPosition> LinearPosition(BybitBotContext context, CancellationToken cancellationToken)
     {
         BybitRestResult listed = await read.Get(
             context.Credential,
@@ -158,29 +158,86 @@ internal sealed class BybitOrderReads(BybitReadClient read)
         try
         {
             JsonElement[] positions = [.. listed.Body.GetProperty("result").GetProperty("list").EnumerateArray()];
+            JsonElement[] oneWay = [.. positions.Where(position => position.GetProperty("positionIdx").GetInt32() == 0)];
 
-            if (positions.Any(position => position.GetProperty("positionIdx").GetInt32() == 0))
+            if (oneWay.Length > 1 || (oneWay.Length == 1 && positions.Length > 1))
             {
-                return null;
+                throw new BybitOrderUnresolvedException();
             }
 
-            JsonElement[] side = [.. positions.Where(position => position.GetProperty("positionIdx").GetInt32() == context.PositionIndex)];
+            if (oneWay.Length == 1)
+            {
+                decimal net = Size(oneWay[0]) * oneWay[0].GetProperty("side").GetString() switch { "Buy" => 1m, "Sell" => -1m, _ => 0m };
+
+                return new BybitLinearPosition(Hedge: false, Side: 0m, net);
+            }
+
+            JsonElement[] side =
+                [.. positions.Where(position => position.GetProperty("positionIdx").GetInt32() == (context.Direction == PositionDirection.Long ? 1 : 2))];
 
             if (side.Length > 1)
             {
                 throw new BybitOrderUnresolvedException();
             }
 
-            decimal size = side.Length == 0 || side[0].GetProperty("size").GetString() is not { Length: > 0 } text
-                ? 0m
-                : decimal.Parse(text, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture);
+            decimal size = side.Length == 0 ? 0m : Size(side[0]);
 
-            return context.Direction == PositionDirection.Long ? size : -size;
+            return new BybitLinearPosition(Hedge: true, context.Direction == PositionDirection.Long ? size : -size, Net: 0m);
         }
         catch (Exception exception) when (exception is KeyNotFoundException or InvalidOperationException or FormatException)
         {
             throw new BybitOrderUnresolvedException();
         }
+    }
+
+    /// <summary>
+    ///     Whether the symbol has a working order that opens the opposite position of the bot's, the owner's or another bot's: in
+    ///     one-way mode it would net against the bot's entry (ADR 0061). An unreadable answer throws.
+    /// </summary>
+    public async Task<bool> OppositeEntryWorks(BybitBotContext context, CancellationToken cancellationToken)
+    {
+        string opposite = context.Direction == PositionDirection.Long ? "Sell" : "Buy";
+        string symbol = Uri.EscapeDataString(context.Symbol);
+        var cursor = string.Empty;
+        var cursors = new HashSet<string>(StringComparer.Ordinal);
+
+        do
+        {
+            string query = $"category=linear&symbol={symbol}&openOnly=0&limit=50" + (cursor.Length == 0 ? string.Empty : $"&cursor={Uri.EscapeDataString(cursor)}");
+            BybitRestResult listed = await read.Get(context.Credential, "/v5/order/realtime", query, cancellationToken);
+
+            if (listed.Outcome != BybitRestOutcome.Accepted)
+            {
+                throw new BybitOrderUnresolvedException();
+            }
+
+            try
+            {
+                JsonElement result = listed.Body.GetProperty("result");
+
+                if (result.GetProperty("list")
+                    .EnumerateArray()
+                    .Any(order => order.GetProperty("side").GetString() == opposite &&
+                        !(order.TryGetProperty("reduceOnly", out JsonElement reduce) && reduce.GetBoolean())))
+                {
+                    return true;
+                }
+
+                cursor = result.TryGetProperty("nextPageCursor", out JsonElement next) ? next.GetString() ?? string.Empty : string.Empty;
+            }
+            catch (Exception exception) when (exception is KeyNotFoundException or InvalidOperationException)
+            {
+                throw new BybitOrderUnresolvedException();
+            }
+
+            if (cursor.Length > 0 && !cursors.Add(cursor))
+            {
+                throw new BybitOrderUnresolvedException();
+            }
+        }
+        while (cursor.Length > 0);
+
+        return false;
     }
 
     private async Task<BybitSpotOrder?> Find(BybitBotContext context, string path, string clientOrderId, CancellationToken cancellationToken)
@@ -257,6 +314,13 @@ internal sealed class BybitOrderReads(BybitReadClient read)
         while (cursor.Length > 0);
 
         return ids;
+    }
+
+    private static decimal Size(JsonElement position)
+    {
+        return position.GetProperty("size").GetString() is { Length: > 0 } text
+            ? decimal.Parse(text, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture)
+            : 0m;
     }
 
     internal static bool IsFunding(JsonElement item)

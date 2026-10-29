@@ -171,3 +171,17 @@ lets each be edited on its own; a direction parameter would put a branch into ev
 - Bybit's linear fee can be a rebate below zero; it is counted as no fee.
 - Not yet checked on the real venue: the position, leverage and permission answers follow Bybit's documentation and are tested
   against the mock exchange only.
+
+## Amendment: hedge and one-way mode (2026-10-30)
+
+The owner asked to trade in both modes ("сделай фикс что можем в обоих модах работать"): the account holds a manual one-way position,
+so it cannot switch to hedge mode now. The gateway reads the symbol's mode from `/v5/position/list` before each order and no longer
+stops a bot in one-way mode (`VenuePositionMode` stays for other cases):
+
+- **Hedge mode** is unchanged: long orders on `positionIdx=1`, short orders on `positionIdx=2`, exits reduce-only.
+- **One-way mode**: every order on `positionIdx=0`, exits reduce-only. An entry is refused (`BrokerRejected`) while the symbol holds
+  a net position of the other direction or works an order that would open one (the owner's, another bot's or a trade card's), since
+  the entry would close it instead of opening the bot's position. Long and short trades of one pair therefore cannot both be open;
+  two trades of one direction can.
+- The absence proof compares the bot's side in hedge mode and the net position in one-way mode.
+

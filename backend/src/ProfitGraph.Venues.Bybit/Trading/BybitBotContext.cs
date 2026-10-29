@@ -18,9 +18,14 @@ internal sealed record BybitBotContext(BotId BotId, string Symbol, InstrumentRul
     public decimal Leverage { get; init; } = 1m;
 
     /// <summary>
-    ///     The hedge-mode side of the bot's position: 1 for a long, 2 for a short.
+    ///     Whether the USDT perpetual is in hedge mode; the gateway reads the symbol's mode before each order (ADR 0061).
     /// </summary>
-    public int PositionIndex => Direction == PositionDirection.Long ? 1 : 2;
+    public bool Hedge { get; init; } = true;
+
+    /// <summary>
+    ///     The position index of the bot's orders: in hedge mode 1 for a long and 2 for a short, in one-way mode 0.
+    /// </summary>
+    public int PositionIndex => !Hedge ? 0 : Direction == PositionDirection.Long ? 1 : 2;
 
     /// <summary>
     ///     Whether an order of the side only closes the bot's position.
