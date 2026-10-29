@@ -62,6 +62,6 @@ internal sealed record BybitSpotOrder(
     {
         string? text = item.GetProperty(name).GetString();
 
-        return string.IsNullOrEmpty(text) ? 0m : decimal.Parse(text, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture);
+        return string.IsNullOrEmpty(text) ? 0m : decimal.Parse(text, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
     }
 }

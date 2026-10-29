@@ -21,7 +21,15 @@ cd "$home"
 export PROFITGRAPH_VERSION="$version"
 
 echo "Pulling $version"
-docker compose pull --quiet postgres api worker worker-scanner web
+docker compose pull --quiet api worker worker-scanner web
+
+# PostgreSQL's tag does not change between versions, and Docker Hub's token service is not always reachable from the host:
+# a present image is kept when the pull fails, a missing one still fails the deployment.
+if ! docker compose pull --quiet postgres; then
+    docker image inspect "$(docker compose config --images postgres)" > /dev/null || exit 1
+    echo "Docker Hub is unreachable; keeping the present PostgreSQL image." >&2
+fi
+
 docker compose --profile migrate pull --quiet migrate
 
 echo "Applying migrations"

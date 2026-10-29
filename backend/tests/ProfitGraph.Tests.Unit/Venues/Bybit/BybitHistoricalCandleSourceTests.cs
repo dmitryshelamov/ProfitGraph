@@ -94,6 +94,17 @@ public sealed class BybitHistoricalCandleSourceTests
         candles.Single().Volume.ShouldBe(1m);
     }
 
+    [Test]
+    public async Task APriceInExponentNotationIsReadExactly()
+    {
+        string[] row = [From.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture), "9.513e-05", "9.533E-5", "9.483e-05", "9.505e-05", "1045500", "99.57"];
+        using BybitHistoricalCandleSource source = Source(new BybitHttpStub(_ => Response([row])));
+
+        Candle candle = (await source.Get(Symbol, Hour, From, From.AddHours(1), CancellationToken.None)).Candles.Single();
+
+        (candle.Open, candle.High, candle.Low, candle.Close).ShouldBe((0.00009513m, 0.00009533m, 0.00009483m, 0.00009505m));
+    }
+
     [TestCase("OTHER", "spot")]
     [TestCase("BTCUSDT", "linear")]
     public async Task DifferentMarketOrSymbol_IsRejected(string symbol, string category)

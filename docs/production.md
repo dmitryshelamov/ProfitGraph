@@ -23,6 +23,8 @@ How ProfitGraph runs in production and how to deploy it ([ADR 0053](adr/0053-pro
 3. The `deploy` job, on the runner of `192.168.8.142`, copies the compose file and `deploy.sh` to
    `~/profitgraph/release` on the host over SSH, signs the host in to GHCR for the run, runs
    `deploy.sh <version>` there and passes once `/api/health/ready` reports `Healthy`.
+   The host does not always reach Docker Hub's token service (`auth.docker.io`); `deploy.sh` then keeps the PostgreSQL image it
+   has, whose tag never changes, and fails only when the image is missing.
 
 Redeploy or roll back: **Actions → Production → Run workflow** with the version, for example `1.0.42`. An empty version
 builds and deploys the current `main`. A rollback does not undo migrations; roll back only to a version that works

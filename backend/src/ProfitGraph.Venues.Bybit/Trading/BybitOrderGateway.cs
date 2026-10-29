@@ -285,6 +285,7 @@ internal sealed class BybitOrderGateway(
             return ticker.Outcome == BybitRestOutcome.Accepted &&
                 decimal.Parse(
                     ticker.Body.GetProperty("result").GetProperty("list")[0].GetProperty("lastPrice").GetString()!,
+                    NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent,
                     CultureInfo.InvariantCulture) is > 0m and var price
                     ? price
                     : throw new BybitOrderUnresolvedException();

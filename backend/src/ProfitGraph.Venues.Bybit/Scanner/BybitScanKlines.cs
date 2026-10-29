@@ -70,7 +70,7 @@ internal static class BybitScanKlines
     {
         string? text = row.TryGetProperty(name, out JsonElement value) ? value.GetString() : null;
 
-        return decimal.TryParse(text, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal parsed)
+        return decimal.TryParse(text, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture, out decimal parsed)
             ? parsed
             : throw new InvalidDataException("A scanner kline decimal is missing or invalid.");
     }
