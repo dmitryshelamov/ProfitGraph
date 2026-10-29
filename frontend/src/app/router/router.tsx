@@ -19,6 +19,64 @@ export interface RouterContext {
   readonly queryClient: QueryClient;
 }
 
+/**
+ * The runs page's tab and filters in the address, so they survive a reload and can be shared. Values the page does not
+ * know are dropped; absent values filter nothing.
+ */
+export interface BacktestsSearch {
+  tab?: 'optimizations';
+  q?: string;
+  strategy?: string;
+  venue?: string;
+  timeframe?: string;
+  status?: 'failed' | 'cancelled';
+  quote?: string;
+  origin?: 'manual' | 'optimization';
+  from?: string;
+  to?: string;
+  minReturn?: string;
+  maxDrawdown?: string;
+  sort?: 'return' | 'pnl' | 'drawdown' | 'created';
+  order?: 'asc' | 'desc';
+  state?: 'active' | 'completed' | 'failed' | 'cancelled';
+  method?: string;
+}
+
+const searchChoices: { [Key in keyof BacktestsSearch]-?: readonly string[] | null } = {
+  tab: ['optimizations'],
+  q: null,
+  strategy: null,
+  venue: null,
+  timeframe: null,
+  status: ['failed', 'cancelled'],
+  quote: null,
+  origin: ['manual', 'optimization'],
+  from: null,
+  to: null,
+  minReturn: null,
+  maxDrawdown: null,
+  sort: ['return', 'pnl', 'drawdown', 'created'],
+  order: ['asc', 'desc'],
+  state: ['active', 'completed', 'failed', 'cancelled'],
+  method: null,
+};
+
+function backtestsSearch(search: Record<string, unknown>): BacktestsSearch {
+  return Object.fromEntries(
+    Object.entries(searchChoices).flatMap(([key, choices]) => {
+      // A typed number arrives parsed from the address; the filters keep it as the text the user typed.
+      const raw = search[key];
+      const value = typeof raw === 'number' && choices === null ? String(raw) : raw;
+
+      return typeof value === 'string' &&
+        value !== '' &&
+        (choices === null || choices.includes(value))
+        ? [[key, value]]
+        : [];
+    }),
+  );
+}
+
 export interface SignInSearch {
   readonly returnTo?: string;
 }
@@ -96,6 +154,7 @@ const backtestSetupRoute = createRoute({
 const backtestsRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/backtests',
+  validateSearch: backtestsSearch,
   component: lazyRouteComponent(() => import('@/pages/backtests/BacktestsPage'), 'BacktestsPage'),
 });
 

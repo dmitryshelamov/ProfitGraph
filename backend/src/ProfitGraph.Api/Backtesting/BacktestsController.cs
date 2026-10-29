@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using MediatR;
 
 using Microsoft.AspNetCore.Mvc;
@@ -12,6 +14,7 @@ using ProfitGraph.Application.Backtesting;
 using ProfitGraph.Application.Backtesting.Contracts;
 using ProfitGraph.Application.Backtesting.GetBacktestChart;
 using ProfitGraph.Application.Backtesting.GetBacktestDiagnostics;
+using ProfitGraph.Application.Backtesting.GetBacktestFacets;
 using ProfitGraph.Application.Backtesting.GetBacktestFills;
 using ProfitGraph.Application.Backtesting.GetBacktestObservations;
 using ProfitGraph.Application.Backtesting.GetBacktestOrders;
@@ -40,9 +43,13 @@ public sealed class BacktestsController(ISender sender) : ControllerBase
     }
 
     /// <summary>
-    ///     The user's completed runs in one quote currency (stage 3 plan, S3-4), sorted by <paramref name="sort" />
-    ///     (<c>return</c>, the default, <c>pnl</c>, <c>drawdown</c> or <c>created</c>) in <paramref name="order" /> (<c>desc</c>
-    ///     by default).
+    ///     The user's finished runs (stage 3 plan, S3-4): by default the completed ones in one quote currency, sorted by
+    ///     <paramref name="sort" /> (<c>return</c>, the default, <c>pnl</c>, <c>drawdown</c> or <c>created</c>) in
+    ///     <paramref name="order" /> (<c>desc</c> by default). <paramref name="status" /> <c>failed</c> or <c>cancelled</c>
+    ///     lists runs without a result, by start time; <paramref name="search" /> matches a part of the symbol or the strategy
+    ///     name; <paramref name="origin" /> is <c>manual</c> or <c>optimization</c>; <paramref name="from" /> and
+    ///     <paramref name="to" /> bound the start time; <paramref name="minReturn" /> and <paramref name="maxDrawdown" /> bound
+    ///     the full-period result in percent.
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<BacktestSummaryPageResponse>> Ranking(
@@ -53,7 +60,16 @@ public sealed class BacktestsController(ISender sender) : ControllerBase
         CancellationToken cancellationToken,
         [FromQuery] int limit = 50,
         [FromQuery] string? sort = null,
-        [FromQuery] string? order = null)
+        [FromQuery] string? order = null,
+        [FromQuery] string? status = null,
+        [FromQuery] Guid? strategyId = null,
+        [FromQuery] string? venue = null,
+        [FromQuery] string? search = null,
+        [FromQuery] string? origin = null,
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null,
+        [FromQuery] string? minReturn = null,
+        [FromQuery] string? maxDrawdown = null)
     {
         BacktestRankingSort column = sort switch
         {
@@ -69,11 +85,31 @@ public sealed class BacktestsController(ISender sender) : ControllerBase
             throw new ApplicationValidationException([new InputError("invalid_order", "Order", "Order asc or desc.")]);
         }
 
-        BacktestSummaryPageInternal page = await sender.Send(
-            new GetBacktestRankingQuery(UserId(), quote ?? string.Empty, symbol, timeframe, after, limit, column, order == "asc"),
-            cancellationToken);
+        var filter = new BacktestRankingFilterInternal(
+            Status(Blank(status)),
+            Blank(quote),
+            strategyId,
+            Blank(venue),
+            Blank(symbol),
+            Blank(search),
+            Blank(timeframe),
+            Origin(Blank(origin)),
+            from,
+            to,
+            Percent(minReturn, "MinReturn"),
+            Percent(maxDrawdown, "MaxDrawdown"));
+        BacktestSummaryPageInternal page = await sender.Send(new GetBacktestRankingQuery(UserId(), filter, after, limit, column, order == "asc"), cancellationToken);
 
         return page.ToResponse();
+    }
+
+    /// <summary>
+    ///     The values the user's finished runs take in each filter of the run list, with the number of runs of each.
+    /// </summary>
+    [HttpGet("facets")]
+    public async Task<ActionResult<BacktestFacetsResponse>> Facets(CancellationToken cancellationToken)
+    {
+        return (await sender.Send(new GetBacktestFacetsQuery(UserId()), cancellationToken)).ToResponse();
     }
 
     [HttpGet("/api/strategies/{strategyId:guid}/backtests")]
@@ -156,5 +192,47 @@ public sealed class BacktestsController(ISender sender) : ControllerBase
     private Guid UserId()
     {
         return AuthenticationSetup.UserId(User) ?? throw new InvalidOperationException("An authorized request has no user identifier.");
+    }
+
+    /// <summary>
+    ///     Completed runs are listed when no status is given.
+    /// </summary>
+    private static BacktestRankingStatus Status(string? status)
+    {
+        return status is null
+            ? BacktestRankingStatus.Completed
+            : BacktestRankingNames.ParseStatus(status)
+            ?? throw new ApplicationValidationException([new InputError("invalid_status", "Status", "Status completed, failed or cancelled.")]);
+    }
+
+    private static BacktestRankingOrigin? Origin(string? origin)
+    {
+        return origin is null
+            ? null
+            : BacktestRankingNames.ParseOrigin(origin)
+            ?? throw new ApplicationValidationException([new InputError("invalid_origin", "Origin", "Origin manual or optimization.")]);
+    }
+
+    /// <summary>
+    ///     A bound in percent, sent as an exact decimal string; an empty one filters nothing.
+    /// </summary>
+    private static decimal? Percent(string? value, string field)
+    {
+        if (Blank(value) is not { } text)
+        {
+            return null;
+        }
+
+        return decimal.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal percent)
+            ? percent
+            : throw new ApplicationValidationException([new InputError("invalid_percent", field, "Give the percent as a decimal number.")]);
+    }
+
+    /// <summary>
+    ///     An empty filter value filters nothing.
+    /// </summary>
+    private static string? Blank(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 }

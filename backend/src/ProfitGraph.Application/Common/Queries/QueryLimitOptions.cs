@@ -15,6 +15,7 @@ public sealed class QueryLimitOptions
     public int BacktestObservations { get; init; } = 100;
     public int OptimizationTrials { get; init; } = 500;
     public int StrategyOptimizations { get; init; } = 100;
+    public int Optimizations { get; init; } = 100;
     public int Candles { get; init; } = 10_000;
     public int Strategies { get; init; } = 500;
 
@@ -30,7 +31,7 @@ public sealed class QueryLimitOptions
         return new[]
         {
             StrategyBacktests, BacktestFills, BacktestOrders, BacktestRanking, BacktestDiagnostics, BacktestObservations, OptimizationTrials,
-            StrategyOptimizations, Candles, Strategies, BotChartCandles, BotChartFills
+            StrategyOptimizations, Optimizations, Candles, Strategies, BotChartCandles, BotChartFills
         }.All(limit => limit > 0);
     }
 }

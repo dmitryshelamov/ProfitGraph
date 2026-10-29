@@ -538,7 +538,37 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: {
+            parameters: {
+                query?: {
+                    after?: string;
+                    limit?: number;
+                    state?: string;
+                    strategyId?: string;
+                    venue?: string;
+                    search?: string;
+                    timeframe?: string;
+                    method?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["OptimizationSummaryPageResponse"];
+                        "application/json": components["schemas"]["OptimizationSummaryPageResponse"];
+                        "text/json": components["schemas"]["OptimizationSummaryPageResponse"];
+                    };
+                };
+            };
+        };
         put?: never;
         post: {
             parameters: {
@@ -1188,6 +1218,43 @@ export interface paths {
                         "text/plain": components["schemas"]["InstrumentRulesResponse"];
                         "application/json": components["schemas"]["InstrumentRulesResponse"];
                         "text/json": components["schemas"]["InstrumentRulesResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ActiveJobsResponse"];
+                        "application/json": components["schemas"]["ActiveJobsResponse"];
+                        "text/json": components["schemas"]["ActiveJobsResponse"];
                     };
                 };
             };
@@ -2341,6 +2408,15 @@ export interface paths {
                     limit?: number;
                     sort?: string;
                     order?: string;
+                    status?: string;
+                    strategyId?: string;
+                    venue?: string;
+                    search?: string;
+                    origin?: string;
+                    from?: string;
+                    to?: string;
+                    minReturn?: string;
+                    maxDrawdown?: string;
                 };
                 header?: never;
                 path?: never;
@@ -2390,6 +2466,43 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backtests/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BacktestFacetsResponse"];
+                        "application/json": components["schemas"]["BacktestFacetsResponse"];
+                        "text/json": components["schemas"]["BacktestFacetsResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3385,6 +3498,40 @@ export interface components {
             /** Format: date-time */
             nextCheckAt: null | string;
         };
+        ActiveJobResponse: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            lane: string;
+            status: string;
+            /** Format: int64 */
+            completed: number;
+            /** Format: int64 */
+            total: null | number;
+            cancelRequested: boolean;
+            pauseRequested: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            startedAt: null | string;
+            /** Format: int32 */
+            queuePosition: null | number;
+            /** Format: uuid */
+            strategyId: null | string;
+            strategyName: null | string;
+            /** Format: int32 */
+            strategyVersion: null | number;
+            venue: null | string;
+            symbol: null | string;
+            timeframe: null | string;
+            method: null | string;
+            /** Format: uuid */
+            optimizationId: null | string;
+        };
+        ActiveJobsResponse: {
+            jobs: components["schemas"]["ActiveJobResponse"][];
+            workerOnline: boolean;
+        };
         AuthenticatorCodeResponse: {
             code: string;
             /** Format: date-time */
@@ -3476,6 +3623,19 @@ export interface components {
             candleIndex: null | number;
             tag: null | string;
             rejectionReason: null | string;
+        };
+        BacktestFacetResponse: {
+            value: string;
+            /** Format: int32 */
+            count: number;
+        };
+        BacktestFacetsResponse: {
+            quotes: components["schemas"]["BacktestFacetResponse"][];
+            statuses: components["schemas"]["BacktestFacetResponse"][];
+            origins: components["schemas"]["BacktestFacetResponse"][];
+            venues: components["schemas"]["BacktestFacetResponse"][];
+            timeframes: components["schemas"]["BacktestFacetResponse"][];
+            strategies: components["schemas"]["BacktestStrategyFacetResponse"][];
         };
         BacktestFillResponse: {
             /** Format: int64 */
@@ -3629,6 +3789,13 @@ export interface components {
             /** Format: int32 */
             chartBucketSize: null | number;
         };
+        BacktestStrategyFacetResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: int32 */
+            count: number;
+        };
         BacktestSummaryPageResponse: {
             items: components["schemas"]["BacktestSummaryResponse"][];
             /** Format: uuid */
@@ -3653,6 +3820,8 @@ export interface components {
             totalPnl: null | string;
             returnPercent: null | string;
             maxDrawdownPercent: null | string;
+            /** Format: uuid */
+            optimizationId: null | string;
         };
         BlockCatalogEntryResponse: {
             key: string;
@@ -4195,6 +4364,9 @@ export interface components {
         OptimizationSummaryResponse: {
             /** Format: uuid */
             id: string;
+            /** Format: uuid */
+            strategyId: string;
+            strategyName: string;
             /** Format: int32 */
             strategyVersion: number;
             /** Format: date-time */
@@ -4206,6 +4378,10 @@ export interface components {
             status: string;
             /** Format: int32 */
             executedTrials: number;
+            /** Format: int32 */
+            plannedTrials: null | number;
+            /** Format: int32 */
+            windowCount: null | number;
             bestObjective: null | string;
         };
         OptimizationTrialPageResponse: {

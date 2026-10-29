@@ -25,4 +25,32 @@ public static class BackgroundJobResponseConverter
             job.Result is null ? null : JsonSerializer.SerializeToElement(job.Result, job.Result.GetType(), ResultOptions),
             job.Failure is null ? null : new BackgroundJobFailureResponse(job.Failure.Code, job.Failure.Message));
     }
+
+    public static ActiveJobsResponse ToResponse(this ActiveJobsInternal active)
+    {
+        return new ActiveJobsResponse(
+            [
+                .. active.Jobs.Select(job => new ActiveJobResponse(
+                    job.Id,
+                    job.Kind,
+                    job.Lane,
+                    job.Status.ToString(),
+                    job.Completed,
+                    job.Total,
+                    job.CancelRequested,
+                    job.PauseRequested,
+                    job.CreatedAt,
+                    job.StartedAt,
+                    job.QueuePosition,
+                    job.StrategyId,
+                    job.StrategyName,
+                    job.StrategyVersion,
+                    job.Venue,
+                    job.Symbol,
+                    job.Timeframe,
+                    job.Method,
+                    job.OptimizationId))
+            ],
+            active.WorkerOnline);
+    }
 }

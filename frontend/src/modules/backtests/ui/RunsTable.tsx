@@ -97,6 +97,15 @@ export function RunsTable({
               {showStrategy && (
                 <td className="py-2 pr-4">
                   {run.strategyName} <span className="text-muted">v{run.strategyVersion}</span>
+                  {run.optimizationId && (
+                    <Link
+                      to="/optimizations/$optimizationId"
+                      params={{ optimizationId: run.optimizationId }}
+                      className="ml-2 rounded border border-line-strong px-1.5 py-0.5 text-xs text-text-secondary hover:text-text"
+                    >
+                      из оптимизации
+                    </Link>
+                  )}
                 </td>
               )}
               <td className="py-2 pr-4 font-mono">{run.symbol}</td>

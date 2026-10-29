@@ -156,6 +156,15 @@ Corrections to [ADR 0017](adr/0017-bybit-spot-order-gateway.md) and [ADR 0023](a
 |---|---|---|---|
 | 1. Account card | `GET /api/bots/{id}/account` from stored data only; `IVenueAccountIdentityReader` for Bybit (`/v5/user/query-api`) and T-Invest (`GetAccounts`), cached daily in `account_identities` by the Worker; `BotAccountCard` first on the bot page with details behind a disclosure | Handler, endpoint and Worker tests pass against the test venue, the readers against the mock Bybit exchange and the mock Invest API, and the card in the app tests | Done on mocks; the real Bybit and T-Invest answers are not checked |
 
+## Runs, optimizations and the queue
+
+The runs page tells what the Worker is doing and finds finished work: what runs and waits in each lane, optimizations
+of every strategy, and filters beyond the quote currency.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Queue and lists | `GET /api/jobs/active` with lanes, queue places and the Worker's heartbeat; `GET /api/optimizations` with state, strategy, venue, timeframe, method and search; the run list filtered by status, strategy, venue, timeframe, search, origin, period and result bounds, with `GET /api/backtests/facets`; the header indicator, the «В работе» panel, the optimizations tab and filters kept in the address | Integration tests on the test database cover queue places across users, the heartbeat, every filter and the counts; app tests cover the panel, the indicator, the filters and the address | Done |
+
 ## Telegram notifications
 
 [ADR 0042](adr/0042-telegram-notifications.md): a delivery queue fed by outbox handlers, a separate delivery host with

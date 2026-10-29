@@ -12,7 +12,22 @@ export const optimizationKeys = {
   windows: (id: string) => ['optimizations', id, 'windows'] as const,
   strategyOptimizations: (strategyId: string) =>
     ['strategies', strategyId, 'optimizations'] as const,
+  lists: ['optimizations', 'list'] as const,
+  list: (filters: OptimizationFilters) => ['optimizations', 'list', filters] as const,
 };
+
+/** Where a listed optimization stands; `active` covers queued, running and paused ones. */
+export type OptimizationListState = 'active' | 'completed' | 'failed' | 'cancelled';
+
+/** The optimization list's filters; an absent value filters nothing. */
+export interface OptimizationFilters {
+  state?: OptimizationListState;
+  strategyId?: string;
+  venue?: string;
+  timeframe?: string;
+  search?: string;
+  method?: string;
+}
 
 /** Another user's optimization is a 404 like a missing one; retrying cannot change that. */
 function retryUnlessMissing(count: number, error: Error): boolean {
@@ -95,5 +110,28 @@ export function strategyOptimizationsQuery(strategyId: string) {
           params: { path: { strategyId }, query: { limit: 20 } },
         }),
       ),
+  });
+}
+
+/** The user's optimizations of every strategy that pass the filters, newest first. */
+export function optimizationsQuery(filters: OptimizationFilters) {
+  return infiniteQueryOptions({
+    queryKey: optimizationKeys.list(filters),
+    queryFn: async ({ pageParam }) =>
+      unwrap(
+        await api.GET('/api/optimizations', {
+          params: {
+            query: {
+              ...Object.fromEntries(
+                Object.entries(filters).filter(([, value]) => value !== undefined && value !== ''),
+              ),
+              limit: 50,
+              ...(pageParam ? { after: pageParam } : {}),
+            },
+          },
+        }),
+      ),
+    initialPageParam: '' as string,
+    getNextPageParam: (page) => page.next ?? undefined,
   });
 }

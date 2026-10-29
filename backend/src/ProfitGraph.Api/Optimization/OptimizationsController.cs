@@ -8,15 +8,19 @@ using ProfitGraph.Api.Jobs.Contracts;
 using ProfitGraph.Api.Jobs.Converters;
 using ProfitGraph.Api.Optimization.Contracts;
 using ProfitGraph.Api.Optimization.Converters;
+using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Jobs.Contracts;
+using ProfitGraph.Application.Optimization;
 using ProfitGraph.Application.Optimization.Contracts;
 using ProfitGraph.Application.Optimization.GetOptimizationRun;
+using ProfitGraph.Application.Optimization.GetOptimizations;
 using ProfitGraph.Application.Optimization.GetOptimizationTrial;
 using ProfitGraph.Application.Optimization.GetOptimizationTrials;
 using ProfitGraph.Application.Optimization.GetOptimizationWindows;
 using ProfitGraph.Application.Optimization.GetStrategyOptimizations;
 using ProfitGraph.Application.Optimization.PauseOptimization;
 using ProfitGraph.Application.Optimization.ResumeOptimization;
+using ProfitGraph.Domain.Optimization;
 
 namespace ProfitGraph.Api.Optimization;
 
@@ -57,6 +61,28 @@ public sealed class OptimizationsController(ISender sender) : ControllerBase
         BackgroundJobInternal job = await sender.Send(new ResumeOptimizationCommand(UserId(), id), cancellationToken);
 
         return AcceptedAtAction(nameof(JobsController.Get), "Jobs", new { id = job.Id }, job.ToResponse());
+    }
+
+    /// <summary>
+    ///     The user's optimizations of every strategy, newest first. <paramref name="state" /> is <c>active</c> (queued,
+    ///     running or paused), <c>completed</c>, <c>failed</c> or <c>cancelled</c>; <paramref name="method" /> is a resolved
+    ///     search method; <paramref name="search" /> matches a part of the symbol or the strategy name.
+    /// </summary>
+    [HttpGet]
+    public async Task<ActionResult<OptimizationSummaryPageResponse>> List(
+        [FromQuery] Guid? after,
+        CancellationToken cancellationToken,
+        [FromQuery] int limit = 50,
+        [FromQuery] string? state = null,
+        [FromQuery] Guid? strategyId = null,
+        [FromQuery] string? venue = null,
+        [FromQuery] string? search = null,
+        [FromQuery] string? timeframe = null,
+        [FromQuery] string? method = null)
+    {
+        var filter = new OptimizationListFilterInternal(ListState(Blank(state)), strategyId, Blank(venue), Blank(search), Blank(timeframe), Method(Blank(method)));
+
+        return (await sender.Send(new GetOptimizationsQuery(UserId(), filter, after, limit), cancellationToken)).ToResponse();
     }
 
     [HttpGet("/api/strategies/{strategyId:guid}/optimizations")]
@@ -112,5 +138,36 @@ public sealed class OptimizationsController(ISender sender) : ControllerBase
     private Guid UserId()
     {
         return AuthenticationSetup.UserId(User) ?? throw new InvalidOperationException("An authorized request has no user identifier.");
+    }
+
+    /// <summary>
+    ///     An empty filter value filters nothing.
+    /// </summary>
+    private static string? Blank(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static OptimizationListState? ListState(string? state)
+    {
+        return state is null
+            ? null
+            : OptimizationNames.ParseListState(state)
+            ?? throw new ApplicationValidationException([new InputError("invalid_state", "State", "State active, completed, failed or cancelled.")]);
+    }
+
+    /// <summary>
+    ///     A stored optimization has a resolved search method, so <c>auto</c> matches none.
+    /// </summary>
+    private static OptimizationSearchMethod? Method(string? method)
+    {
+        if (method is null)
+        {
+            return null;
+        }
+
+        return method is not OptimizationNames.Auto && OptimizationNames.Methods.Contains(method)
+            ? OptimizationNames.ParseMethod(method)
+            : throw new ApplicationValidationException([new InputError("invalid_method", "Method", "Method grid, random, coarse_to_fine or tpe.")]);
     }
 }

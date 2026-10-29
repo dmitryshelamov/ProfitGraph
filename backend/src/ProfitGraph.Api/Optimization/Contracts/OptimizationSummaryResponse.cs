@@ -2,6 +2,8 @@ namespace ProfitGraph.Api.Optimization.Contracts;
 
 public sealed record OptimizationSummaryResponse(
     Guid Id,
+    Guid StrategyId,
+    string StrategyName,
     int StrategyVersion,
     DateTimeOffset CreatedAt,
     string Venue,
@@ -10,4 +12,6 @@ public sealed record OptimizationSummaryResponse(
     string Method,
     string Status,
     int ExecutedTrials,
+    int? PlannedTrials,
+    int? WindowCount,
     string? BestObjective);

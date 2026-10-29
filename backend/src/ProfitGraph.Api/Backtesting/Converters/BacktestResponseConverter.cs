@@ -205,7 +205,19 @@ public static class BacktestResponseConverter
             summary.QuoteAsset,
             Text(summary.TotalPnl),
             Text(summary.ReturnPercent),
-            Text(summary.MaxDrawdownPercent));
+            Text(summary.MaxDrawdownPercent),
+            summary.OptimizationId);
+    }
+
+    public static BacktestFacetsResponse ToResponse(this BacktestFacetsInternal facets)
+    {
+        return new BacktestFacetsResponse(
+            Facets(facets.Quotes),
+            Facets(facets.Statuses),
+            Facets(facets.Origins),
+            Facets(facets.Venues),
+            Facets(facets.Timeframes),
+            [.. facets.Strategies.Select(strategy => new BacktestStrategyFacetResponse(strategy.Id, strategy.Name, strategy.Count))]);
     }
 
     public static BacktestSummaryPageResponse ToResponse(this BacktestSummaryPageInternal page)
@@ -250,5 +262,10 @@ public static class BacktestResponseConverter
     private static string? Text(decimal? value)
     {
         return value is { } number ? ExactDecimalText.Format(number) : null;
+    }
+
+    private static BacktestFacetResponse[] Facets(IEnumerable<BacktestFacetInternal> values)
+    {
+        return [.. values.Select(value => new BacktestFacetResponse(value.Value, value.Count))];
     }
 }

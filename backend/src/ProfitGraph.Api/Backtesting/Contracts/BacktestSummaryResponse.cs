@@ -14,4 +14,5 @@ public sealed record BacktestSummaryResponse(
     string? QuoteAsset,
     string? TotalPnl,
     string? ReturnPercent,
-    string? MaxDrawdownPercent);
+    string? MaxDrawdownPercent,
+    Guid? OptimizationId);

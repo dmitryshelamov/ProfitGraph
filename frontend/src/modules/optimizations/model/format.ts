@@ -1,9 +1,12 @@
-const methods: Record<string, string> = {
+const methodLabels: Record<string, string> = {
   grid: 'Сетка',
   random: 'Случайный поиск',
   coarse_to_fine: 'От грубой сетки к точной',
   tpe: 'TPE',
 };
+
+/** The search methods a stored optimization can have; `auto` resolves to one of them when it starts. */
+export const searchMethods = ['grid', 'random', 'coarse_to_fine', 'tpe'] as const;
 
 const objectives: Record<string, string> = {
   in_sample_return_percent: 'Доходность, %',
@@ -31,7 +34,7 @@ const windowStatuses: Record<string, string> = {
 };
 
 export function methodLabel(method: string): string {
-  return methods[method] ?? method;
+  return methodLabels[method] ?? method;
 }
 
 export function objectiveLabel(objective: string): string {

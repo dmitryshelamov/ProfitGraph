@@ -16,4 +16,5 @@ internal sealed class BacktestSummaryDb
     public decimal? TotalPnl { get; init; }
     public decimal? ReturnPercent { get; init; }
     public decimal? MaxDrawdownPercent { get; init; }
+    public Guid? OptimizationId { get; init; }
 }

@@ -116,9 +116,7 @@ internal sealed class BacktestReader(NpgsqlConnection connection, PostgresTransa
 
     public Task<BacktestSummaryPageInternal> Ranking(
         UserId ownerId,
-        string quoteAsset,
-        string? symbol,
-        string? timeframe,
+        BacktestRankingFilterInternal filter,
         Guid? after,
         int limit,
         BacktestRankingSort sort,
@@ -135,14 +133,31 @@ internal sealed class BacktestReader(NpgsqlConnection connection, PostgresTransa
         var parameters = new
         {
             OwnerId = ownerId.Value,
-            Quote = quoteAsset,
-            Symbol = symbol,
-            Timeframe = timeframe,
+            Status = BacktestRankingNames.Status(filter.Status),
+            filter.Quote,
+            filter.StrategyId,
+            filter.Venue,
+            filter.Symbol,
+            Search = filter.Search is { } search ? $"%{EscapeLike(search)}%" : null,
+            filter.Timeframe,
+            Origin = filter.Origin is { } origin ? BacktestRankingNames.Origin(origin) : null,
+            From = filter.From?.ToUniversalTime(),
+            To = filter.To?.ToUniversalTime(),
+            MinReturn = filter.MinReturnPercent,
+            MaxDrawdown = filter.MaxDrawdownPercent,
             After = after,
             Take = limit + 1
         };
 
         return Summaries(BacktestReadQueries.Ranking(column, ascending), parameters, limit, cancellationToken);
+    }
+
+    public async Task<BacktestFacetsInternal> Facets(UserId ownerId, CancellationToken cancellationToken)
+    {
+        BacktestFacetDb[] rows =
+            [.. await connection.QueryAsync<BacktestFacetDb>(Command(BacktestReadQueries.Facets, new { OwnerId = ownerId.Value }, cancellationToken))];
+
+        return rows.ToInternal();
     }
 
     public async Task<IReadOnlyDictionary<Guid, BacktestSummaryInternal>> Latest(IReadOnlyCollection<Guid> strategyIds, CancellationToken cancellationToken)
@@ -176,6 +191,14 @@ internal sealed class BacktestReader(NpgsqlConnection connection, PostgresTransa
     private async Task<BacktestStoredFactDb[]> Page(string sql, BacktestRunId id, long after, int limit, CancellationToken cancellationToken)
     {
         return [.. await connection.QueryAsync<BacktestStoredFactDb>(Command(sql, new { RunId = id.Value, After = after, Take = limit + 1 }, cancellationToken))];
+    }
+
+    /// <summary>
+    ///     Escapes the <c>ILIKE</c> wildcards of a typed search so that it matches as plain text.
+    /// </summary>
+    private static string EscapeLike(string text)
+    {
+        return text.Replace(@"\", @"\\", StringComparison.Ordinal).Replace("%", @"\%", StringComparison.Ordinal).Replace("_", @"\_", StringComparison.Ordinal);
     }
 
     private CommandDefinition Command(string sql, object parameters, CancellationToken cancellationToken)

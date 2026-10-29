@@ -86,7 +86,22 @@ internal static class BacktestReadDbConverter
             row.QuoteAsset,
             row.TotalPnl,
             row.ReturnPercent,
-            row.MaxDrawdownPercent);
+            row.MaxDrawdownPercent,
+            row.OptimizationId);
+    }
+
+    public static BacktestFacetsInternal ToInternal(this IReadOnlyCollection<BacktestFacetDb> rows)
+    {
+        return new BacktestFacetsInternal(
+            Values(rows, "quote"),
+            Values(rows, "status"),
+            Values(rows, "origin"),
+            Values(rows, "venue"),
+            Values(rows, "timeframe"),
+            [
+                .. rows.Where(row => row is { Dimension: "strategy", Value: not null })
+                    .Select(row => new BacktestStrategyFacetInternal(Guid.Parse(row.Value!), row.Name!, row.Count))
+            ]);
     }
 
     public static BacktestRunStateInternal ToInternal(this BacktestRunStateDb row)
@@ -99,5 +114,10 @@ internal static class BacktestReadDbConverter
             row.CandleCount,
             row.DiagnosticCount,
             row.ChartBucketSize);
+    }
+
+    private static BacktestFacetInternal[] Values(IEnumerable<BacktestFacetDb> rows, string dimension)
+    {
+        return [.. rows.Where(row => row.Dimension == dimension && row.Value is not null).Select(row => new BacktestFacetInternal(row.Value!, row.Count))];
     }
 }

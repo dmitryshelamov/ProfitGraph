@@ -7,6 +7,7 @@ import type { BackgroundJob } from '../model/types';
 
 export const jobKeys = {
   detail: (id: string) => ['jobs', id] as const,
+  active: ['jobs', 'active'] as const,
 };
 
 /** Polls a job every second until it finishes; a finished job never changes. */
@@ -16,6 +17,18 @@ export function jobQuery(id: string) {
     queryFn: async () => unwrap(await api.GET('/api/jobs/{id}', { params: { path: { id } } })),
     refetchInterval: (query) =>
       query.state.data && isJobFinished(query.state.data) ? false : 1000,
+  });
+}
+
+/**
+ * The user's queued, running and paused jobs with their places in the Worker's lanes, polled every two seconds while
+ * there are any and every ten seconds otherwise.
+ */
+export function activeJobsQuery() {
+  return queryOptions({
+    queryKey: jobKeys.active,
+    queryFn: async () => unwrap(await api.GET('/api/jobs/active')),
+    refetchInterval: (query) => (query.state.data?.jobs.length ? 2000 : 10_000),
   });
 }
 
