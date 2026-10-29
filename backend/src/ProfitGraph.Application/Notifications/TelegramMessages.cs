@@ -55,6 +55,11 @@ public static class TelegramMessages
         [ScanMetric.DistanceToLow24h] = ("От min 24 ч", 2, "%"),
         [ScanMetric.DistanceToHigh7d] = ("До max 7 д", 2, "%"),
         [ScanMetric.DistanceToLow7d] = ("От min 7 д", 2, "%"),
+        [ScanMetric.Resistance] = ("Сопротивление", null, string.Empty),
+        [ScanMetric.Support] = ("Поддержка", null, string.Empty),
+        [ScanMetric.DistanceToResistance] = ("До сопротивления", 2, "%"),
+        [ScanMetric.DistanceToSupport] = ("До поддержки", 2, "%"),
+        [ScanMetric.RewardRisk] = ("R:R", 2, string.Empty),
         [ScanMetric.Spread] = ("Спред", 3, "%"),
         [ScanMetric.ListingAgeDays] = ("Возраст", 0, " дн")
     };

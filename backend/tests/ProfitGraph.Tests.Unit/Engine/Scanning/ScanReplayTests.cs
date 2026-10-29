@@ -40,6 +40,7 @@ public sealed class ScanReplayTests
         replay.At(index: 13_699).DistanceToHigh7d.ShouldNotBeNull();
         replay.At(index: 13_699).VolumeSpike.ShouldNotBeNull();
         replay.At(index: 13_699).Spread.ShouldBeNull();
+        (replay.At(index: 13_699).Support ?? replay.At(index: 13_699).Resistance).ShouldNotBeNull();
     }
 
     [Test]

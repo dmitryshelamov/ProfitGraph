@@ -20,6 +20,11 @@ public enum ScanMetric
     DistanceToLow24h,
     DistanceToHigh7d,
     DistanceToLow7d,
+    Resistance,
+    Support,
+    DistanceToResistance,
+    DistanceToSupport,
+    RewardRisk,
     Spread,
     ListingAgeDays
 }

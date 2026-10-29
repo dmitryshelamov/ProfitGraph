@@ -20,6 +20,11 @@ internal sealed class ScanSnapshotRowDb
     public decimal? DistanceToLow24h { get; init; }
     public decimal? DistanceToHigh7d { get; init; }
     public decimal? DistanceToLow7d { get; init; }
+    public decimal? Resistance { get; init; }
+    public decimal? Support { get; init; }
+    public decimal? DistanceToResistance { get; init; }
+    public decimal? DistanceToSupport { get; init; }
+    public decimal? RewardRisk { get; init; }
     public decimal? Spread { get; init; }
     public int? ListingAgeDays { get; init; }
     public bool Stale { get; init; }

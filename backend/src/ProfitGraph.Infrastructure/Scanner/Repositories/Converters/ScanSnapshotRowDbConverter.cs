@@ -27,6 +27,11 @@ internal static class ScanSnapshotRowDbConverter
                 DistanceToLow24h = row.DistanceToLow24h,
                 DistanceToHigh7d = row.DistanceToHigh7d,
                 DistanceToLow7d = row.DistanceToLow7d,
+                Resistance = row.Resistance,
+                Support = row.Support,
+                DistanceToResistance = row.DistanceToResistance,
+                DistanceToSupport = row.DistanceToSupport,
+                RewardRisk = row.RewardRisk,
                 Spread = row.Spread,
                 ListingAgeDays = row.ListingAgeDays,
                 Stale = row.Stale

@@ -28,6 +28,11 @@ public static class ScanMetricValues
             ScanMetric.DistanceToLow24h => metrics.DistanceToLow24h,
             ScanMetric.DistanceToHigh7d => metrics.DistanceToHigh7d,
             ScanMetric.DistanceToLow7d => metrics.DistanceToLow7d,
+            ScanMetric.Resistance => metrics.Resistance,
+            ScanMetric.Support => metrics.Support,
+            ScanMetric.DistanceToResistance => metrics.DistanceToResistance,
+            ScanMetric.DistanceToSupport => metrics.DistanceToSupport,
+            ScanMetric.RewardRisk => metrics.RewardRisk,
             ScanMetric.Spread => metrics.Spread,
             ScanMetric.ListingAgeDays => metrics.ListingAgeDays,
             _ => throw new ArgumentOutOfRangeException(nameof(metric), metric, "Unknown scanner metric.")
