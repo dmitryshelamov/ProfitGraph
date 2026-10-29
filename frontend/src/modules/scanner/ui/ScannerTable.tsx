@@ -1,14 +1,20 @@
+import { Link } from '@tanstack/react-router';
+
 import { formatMetric } from '../model/format';
 import { metricValue, type ScanMetric, scanMetrics } from '../model/metrics';
 import type { ScanRow } from '../model/types';
 
-/** The scanner's rows; a header click sorts by that metric, a second click turns the order around. */
+/**
+ * The scanner's rows; a header click sorts by that metric, a second click turns the order around, and a pair opens its chart.
+ */
 export function ScannerTable({
+  venue,
   rows,
   sortMetric,
   sortDescending,
   onSort,
 }: {
+  venue: string;
   rows: readonly ScanRow[];
   sortMetric: ScanMetric;
   sortDescending: boolean;
@@ -49,7 +55,13 @@ export function ScannerTable({
           {rows.map((row) => (
             <tr key={row.symbol} className="border-t border-line">
               <td className="sticky left-0 bg-panel py-1.5 pr-3 text-left whitespace-nowrap">
-                <span className="font-medium">{row.symbol}</span>
+                <Link
+                  to="/scanner/$venue/$symbol"
+                  params={{ venue, symbol: row.symbol }}
+                  className="font-medium hover:underline"
+                >
+                  {row.symbol}
+                </Link>
                 {row.stale && (
                   <span className="ml-2 text-xs text-muted" title="Сделок не было больше 15 минут">
                     нет сделок

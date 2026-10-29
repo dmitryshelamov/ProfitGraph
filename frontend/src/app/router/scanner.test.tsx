@@ -105,4 +105,46 @@ describe('scanner page', () => {
     });
     expect(await screen.findByRole('button', { name: 'Сохранить как новый' })).toBeInTheDocument();
   });
+
+  it('opens a pair chart from its row and switches the timeframe', async () => {
+    const requests = fakeApi({
+      'GET /api/auth/me': () => json(user),
+      'GET /api/scanner/venues': () => json([{ venue: 'bybit', name: 'Bybit' }]),
+      'GET /api/scanner/bybit/presets': () => json([impulse]),
+      'GET /api/scanner/bybit/snapshot': () =>
+        json(snapshot([{ ...emptyMetrics, symbol: 'SOLUSDT', change1h: '4.25', price: '187.5' }])),
+      'GET /api/scanner/bybit/candles': (request) => {
+        const query = new URL(request.url).searchParams;
+
+        return json({
+          venue: 'bybit',
+          symbol: query.get('symbol'),
+          timeframe: query.get('timeframe'),
+          from: query.get('from'),
+          to: query.get('to'),
+          latestClosed: query.get('to'),
+          status: 'Complete',
+          errorCode: null,
+          candles: [],
+        });
+      },
+    });
+    const candleTimeframes = () =>
+      requests
+        .filter((request) => new URL(request.url).pathname === '/api/scanner/bybit/candles')
+        .map((request) => new URL(request.url).searchParams.get('timeframe'));
+
+    renderApp('/scanner');
+
+    await userEvent.click(await screen.findByRole('link', { name: 'SOLUSDT' }));
+
+    expect(await screen.findByRole('heading', { name: 'SOLUSDT' })).toBeInTheDocument();
+    expect(await screen.findByText('187.5')).toBeInTheDocument();
+    await waitFor(() => expect(candleTimeframes()).toContain('15m'));
+
+    await userEvent.click(screen.getByRole('link', { name: '1h' }));
+
+    await waitFor(() => expect(candleTimeframes()).toContain('1h'));
+    expect(screen.getByRole('link', { name: '1h' })).toHaveAttribute('aria-current', 'page');
+  });
 });

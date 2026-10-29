@@ -8,6 +8,7 @@ using ProfitGraph.Api.Scanner.Converters;
 using ProfitGraph.Application.Scanner.Contracts;
 using ProfitGraph.Application.Scanner.CreateScanPreset;
 using ProfitGraph.Application.Scanner.DeleteScanPreset;
+using ProfitGraph.Application.Scanner.GetScanCandles;
 using ProfitGraph.Application.Scanner.GetScanPresets;
 using ProfitGraph.Application.Scanner.GetScanSnapshot;
 using ProfitGraph.Application.Scanner.GetScanVenues;
@@ -37,6 +38,26 @@ public sealed class ScannerController(ISender sender) : ControllerBase
         ScanSnapshotInternal snapshot = await sender.Send(new GetScanSnapshotQuery(venue), cancellationToken);
 
         return snapshot.ToResponse();
+    }
+
+    /// <summary>
+    ///     A page of a pair's chart: its closed candles of the half-open UTC range [from, to) on the timeframe, at most 1000 of
+    ///     them, read through the shared candle cache from the venue's public history.
+    /// </summary>
+    [HttpGet("{venue}/candles")]
+    public async Task<ActionResult<ScanCandlesResponse>> GetCandles(
+        string venue,
+        [FromQuery] string? symbol,
+        [FromQuery] string? timeframe,
+        [FromQuery] DateTimeOffset from,
+        [FromQuery] DateTimeOffset to,
+        CancellationToken cancellationToken)
+    {
+        ScanCandlesInternal page = await sender.Send(
+            new GetScanCandlesQuery(venue, symbol ?? string.Empty, timeframe ?? string.Empty, from, to),
+            cancellationToken);
+
+        return page.ToResponse();
     }
 
     [HttpGet("{venue}/presets")]

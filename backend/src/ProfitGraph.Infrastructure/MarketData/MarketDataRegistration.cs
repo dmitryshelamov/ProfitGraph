@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 
 using ProfitGraph.Application.Backtesting.History;
 using ProfitGraph.Application.MarketData;
+using ProfitGraph.Application.MarketData.Charts;
 using ProfitGraph.Application.MarketData.Contracts;
 using ProfitGraph.Application.MarketData.DownloadCandles;
 using ProfitGraph.Application.MarketData.ImportCandles;
@@ -40,6 +41,7 @@ internal static class MarketDataRegistration
         services.AddScoped(provider => provider.GetRequiredService<IOptionsMonitor<HistoryDownloadOptions>>().CurrentValue);
         services.AddScoped(typeof(VenuePorts<>));
         services.AddScoped<CandleDownloadService>();
+        services.AddScoped<CandleChartReader>();
         services.AddScoped<MarketDataCredentials>();
         services.AddBackgroundJob<DownloadCandlesCommand, HistoricalDownloadInternal>();
         services.AddScoped<IInstrumentRulesRepository, InstrumentRulesRepository>();

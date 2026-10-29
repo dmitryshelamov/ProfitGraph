@@ -1,8 +1,8 @@
 import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 
+import { pageBefore } from '@/modules/market-chart';
 import { api, ApiError, unwrap } from '@/shared/api/client';
 
-import { pageBefore } from '../model/botCandles';
 import type {
   Bot,
   BotCandlesPage,

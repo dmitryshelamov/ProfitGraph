@@ -1,13 +1,18 @@
-import { queryOptions } from '@tanstack/react-query';
+import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 
+import { pageBefore } from '@/modules/market-chart';
 import { api, unwrap } from '@/shared/api/client';
 
-import type { ScanPreset, ScanPresetInput } from '../model/types';
+import type { ScanCandlesPage, ScanPreset, ScanPresetInput } from '../model/types';
 
 export const scannerKeys = {
   venues: ['scanner', 'venues'] as const,
   snapshot: (venue: string) => ['scanner', venue, 'snapshot'] as const,
   presets: (venue: string) => ['scanner', venue, 'presets'] as const,
+  candles: (venue: string, symbol: string, timeframe: string) =>
+    ['scanner', venue, 'candles', symbol, timeframe] as const,
+  newCandles: (venue: string, symbol: string, timeframe: string, from: string) =>
+    ['scanner', venue, 'new-candles', symbol, timeframe, from] as const,
 };
 
 export function scanVenuesQuery() {
@@ -61,4 +66,51 @@ export async function deleteScanPreset(presetId: string): Promise<void> {
   if (!result.response.ok) {
     unwrap(result);
   }
+}
+
+async function scanCandles(
+  venue: string,
+  symbol: string,
+  timeframe: string,
+  from: string,
+  to: string,
+): Promise<ScanCandlesPage> {
+  return unwrap(
+    await api.GET('/api/scanner/{venue}/candles', {
+      params: { path: { venue }, query: { symbol, timeframe, from, to } },
+    }),
+  );
+}
+
+/**
+ * A pair's closed candles, a page of `chartPageCandles` candles at a time going back from now; the server cuts each page at
+ * the latest closed candle. Paging stops at a page without candles: the venue's history begins there or cannot be read.
+ */
+export function scanCandlesQuery(venue: string, symbol: string, timeframe: string) {
+  return infiniteQueryOptions({
+    queryKey: scannerKeys.candles(venue, symbol, timeframe),
+    queryFn: async ({ pageParam }) => {
+      const window = pageBefore(pageParam ?? new Date().toISOString(), timeframe);
+
+      return scanCandles(venue, symbol, timeframe, window.from, window.to);
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => (page.candles.length === 0 ? undefined : page.from),
+    staleTime: Number.POSITIVE_INFINITY,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/** Candles closed since `from`, the end of the newest loaded page, read again every minute. */
+export function scanNewCandlesQuery(
+  venue: string,
+  symbol: string,
+  timeframe: string,
+  from: string,
+) {
+  return queryOptions({
+    queryKey: scannerKeys.newCandles(venue, symbol, timeframe, from),
+    queryFn: async () => scanCandles(venue, symbol, timeframe, from, new Date().toISOString()),
+    refetchInterval: 60_000,
+  });
 }

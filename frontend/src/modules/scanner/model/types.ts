@@ -6,3 +6,4 @@ export type ScanRow = Schemas['ScanSnapshotRowResponse'];
 export type ScanPreset = Schemas['ScanPresetResponse'];
 export type ScanCondition = Schemas['ScanConditionResponse'];
 export type ScanPresetInput = Schemas['ScanPresetRequest'];
+export type ScanCandlesPage = Schemas['ScanCandlesResponse'];

@@ -1,4 +1,12 @@
 export type { ChartLevel, ChartTrade, HistoryCandle } from './model/candleHistory';
+export {
+  chartPageCandles,
+  maxPageCandles,
+  mergeCandles,
+  pageBefore,
+  timeframeSeconds,
+  tooFarBehind,
+} from './model/chartPaging';
 export type { EquityPoint } from './model/equityLine';
 export type { LiveCandle } from './model/liveCandles';
 export type { PricePoint } from './model/pricePoint';

@@ -125,7 +125,9 @@ to BTC and cross-venue gaps are out of scope.
      pairs falling over 24 hours and 7 days.
 2. A preset is a set of conditions (metric, minimum, maximum) and a sort. Every column filters and sorts. A user saves their own
    presets under a name; built-in presets are read-only and can be copied. Presets belong to the user; the snapshot is shared.
-3. A row opens the pair's candle chart.
+3. A row opens the pair's candle chart (`/scanner/{venue}/{symbol}`, timeframes 1m, 5m, 15m, 1h, 4h and 1d, 15m first) next to
+   its metrics from the latest snapshot. The chart reads the venue's public history through the shared candle cache, as a bot's
+   chart does (ADR 0026): `GET /api/scanner/{venue}/candles`, at most 1,000 candles a page, only for a venue with a scanner.
 
 ### 5. Telegram alerts (step 2)
 

@@ -1,13 +1,19 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 
-import { CandleHistoryChart, type ChartLevel, type ChartTrade } from '@/modules/market-chart';
+import {
+  CandleHistoryChart,
+  type ChartLevel,
+  type ChartTrade,
+  timeframeSeconds,
+  tooFarBehind,
+} from '@/modules/market-chart';
 import { ApiErrorMessage } from '@/shared/ui/ApiErrorMessage';
 import { Button } from '@/shared/ui/Button';
 import { DateTime } from '@/shared/ui/DateTime';
 
 import { botCandlesQuery, botKeys, botNewCandlesQuery, botOpenOrdersQuery } from '../api/botsApi';
-import { mergeCandlePages, timeframeSeconds, tooFarBehind } from '../model/botCandles';
+import { mergeCandlePages } from '../model/botCandles';
 import { atPlaces, type BotDisplay } from '../model/botDisplay';
 import { formingNote } from '../model/formingCandle';
 import { orderLevels } from '../model/orderLevels';

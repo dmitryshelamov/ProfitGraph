@@ -168,6 +168,7 @@ export function ScannerPage() {
             </p>
           ) : (
             <ScannerTable
+              venue={current!}
               rows={rows}
               sortMetric={view.sortMetric}
               sortDescending={view.sortDescending}

@@ -607,6 +607,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scanner/{venue}/candles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    symbol?: string;
+                    timeframe?: string;
+                    from?: string;
+                    to?: string;
+                };
+                header?: never;
+                path: {
+                    venue: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanCandlesResponse"];
+                        "application/json": components["schemas"]["ScanCandlesResponse"];
+                        "text/json": components["schemas"]["ScanCandlesResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scanner/{venue}/presets": {
         parameters: {
             query?: never;
@@ -4113,8 +4157,6 @@ export interface components {
             allocationCap: string;
             runtimeStatus: components["schemas"]["BotRuntimeStatus"];
         };
-        /** @enum {unknown} */
-        BotCandleHistoryStatus: "Complete" | "Partial" | "Unavailable";
         BotCandlesResponse: {
             venue: string;
             symbol: string;
@@ -4125,7 +4167,7 @@ export interface components {
             to: string;
             /** Format: date-time */
             latestClosed: string;
-            status: components["schemas"]["BotCandleHistoryStatus"];
+            status: components["schemas"]["CandleHistoryStatus"];
             errorCode: null | string;
             candles: components["schemas"]["CandleResponse"][];
             fills: components["schemas"]["BotChartFillResponse"][];
@@ -4297,6 +4339,8 @@ export interface components {
             confirmedAbsentAt: null | string;
             acceptedByVenue: boolean;
         };
+        /** @enum {unknown} */
+        CandleHistoryStatus: "Complete" | "Partial" | "Unavailable";
         CandleImportResponse: {
             venue: string;
             symbol: string;
@@ -4721,6 +4765,20 @@ export interface components {
             layout: components["schemas"]["GraphLayoutRequest"];
             /** @default false */
             confirmLiveImpact: boolean;
+        };
+        ScanCandlesResponse: {
+            venue: string;
+            symbol: string;
+            timeframe: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** Format: date-time */
+            latestClosed: string;
+            status: components["schemas"]["CandleHistoryStatus"];
+            errorCode: null | string;
+            candles: components["schemas"]["CandleResponse"][];
         };
         ScanConditionRequest: {
             metric: string;

@@ -7,9 +7,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 using ProfitGraph.Api.Bots.Contracts;
 using ProfitGraph.Api.MarketData.Contracts;
-using ProfitGraph.Application.Bots.GetBotCandles;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Application.MarketData;
+using ProfitGraph.Application.MarketData.Charts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Bots.Fills;
 using ProfitGraph.Engine.Accounting;
@@ -68,7 +68,7 @@ public sealed class BotCandlesTests
         page.Venue.ShouldBe(TestHistoryVenue.WithHistory);
         page.Symbol.ShouldBe(symbol);
         page.Timeframe.ShouldBe("1h");
-        page.Status.ShouldBe(BotCandleHistoryStatus.Complete);
+        page.Status.ShouldBe(CandleHistoryStatus.Complete);
         page.ErrorCode.ShouldBeNull();
         page.From.ShouldBe(First);
         page.To.ShouldBe(First.AddHours(5));
@@ -109,7 +109,7 @@ public sealed class BotCandlesTests
 
         BotCandlesResponse page = await Page(owner, id, First, First.AddHours(4));
 
-        page.Status.ShouldBe(BotCandleHistoryStatus.Partial);
+        page.Status.ShouldBe(CandleHistoryStatus.Partial);
         page.ErrorCode.ShouldBeNull();
         page.Candles.Select(candle => candle.OpenTime).ShouldBe([First, First.AddHours(1), First.AddHours(3)]);
         (await Stored(owner, symbol, First, First.AddHours(4))).ShouldBeEmpty();
@@ -124,7 +124,7 @@ public sealed class BotCandlesTests
 
         BotCandlesResponse page = await Page(owner, id, First, First.AddHours(4));
 
-        page.Status.ShouldBe(BotCandleHistoryStatus.Unavailable);
+        page.Status.ShouldBe(CandleHistoryStatus.Unavailable);
         page.ErrorCode.ShouldBe(HistoricalDataErrorCodes.ProviderUnavailable);
         page.Candles.Select(candle => candle.OpenTime).ShouldBe([First, First.AddHours(1)]);
     }

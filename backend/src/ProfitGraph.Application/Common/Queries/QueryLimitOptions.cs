@@ -26,12 +26,18 @@ public sealed class QueryLimitOptions
 
     public int BotChartFills { get; init; } = 1000;
 
+    /// <summary>
+    ///     The most candles one page of a scanner pair's chart covers (ADR 0059).
+    /// </summary>
+    public int ScanChartCandles { get; init; } = 1000;
+
     public bool IsValid()
     {
         return new[]
         {
             StrategyBacktests, BacktestFills, BacktestOrders, BacktestRanking, BacktestDiagnostics, BacktestObservations, OptimizationTrials,
-            StrategyOptimizations, Optimizations, Candles, Strategies, BotChartCandles, BotChartFills
+            StrategyOptimizations, Optimizations, Candles, Strategies, BotChartCandles, BotChartFills,
+            ScanChartCandles
         }.All(limit => limit > 0);
     }
 }

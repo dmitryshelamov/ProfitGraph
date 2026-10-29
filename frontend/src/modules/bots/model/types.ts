@@ -20,7 +20,7 @@ export type BotFeedKind = Schemas['BotFeedKind'];
 export type BotPosition = Schemas['BotPositionResponse'];
 export type BotCandlesPage = Schemas['BotCandlesResponse'];
 export type BotChartFill = Schemas['BotChartFillResponse'];
-export type BotCandleHistoryStatus = Schemas['BotCandleHistoryStatus'];
+export type BotCandleHistoryStatus = Schemas['CandleHistoryStatus'];
 export type BotAccount = Schemas['BotAccountResponse'];
 
 /** A `LivePrice` hub message (not in the HTTP schema): a venue's display price of an instrument. */
