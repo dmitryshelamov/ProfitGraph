@@ -41,3 +41,4 @@ export { ScanPairChart } from './ui/ScanPairChart';
 export { ScanRowMetrics } from './ui/ScanRowMetrics';
 export { ScanScenarioTable } from './ui/ScanScenarioTable';
 export { ScanSignalsTable } from './ui/ScanSignalsTable';
+export { ScanTradePanel } from './ui/ScanTradePanel';

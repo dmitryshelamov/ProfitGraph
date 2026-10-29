@@ -154,6 +154,129 @@ describe('scanner page', () => {
     expect(screen.getByRole('link', { name: '1h' })).toHaveAttribute('aria-current', 'page');
   });
 
+  it('creates a trade from a card with the prices it shows and hides another card', async () => {
+    const created = {
+      id: 'trade-1',
+      venue: 'bybit',
+      symbol: 'SOLUSDT',
+      scenario: 'Levels',
+      entry: '100',
+      stop: '95',
+      target: '112',
+      amount: '96.15',
+      risk: '5',
+      botId: 'bot-1',
+      createdAt: '2026-10-30T10:00:00Z',
+      expiresAt: '2026-10-30T11:00:00Z',
+      status: 'Waiting',
+      openedAt: null,
+      closedAt: null,
+      realizedPnl: null,
+      failureCode: null,
+    };
+    let trades: object[] = [];
+    const requests = fakeApi({
+      'GET /api/auth/me': () => json(user),
+      'GET /api/scanner/bybit/snapshot': () =>
+        json(snapshot([{ ...emptyMetrics, symbol: 'SOLUSDT', price: '100' }])),
+      'GET /api/scanner/bybit/candles': (request) => {
+        const query = new URL(request.url).searchParams;
+
+        return json({
+          venue: 'bybit',
+          symbol: 'SOLUSDT',
+          timeframe: query.get('timeframe'),
+          from: query.get('from'),
+          to: query.get('to'),
+          latestClosed: query.get('to'),
+          status: 'Complete',
+          errorCode: null,
+          candles: [],
+        });
+      },
+      'GET /api/exchange-credentials': () =>
+        json([
+          {
+            id: 'key-1',
+            venue: 'bybit',
+            label: 'Основной',
+            apiKeyLast4: '1234',
+            publicId: null,
+            createdAt: '2026-10-01T00:00:00Z',
+          },
+        ]),
+      'GET /api/scanner/bybit/trade-settings': () =>
+        json({ settings: { venue: 'bybit', credentialId: 'key-1', risk: '5', maxAmount: '1000' } }),
+      'GET /api/scanner/bybit/trade-ideas': () =>
+        json({
+          venue: 'bybit',
+          symbol: 'SOLUSDT',
+          price: '100',
+          computedAt: '2026-10-30T10:00:00Z',
+          hasSettings: true,
+          hasLiveTrade: trades.length > 0,
+          ideas: [
+            {
+              scenario: 'Levels',
+              entry: '100',
+              stop: '95',
+              target: '112',
+              rewardRisk: '2.4',
+              entryValidityMinutes: 60,
+              amount: '96.153846153846',
+              risk: '5',
+            },
+            {
+              scenario: 'Pullback',
+              entry: '97.5',
+              stop: '95',
+              target: '102.5',
+              rewardRisk: '2',
+              entryValidityMinutes: 240,
+              amount: '187.5',
+              risk: '5',
+            },
+          ],
+        }),
+      'GET /api/scanner/bybit/trades': () => json(trades),
+      'POST /api/scanner/bybit/trades': () => {
+        trades = [created];
+
+        return json(created, 201);
+      },
+    });
+
+    renderApp('/scanner/bybit/SOLUSDT');
+
+    const levels = await screen.findByRole('article', { name: 'Идея: Уровни' });
+    expect(within(levels).getByText('96.15 USDT')).toBeInTheDocument();
+    expect(within(levels).getByText('R:R 2.4')).toBeInTheDocument();
+    expect(screen.getByText(/Риск на сделку/)).toHaveTextContent('ключ «Основной»');
+
+    await userEvent.click(
+      within(screen.getByRole('article', { name: 'Идея: Откат' })).getByRole('button', {
+        name: 'Отмена',
+      }),
+    );
+    expect(screen.queryByRole('article', { name: 'Идея: Откат' })).not.toBeInTheDocument();
+
+    await userEvent.click(within(levels).getByRole('button', { name: 'Создать' }));
+
+    expect(await within(levels).findByRole('link', { name: 'бот сделки' })).toHaveAttribute(
+      'href',
+      '/bots/bot-1',
+    );
+    const post = requests.find((request) => request.method === 'POST')!;
+    expect(await post.json()).toEqual({
+      symbol: 'SOLUSDT',
+      scenario: 'Levels',
+      entry: '100',
+      stop: '95',
+      target: '112',
+    });
+    expect(await screen.findByText('Ждёт входа')).toBeInTheDocument();
+  });
+
   it('switches on the alerts of an own preset and warns without a linked chat', async () => {
     const own = { ...impulse, id: 'p1', name: 'Мой', builtIn: false };
     let alertsEnabled = false;

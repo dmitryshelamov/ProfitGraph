@@ -8,6 +8,7 @@ import {
   ScanPairChart,
   ScanRowMetrics,
   scanSnapshotQuery,
+  ScanTradePanel,
   useScanSnapshotUpdates,
 } from '@/modules/scanner';
 import { Card } from '@/shared/ui/Card';
@@ -80,6 +81,9 @@ export function ScanPairPage() {
           )}
         </Card>
       </div>
+      <Card title="Идеи входа">
+        <ScanTradePanel venue={venue} symbol={symbol} />
+      </Card>
     </div>
   );
 }

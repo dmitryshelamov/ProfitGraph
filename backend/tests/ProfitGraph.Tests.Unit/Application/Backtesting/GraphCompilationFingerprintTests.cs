@@ -117,6 +117,7 @@ public sealed class GraphCompilationFingerprintTests
             StrategyTemplateKind.MacdTrend => MacdTrendStrategyBlockFactory.Create(),
             StrategyTemplateKind.RsiReversion => RsiReversionStrategyBlockFactory.Create(),
             StrategyTemplateKind.BollingerReversion => BollingerReversionStrategyBlockFactory.Create(),
+            StrategyTemplateKind.LevelTrade => LevelTradeStrategyBlockFactory.Create(),
             _ => throw new ArgumentOutOfRangeException(nameof(kind))
         };
     }

@@ -3,7 +3,16 @@ import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 import { pageBefore } from '@/modules/market-chart';
 import { api, unwrap } from '@/shared/api/client';
 
-import type { ScanBacktest, ScanCandlesPage, ScanPreset, ScanPresetInput } from '../model/types';
+import type {
+  ScanBacktest,
+  ScanCandlesPage,
+  ScanLiveTrade,
+  ScanPreset,
+  ScanPresetInput,
+  ScanTradeIdea,
+  ScanTradeSettings,
+  ScanTradeSettingsInput,
+} from '../model/types';
 
 export const scannerKeys = {
   venues: ['scanner', 'venues'] as const,
@@ -15,6 +24,10 @@ export const scannerKeys = {
     ['scanner', venue, 'new-candles', symbol, timeframe, from] as const,
   backtests: (venue: string) => ['scanner', venue, 'backtests'] as const,
   backtest: (id: string) => ['scanner', 'backtests', id] as const,
+  tradeIdeas: (venue: string, symbol: string) => ['scanner', venue, 'trade-ideas', symbol] as const,
+  tradeSettings: (venue: string) => ['scanner', venue, 'trade-settings'] as const,
+  trades: (venue: string) => ['scanner', venue, 'trades'] as const,
+  pairTrades: (venue: string, symbol: string) => ['scanner', venue, 'trades', symbol] as const,
 };
 
 export function scanVenuesQuery() {
@@ -158,4 +171,77 @@ export function scanBacktestQuery(backtestId: string) {
       ),
     refetchInterval: (query) => (query.state.data?.completedAt ? false : 3000),
   });
+}
+
+/** The pair's trade cards from the current snapshot (ADR 0060), read again every minute with the snapshot. */
+export function scanTradeIdeasQuery(venue: string, symbol: string) {
+  return queryOptions({
+    queryKey: scannerKeys.tradeIdeas(venue, symbol),
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/api/scanner/{venue}/trade-ideas', {
+          params: { path: { venue }, query: { symbol } },
+        }),
+      ),
+    refetchInterval: 60_000,
+  });
+}
+
+/** The owner's trade card settings on the venue; null before they are set. */
+export function scanTradeSettingsQuery(venue: string) {
+  return queryOptions({
+    queryKey: scannerKeys.tradeSettings(venue),
+    queryFn: async () =>
+      unwrap(await api.GET('/api/scanner/{venue}/trade-settings', { params: { path: { venue } } }))
+        .settings ?? null,
+  });
+}
+
+export async function setScanTradeSettings(
+  venue: string,
+  input: ScanTradeSettingsInput,
+): Promise<ScanTradeSettings> {
+  return unwrap(
+    await api.PUT('/api/scanner/{venue}/trade-settings', {
+      params: { path: { venue } },
+      body: input,
+    }),
+  );
+}
+
+/** The owner's latest trades from cards on the pair, read again every 15 seconds while one is live. */
+export function scanPairTradesQuery(venue: string, symbol: string) {
+  return queryOptions({
+    queryKey: scannerKeys.pairTrades(venue, symbol),
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/api/scanner/{venue}/trades', {
+          params: { path: { venue }, query: { symbol } },
+        }),
+      ),
+    refetchInterval: (query) =>
+      query.state.data?.some((trade) => trade.status === 'Waiting' || trade.status === 'Open')
+        ? 15_000
+        : false,
+  });
+}
+
+/** Creates a trade from a card with real orders: its own bot, started at once. */
+export async function createScanTrade(
+  venue: string,
+  symbol: string,
+  idea: ScanTradeIdea,
+): Promise<ScanLiveTrade> {
+  return unwrap(
+    await api.POST('/api/scanner/{venue}/trades', {
+      params: { path: { venue } },
+      body: {
+        symbol,
+        scenario: idea.scenario,
+        entry: idea.entry,
+        stop: idea.stop,
+        target: idea.target,
+      },
+    }),
+  );
 }

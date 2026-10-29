@@ -256,6 +256,17 @@ scanner shows the nearest support and resistance and the reward-to-risk between 
 A rule the preset backtest simulates after each signal: where it enters, its stop and target, and when it gives up (for example
 "stop at the support, target at the resistance"). Its results are in R, the entry-to-stop distance, after fees.
 
+### Trade Card
+
+A trade scenario for a scanner pair now, shown on the pair's page with its entry, stop, target, reward-to-risk and the amount the
+owner's risk gives. «Создать» turns it into a Scanner Trade; «Отмена» hides it. See ADR 0060.
+
+### Scanner Trade
+
+A trade created from a trade card, with real orders through its own bot of the level trade strategy: a limit entry, a limit target
+and a stop checked on candle closes. It waits for its entry, holds the position, and ends at the target, the stop, another sale,
+an expired entry, the owner's stop or a failure. Its risk is the quote the stop loses, fees included.
+
 ### Screener Robot
 
 A later product, not designed yet: one strategy cloned onto every instrument of a list, with a shared deposit and a shared limit

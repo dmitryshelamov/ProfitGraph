@@ -36,7 +36,7 @@ public sealed class StrategyTemplateEndpointTests
             .ShouldBe(
             [
                 "SmaCrossover", "Ladder", "LadderProfitFox", "LadderSma", "CapitulationDip", "VolumeMomentum", "LadderPlus", "DcaProfitFox", "Grid",
-                "EmaCrossover", "MacdTrend", "RsiReversion", "BollingerReversion"
+                "EmaCrossover", "MacdTrend", "RsiReversion", "BollingerReversion", "LevelTrade"
             ]);
         using IServiceScope scope = application.Services.CreateScope();
         var registry = scope.ServiceProvider.GetRequiredService<INodeTypeRegistry>();
@@ -95,6 +95,7 @@ public sealed class StrategyTemplateEndpointTests
                 "MacdTrend" => MacdTrendStrategyBlockFactory.Create(),
                 "RsiReversion" => RsiReversionStrategyBlockFactory.Create(),
                 "BollingerReversion" => BollingerReversionStrategyBlockFactory.Create(),
+                "LevelTrade" => LevelTradeStrategyBlockFactory.Create(),
                 _ => LadderResumeStrategyBlockFactory.Create()
             };
             StrategyGraph original = new StrategyDefinitionLowerer(registry.GetAll()).Lower(expectedDefinition).Graph;

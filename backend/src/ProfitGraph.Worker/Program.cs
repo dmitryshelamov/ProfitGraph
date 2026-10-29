@@ -47,6 +47,7 @@ public static class Program
         {
             builder.Services.AddOutboxDispatcher();
             builder.Services.AddBotRuntime();
+            builder.Services.AddScanTradeTracking();
             builder.Services.AddTelegramNotifications(builder.Configuration);
 
             var tradingEnabled = builder.Configuration.GetValue<bool>("Live:Trading:Enabled");

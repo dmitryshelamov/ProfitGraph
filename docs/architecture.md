@@ -270,7 +270,9 @@ src/
   being edited; `/scanner/backtests/{id}` follows its job (`JobProgress`) and then shows the summary per horizon, the trade scenarios
   and the signals with a pair filter (a chosen pair's totals per scenario are summed exactly on the page). Support, resistance and
   reward-to-risk are ordinary metric columns; the pair's chart draws the two levels as dashed lines
-  ([ADR 0059](adr/0059-market-scanner.md)).
+  ([ADR 0059](adr/0059-market-scanner.md)). Under the chart, «Идеи входа» shows the owner's trade settings
+  (`/api/scanner/{venue}/trade-settings`), the trade cards (`/api/scanner/{venue}/trade-ideas`) and the pair's trades
+  (`/api/scanner/{venue}/trades`); «Создать» posts the card's prices as shown ([ADR 0060](adr/0060-scanner-trade-cards.md)).
 - **API client.** `shared/api/client.ts` is the only HTTP client. Its types come from
   `shared/api/generated/schema.d.ts`, generated from the API's OpenAPI document with `npm run generate:api` and never
   edited by hand. Failures surface as `ApiError` built from Problem Details.

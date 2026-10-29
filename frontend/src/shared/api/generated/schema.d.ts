@@ -935,6 +935,185 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scanner/{venue}/trade-ideas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    symbol?: string;
+                };
+                header?: never;
+                path: {
+                    venue: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanTradeIdeasResponse"];
+                        "application/json": components["schemas"]["ScanTradeIdeasResponse"];
+                        "text/json": components["schemas"]["ScanTradeIdeasResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scanner/{venue}/trade-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    venue: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanTradeSettingsStateResponse"];
+                        "application/json": components["schemas"]["ScanTradeSettingsStateResponse"];
+                        "text/json": components["schemas"]["ScanTradeSettingsStateResponse"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    venue: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ScanTradeSettingsRequest"];
+                    "text/json": components["schemas"]["ScanTradeSettingsRequest"];
+                    "application/*+json": components["schemas"]["ScanTradeSettingsRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanTradeSettingsResponse"];
+                        "application/json": components["schemas"]["ScanTradeSettingsResponse"];
+                        "text/json": components["schemas"]["ScanTradeSettingsResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scanner/{venue}/trades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    symbol?: string;
+                };
+                header?: never;
+                path: {
+                    venue: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanLiveTradeResponse"][];
+                        "application/json": components["schemas"]["ScanLiveTradeResponse"][];
+                        "text/json": components["schemas"]["ScanLiveTradeResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    venue: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateScanTradeRequest"];
+                    "text/json": components["schemas"]["CreateScanTradeRequest"];
+                    "application/*+json": components["schemas"]["CreateScanTradeRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanLiveTradeResponse"];
+                        "application/json": components["schemas"]["ScanLiveTradeResponse"];
+                        "text/json": components["schemas"]["ScanLiveTradeResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/optimizations": {
         parameters: {
             query?: never;
@@ -4558,6 +4737,13 @@ export interface components {
                 [key: string]: string;
             };
         };
+        CreateScanTradeRequest: {
+            symbol: string;
+            scenario: string;
+            entry: string;
+            stop: string;
+            target: string;
+        };
         CreateStrategyRequest: {
             name: string;
             definition: components["schemas"]["StrategyDefinitionRequest"];
@@ -4984,6 +5170,31 @@ export interface components {
             minimum: null | string;
             maximum: null | string;
         };
+        ScanLiveTradeResponse: {
+            /** Format: uuid */
+            id: string;
+            venue: string;
+            symbol: string;
+            scenario: string;
+            entry: string;
+            stop: string;
+            target: string;
+            amount: string;
+            risk: string;
+            /** Format: uuid */
+            botId: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            status: string;
+            /** Format: date-time */
+            openedAt: null | string;
+            /** Format: date-time */
+            closedAt: null | string;
+            realizedPnl: null | string;
+            failureCode: null | string;
+        };
         ScanOutcomeSummaryResponse: {
             /** Format: int32 */
             count: number;
@@ -5085,6 +5296,27 @@ export interface components {
             maxDrop24h: components["schemas"]["ScanOutcomeSummaryResponse"];
             scenarios: components["schemas"]["ScanScenarioSummaryResponse"][];
         };
+        ScanTradeIdeaResponse: {
+            scenario: string;
+            entry: string;
+            stop: string;
+            target: string;
+            rewardRisk: string;
+            /** Format: int32 */
+            entryValidityMinutes: number;
+            amount: null | string;
+            risk: null | string;
+        };
+        ScanTradeIdeasResponse: {
+            venue: string;
+            symbol: string;
+            price: null | string;
+            /** Format: date-time */
+            computedAt: null | string;
+            hasSettings: boolean;
+            hasLiveTrade: boolean;
+            ideas: components["schemas"]["ScanTradeIdeaResponse"][];
+        };
         ScanTradeResponse: {
             scenario: string;
             entry: string;
@@ -5098,6 +5330,22 @@ export interface components {
             reason: string;
             resultR: string;
             resultPercent: string;
+        };
+        ScanTradeSettingsRequest: {
+            /** Format: uuid */
+            credentialId: string;
+            risk: string;
+            maxAmount: string;
+        };
+        ScanTradeSettingsResponse: {
+            venue: string;
+            /** Format: uuid */
+            credentialId: string;
+            risk: string;
+            maxAmount: string;
+        };
+        ScanTradeSettingsStateResponse: {
+            settings: null | components["schemas"]["ScanTradeSettingsResponse"];
         };
         ScanVenueResponse: {
             venue: string;

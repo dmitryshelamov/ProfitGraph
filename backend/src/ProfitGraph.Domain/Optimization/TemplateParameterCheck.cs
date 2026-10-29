@@ -67,6 +67,12 @@ internal sealed class TemplateParameterCheck(CompiledTradingGraph graph, IReadOn
                 StopLoss("Bollinger reversion");
 
                 break;
+            case StrategyTemplateKind.LevelTrade:
+                decimal? entry = Positive("entryPrice");
+                Require(Positive("stopPrice") < entry, "stopPrice", "A level trade requires stopPrice < entryPrice.", ["stopPrice", "entryPrice"]);
+                Require(entry < Positive("targetPrice"), "targetPrice", "A level trade requires entryPrice < targetPrice.", ["entryPrice", "targetPrice"]);
+
+                break;
             case StrategyTemplateKind.Grid:
                 Require(Positive("gridLevels") <= 200m, "gridLevels", "A grid requires 1 <= gridLevels <= 200.");
                 Require(Positive("gridStep") < 1m, "gridStep", "A grid requires 0 < gridStep < 1.");
