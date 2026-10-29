@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react';
 
 import {
   CandleHistoryChart,
+  type ChartLevel,
   mergeCandles,
   timeframeSeconds,
   tooFarBehind,
@@ -16,16 +17,18 @@ import type { ScanCandlesPage } from '../model/types';
 
 /**
  * A scanner pair's closed candles on the chosen timeframe from the venue's public history. Scrolling left loads older
- * candles; candles closed since the page opened arrive every minute.
+ * candles; candles closed since the page opened arrive every minute. The nearest support and resistance are dashed levels.
  */
 export function ScanPairChart({
   venue,
   symbol,
   timeframe,
+  levels = [],
 }: {
   venue: string;
   symbol: string;
   timeframe: string;
+  levels?: readonly ChartLevel[];
 }) {
   const queryClient = useQueryClient();
   const history = useInfiniteQuery(scanCandlesQuery(venue, symbol, timeframe));
@@ -72,6 +75,7 @@ export function ScanPairChart({
         key={timeframe}
         candles={candles}
         trades={[]}
+        levels={levels}
         candleSeconds={timeframeSeconds[timeframe] ?? 3600}
         label={`Свечи ${symbol}`}
         onReachStart={loadEarlier}

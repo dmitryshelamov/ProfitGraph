@@ -29,7 +29,7 @@ public static class ScanMetricCalculator
         IReadOnlyList<ScanCandle> hours = input.Hours;
         decimal? close = minutes.Count > 0 ? minutes[^1].Close : null;
 
-        return new ScanMetrics
+        var metrics = new ScanMetrics
         {
             Price = input.LastPrice ?? close,
             Change5m = Change(minutes, count: 5),
@@ -50,6 +50,8 @@ public static class ScanMetricCalculator
             ListingAgeDays = input.ListedAt is { } listedAt ? ListingAgeDays(listedAt, input.Now) : null,
             Stale = IsStale(minutes, input.Now)
         };
+
+        return ScanLevels.Apply(metrics, ScanLevels.Of(hours), metrics.Price);
     }
 
     /// <summary>

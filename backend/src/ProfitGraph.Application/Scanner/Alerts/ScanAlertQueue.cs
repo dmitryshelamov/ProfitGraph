@@ -61,7 +61,11 @@ public sealed class ScanAlertQueue(
     /// </summary>
     private static Dictionary<string, string> Details(string venue, ScanPreset preset, IReadOnlyList<ScanSnapshotRowInternal> rows)
     {
-        ScanMetric[] shown = [ScanMetric.Price, .. preset.Conditions.Select(condition => condition.Metric), preset.Sort.Metric];
+        ScanMetric[] shown =
+        [
+            ScanMetric.Price, .. preset.Conditions.Select(condition => condition.Metric), preset.Sort.Metric, ScanMetric.Support, ScanMetric.Resistance,
+            ScanMetric.RewardRisk
+        ];
         var details = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["venue"] = venue,

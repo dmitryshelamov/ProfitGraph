@@ -3,13 +3,24 @@ import { Link } from '@tanstack/react-router';
 import { DateTime } from '@/shared/ui/DateTime';
 
 import { formatMetric } from '../model/format';
+import { scanScenarios, tradeResult } from '../model/scenarios';
 import type { ScanSignal } from '../model/types';
+
+const scenarioShort = {
+  Levels: 'уровни',
+  LevelsRewardRisk2: 'R:R≥2',
+  Target2R: '2R',
+  Pullback: 'откат',
+} as const;
 
 function percent(value: string | null): string {
   return value === null ? '—' : formatMetric(value, 2);
 }
 
-/** A backtest's signals, newest first: when, the pair (opening its chart), the entry price and the changes after it in percent. */
+/**
+ * A backtest's signals, newest first: when, the pair (opening its chart), the entry price, the changes after it in percent and the
+ * result in R of each scenario's trade.
+ */
 export function ScanSignalsTable({
   venue,
   signals,
@@ -31,6 +42,11 @@ export function ScanSignalsTable({
             <th className="py-2 pl-3">24 ч, %</th>
             <th className="py-2 pl-3">Макс. рост, %</th>
             <th className="py-2 pl-3">Макс. просадка, %</th>
+            {scanScenarios.map(({ scenario, label }) => (
+              <th key={scenario} className="py-2 pl-3" title={label}>
+                R: {scenarioShort[scenario]}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -55,6 +71,11 @@ export function ScanSignalsTable({
               <td className="py-1.5 pl-3 font-mono">{percent(signal.change24h)}</td>
               <td className="py-1.5 pl-3 font-mono">{percent(signal.maxRise24h)}</td>
               <td className="py-1.5 pl-3 font-mono">{percent(signal.maxDrop24h)}</td>
+              {scanScenarios.map(({ scenario }) => (
+                <td key={scenario} className="py-1.5 pl-3 font-mono">
+                  {percent(tradeResult(signal, scenario))}
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>

@@ -50,7 +50,8 @@ public sealed class ScanBacktestTests
             Change4h: null,
             Change24h: null,
             MaxRise24h: null,
-            MaxDrop24h: null);
+            MaxDrop24h: null,
+            Trades: null);
         var result = new ScanBacktestResult(Pairs: 1, [], EmptySummary, [.. Enumerable.Repeat(signal, ScanBacktest.MaxStoredSignals + 1)], SignalsTruncated: true);
 
         Should.Throw<ArgumentException>(() => Backtest().Complete(result, Now));

@@ -46,7 +46,37 @@ internal static class ScanBacktestResponseConverter
             ToResponse(summary.Change4h),
             ToResponse(summary.Change24h),
             ToResponse(summary.MaxRise24h),
-            ToResponse(summary.MaxDrop24h));
+            ToResponse(summary.MaxDrop24h),
+            [.. (summary.Scenarios ?? []).Select(ToResponse)]);
+    }
+
+    private static ScanScenarioSummaryResponse ToResponse(ScanScenarioSummary scenario)
+    {
+        return new ScanScenarioSummaryResponse(
+            scenario.Scenario.ToString(),
+            scenario.Trades,
+            ScanSnapshotResponseConverter.Text(scenario.WinningShare),
+            ScanSnapshotResponseConverter.Text(scenario.MeanR),
+            ScanSnapshotResponseConverter.Text(scenario.MedianR),
+            ExactGraphNumberParser.Format(scenario.TotalR),
+            ScanSnapshotResponseConverter.Text(scenario.MeanPercent),
+            scenario.LongestLosingStreak,
+            ScanSnapshotResponseConverter.Text(scenario.MeanMinutes));
+    }
+
+    private static ScanTradeResponse ToResponse(ScanTrade trade)
+    {
+        return new ScanTradeResponse(
+            trade.Scenario.ToString(),
+            ExactGraphNumberParser.Format(trade.Entry),
+            ExactGraphNumberParser.Format(trade.Stop),
+            ExactGraphNumberParser.Format(trade.Target),
+            trade.EnteredAt,
+            trade.ExitedAt,
+            ExactGraphNumberParser.Format(trade.Exit),
+            trade.Reason.ToString(),
+            ExactGraphNumberParser.Format(trade.ResultR),
+            ExactGraphNumberParser.Format(trade.ResultPercent));
     }
 
     private static ScanOutcomeSummaryResponse ToResponse(ScanOutcomeSummary outcome)
@@ -70,6 +100,7 @@ internal static class ScanBacktestResponseConverter
             ScanSnapshotResponseConverter.Text(signal.Change4h),
             ScanSnapshotResponseConverter.Text(signal.Change24h),
             ScanSnapshotResponseConverter.Text(signal.MaxRise24h),
-            ScanSnapshotResponseConverter.Text(signal.MaxDrop24h));
+            ScanSnapshotResponseConverter.Text(signal.MaxDrop24h),
+            [.. (signal.Trades ?? []).Select(ToResponse)]);
     }
 }

@@ -130,6 +130,23 @@ export function multiplyDecimals(left: string, right: string): string | null {
   return a && b ? formatCoefficient(a.coefficient * b.coefficient, a.scale + b.scale) : null;
 }
 
+/** Adds two decimal strings exactly; null for a non-decimal. */
+export function addDecimals(left: string, right: string): string | null {
+  const a = parts(left);
+  const b = parts(right);
+
+  if (!a || !b) {
+    return null;
+  }
+
+  const scale = Math.max(a.scale, b.scale);
+
+  return formatCoefficient(
+    a.coefficient * 10n ** BigInt(scale - a.scale) + b.coefficient * 10n ** BigInt(scale - b.scale),
+    scale,
+  );
+}
+
 /** Subtracts `right` from `left` exactly; null for a non-decimal. */
 export function subtractDecimals(left: string, right: string): string | null {
   const a = parts(left);

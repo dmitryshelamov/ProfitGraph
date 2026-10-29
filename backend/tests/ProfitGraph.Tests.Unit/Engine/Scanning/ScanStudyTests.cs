@@ -95,7 +95,8 @@ public sealed class ScanStudyTests
             Change4h: null,
             Change24h: null,
             MaxRise24h: null,
-            MaxDrop24h: null);
+            MaxDrop24h: null,
+            Trades: null);
     }
 
     private static List<ScanCandle> Rising(int count)

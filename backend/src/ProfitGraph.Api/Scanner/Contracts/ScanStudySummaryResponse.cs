@@ -7,4 +7,5 @@ public sealed record ScanStudySummaryResponse(
     ScanOutcomeSummaryResponse Change4h,
     ScanOutcomeSummaryResponse Change24h,
     ScanOutcomeSummaryResponse MaxRise24h,
-    ScanOutcomeSummaryResponse MaxDrop24h);
+    ScanOutcomeSummaryResponse MaxDrop24h,
+    IReadOnlyList<ScanScenarioSummaryResponse> Scenarios);

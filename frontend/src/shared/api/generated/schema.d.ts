@@ -5013,6 +5013,19 @@ export interface components {
             builtIn: boolean;
             alertsEnabled: boolean;
         };
+        ScanScenarioSummaryResponse: {
+            scenario: string;
+            /** Format: int32 */
+            trades: number;
+            winningShare: null | string;
+            meanR: null | string;
+            medianR: null | string;
+            totalR: string;
+            meanPercent: null | string;
+            /** Format: int32 */
+            longestLosingStreak: number;
+            meanMinutes: null | string;
+        };
         ScanSignalResponse: {
             symbol: string;
             /** Format: date-time */
@@ -5025,6 +5038,7 @@ export interface components {
             change24h: null | string;
             maxRise24h: null | string;
             maxDrop24h: null | string;
+            trades: components["schemas"]["ScanTradeResponse"][];
         };
         ScanSnapshotResponse: {
             venue: string;
@@ -5049,6 +5063,11 @@ export interface components {
             distanceToLow24h: null | string;
             distanceToHigh7d: null | string;
             distanceToLow7d: null | string;
+            resistance: null | string;
+            support: null | string;
+            distanceToResistance: null | string;
+            distanceToSupport: null | string;
+            rewardRisk: null | string;
             spread: null | string;
             /** Format: int32 */
             listingAgeDays: null | number;
@@ -5064,6 +5083,21 @@ export interface components {
             change24h: components["schemas"]["ScanOutcomeSummaryResponse"];
             maxRise24h: components["schemas"]["ScanOutcomeSummaryResponse"];
             maxDrop24h: components["schemas"]["ScanOutcomeSummaryResponse"];
+            scenarios: components["schemas"]["ScanScenarioSummaryResponse"][];
+        };
+        ScanTradeResponse: {
+            scenario: string;
+            entry: string;
+            stop: string;
+            target: string;
+            /** Format: date-time */
+            enteredAt: string;
+            /** Format: date-time */
+            exitedAt: string;
+            exit: string;
+            reason: string;
+            resultR: string;
+            resultPercent: string;
         };
         ScanVenueResponse: {
             venue: string;

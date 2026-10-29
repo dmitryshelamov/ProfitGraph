@@ -246,6 +246,16 @@ pair and preset. Sent only while the preset's alerts are on; the «Отключ�
 A replay of a preset's conditions over the last 30 days of every pair's minutes that lists the moments pairs entered its result
 and what the price did 15 minutes, 1 hour, 4 hours and 24 hours later. It tests a preset; it runs no strategy.
 
+### Scanner Level
+
+A support or resistance price of a pair: a swing high or low of its last 168 closed hours or their extreme, near prices merged. The
+scanner shows the nearest support and resistance and the reward-to-risk between them.
+
+### Trade Scenario
+
+A rule the preset backtest simulates after each signal: where it enters, its stop and target, and when it gives up (for example
+"stop at the support, target at the resistance"). Its results are in R, the entry-to-stop distance, after fees.
+
 ### Screener Robot
 
 A later product, not designed yet: one strategy cloned onto every instrument of a list, with a shared deposit and a shared limit

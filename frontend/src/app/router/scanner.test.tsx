@@ -24,6 +24,11 @@ const emptyMetrics = {
   distanceToLow24h: null,
   distanceToHigh7d: null,
   distanceToLow7d: null,
+  resistance: null,
+  support: null,
+  distanceToResistance: null,
+  distanceToSupport: null,
+  rewardRisk: null,
   spread: null,
   listingAgeDays: null,
   stale: false,
@@ -215,6 +220,19 @@ describe('scanner page', () => {
         change24h: outcome(0, null, null),
         maxRise24h: outcome(0, null, null),
         maxDrop24h: outcome(0, null, null),
+        scenarios: [
+          {
+            scenario: 'Levels',
+            trades: 2,
+            winningShare: '0.5',
+            meanR: '0.45',
+            medianR: '0.45',
+            totalR: '0.9',
+            meanPercent: '0.8',
+            longestLosingStreak: 1,
+            meanMinutes: '95',
+          },
+        ],
       },
       signals: [
         {
@@ -228,6 +246,20 @@ describe('scanner page', () => {
           change24h: null,
           maxRise24h: null,
           maxDrop24h: null,
+          trades: [
+            {
+              scenario: 'Levels',
+              entry: '87.5',
+              stop: '86',
+              target: '90',
+              enteredAt: '2026-10-28T11:46:00Z',
+              exitedAt: '2026-10-28T13:00:00Z',
+              exit: '90',
+              reason: 'Target',
+              resultR: '1.55',
+              resultPercent: '2.65',
+            },
+          ],
         },
       ],
       signalsTruncated: false,
@@ -274,5 +306,14 @@ describe('scanner page', () => {
     expect(within(quarterHour).getAllByText('1.25%')).toHaveLength(2);
     expect(screen.getByText(/История не загрузилась у 1: BADUSDT/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'HYPEUSDT' })).toBeInTheDocument();
+    const levels = screen.getByRole('row', { name: /Уровни: стоп поддержка/ });
+    expect(within(levels).getByText('0.9')).toBeInTheDocument();
+    expect(within(levels).getByText('50%')).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Пара' }), 'HYPEUSDT');
+
+    expect(
+      within(screen.getByRole('list', { name: 'Итоги пары' })).getByText(/сумма 1.55 R/),
+    ).toBeInTheDocument();
   });
 });

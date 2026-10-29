@@ -2,7 +2,7 @@ namespace ProfitGraph.Api.Scanner.Contracts;
 
 /// <summary>
 ///     A pair entering the preset's result in history: when, the entry price, its metrics then and the price changes after it, in
-///     percent; an empty change means the history does not reach that far yet.
+///     percent, and its scenarios' closed trades; an empty change means the history does not reach that far yet.
 /// </summary>
 public sealed record ScanSignalResponse(
     string Symbol,
@@ -14,4 +14,5 @@ public sealed record ScanSignalResponse(
     string? Change4h,
     string? Change24h,
     string? MaxRise24h,
-    string? MaxDrop24h);
+    string? MaxDrop24h,
+    IReadOnlyList<ScanTradeResponse> Trades);

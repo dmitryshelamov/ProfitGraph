@@ -35,6 +35,7 @@ public sealed class ScanReplay
     private readonly decimal[] _weekLows;
     private readonly decimal?[] _spikeMedians;
     private readonly DateTimeOffset? _listedAt;
+    private readonly IReadOnlyList<decimal>?[] _levels;
 
     public int Count => _minutes.Length;
 
@@ -90,6 +91,8 @@ public sealed class ScanReplay
         {
             _spikeMedians[j] = Median(_hours, j);
         }
+
+        _levels = new IReadOnlyList<decimal>?[_hours.Length];
     }
 
     /// <summary>
@@ -114,7 +117,7 @@ public sealed class ScanReplay
         int lastHour = LastClosedHour(index);
         int hourCount = lastHour < 0 ? 0 : Math.Min(HoursPerWeek, lastHour + 1);
 
-        return new ScanMetrics
+        var metrics = new ScanMetrics
         {
             Price = close,
             Change5m = Change(index, window, count: 5),
@@ -135,6 +138,17 @@ public sealed class ScanReplay
             ListingAgeDays = _listedAt is { } listedAt ? (int)Math.Max(val1: 0, (now - listedAt).Ticks / TimeSpan.TicksPerDay) : null,
             Stale = IsStale(index, window, now)
         };
+
+        return lastHour < 0 ? metrics : ScanLevels.Apply(metrics, Levels(lastHour), close);
+    }
+
+    /// <summary>
+    ///     The levels of the 168 hours up to <paramref name="lastHour" />, drawn once per hour.
+    /// </summary>
+    private IReadOnlyList<decimal> Levels(int lastHour)
+    {
+        return _levels[lastHour] ??=
+            ScanLevels.Of(new ArraySegment<ScanCandle>(_hours, Math.Max(val1: 0, lastHour - HoursPerWeek + 1), Math.Min(HoursPerWeek, lastHour + 1)));
     }
 
     /// <summary>
