@@ -10,6 +10,8 @@ import { renderApp } from '@/test/renderApp';
 const botPath = `/api/bots/${bot.id}`;
 const user = { ...owner, role: 'User' as const, login: 'trader' };
 const running = { ...bot, desiredState: 'Running' as const, runtimeStatus: 'Running' as const };
+const stopped = { ...bot, desiredState: 'Stopped' as const, runtimeStatus: 'Stopped' as const };
+const stopping = { ...bot, desiredState: 'Stopped' as const, runtimeStatus: 'Running' as const };
 const exit = {
   engineOrderId: 2,
   tag: 'ladder.exit',
@@ -126,7 +128,7 @@ describe('owner cancel of an open order', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Подтвердить отмену' }));
 
     expect(
-      await screen.findByText('Бот попросил биржу отменить ордер 2, ждём подтверждения…'),
+      await screen.findByText('Биржу попросили отменить ордер 2, ждём подтверждения…'),
     ).toBeInTheDocument();
     expect((await exitRow()).getByText('Отмена…')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Отменить ордер 3' })).toBeDisabled();
@@ -181,13 +183,65 @@ describe('owner cancel of an open order', () => {
     expect(requests.filter((request) => request.method === 'POST')).toEqual([]);
   });
 
-  it('offers no cancel while the bot is not running', async () => {
-    fakeApi(routes(bot));
+  it('offers no cancel while the bot is still stopping', async () => {
+    fakeApi(routes(stopping));
     renderApp(`/bots/${bot.id}`);
 
     await exitRow();
     expect(screen.queryByRole('button', { name: /Отменить ордер/ })).not.toBeInTheDocument();
-    expect(screen.getByText('Отменить ордер можно, пока бот работает.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Отменить ордер можно, пока бот работает или после его остановки.'),
+    ).toBeInTheDocument();
+  });
+
+  it('cancels an order of a stopped bot at once', async () => {
+    let posted = false;
+    const requests = fakeApi({
+      ...routes(stopped, () => (posted ? [average] : [exit, average])),
+      [`POST ${botPath}/open-orders/2/cancel`]: () => {
+        posted = true;
+
+        return json({ ...cancel, status: 'Requested', resolvedAt: '2026-10-28T08:00:00Z' }, 202);
+      },
+      [`GET ${botPath}/order-cancels/${cancel.id}`]: () =>
+        json({ ...cancel, status: 'Requested', resolvedAt: '2026-10-28T08:00:00Z' }),
+    });
+    renderApp(`/bots/${bot.id}`);
+
+    await userEvent.click((await exitRow()).getByRole('button', { name: 'Отменить ордер 2' }));
+
+    expect(
+      screen.getByText(/Бот остановлен: биржу попросят снять ордер сразу/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/При следующем запуске стратегия выставит недостающие ордера заново/),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить отмену' }));
+
+    expect(await screen.findByText(/Ордер 2 больше не активен/)).toBeInTheDocument();
+    expect(
+      requests
+        .filter((request) => request.method === 'POST')
+        .map((request) => new URL(request.url).pathname),
+    ).toEqual([`${botPath}/open-orders/2/cancel`]);
+    expect(screen.queryByText('ladder.exit')).not.toBeInTheDocument();
+  });
+
+  it('explains that a stopped bot’s unsent order waits for the start', async () => {
+    fakeApi({
+      ...routes(stopped),
+      [`POST ${botPath}/open-orders/2/cancel`]: () => problem(409, 'order_not_sent'),
+    });
+    renderApp(`/bots/${bot.id}`);
+
+    await userEvent.click((await exitRow()).getByRole('button', { name: 'Отменить ордер 2' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить отмену' }));
+
+    expect(
+      await screen.findByText(
+        'Не удалось отменить ордер: ордер ещё не отправлен на биржу и ждёт запуска бота.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('offers no cancel for an order already being cancelled', async () => {

@@ -1,5 +1,5 @@
 import { waitingText } from './orderWaiting';
-import type { BotOpenOrder, BotOrderWaiting, OrderCancel, OrderStatus } from './types';
+import type { Bot, BotOpenOrder, BotOrderWaiting, OrderCancel, OrderStatus } from './types';
 
 const statuses: Partial<Record<OrderStatus, string>> = {
   Active: 'Стоит на бирже',
@@ -43,6 +43,21 @@ export function openOrderState(
 }
 
 /**
+ * When the owner may cancel the bot's orders: while it runs, its runner cancels the order through the engine (ADR 0048); once it
+ * is stopped, the cancel goes to the exchange at once (ADR 0055). A bot that is starting or still stopping offers nothing; the
+ * server also refuses a stopped bot whose runner has not given the bot up yet.
+ */
+export function orderCancelMode(
+  bot: Pick<Bot, 'desiredState' | 'runtimeStatus'>,
+): 'running' | 'stopped' | null {
+  if (bot.desiredState === 'Running') {
+    return bot.runtimeStatus === 'Running' ? 'running' : null;
+  }
+
+  return bot.runtimeStatus === 'Running' || bot.runtimeStatus === 'Starting' ? null : 'stopped';
+}
+
+/**
  * Whether the owner may cancel the order (ADR 0048): one at the venue, held back or still being sent. An order already
  * being cancelled is not offered again.
  */
@@ -55,7 +70,8 @@ const cancelProblems: Readonly<Record<string, string>> = {
   order_not_open: 'ордер уже не активен',
   order_cancel_pending: 'ордер уже отменяется',
   order_cancel_request_pending: 'предыдущая отмена ещё ждёт бота',
-  bot_not_running: 'бот не работает',
+  order_not_sent: 'ордер ещё не отправлен на биржу и ждёт запуска бота',
+  bot_not_running: 'бот запускается или ещё останавливается',
 };
 
 /** The owner-facing reason a cancel was refused or rejected; an unknown code is shown as it is. */
@@ -64,8 +80,8 @@ export function cancelProblemLabel(code: string): string {
 }
 
 /**
- * Where an owner's cancel of `engineOrderId` is: the request waits for the bot, the bot asked the venue and the order is
- * still open, the order is no longer open (cancelled, or filled before the cancel arrived), or the request was rejected.
+ * Where an owner's cancel of `engineOrderId` is: the request waits for the bot, the venue was asked (by the running bot, or at
+ * once for a stopped one) and the order is still open, the order is no longer open (cancelled, or filled before the cancel arrived), or the request was rejected.
  */
 export function orderCancelState(
   cancel: Pick<OrderCancel, 'status' | 'engineOrderId' | 'rejectionReason'>,
@@ -85,7 +101,7 @@ export function orderCancelState(
   }
 
   return openOrders.some((item) => item.engineOrderId === order)
-    ? { text: `Бот попросил биржу отменить ордер ${order}, ждём подтверждения…`, settled: false }
+    ? { text: `Биржу попросили отменить ордер ${order}, ждём подтверждения…`, settled: false }
     : {
         text: `Ордер ${order} больше не активен: биржа его отменила или он успел исполниться (см. ленту).`,
         settled: true,

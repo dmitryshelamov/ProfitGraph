@@ -706,15 +706,24 @@ public sealed class Bot : AggregateRoot
     }
 
     /// <summary>
-    ///     An owner's cancel of one of the bot's orders (ADR 0048) is accepted only while the bot should run and runs: a stopped bot
-    ///     has no runner to turn it into the engine's cancel, and its strategy would restore the order at the next start.
+    ///     An owner's cancel of one of the bot's orders is accepted while the bot should run and runs (ADR 0048), when its runner
+    ///     turns it into the engine's cancel, or once the bot is stopped and no runner holds its lease (ADR 0055), when it goes to
+    ///     the venue as a cancel intent. A bot that is starting, stopping or recovering refuses it.
     /// </summary>
-    public void EnsureAcceptsOrderCancels()
+    public void EnsureAcceptsOrderCancels(bool leaseHeld)
     {
-        if (DesiredState != BotDesiredState.Running || RuntimeStatus != BotRuntimeStatus.Running)
+        if (!IsStoppedWithoutRunner(leaseHeld) && (DesiredState != BotDesiredState.Running || RuntimeStatus != BotRuntimeStatus.Running))
         {
-            throw new BotRuleException(BotRuleException.NotRunning, "Cancelling an order of the bot needs a running bot.");
+            throw new BotRuleException(BotRuleException.NotRunning, "Cancelling an order of the bot needs a running or a stopped bot.");
         }
+    }
+
+    /// <summary>
+    ///     The bot should not run and no runner holds its lease, so nothing changes its engine until the next start.
+    /// </summary>
+    public bool IsStoppedWithoutRunner(bool leaseHeld)
+    {
+        return DesiredState == BotDesiredState.Stopped && !leaseHeld;
     }
 
     public BotSnapshot ToSnapshot()

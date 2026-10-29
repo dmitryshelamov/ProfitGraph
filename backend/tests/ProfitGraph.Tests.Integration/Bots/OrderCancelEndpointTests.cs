@@ -9,16 +9,19 @@ using ProfitGraph.Api.Bots.Contracts;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Bots.Checkpoints;
+using ProfitGraph.Domain.Bots.Leases;
 using ProfitGraph.Domain.Bots.OrderCancels;
+using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Integration.Common;
 
 namespace ProfitGraph.Tests.Integration.Bots;
 
 /// <summary>
-///     The owner's cancel of one of the bot's open orders over HTTP (ADR 0048): only the owner sees the bot, only a running bot takes
-///     a cancel, only an order its engine holds as working and not already cancelling, and only one at a time; the request is read
-///     back by its identifier. It has its own API, so its sign-ins do not share the other bot tests' rate limit.
+///     The owner's cancel of one of the bot's open orders over HTTP (ADR 0048): only the owner sees the bot, only a running bot or a
+///     stopped one without a runner (ADR 0055) takes a cancel, only an order its engine holds as working and not already cancelling,
+///     and only one at a time; the request is read back by its identifier. It has its own API, so its sign-ins do not share the other
+///     bot tests' rate limit.
 /// </summary>
 [NonParallelizable]
 public sealed class OrderCancelEndpointTests
@@ -90,24 +93,50 @@ public sealed class OrderCancelEndpointTests
     }
 
     [Test]
-    public async Task AStoppedOrNotYetRunningBotRefuses()
+    public async Task AStartingOrStoppingBotRefuses()
     {
         BotOwner owner = await BotApi.NewOwner(_factory);
         Guid id = await BotApi.Create(owner);
         await SeedOrders(id);
 
-        HttpResponseMessage stopped = await Cancel(owner.Client, id, engineOrderId: 2);
         await owner.Client.PostAsync($"{BotApi.Path}/{id}/start", content: null);
         HttpResponseMessage starting = await Cancel(owner.Client, id, engineOrderId: 2);
         await Change(id, bot => bot.MarkRunning(DateTimeOffset.UtcNow));
+        await HoldLease(id);
         await owner.Client.PostAsync($"{BotApi.Path}/{id}/stop", content: null);
         HttpResponseMessage stopping = await Cancel(owner.Client, id, engineOrderId: 2);
 
-        foreach (HttpResponseMessage response in new[] { stopped, starting, stopping })
+        foreach (HttpResponseMessage response in new[] { starting, stopping })
         {
             response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
             (await BotApi.Code(response)).ShouldBe(BotRuleException.NotRunning);
         }
+    }
+
+    [Test]
+    public async Task AStoppedBotCancelsASentOrderAtOnce_AndRefusesOneThatNeverLeft()
+    {
+        BotOwner owner = await BotApi.NewOwner(_factory);
+        Guid id = await BotApi.Create(owner);
+        await SeedOrders(id);
+        await SeedSubmits(id);
+
+        HttpResponseMessage accepted = await Cancel(owner.Client, id, engineOrderId: 2);
+        var submitted = (await accepted.Content.ReadFromJsonAsync<OrderCancelResponse>(WebJson))!;
+        HttpResponseMessage again = await Cancel(owner.Client, id, engineOrderId: 2);
+        HttpResponseMessage unsent = await Cancel(owner.Client, id, engineOrderId: 1);
+        BotOpenOrderResponse[] open = (await owner.Client.GetFromJsonAsync<BotOpenOrderResponse[]>($"{BotApi.Path}/{id}/open-orders", WebJson))!;
+
+        accepted.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        submitted.ShouldSatisfyAllConditions(
+            () => submitted.EngineOrderId.ShouldBe(2),
+            () => submitted.Status.ShouldBe(OrderCancelStatus.Requested),
+            () => submitted.ResolvedAt.ShouldNotBeNull());
+        again.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await BotApi.Code(again)).ShouldBe("order_cancel_pending");
+        unsent.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await BotApi.Code(unsent)).ShouldBe("order_not_sent");
+        open.Single(order => order.EngineOrderId == 2).Status.ShouldBe(OrderStatus.PendingCancel);
     }
 
     [Test]
@@ -161,6 +190,44 @@ public sealed class OrderCancelEndpointTests
                             bot.Parameters,
                             DateTimeOffset.UtcNow),
                         CancellationToken.None);
+
+                    return true;
+                },
+                CancellationToken.None);
+    }
+
+    /// <summary>
+    ///     The market buy (1) waits in the process; the exit (2) was sent to the venue.
+    /// </summary>
+    private async Task SeedSubmits(Guid botId)
+    {
+        using IServiceScope scope = _factory.Services.CreateScope();
+        var intents = scope.ServiceProvider.GetRequiredService<IOrderIntentRepository>();
+        var botIdentity = new BotId(botId);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        OrderIntent unsent = OrderIntent.Submit(OrderIntentId.New(), botIdentity, BotSeed.MarketBuy(id: 1), new ClientOrderId($"pg-{botId:N}-1"), now);
+        OrderIntent sent = OrderIntent.Submit(OrderIntentId.New(), botIdentity, Limit(id: 2, OrderStatus.PendingSubmit), new ClientOrderId($"pg-{botId:N}-2"), now);
+        sent.Claim(now);
+        sent.MarkPlaceStarted(now);
+        sent.MarkSent(now);
+        await scope.ServiceProvider.GetRequiredService<ITransactionExecutor>()
+            .ExecuteAsync(
+                async () => await intents.TryAdd(unsent, CancellationToken.None) && await intents.TryAdd(sent, CancellationToken.None),
+                CancellationToken.None);
+    }
+
+    /// <summary>
+    ///     A runner holds the bot's lease, as one does until it stops.
+    /// </summary>
+    private async Task HoldLease(Guid botId)
+    {
+        using IServiceScope scope = _factory.Services.CreateScope();
+        var leases = scope.ServiceProvider.GetRequiredService<IBotLeaseRepository>();
+        await scope.ServiceProvider.GetRequiredService<ITransactionExecutor>()
+            .ExecuteAsync(
+                async () =>
+                {
+                    await leases.Add(BotLease.Acquire(new BotId(botId), LeaseHolderId.New(), DateTimeOffset.UtcNow, TimeSpan.FromMinutes(5)), CancellationToken.None);
 
                     return true;
                 },

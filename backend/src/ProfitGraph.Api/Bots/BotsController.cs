@@ -143,9 +143,10 @@ public sealed class BotsController(ISender sender) : ControllerBase
     }
 
     /// <summary>
-    ///     The owner cancels one of the running bot's open orders (ADR 0048). The request waits for the bot's runner, which turns it into
-    ///     the engine's ordinary cancel within a minute or lets it expire; poll it by its identifier. A stopped bot, an order that is
-    ///     no longer open and an order already being cancelled answer 409.
+    ///     The owner cancels one of the bot's open orders. A running bot's request waits for its runner, which turns it into the
+    ///     engine's ordinary cancel within a minute or lets it expire; poll it by its identifier (ADR 0048). A stopped bot's request is
+    ///     requested at once and its cancel goes to the venue (ADR 0055). A starting or stopping bot, an order that is no longer open,
+    ///     an order already being cancelled and a stopped bot's order that was never sent answer 409.
     /// </summary>
     [HttpPost("{id:guid}/open-orders/{engineOrderId:long}/cancel")]
     public async Task<ActionResult<OrderCancelResponse>> CancelOrder(Guid id, long engineOrderId, CancellationToken cancellationToken)
