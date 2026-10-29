@@ -95,13 +95,13 @@ sources, history downloads as background jobs, backtests, comparison, and Telegr
 
 All windows are rolling and end at the last closed 1-minute candle; the forming candle is used only for the price. A metric
 without enough history is empty, never computed on a shorter window. Metrics are pure functions of candle arrays, independent
-of live and venue code, so the Worker, a backtest and a later screener robot compute the same value; prices and turnover stay
-`decimal`, ratios may be `double`.
+of live and venue code, so the Worker, a backtest and a later screener robot compute the same value. Every metric is `decimal`,
+as the engine's indicators are (ADR 0056); they live in the engine's `Scanning/` folder.
 
 | Metric | Definition |
 |---|---|
 | Price | Last price of the current 1-minute candle. |
-| Change 5m, 15m, 1h, 4h, 24h | (C_last − C_{t−N}) / C_{t−N}, %. |
+| Change 5m, 15m, 1h, 4h, 24h | (Close of the last minute − Open of the first) / Open of the first, over the last N closed minutes, %. |
 | Turnover 1h, 24h | Sum of quote turnover of the last 60 and 1,440 minutes, USDT. |
 | Volume spike | Turnover of the last hour / median hourly turnover of the previous 167 hours; empty below 72 hours of history. |
 | Volatility (NATR 24h) | Simple mean of true range / close over the last 24 closed hourly candles, %. |
@@ -109,7 +109,7 @@ of live and venue code, so the Worker, a backtest and a later screener robot com
 | Distance to high and low, 24h and 7d | (C − High_N) / High_N and (C − Low_N) / Low_N, %. |
 | Spread | (ask − bid) / mid from the minute's quote snapshot, %. |
 | Listing age | Days since the pair's listing. |
-| Stale | No trades for more than 15 minutes. |
+| Stale | The last minute with volume ended more than 15 minutes ago, or there is none. |
 
 RSI and other indicators are added when their engine nodes exist, computed by the engine's code. Order book depth, correlation
 to BTC and cross-venue gaps are out of scope.
