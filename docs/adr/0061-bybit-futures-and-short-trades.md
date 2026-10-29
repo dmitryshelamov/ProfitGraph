@@ -1,9 +1,10 @@
 # ADR 0061: Bybit Futures and Short Trades
 
-Status: Proposed, 2026-10-30. The owner asked for the next scanner step: Bybit USDT perpetuals (category `linear`) as a scanner
+Status: Accepted, 2026-10-30. The owner asked for the next scanner step: Bybit USDT perpetuals (category `linear`) as a scanner
 source and a trading venue, and short entries, so that a futures pair's page shows short ideas next to the long ones and creates
-trades from them. The decisions marked **(owner)** below are open questions for the owner; the rest are proposals reviewed in the
-pull request. Builds on ADR 0003, ADR 0016, ADR 0017, ADR 0030, ADR 0044, ADR 0059 and ADR 0060.
+trades from them. The owner made leverage a setting ("плечо - настраиваемый параметр"), chose hedge mode and switches it
+themselves ("Берём hedge mode, переключу сам"), and accepted the rest ("ADR 0061 принят"). Builds on ADR 0003, ADR 0016,
+ADR 0017, ADR 0030, ADR 0044, ADR 0059 and ADR 0060.
 
 ## Context
 
@@ -32,22 +33,20 @@ exchanged every few hours, and the account's margin mode and position mode decid
   `priceFilter.tickSize`, `lotSizeFilter.qtyStep`, `minOrderQty`, `minNotionalValue`), the catalog, tickers and the scanner source
   (`BybitMarketScanSource` with its own REST budget share), fee rates (`/v5/account/fee-rate?category=linear`). Both venues pay
   every fee in quote (`FeeAsset.Quote`).
-- **Credential (owner).** A key is enrolled for `bybit-linear` like for spot; the owner may enroll the same Bybit key again. It
-  needs the «Contract → Orders, Positions» permission; `KeyMayTrade` checks it. *Recommendation: a separate credential of the same
-  key, because credentials, accounts and account cards are keyed by venue (ADR 0003); sharing one credential across two venues is
+- **Credential.** A key is enrolled for `bybit-linear` like for spot; the owner may enroll the same Bybit key again. It
+  needs the «Contract → Orders, Positions» permission; `KeyMayTrade` checks it. A separate credential, even of the same key, because credentials, accounts and account cards are keyed by venue (ADR 0003); sharing one credential across two venues is
   a core change for little gain.*
 
 ### 2. Positions on the venue: hedge mode, configurable leverage, reduce-only exits
 
-- **Position mode (owner).** The page shows long and short cards of one pair, and the owner may tick both (ADR 0060 allows several
+- **Position mode (owner: hedge mode).** The page shows long and short cards of one pair, and the owner may tick both (ADR 0060 allows several
   trades on one pair). In Bybit's one-way mode those trades net into one position, and a reduce-only exit of one trade is rejected
-  when the other trade's opposite position cancelled it out. *Recommendation: hedge mode (`BothSide`) for USDT perpetuals.* Long
+  when the other trade's opposite position cancelled it out. USDT perpetuals run in hedge mode (`BothSide`). Long
   orders go to `positionIdx=1`, short orders to `positionIdx=2`; every exit is `reduceOnly=true`, so it can only shrink its side and
   never opens the opposite one when the venue holds less than the bot thinks (the owner closed it by hand, auto-deleveraging). The
   bot does not switch the mode: the owner switches it once (in Bybit or by one authorized call to `/v5/position/switch-mode`
   with `coin=USDT, mode=3`), and reconciliation reads `/v5/position/list` and stops the bot with `VenuePositionMode` when the symbol
-  is in one-way mode. *Alternative: one-way mode, `positionIdx=0`, reduce-only exits, and a 409 `scan_trade_opposite_live` that
-  forbids a long and a short trade on one pair at once.*
+  is in one-way mode.
 - **Leverage (owner: "плечо - настраиваемый параметр").** A `bybit-linear` bot has a leverage setting, 1× by default, from 1 up
   to the instrument's `leverageFilter.maxLeverage`; the scanner trade settings carry the leverage their bots get. Before a bot's
   first order on a symbol, and after the setting changes, the gateway sets `buyLeverage=sellLeverage` to it
