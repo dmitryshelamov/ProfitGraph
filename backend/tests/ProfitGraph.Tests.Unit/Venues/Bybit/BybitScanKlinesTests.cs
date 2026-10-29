@@ -24,6 +24,18 @@ public sealed class BybitScanKlinesTests
         updates[1].Closed.ShouldBeFalse();
     }
 
+    [Test]
+    public void ReadsAPerpetualsPricesInExponentNotation()
+    {
+        var row = $$"""
+                    {"start":{{Minute.ToUnixTimeMilliseconds()}},"end":0,"interval":"1","open":"9.513e-05","high":"9.533e-05","low":"9.483e-05","close":"9.505e-05","volume":"1045500","turnover":"99.57","confirm":true,"timestamp":1}
+                    """;
+
+        ScanCandleUpdateInternal update = BybitScanKlines.Read(Message("kline.1.BTCUSDT", row), Symbols).ShouldHaveSingleItem();
+
+        (update.Candle.Open, update.Candle.Low).ShouldBe((0.00009513m, 0.00009483m));
+    }
+
     [TestCase("kline.1.XRPUSDT")]
     [TestCase("kline.5.BTCUSDT")]
     [TestCase("tickers.BTCUSDT")]

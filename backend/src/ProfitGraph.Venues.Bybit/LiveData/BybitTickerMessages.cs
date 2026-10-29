@@ -28,7 +28,8 @@ internal static class BybitTickerMessages
             if (!root.TryGetProperty("topic", out JsonElement kind) || kind.GetString() != topic ||
                 !root.TryGetProperty("ts", out JsonElement time) || !time.TryGetInt64(out long milliseconds) ||
                 !root.TryGetProperty("data", out JsonElement data) || !data.TryGetProperty("lastPrice", out JsonElement last) ||
-                !decimal.TryParse(last.GetString(), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal price) || price <= 0m)
+                !decimal.TryParse(last.GetString(), NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture, out decimal price) ||
+                price <= 0m)
             {
                 return null;
             }
