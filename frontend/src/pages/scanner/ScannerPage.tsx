@@ -9,6 +9,7 @@ import {
   draftOf,
   draftProblem,
   emptyDraft,
+  PresetAlerts,
   type PresetDraft,
   PresetEditor,
   scannerKeys,
@@ -193,6 +194,13 @@ export function ScannerPage() {
               saving={save.isPending || remove.isPending}
               problem={problem}
             />
+            <div className="border-t border-line pt-3">
+              <PresetAlerts
+                preset={presets.data?.find(
+                  (preset) => preset.id !== null && preset.id === view.presetId,
+                )}
+              />
+            </div>
             {save.isError && (
               <ApiErrorMessage error={save.error} fallback="Не удалось сохранить пресет." />
             )}

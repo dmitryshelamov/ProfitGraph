@@ -38,5 +38,10 @@ public enum TelegramNotificationKind
     /// <summary>
     ///     An order was executed completely, with its totals.
     /// </summary>
-    OrderFilled
+    OrderFilled,
+
+    /// <summary>
+    ///     Pairs entered a scanner preset's result (ADR 0059); its message carries the «Отключить» button.
+    /// </summary>
+    ScanAlert
 }

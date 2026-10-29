@@ -58,6 +58,16 @@ export async function updateScanPreset(
   );
 }
 
+/** Switches the Telegram alerts of the user's own preset on or off. */
+export async function setScanPresetAlerts(presetId: string, enabled: boolean): Promise<ScanPreset> {
+  return unwrap(
+    await api.PUT('/api/scanner/presets/{presetId}/alerts', {
+      params: { path: { presetId } },
+      body: { enabled },
+    }),
+  );
+}
+
 export async function deleteScanPreset(presetId: string): Promise<void> {
   const result = await api.DELETE('/api/scanner/presets/{presetId}', {
     params: { path: { presetId } },

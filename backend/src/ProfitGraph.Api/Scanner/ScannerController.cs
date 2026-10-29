@@ -12,6 +12,7 @@ using ProfitGraph.Application.Scanner.GetScanCandles;
 using ProfitGraph.Application.Scanner.GetScanPresets;
 using ProfitGraph.Application.Scanner.GetScanSnapshot;
 using ProfitGraph.Application.Scanner.GetScanVenues;
+using ProfitGraph.Application.Scanner.SetScanPresetAlerts;
 using ProfitGraph.Application.Scanner.UpdateScanPreset;
 
 namespace ProfitGraph.Api.Scanner;
@@ -74,6 +75,18 @@ public sealed class ScannerController(ISender sender) : ControllerBase
         ScanPresetInternal preset = await sender.Send(new CreateScanPresetCommand(UserId(), venue, request.ToInternal()), cancellationToken);
 
         return StatusCode(StatusCodes.Status201Created, preset.ToResponse());
+    }
+
+    /// <summary>
+    ///     Switches the Telegram alerts of the user's own preset on or off. Alerts report pairs that enter the preset's result after the
+    ///     next snapshot and need a linked Telegram chat.
+    /// </summary>
+    [HttpPut("presets/{presetId:guid}/alerts")]
+    public async Task<ActionResult<ScanPresetResponse>> SetPresetAlerts(Guid presetId, ScanPresetAlertsRequest request, CancellationToken cancellationToken)
+    {
+        ScanPresetInternal preset = await sender.Send(new SetScanPresetAlertsCommand(UserId(), presetId, request.Enabled), cancellationToken);
+
+        return preset.ToResponse();
     }
 
     [HttpPut("presets/{presetId:guid}")]

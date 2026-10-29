@@ -39,6 +39,7 @@ const impulse = {
   sortDescending: true,
   hideStale: true,
   builtIn: true,
+  alertsEnabled: false,
 };
 
 function snapshot(rows: object[]) {
@@ -146,5 +147,43 @@ describe('scanner page', () => {
 
     await waitFor(() => expect(candleTimeframes()).toContain('1h'));
     expect(screen.getByRole('link', { name: '1h' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('switches on the alerts of an own preset and warns without a linked chat', async () => {
+    const own = { ...impulse, id: 'p1', name: 'Мой', builtIn: false };
+    let alertsEnabled = false;
+    const requests = fakeApi({
+      'GET /api/auth/me': () => json(user),
+      'GET /api/scanner/venues': () => json([{ venue: 'bybit', name: 'Bybit' }]),
+      'GET /api/scanner/bybit/presets': () => json([{ ...own, alertsEnabled }]),
+      'GET /api/scanner/bybit/snapshot': () => json(snapshot([])),
+      'GET /api/profile/telegram': () =>
+        json({
+          enabled: true,
+          linked: false,
+          linkedAt: null,
+          blocked: false,
+          botUsername: 'pg_bot',
+        }),
+      'PUT /api/scanner/presets/p1/alerts': async (request) => {
+        alertsEnabled = ((await request.json()) as { enabled: boolean }).enabled;
+
+        return json({ ...own, alertsEnabled });
+      },
+    });
+
+    renderApp('/scanner');
+
+    const toggle = await screen.findByRole('checkbox', { name: 'Алерты в Telegram' });
+    expect(toggle).not.toBeChecked();
+    await userEvent.click(toggle);
+
+    await waitFor(() =>
+      expect(
+        requests.some((request) => request.url.endsWith('/api/scanner/presets/p1/alerts')),
+      ).toBe(true),
+    );
+    expect(await screen.findByRole('checkbox', { name: 'Алерты в Telegram' })).toBeChecked();
+    expect(await screen.findByText(/Чат Telegram не привязан/)).toBeInTheDocument();
   });
 });

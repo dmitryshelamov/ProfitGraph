@@ -1,6 +1,7 @@
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Common;
 using ProfitGraph.Domain.MarketData;
+using ProfitGraph.Engine.Scanning;
 
 namespace ProfitGraph.Domain.Scanner;
 
@@ -89,6 +90,17 @@ public sealed class ScanPreset : AggregateRoot
         UpdatedAt = now;
 
         return true;
+    }
+
+    /// <summary>
+    ///     Whether the preset keeps a pair, as the page filters it: every condition holds and, when asked, the pair has traded in the
+    ///     last 15 minutes.
+    /// </summary>
+    public bool Keeps(ScanMetrics metrics)
+    {
+        ArgumentNullException.ThrowIfNull(metrics);
+
+        return !(HideStale && metrics.Stale) && Conditions.All(condition => condition.Holds(metrics));
     }
 
     private static IReadOnlyList<ScanCondition> Checked(IReadOnlyList<ScanCondition> conditions)

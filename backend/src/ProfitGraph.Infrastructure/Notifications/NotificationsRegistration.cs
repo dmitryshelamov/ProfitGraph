@@ -32,6 +32,7 @@ public static class NotificationsRegistration
         services.AddScoped<ITelegramMessageHandler, StartCommandHandler>();
         services.AddScoped<ITelegramMessageHandler, HelpCommandHandler>();
         services.AddScoped<ITelegramCallbackHandler, AcknowledgeAlertCallbackHandler>();
+        services.AddScoped<ITelegramCallbackHandler, DisableScanAlertsCallbackHandler>();
         services.AddSingleton<IHostedService, TelegramPollingHost>();
         services.AddSingleton<IHostedService, TelegramDeliveryHost>();
 

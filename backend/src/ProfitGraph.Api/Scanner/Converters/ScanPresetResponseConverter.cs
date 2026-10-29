@@ -21,6 +21,7 @@ internal static class ScanPresetResponseConverter
             preset.SortMetric,
             preset.SortDescending,
             preset.HideStale,
-            preset.BuiltIn);
+            preset.BuiltIn,
+            preset.AlertsEnabled);
     }
 }
