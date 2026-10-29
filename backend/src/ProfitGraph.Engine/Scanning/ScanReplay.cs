@@ -147,7 +147,8 @@ public sealed class ScanReplay
     /// </summary>
     private IReadOnlyList<decimal> Levels(int lastHour)
     {
-        return _levels[lastHour] ??= ScanLevels.Of(new ArraySegment<ScanCandle>(_hours, Math.Max(val1: 0, lastHour - HoursPerWeek + 1), Math.Min(HoursPerWeek, lastHour + 1)));
+        return _levels[lastHour] ??=
+            ScanLevels.Of(new ArraySegment<ScanCandle>(_hours, Math.Max(val1: 0, lastHour - HoursPerWeek + 1), Math.Min(HoursPerWeek, lastHour + 1)));
     }
 
     /// <summary>

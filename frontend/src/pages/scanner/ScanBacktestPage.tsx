@@ -5,9 +5,10 @@ import { useEffect } from 'react';
 import { isJobFinished, JobProgress, jobQuery } from '@/modules/jobs';
 import {
   scanBacktestQuery,
+  ScanBacktestSignals,
   ScanBacktestSummary,
   scannerKeys,
-  ScanSignalsTable,
+  ScanScenarioTable,
 } from '@/modules/scanner';
 import { ApiErrorMessage } from '@/shared/ui/ApiErrorMessage';
 import { Card } from '@/shared/ui/Card';
@@ -90,13 +91,26 @@ export function ScanBacktestPage() {
           </div>
         </Card>
       )}
+      {current.summary && current.summary.scenarios.length > 0 && (
+        <Card title="Сценарии сделок">
+          <div className="space-y-3">
+            <p className="text-sm text-text-secondary">
+              После каждого сигнала моделируется сделка: стоп у поддержки или под импульсом, цель у
+              сопротивления или 2R, выход по стопу, цели или через 24 часа. R — расстояние от входа
+              до стопа; результат после комиссии 0.1% на вход и выход. Если в одной минуте задеты и
+              стоп, и цель, считается стоп.
+            </p>
+            <ScanScenarioTable scenarios={current.summary.scenarios} />
+          </div>
+        </Card>
+      )}
       {current.signals && current.signals.length > 0 && (
         <Card
           title={
             current.signalsTruncated ? `Последние ${current.signals.length} сигналов` : 'Сигналы'
           }
         >
-          <ScanSignalsTable venue={current.venue} signals={current.signals} />
+          <ScanBacktestSignals venue={current.venue} signals={current.signals} />
         </Card>
       )}
     </div>

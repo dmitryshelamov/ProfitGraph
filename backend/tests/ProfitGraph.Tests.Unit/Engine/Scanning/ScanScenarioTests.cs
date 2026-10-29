@@ -96,7 +96,7 @@ public sealed class ScanScenarioTests
     {
         ScanSignal[] signals =
         [
-            Signal(Start, 2m), Signal(Start.AddHours(1), -1m), Signal(Start.AddHours(2), -1m), Signal(Start.AddHours(3), 1m)
+            Signal(Start, resultR: 2m), Signal(Start.AddHours(1), resultR: -1m), Signal(Start.AddHours(2), resultR: -1m), Signal(Start.AddHours(3), resultR: 1m)
         ];
 
         ScanScenarioSummary summary = ScanStudy.Summarize(signals).Scenarios!.Single(item => item.Scenario == ScanScenario.Target2R);
@@ -108,9 +108,30 @@ public sealed class ScanScenarioTests
 
     private static ScanSignal Signal(DateTimeOffset at, decimal resultR)
     {
-        var trade = new ScanTrade(ScanScenario.Target2R, Entry: 100, Stop: 98, Target: 104, at, at.AddMinutes(10), Exit: 100, ScanTradeExit.Time, resultR, ResultPercent: 0);
+        var trade = new ScanTrade(
+            ScanScenario.Target2R,
+            Entry: 100,
+            Stop: 98,
+            Target: 104,
+            at,
+            at.AddMinutes(10),
+            Exit: 100,
+            ScanTradeExit.Time,
+            resultR,
+            ResultPercent: 0);
 
-        return new ScanSignal("X", at, EntryPrice: 100, new ScanMetrics(), null, null, null, null, null, null, [trade]);
+        return new ScanSignal(
+            "X",
+            at,
+            EntryPrice: 100,
+            new ScanMetrics(),
+            Change15m: null,
+            Change1h: null,
+            Change4h: null,
+            Change24h: null,
+            MaxRise24h: null,
+            MaxDrop24h: null,
+            [trade]);
     }
 
     private static List<ScanCandle> Flat(int count, decimal price)

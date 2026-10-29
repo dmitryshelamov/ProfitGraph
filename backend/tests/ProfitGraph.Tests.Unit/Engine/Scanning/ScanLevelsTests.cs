@@ -59,12 +59,13 @@ public sealed class ScanLevelsTests
     {
         return
         [
-            .. Enumerable.Range(start: 0, count).Select(index =>
-            {
-                (decimal high, decimal low) = range(index);
+            .. Enumerable.Range(start: 0, count)
+                .Select(index =>
+                {
+                    (decimal high, decimal low) = range(index);
 
-                return new ScanCandle(Start.AddHours(index), low, high, low, low, Volume: 1, Turnover: 1);
-            })
+                    return new ScanCandle(Start.AddHours(index), low, high, low, low, Volume: 1, Turnover: 1);
+                })
         ];
     }
 }

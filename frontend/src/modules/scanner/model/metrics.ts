@@ -17,6 +17,11 @@ export type ScanMetric =
   | 'DistanceToLow24h'
   | 'DistanceToHigh7d'
   | 'DistanceToLow7d'
+  | 'Support'
+  | 'DistanceToSupport'
+  | 'Resistance'
+  | 'DistanceToResistance'
+  | 'RewardRisk'
   | 'Spread'
   | 'ListingAgeDays';
 
@@ -89,6 +94,36 @@ export const scanMetrics: readonly MetricDefinition[] = [
     places: 2,
     hint: 'Расстояние от минимума недели',
   },
+  {
+    metric: 'Support',
+    label: 'Поддержка',
+    places: null,
+    hint: 'Ближайший уровень ниже цены: часовые минимумы-развороты и минимум недели',
+  },
+  {
+    metric: 'DistanceToSupport',
+    label: 'До подд., %',
+    places: 2,
+    hint: 'Расстояние от цены до поддержки',
+  },
+  {
+    metric: 'Resistance',
+    label: 'Сопротивление',
+    places: null,
+    hint: 'Ближайший уровень выше цены: часовые максимумы-развороты и максимум недели',
+  },
+  {
+    metric: 'DistanceToResistance',
+    label: 'До сопр., %',
+    places: 2,
+    hint: 'Расстояние от цены до сопротивления',
+  },
+  {
+    metric: 'RewardRisk',
+    label: 'R:R',
+    places: 2,
+    hint: 'Расстояние до сопротивления к расстоянию до поддержки: прибыль к риску лонга от цены',
+  },
   { metric: 'Spread', label: 'Спред, %', places: 3, hint: 'Разница лучших цен к середине' },
   {
     metric: 'ListingAgeDays',
@@ -114,6 +149,11 @@ const fields: Record<ScanMetric, keyof ScanRow> = {
   DistanceToLow24h: 'distanceToLow24h',
   DistanceToHigh7d: 'distanceToHigh7d',
   DistanceToLow7d: 'distanceToLow7d',
+  Support: 'support',
+  DistanceToSupport: 'distanceToSupport',
+  Resistance: 'resistance',
+  DistanceToResistance: 'distanceToResistance',
+  RewardRisk: 'rewardRisk',
   Spread: 'spread',
   ListingAgeDays: 'listingAgeDays',
 };

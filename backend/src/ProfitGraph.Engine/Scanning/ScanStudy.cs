@@ -248,7 +248,16 @@ public static class ScanStudy
 
         if (trades.Length == 0)
         {
-            return new ScanScenarioSummary(scenario, Trades: 0, WinningShare: null, MeanR: null, MedianR: null, TotalR: 0, MeanPercent: null, LongestLosingStreak: 0, MeanMinutes: null);
+            return new ScanScenarioSummary(
+                scenario,
+                Trades: 0,
+                WinningShare: null,
+                MeanR: null,
+                MedianR: null,
+                TotalR: 0,
+                MeanPercent: null,
+                LongestLosingStreak: 0,
+                MeanMinutes: null);
         }
 
         decimal[] results = [.. trades.Select(trade => trade.ResultR).Order()];

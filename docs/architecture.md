@@ -267,7 +267,9 @@ src/
   `/api/scanner/{venue}/candles` (`CandleHistoryChart`, paged back like a bot's chart with the shared helpers of
   `modules/market-chart`) and its metrics from the snapshot. A saved preset's «Алерты в Telegram» switch calls
   `PUT /api/scanner/presets/{id}/alerts` and warns when no chat is linked. «Проверить на истории» starts a backtest of the preset
-  being edited; `/scanner/backtests/{id}` follows its job (`JobProgress`) and then shows the summary per horizon and the signals
+  being edited; `/scanner/backtests/{id}` follows its job (`JobProgress`) and then shows the summary per horizon, the trade scenarios
+  and the signals with a pair filter (a chosen pair's totals per scenario are summed exactly on the page). Support, resistance and
+  reward-to-risk are ordinary metric columns; the pair's chart draws the two levels as dashed lines
   ([ADR 0059](adr/0059-market-scanner.md)).
 - **API client.** `shared/api/client.ts` is the only HTTP client. Its types come from
   `shared/api/generated/schema.d.ts`, generated from the API's OpenAPI document with `npm run generate:api` and never

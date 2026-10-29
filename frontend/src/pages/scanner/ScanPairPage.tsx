@@ -3,6 +3,7 @@ import { getRouteApi, Link } from '@tanstack/react-router';
 
 import {
   defaultScanChartTimeframe,
+  rowLevels,
   scanChartTimeframes,
   ScanPairChart,
   ScanRowMetrics,
@@ -55,7 +56,12 @@ export function ScanPairPage() {
       />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <Card>
-          <ScanPairChart venue={venue} symbol={symbol} timeframe={timeframe} />
+          <ScanPairChart
+            venue={venue}
+            symbol={symbol}
+            timeframe={timeframe}
+            levels={rowLevels(row)}
+          />
         </Card>
         <Card title="Метрики">
           {row ? (
