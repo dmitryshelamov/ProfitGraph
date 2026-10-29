@@ -14,3 +14,8 @@ export function formatMetric(value: string | null, places: number | null): strin
 
   return fraction === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${fraction}`;
 }
+
+/** A value followed by the venue's currency; without a known currency, the fallback (or the value alone). */
+export function withQuote(value: string, quote: string, fallback?: string): string {
+  return quote ? `${value} ${quote}` : (fallback ?? value);
+}

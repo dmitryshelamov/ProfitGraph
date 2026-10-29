@@ -107,6 +107,26 @@ public sealed class VenueScanRunnerTests
         await Eventually(() => _source.Calls.Contains("candles BTCUSDT 1m 10:00-10:03"));
     }
 
+    [Test]
+    public async Task AStreamThatOnlyReportsItselfAliveIsSubscribedAndStaysConnected()
+    {
+        // A closed market sends no candles, only the venue's pings (ADR 0062).
+        await Eventually(() => _source.Calls.Contains("stream BTCUSDT"));
+        _source.Push(ScanCandleUpdateInternal.Alive);
+        await Eventually(() => _source.Calls.Count(call => call.StartsWith("candles", StringComparison.Ordinal)) == 2);
+
+        for (var step = 0; step < 18; step++)
+        {
+            _clock.Advance(TimeSpan.FromSeconds(10));
+            _source.Push(ScanCandleUpdateInternal.Alive);
+            await Task.Delay(millisecondsDelay: 20);
+        }
+
+        _source.Calls.Count(call => call.StartsWith("stream", StringComparison.Ordinal)).ShouldBe(1);
+        await Eventually(() => Snapshots().Count > 0);
+        Snapshots()[^1].Snapshot.Rows.Single().Metrics.Stale.ShouldBeFalse();
+    }
+
     private static ScanCandleUpdateInternal Forming(DateTimeOffset now)
     {
         var minute = new DateTimeOffset(now.UtcTicks - now.UtcTicks % TimeSpan.TicksPerMinute, TimeSpan.Zero);

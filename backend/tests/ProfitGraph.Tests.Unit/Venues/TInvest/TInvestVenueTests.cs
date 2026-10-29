@@ -1,3 +1,7 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Venues.TInvest;
 
@@ -55,5 +59,36 @@ public sealed class TInvestVenueTests
     public void OnlyTheOfficialHttpsEndpointEnablesTheVenue(bool enabled, string endpoint, bool valid)
     {
         new TInvestOptions { Enabled = enabled, Endpoint = endpoint }.IsValid().ShouldBe(valid);
+    }
+
+    [TestCase("false", "8d3f0b8e-6a8f-4b55-9c43-3c8d9e1d6a10", arg3: false)]
+    [TestCase("true", "", arg3: false)]
+    [TestCase("true", "8d3f0b8e-6a8f-4b55-9c43-3c8d9e1d6a10", arg3: true)]
+    public void TheScannerExistsOnlyWhileTheVenueIsEnabledWithTheScannersCredential(string enabled, string credentialId, bool scanned)
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(
+                new Dictionary<string, string?>
+                {
+                    ["Venues:TInvest:Enabled"] = enabled,
+                    ["Venues:TInvest:Endpoint"] = "https://mock-tinvest.invalid/",
+                    ["Venues:TInvest:Scanner:CredentialId"] = credentialId
+                })
+            .Build();
+        IServiceCollection services = new ServiceCollection().AddTInvestVenue(configuration);
+
+        services.Any(service => service.ServiceType == typeof(IMarketScanSource)).ShouldBe(scanned);
+        services.Any(service => service.ServiceType == typeof(IScanMarketDataAccess)).ShouldBe(scanned);
+    }
+
+    [TestCase(arg1: 50, arg2: 50, arg3: true)]
+    [TestCase(arg1: 51, arg2: 50, arg3: false)]
+    [TestCase(arg1: 50, arg2: 101, arg3: false)]
+    [TestCase(arg1: 0, arg2: 50, arg3: false)]
+    public void AScannerStreamCarriesNoMoreSharesThanAMinutesSubscriptions(int sharesPerStream, int subscriptionsPerMinute, bool valid)
+    {
+        new TInvestOptions { Scanner = new TInvestScannerOptions { SharesPerStream = sharesPerStream, SubscriptionsPerMinute = subscriptionsPerMinute } }
+            .IsValid()
+            .ShouldBe(valid);
     }
 }

@@ -75,8 +75,9 @@ public static class ScanMetricCalculator
     }
 
     /// <summary>
-    ///     Оборот последних 60 минут к медиане часового оборота за 167 часов, закрытых до начала этих минут; пусто, пока
-    ///     таких часов меньше 72 или их медиана нулевая.
+    ///     Оборот последних 60 минут к медиане часового оборота тех из 167 часов, закрытых до начала этих минут, в которые были
+    ///     сделки (ADR 0062): ночь и выходные биржи не тянут медиану к нулю. Пусто, пока таких часов меньше 72 или их медиана
+    ///     нулевая.
     /// </summary>
     private static decimal? VolumeSpike(IReadOnlyList<ScanCandle> minutes, IReadOnlyList<ScanCandle> hours)
     {
@@ -90,6 +91,7 @@ public static class ScanMetricCalculator
         List<decimal> baseline = hours
             .Where(hour => hour.OpenTime + HourFrame.Duration <= windowStart)
             .TakeLast(SpikeBaselineHours)
+            .Where(hour => hour.Volume > 0)
             .Select(hour => hour.Turnover)
             .Order()
             .ToList();

@@ -37,7 +37,7 @@ public sealed class ScannerController(ISender sender) : ControllerBase
     {
         IReadOnlyList<ScanVenueInternal> venues = await sender.Send(new GetScanVenuesQuery(), cancellationToken);
 
-        return Ok(venues.Select(venue => new ScanVenueResponse(venue.Venue, venue.Name)).ToList());
+        return Ok(venues.Select(venue => new ScanVenueResponse(venue.Venue, venue.Name, venue.QuoteAsset)).ToList());
     }
 
     [HttpGet("{venue}/snapshot")]

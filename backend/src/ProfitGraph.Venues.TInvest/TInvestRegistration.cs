@@ -10,10 +10,12 @@ using ProfitGraph.Application.Accounts.Ports;
 using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Application.MarketData.Ports;
+using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Venues.TInvest.Accounts;
 using ProfitGraph.Venues.TInvest.LiveData;
 using ProfitGraph.Venues.TInvest.MarketData;
 using ProfitGraph.Venues.TInvest.Persistence.Repositories;
+using ProfitGraph.Venues.TInvest.Scanner;
 using ProfitGraph.Venues.TInvest.Trading;
 using ProfitGraph.Venues.TInvest.Transport;
 
@@ -25,6 +27,8 @@ public static class TInvestRegistration
     ///     Registers T-Invest MOEX shares (ADR 0023): the descriptor, the credential fields with their account selection, share
     ///     search, rules and history completed from a reference share, live candles by polling, the commission rate and the
     ///     account value, and the Invest API transport with its pinned certificate trust and per-token limits. No request leaves the process while <c>Venues:TInvest:Enabled</c> is false.
+    ///     The market scanner (ADR 0062) exists only while the venue is enabled and <c>Venues:TInvest:Scanner:CredentialId</c> names
+    ///     the credential it reads with.
     /// </summary>
     public static IServiceCollection AddTInvestVenue(this IServiceCollection services, IConfiguration configuration)
     {
@@ -59,6 +63,18 @@ public static class TInvestRegistration
         services.AddSingleton<IInstrumentRulesSource, TInvestInstrumentRulesSource>();
         services.AddSingleton<IVenueMarketDataAccess, TInvestMarketDataAccess>();
         services.AddSingleton<ITInvestOrderAttempts, TInvestOrderAttemptRepository>();
+        services.AddSingleton(provider => new TInvestScanMarketData(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<IOptions<TInvestOptions>>(),
+            TimeProvider.System));
+        services.AddSingleton(provider => new TInvestScanBudget(provider.GetRequiredService<IOptions<TInvestOptions>>(), TimeProvider.System));
+
+        if (configuration.GetSection(TInvestOptions.SectionName).Get<TInvestOptions>() is { Enabled: true, Scanner.IsEnabled: true })
+        {
+            services.AddSingleton<IScanMarketDataAccess>(provider => provider.GetRequiredService<TInvestScanMarketData>());
+            services.AddTransient<IMarketScanSource, TInvestMarketScanSource>();
+        }
+
         services.ConfigureRunner(runner => runner.ScanIn(typeof(TInvestRegistration).Assembly).For.Migrations());
         services.AddOptions<TInvestOptions>()
             .Bind(configuration.GetSection(TInvestOptions.SectionName))

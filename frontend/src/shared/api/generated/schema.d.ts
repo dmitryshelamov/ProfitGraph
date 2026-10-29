@@ -5413,6 +5413,7 @@ export interface components {
         ScanVenueResponse: {
             venue: string;
             name: string;
+            quoteAsset: null | string;
         };
         SellerFeeScheduleRequest: {
             rates: null | string[];

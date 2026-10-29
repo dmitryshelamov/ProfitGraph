@@ -14,12 +14,14 @@ internal sealed class GetScanCandlesQueryHandler(
     IEnumerable<IMarketScanSource> sources,
     VenueRegistry venues,
     CandleChartReader chart,
+    ScanMarketDataAccess access,
     QueryLimitOptions limits) : IRequestHandler<GetScanCandlesQuery, ScanCandlesInternal>
 {
     public async Task<ScanCandlesInternal> Handle(GetScanCandlesQuery query, CancellationToken cancellationToken)
     {
         sources.Find(query.Venue);
         CandleSeries series = venues.ResolveSeries(query.Venue, query.Symbol, query.Timeframe);
+        using IDisposable reads = MarketDataAccess.Use(await access.Read(query.Venue, cancellationToken));
         CandleChartPage page = await chart.Read(series, query.From, query.To, limits.ScanChartCandles, cancellationToken);
 
         return new ScanCandlesInternal(

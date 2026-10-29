@@ -38,6 +38,7 @@ x-runtime-env: &runtime-env
   Venues__Steam__MarketDataCredentialId: ${STEAM_MARKET_DATA_CREDENTIAL_ID:-}
   Venues__TInvest__Enabled: ${TINVEST_ENABLED:-false}
   Venues__TInvest__Endpoint: https://invest-public-api.tbank.ru/
+  Venues__TInvest__Scanner__CredentialId: ${TINVEST_SCANNER_CREDENTIAL_ID:-}
 
 services:
   postgres:
@@ -125,6 +126,10 @@ services:
     environment:
       <<: *backend-env
       Worker__Roles: "scanner"
+      # T-Invest shares join the scanner when the venue is on and a credential is named (ADR 0062).
+      Venues__TInvest__Enabled: ${TINVEST_ENABLED:-false}
+      Venues__TInvest__Endpoint: https://invest-public-api.tbank.ru/
+      Venues__TInvest__Scanner__CredentialId: ${TINVEST_SCANNER_CREDENTIAL_ID:-}
     depends_on:
       postgres:
         condition: service_healthy

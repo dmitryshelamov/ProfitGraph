@@ -7,6 +7,7 @@ using ProfitGraph.Application.Accounts;
 using ProfitGraph.Application.Bots;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.MarketData;
+using ProfitGraph.Application.Scanner;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Common;
 using ProfitGraph.Engine.Common;
@@ -40,6 +41,8 @@ internal sealed class HttpExceptionHandler(IProblemDetailsService problemDetails
             InstrumentRulesException { Code: InstrumentRulesErrorCodes.InvalidRequest } instrument => (422, "Instrument unavailable", instrument.Code),
             InstrumentRulesException { Code: InstrumentRulesErrorCodes.InvalidProviderData } instrument => (502, "Invalid venue data", instrument.Code),
             InstrumentRulesException instrument => (503, "Venue unavailable", instrument.Code),
+            MarketScanException { Code: MarketScanErrorCodes.InvalidProviderData } scan => (502, "Invalid venue data", scan.Code),
+            MarketScanException scan => (503, "Venue unavailable", scan.Code),
             BadHttpRequestException badRequest => (badRequest.StatusCode, "Invalid request", "invalid_request"),
             _ => (500, "Server error", "unexpected_error")
         };

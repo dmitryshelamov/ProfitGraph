@@ -13,7 +13,10 @@ internal sealed class GetScanVenuesQueryHandler(IEnumerable<IMarketScanSource> s
     {
         return Task.FromResult<IReadOnlyList<ScanVenueInternal>>(
         [
-            .. sources.Select(source => new ScanVenueInternal(source.Venue.Value, venues.Find(source.Venue.Value)?.Name ?? source.Venue.Value))
+            .. sources.Select(source => new ScanVenueInternal(
+                source.Venue.Value,
+                venues.Find(source.Venue.Value)?.Name ?? source.Venue.Value,
+                source.QuoteAsset))
         ]);
     }
 }

@@ -47,6 +47,19 @@ docker compose -f docker-compose.dev-app.yml down
   Their content is never copied into the image or the repository; a missing directory fails `up` instead of being
   created empty.
 
+## T-Invest in the scanner
+
+The development Worker runs the `scanner` role. T-Invest joins it ([ADR 0062](adr/0062-tinvest-market-scanner.md)) once
+both user secrets name a stored T-Invest credential, for example a read-only token added on the credentials page:
+
+```bash
+dotnet user-secrets set "Venues:TInvest:Scanner:CredentialId" "<credential id>" --project backend/src/ProfitGraph.Api
+dotnet user-secrets set "Venues:TInvest:Scanner:CredentialId" "<credential id>" --project backend/src/ProfitGraph.Worker
+```
+
+Re-create the containers afterwards. The scanner then reads the real Invest API with that token; do it only on the owner's
+instruction.
+
 ## Do not touch
 
 The development database on `5435` is persistent; do not drop, clean or edit it by hand. The Profit Fox Designer stack

@@ -5,12 +5,14 @@ import { DateTime } from '@/shared/ui/DateTime';
 import { StatusBadge } from '@/shared/ui/StatusBadge';
 
 import { scanPairTradesQuery } from '../api/scannerApi';
-import { formatMetric } from '../model/format';
+import { formatMetric, withQuote } from '../model/format';
 import { tradeFailure, tradeScenarioLabels, tradeStatus } from '../model/trades';
+import { useScanQuote } from './useScanQuote';
 
 /** The owner's trades from cards on the pair (ADR 0060), newest first, each with its bot. */
 export function ScanPairTrades({ venue, symbol }: { venue: string; symbol: string }) {
   const trades = useQuery(scanPairTradesQuery(venue, symbol));
+  const quote = useScanQuote(venue);
 
   if (!trades.data || trades.data.length === 0) {
     return null;
@@ -54,7 +56,7 @@ export function ScanPairTrades({ venue, symbol }: { venue: string; symbol: strin
                   {failure && <span className="ml-2 text-xs text-muted">{failure}</span>}
                 </td>
                 <td className="px-3 py-2">
-                  {trade.realizedPnl ? `${formatMetric(trade.realizedPnl, 2)} USDT` : '—'}
+                  {trade.realizedPnl ? withQuote(formatMetric(trade.realizedPnl, 2), quote) : '—'}
                 </td>
                 <td className="py-2 pl-3">
                   <Link
