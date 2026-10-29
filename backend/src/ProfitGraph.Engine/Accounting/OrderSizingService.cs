@@ -205,13 +205,14 @@ public sealed class OrderSizingService
                 return new OrderSizingResult(quantity, price, reservation, RejectionReason.InsufficientQuote);
             }
 
+            // The quote budget is the order value and already meets the minimum notional; the reached price checks only the quantity.
             if (referencePrice.HasValue)
             {
                 ArgumentOutOfRangeException.ThrowIfNegativeOrZero(referencePrice.Value);
                 decimal reached = SlippageModel.Apply(referencePrice.Value, side, settings.Slippage);
                 quantity = OrderNormalizer.NormalizeQuantity(reservation / reached, rules);
 
-                if (OrderNormalizer.CheckMinimums(quantity.Value, reached, rules) is { } minimum)
+                if (OrderNormalizer.CheckMinimums(quantity.Value, price: null, rules) is { } minimum)
                 {
                     return new OrderSizingResult(quantity, price, reservation, minimum);
                 }
