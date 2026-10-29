@@ -51,32 +51,42 @@ sources, history downloads as background jobs, backtests, comparison, and Telegr
 
 ### 2. Where it runs and what it keeps
 
-1. **Live, over WebSockets, in the Worker** (owner). A Worker role holds the subscription continuously and computes the
-   metrics; the page and the alerts only read the result. One process holds it at a time (a PostgreSQL lease or advisory
-   lock), so a second Worker does not double the connections.
-2. **One topic per pair:** `kline.1.{symbol}`. Hourly candles are aggregated from the minutes in memory, the 24-hour figures
+1. **Live, over WebSockets, in the Worker** (owner). A new Worker role `scanner`, next to `jobs` and `live` in `Worker:Roles`
+   and in the same binary and image, holds the subscription continuously and computes the metrics; the page and the alerts
+   only read the result. One process holds it at a time (a PostgreSQL lease or advisory lock), so a second Worker does not
+   double the connections.
+2. **A separate container in production** (owner). Locally and in tests one process runs every role, as today. In production
+   `docker-compose.prod.yml` adds a `worker-scanner` service from the same image with `Worker__Roles=scanner`, and the main
+   `worker` lists `jobs,live` explicitly. A crash, a memory leak, a stall on hundreds of sockets or a warm-up of the scanner
+   then never touches the live bots.
+3. **The Bybit IP limit is shared with the bots** (owner). Bybit's 600 requests per 5 seconds count all HTTP traffic of one IP
+   to `api.bybit.com`, the bots' private order calls included, and a ban lasts at least 10 minutes. A separate container does
+   not separate the IP: a scanner that gets banned stops every Bybit bot on the server for that time. So the scanner keeps its
+   REST calls at 10 per second (a twelfth of the limit) and, at its first 403, stops all its REST calls for 10 minutes and
+   reports the ban in readiness. WebSocket subscriptions do not count against this limit.
+4. **One topic per pair:** `kline.1.{symbol}`. Hourly candles are aggregated from the minutes in memory, the 24-hour figures
    come from candles, not from the ticker topic, so every value is reproducible from candles. About 500 pairs take 5
    connections of 100 topics.
-3. **Warm-up: subscription first, then history.** For each pair, in this order, so no minute closes unseen between the REST
+5. **Warm-up: subscription first, then history.** For each pair, in this order, so no minute closes unseen between the REST
    answer and the subscription:
    1. Subscribe to `kline.1.{symbol}` and buffer the candles that arrive.
    2. Read 24 hours of 1-minute candles (2 requests) and 7 days of hourly candles (1 request) over REST.
    3. Merge the history and the buffer by open time; where they overlap, the closed candle wins.
    4. Show the pair once its series has no gap; until then it has no row or its metrics are empty.
 
-   REST is limited to 10 requests per second (about 2.5 minutes for 500 pairs); a 403 stops all REST calls for 10 minutes.
+   At 10 REST requests per second (point 3) warm-up takes about 2.5 minutes for 500 pairs.
    After warm-up only the stream moves the series: a closed minute is appended and the minute older than 24 hours dropped; a
    closed hour, aggregated from its minutes, is appended to the 7-day series and the oldest hour dropped. The forming minute
    only sets the price.
-4. **Reconnect.** A lost connection reconnects with backoff (as ADR 0044) and repeats steps 1–3 for the missed minutes; until the
+6. **Reconnect.** A lost connection reconnects with backoff (as ADR 0044) and repeats steps 1–3 for the missed minutes; until the
    gap is closed the pair is marked as incomplete. A minute the venue reports without trades counts as a flat candle with zero
    volume; whether Bybit returns such candles is checked in the implementation.
-5. **Memory, not the candle cache.** Scanner candles live only in the role's memory (about 500 × 1,440 minutes and 500 × 168
+7. **Memory, not the candle cache.** Scanner candles live only in the role's memory (about 500 × 1,440 minutes and 500 × 168
    hours, some tens of megabytes). They are not written to the shared candle cache; a batch backtest (step 3) downloads its
    history through the ordinary history download. A restart of the Worker loses them and warms up again; meanwhile the page
    shows the last stored snapshot with its age. Keeping candles on disk for a faster restart is left until restarts prove
    frequent.
-6. **Snapshot.** After each minute closes, the role computes every pair's metrics and replaces the stored current snapshot (one
+8. **Snapshot.** After each minute closes, the role computes every pair's metrics and replaces the stored current snapshot (one
    row per venue and pair, with its computation time); spreads come from one REST quote snapshot per minute. No history of
    snapshots is kept. A `NOTIFY` tells the API, which pushes the snapshot to a SignalR hub `/ws/scanner`; the page shows the
    snapshot's age and reads the stored snapshot over HTTP when it opens.
@@ -152,8 +162,8 @@ Three steps, each useful and checked on its own (owner): the live table, then al
 
 - A new feature folder `Scanner` (Application, Infrastructure, Api, frontend module) is added to `docs/architecture.md` with the
   first implementation; the metric functions live with the engine's pure computation.
-- The Worker holds about five permanent public connections and some tens of megabytes of candles; readiness reports the
-  scanner role's state.
+- The `worker-scanner` container holds about five permanent public connections and some tens of megabytes of candles;
+  readiness reports the scanner role's state and a REST ban.
 - Bybit's 100-topics-per-connection limit from 2026-11-26 is part of the design, not a later fix.
 - A screener robot can later reuse the universe, the minute stream and the metric functions; the scanner does not depend on it.
 
