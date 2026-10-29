@@ -107,10 +107,25 @@ services:
     environment:
       <<: [ *backend-env, *runtime-env ]
       Live__Trading__Enabled: ${LIVE_TRADING_ENABLED:-false}
+      Worker__Roles: "jobs,live"
     depends_on:
       postgres:
         condition: service_healthy
     stop_grace_period: 45s
+
+  # The market scanner (ADR 0059) in a container of its own, so its crash, memory or warm-up never touches the live bots. It
+  # shares the server's IP, and with it Bybit's REST limit, with them; its own budget keeps it far below that limit.
+  worker-scanner:
+    <<: *backend
+    working_dir: /app/worker
+    command: [ "dotnet", "ProfitGraph.Worker.dll" ]
+    environment:
+      <<: *backend-env
+      Worker__Roles: "scanner"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    stop_grace_period: 15s
 
   web:
     image: ${PROFITGRAPH_REGISTRY:-ghcr.io/dmitryshelamov}/profitgraph-web:${PROFITGRAPH_VERSION:?Set PROFITGRAPH_VERSION}

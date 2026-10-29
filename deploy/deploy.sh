@@ -21,7 +21,7 @@ cd "$home"
 export PROFITGRAPH_VERSION="$version"
 
 echo "Pulling $version"
-docker compose pull --quiet postgres api worker web
+docker compose pull --quiet postgres api worker worker-scanner web
 docker compose --profile migrate pull --quiet migrate
 
 echo "Applying migrations"
@@ -29,7 +29,7 @@ docker compose up --detach --wait postgres
 docker compose --profile migrate run --rm migrate
 
 echo "Starting $version"
-docker compose up --detach --wait --remove-orphans api worker web
+docker compose up --detach --wait --remove-orphans api worker worker-scanner web
 
 echo "Waiting for the Worker"
 status=""

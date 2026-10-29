@@ -6,6 +6,7 @@ using ProfitGraph.Infrastructure.Common;
 using ProfitGraph.Infrastructure.Common.Outbox;
 using ProfitGraph.Infrastructure.Jobs;
 using ProfitGraph.Infrastructure.Notifications;
+using ProfitGraph.Infrastructure.Scanner;
 using ProfitGraph.Venues.Bybit;
 using ProfitGraph.Venues.Steam;
 using ProfitGraph.Venues.TInvest;
@@ -66,6 +67,11 @@ public static class Program
             {
                 builder.Services.AddBybitSimulatedTrading(builder.Configuration);
             }
+        }
+
+        if (roles.Contains(WorkerRoles.Scanner))
+        {
+            builder.Services.AddMarketScanner();
         }
 
         builder.Services.AddBybitVenue(builder.Configuration);
