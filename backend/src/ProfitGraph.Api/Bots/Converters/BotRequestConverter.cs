@@ -34,7 +34,8 @@ internal static class BotRequestConverter
             maxOrderQuote,
             dailyLossLimitQuote,
             request.AllowForeignOrders,
-            request.VenueSettings);
+            request.VenueSettings,
+            request.Venue);
     }
 
     public static ChangeBotParametersCommand ToCommand(this ChangeBotParametersRequest request, Guid ownerId, Guid id)

@@ -4,7 +4,8 @@ Status: Accepted, 2026-10-30. The owner asked for the next scanner step: Bybit U
 source and a trading venue, and short entries, so that a futures pair's page shows short ideas next to the long ones and creates
 trades from them. The owner made leverage a setting ("плечо - настраиваемый параметр"), chose hedge mode and switches it
 themselves ("Берём hedge mode, переключу сам"), and accepted the rest ("ADR 0061 принят"). Builds on ADR 0003, ADR 0016,
-ADR 0017, ADR 0030, ADR 0044, ADR 0059 and ADR 0060.
+ADR 0017, ADR 0030, ADR 0044, ADR 0059 and ADR 0060. Amended 2026-10-30: one Bybit credential serves spot and futures (section 1,
+"Credential"), at the owner's request ("ключ у нас один для всего и для спота и для фьючерсов, это же логичнее").
 
 ## Context
 
@@ -33,9 +34,22 @@ exchanged every few hours, and the account's margin mode and position mode decid
   `priceFilter.tickSize`, `lotSizeFilter.qtyStep`, `minOrderQty`, `minNotionalValue`), the catalog, tickers and the scanner source
   (`BybitMarketScanSource` with its own REST budget share), fee rates (`/v5/account/fee-rate?category=linear`). Both venues pay
   every fee in quote (`FeeAsset.Quote`).
-- **Credential.** A key is enrolled for `bybit-linear` like for spot; the owner may enroll the same Bybit key again. It
-  needs the «Contract → Orders, Positions» permission; `KeyMayTrade` checks it. A separate credential, even of the same key, because credentials, accounts and account cards are keyed by venue (ADR 0003); sharing one credential across two venues is
-  a core change for little gain.*
+- **Credential (amended).** One Bybit API key trades both markets of the Unified Trading Account, so the owner enrolls it once,
+  for `bybit`, and futures use it (owner: "ключ у нас один для всего и для спота и для фьючерсов"). A venue descriptor may name
+  another venue whose credentials it also takes (`IVenueDescriptor.CredentialVenue`, a neutral port member; null means only
+  its own); `bybit-linear` names `bybit`. `VenueRegistry.AcceptsCredential` is the one check: a credential serves a venue when it
+  is of that venue or of the venue it names. It replaces every comparison of a credential's venue with a series' venue: bot
+  creation, the scanner trade settings (`scan_trade_wrong_venue`) and market data reads with the caller's credential
+  (`credential_venue_mismatch`, backtests, optimizations and downloads). A bot's venue is no longer the credential's: `POST
+  /api/bots` takes an optional `venue` (the credential's own when absent), the scanner's trades pass theirs, and the bot form
+  asks for the market when the key serves more than one; `GET /api/market-data/venues` reports `credentialVenue`, so key
+  pickers offer the spot key on futures. The account card, identity, balance and protection stay those of the credential's
+  own venue: one key is one account. The key needs the «Contract → Orders, Positions» permission for futures bots;
+  `KeyMayTrade` checks it per bot market. `bybit-linear` registers no credential schema, so no new key is enrolled for it.
+  Credentials enrolled for `bybit-linear` before the amendment keep working (their venue's own, with its account readers);
+  they may be deleted once no bot or scanner setting uses them.
+  - *Originally a separate credential, even of the same key, because credentials, accounts and account cards are keyed by
+    venue (ADR 0003). The amendment keeps them keyed by venue and lets a venue accept another venue's credentials instead.*
 
 ### 2. Positions on the venue: hedge mode, configurable leverage, reduce-only exits
 
@@ -120,7 +134,8 @@ lets each be edited on its own; a direction parameter would put a branch into ev
 - **Backtest of a preset** (`ScanStudy`, ADR 0059 section 8). On `bybit-linear` every signal also simulates the three short
   scenarios, with the stop on a minute close at or above it; the summary shows each scenario per direction.
 - **Trades.** `ScanTrade` keeps its direction (a `direction` column, `long` for existing rows); the uniqueness of a live trade
-  includes it; the settings are per owner and venue, so `bybit-linear` has its own credential, risk and largest amount; the
+  includes it; the settings are per owner and venue, so `bybit-linear` has its own risk and largest amount and names a
+  credential it takes, the spot key (section 1); the
   tracker treats a non-zero position of either sign as held. The guards of ADR 0060 section 4 apply unchanged.
 - **Cards.** The pair page of a futures pair shows long and short cards per timeframe, each marked «Лонг» or «Шорт» with its
   colour, and the totals of «Создать выбранные» count both. A spot pair shows long cards only, as today.
@@ -171,3 +186,17 @@ lets each be edited on its own; a direction parameter would put a branch into ev
 - Bybit's linear fee can be a rebate below zero; it is counted as no fee.
 - Not yet checked on the real venue: the position, leverage and permission answers follow Bybit's documentation and are tested
   against the mock exchange only.
+
+## Amendment: hedge and one-way mode (2026-10-30)
+
+The owner asked to trade in both modes ("сделай фикс что можем в обоих модах работать"): the account holds a manual one-way position,
+so it cannot switch to hedge mode now. The gateway reads the symbol's mode from `/v5/position/list` before each order and no longer
+stops a bot in one-way mode (`VenuePositionMode` stays for other cases):
+
+- **Hedge mode** is unchanged: long orders on `positionIdx=1`, short orders on `positionIdx=2`, exits reduce-only.
+- **One-way mode**: every order on `positionIdx=0`, exits reduce-only. An entry is refused (`BrokerRejected`) while the symbol holds
+  a net position of the other direction or works an order that would open one (the owner's, another bot's or a trade card's), since
+  the entry would close it instead of opening the bot's position. Long and short trades of one pair therefore cannot both be open;
+  two trades of one direction can.
+- The absence proof compares the bot's side in hedge mode and the net position in one-way mode.
+

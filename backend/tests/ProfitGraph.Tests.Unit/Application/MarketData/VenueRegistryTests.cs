@@ -38,6 +38,19 @@ public sealed class VenueRegistryTests
     }
 
     [Test]
+    public void AVenueTakesItsOwnCredentialsAndThoseOfTheVenueItNames()
+    {
+        var registry = new VenueRegistry([new TestVenue("spot"), new TestVenue("futures") { CredentialVenue = new VenueId("spot") }, new TestVenue("other")]);
+
+        registry.AcceptsCredential(new VenueId("spot"), new VenueId("spot")).ShouldBeTrue();
+        registry.AcceptsCredential(new VenueId("futures"), new VenueId("futures")).ShouldBeTrue();
+        registry.AcceptsCredential(new VenueId("futures"), new VenueId("spot")).ShouldBeTrue();
+        registry.AcceptsCredential(new VenueId("spot"), new VenueId("futures")).ShouldBeFalse();
+        registry.AcceptsCredential(new VenueId("futures"), new VenueId("other")).ShouldBeFalse();
+        registry.AcceptsCredential(new VenueId("missing"), new VenueId("spot")).ShouldBeFalse();
+    }
+
+    [Test]
     public void TwoModulesCannotClaimOneVenue()
     {
         Should.Throw<InvalidOperationException>(() => new VenueRegistry([new TestVenue(), new TestVenue()]));

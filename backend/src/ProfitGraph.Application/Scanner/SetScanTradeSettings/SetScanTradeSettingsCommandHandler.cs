@@ -18,6 +18,7 @@ internal sealed class SetScanTradeSettingsCommandHandler(
     IEnumerable<IMarketScanSource> sources,
     IExchangeCredentialRepository credentials,
     IScanTradeSettingsRepository settings,
+    VenueRegistry venues,
     VenuePorts<IVenueLeverage> leverages,
     TimeProvider clock) : IRequestHandler<SetScanTradeSettingsCommand, ScanTradeSettingsInternal>
 {
@@ -28,7 +29,7 @@ internal sealed class SetScanTradeSettingsCommandHandler(
         var venue = new VenueId(command.Venue);
         ExchangeCredential credential = await credentials.GetOwned(command.CredentialId, command.OwnerId, cancellationToken);
 
-        if (credential.Venue != venue)
+        if (!venues.AcceptsCredential(venue, credential.Venue))
         {
             throw new ApplicationValidationException(
                 [new InputError(ScanTradeErrorCodes.WrongVenue, nameof(command.CredentialId), "The credential belongs to another venue.")]);

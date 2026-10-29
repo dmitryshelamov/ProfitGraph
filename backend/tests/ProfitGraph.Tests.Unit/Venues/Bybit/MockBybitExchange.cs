@@ -76,7 +76,7 @@ internal sealed class MockBybitExchange : HttpMessageHandler
     /// <summary>
     ///     The sides of the symbol's position as <c>/v5/position/list</c> reports them: hedge mode by default.
     /// </summary>
-    public List<(int Index, string Size)> Positions { get; } = [(1, "0"), (2, "0")];
+    public List<(int Index, string Size, string Side)> Positions { get; } = [(1, "0", ""), (2, "0", "")];
 
     /// <summary>
     ///     The bodies of <c>/v5/position/set-leverage</c>, and the retCode it answers with, or null for success.
@@ -143,7 +143,11 @@ internal sealed class MockBybitExchange : HttpMessageHandler
                 new
                 {
                     retCode = 0,
-                    result = new { list = Positions.Select(position => new { symbol = "BTCUSDT", positionIdx = position.Index, size = position.Size }).ToArray() }
+                    result = new
+                    {
+                        list = Positions.Select(position => new { symbol = "BTCUSDT", positionIdx = position.Index, size = position.Size, side = position.Side })
+                            .ToArray()
+                    }
                 }),
             "/v5/position/set-leverage" => SetLeverage(body!),
             "/v5/user/query-api" when KeyCode is { } code => Json(new { retCode = code, retMsg = "refused" }),
@@ -215,6 +219,7 @@ internal sealed class MockBybitExchange : HttpMessageHandler
             cumulativeBase: 0m,
             cumulativeQuote: 0m,
             []);
+        _orders[clientOrderId]["reduceOnly"] = document.RootElement.TryGetProperty("reduceOnly", out JsonElement reduce) && reduce.GetBoolean() ? "true" : "false";
 
         return Json(new { retCode = 0, result = new { orderId = "1", orderLinkId = clientOrderId } });
     }
@@ -277,7 +282,8 @@ internal sealed class MockBybitExchange : HttpMessageHandler
             ["side"] = order["side"],
             ["orderStatus"] = order["orderStatus"],
             ["cumExecQty"] = order["cumExecQty"],
-            ["cumExecValue"] = order["cumExecValue"]
+            ["cumExecValue"] = order["cumExecValue"],
+            ["reduceOnly"] = order.GetValueOrDefault("reduceOnly") == "true"
         };
 
         if (linear)

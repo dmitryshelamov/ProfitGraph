@@ -13,6 +13,7 @@ public static class VenueInternalConverter
             [.. venue.Timeframes.Select(timeframe => timeframe.Key)],
             executionDefaults,
             botSettings,
-            venue.BacktestLimits);
+            venue.BacktestLimits,
+            venue.CredentialVenue?.Value);
     }
 }

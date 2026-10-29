@@ -125,7 +125,7 @@ public static class BybitRegistration
 
     /// <summary>
     ///     The USDT-perpetual venue <c>bybit-linear</c> (ADR 0061): the Spot classes for the linear category, its own instrument list,
-    ///     public stream and scanner data, and the bot settings that carry the leverage.
+    ///     public stream and scanner data, and the bot settings that carry the leverage. Its bots use the Spot credential.
     /// </summary>
     private static IServiceCollection AddBybitLinearVenue(this IServiceCollection services)
     {
@@ -155,9 +155,11 @@ public static class BybitRegistration
             ActivatorUtilities.CreateInstance<BybitFormingCandleSource>(provider, LinearTransport(provider), BybitMarket.Linear));
         services.AddTransient<IVenueFeeRateReader>(provider => ActivatorUtilities.CreateInstance<BybitFeeRateReader>(provider, BybitMarket.Linear));
         services.AddTransient<IVenueRestingOrderCapacity>(provider => ActivatorUtilities.CreateInstance<BybitRestingOrderCapacity>(provider, BybitMarket.Linear));
+
+        // No credential schema: futures take Spot's key and no key is enrolled for them. The account readers keep the cards of
+        // credentials enrolled for bybit-linear before one key served both.
         services.AddTransient<IAccountBalanceReader>(provider => ActivatorUtilities.CreateInstance<BybitAccountBalanceReader>(provider, BybitMarket.Linear));
         services.AddTransient<IVenueAccountIdentityReader>(provider => ActivatorUtilities.CreateInstance<BybitAccountIdentityReader>(provider, BybitMarket.Linear));
-        services.AddSingleton<IVenueCredentialSchema>(new BybitCredentialSchema(BybitMarket.Linear));
         services.AddSingleton<BybitLinearBotSettingsSchema>();
         services.AddSingleton<IVenueBotSettings>(provider => provider.GetRequiredService<BybitLinearBotSettingsSchema>());
         services.AddSingleton<IVenueLeverage>(provider => provider.GetRequiredService<BybitLinearBotSettingsSchema>());

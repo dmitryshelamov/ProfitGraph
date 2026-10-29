@@ -74,9 +74,9 @@ internal sealed class BybitAbsenceProofs(BybitOrderReads reads, BybitOptions opt
                 return new BybitAbsenceProof(passed, "ExpectedPositionUnknown");
             }
 
-            // A USDT perpetual holds no coin; its proof compares the bot's side of the position (ADR 0061).
-            decimal? held = context.Market.IsLinear
-                ? await reads.HedgePosition(context, cancellationToken)
+            // A USDT perpetual holds no coin; its proof compares the bot's side in hedge mode or the net position in one-way mode (ADR 0061).
+            decimal held = context.Market.IsLinear
+                ? (await reads.LinearPosition(context, cancellationToken)).Held
                 : await reads.BaseWalletBalance(context, cancellationToken);
 
             if (held != expected)

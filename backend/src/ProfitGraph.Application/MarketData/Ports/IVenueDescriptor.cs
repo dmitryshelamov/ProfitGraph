@@ -48,6 +48,13 @@ public interface IVenueDescriptor
     bool SupportsShort => false;
 
     /// <summary>
+    ///     Another venue whose credentials this venue also takes (ADR 0061), or null when it takes only its own: bots, scanner trades
+    ///     and market data reads on it accept a credential of either venue. A venue of one account, such as futures beside spot,
+    ///     names the venue its keys are enrolled for, so one key serves both.
+    /// </summary>
+    VenueId? CredentialVenue => null;
+
+    /// <summary>
     ///     Turns user input into the venue's canonical symbol, or reports that the input is not a symbol of this venue.
     /// </summary>
     bool TryParseSymbol(string? input, [NotNullWhen(true)] out InstrumentSymbol? symbol);

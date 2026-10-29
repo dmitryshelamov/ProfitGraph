@@ -133,8 +133,9 @@ again; only a four-character public hint and a non-secret public identifier (an 
 key) are visible; the keys page shows the identifier above a `***` mask. The owner may rename a credential, a strategy
 and a bot; renaming never creates a strategy version and never touches a bot's trading or desired state. For a venue whose credential selects one of several accounts, such
 as a T-Invest brokerage account, the account is chosen from the venue's list when the credential is saved, and one venue
-account has at most one credential. A credential belongs to its owner, and another user's credential is reported as
-missing. See [ADR 0015](docs/adr/0015-exchange-credentials.md).
+account has at most one credential. A venue may also take the credentials of another venue of the same account, as Bybit's
+futures take the Spot key, so one key serves both ([ADR 0061](docs/adr/0061-bybit-futures-and-short-trades.md)). A credential
+belongs to its owner, and another user's credential is reported as missing. See [ADR 0015](docs/adr/0015-exchange-credentials.md).
 
 ### Account Identity
 

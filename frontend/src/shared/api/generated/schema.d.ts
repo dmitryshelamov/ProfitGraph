@@ -4769,6 +4769,7 @@ export interface components {
             dailyLossLimitQuote: null | string;
             allowForeignOrders: boolean;
             venueSettings?: unknown;
+            venue?: null | string;
         };
         CreateExchangeCredentialRequest: {
             venue: null | string;
@@ -5755,6 +5756,7 @@ export interface components {
             executionDefaults: null | components["schemas"]["VenueExecutionDefaultsResponse"];
             botSettings: null | components["schemas"]["JsonElement"];
             backtestLimits: string[];
+            credentialVenue: null | string;
         };
         WalkForwardDiagnosticResponse: {
             code: string;

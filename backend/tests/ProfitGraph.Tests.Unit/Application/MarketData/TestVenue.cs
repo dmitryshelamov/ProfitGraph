@@ -17,6 +17,8 @@ internal sealed class TestVenue(string id = "test") : IVenueDescriptor
 
     public IReadOnlyList<Timeframe> Timeframes { get; } = [Timeframe.Parse("1h"), Timeframe.Parse("1d")];
 
+    public VenueId? CredentialVenue { get; init; }
+
     public bool TryParseSymbol(string? input, [NotNullWhen(true)] out InstrumentSymbol? symbol)
     {
         symbol = input is { Length: > 0 } && input.All(char.IsAsciiLetterUpper) ? new InstrumentSymbol(input) : null;

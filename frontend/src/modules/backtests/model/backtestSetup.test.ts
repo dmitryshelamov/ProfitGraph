@@ -20,6 +20,7 @@ const marketplace: Venue = {
   },
   botSettings: null,
   backtestLimits: [],
+  credentialVenue: null,
 };
 
 const definition = {
@@ -154,6 +155,7 @@ describe('backtest setup', () => {
         executionDefaults: null,
         botSettings: null,
         backtestLimits: [],
+        credentialVenue: null,
       }),
     ).toMatchObject({
       sellerFees: null,
