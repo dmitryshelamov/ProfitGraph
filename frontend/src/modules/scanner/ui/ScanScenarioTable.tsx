@@ -15,8 +15,10 @@ function r(value: string | null): string {
  * R after fees, the mean result in percent, the longest losing run and the mean time in a trade.
  */
 export function ScanScenarioTable({ scenarios }: { scenarios: readonly ScenarioSummary[] }) {
-  const rows = scanScenarios.flatMap(({ scenario, label }) => {
-    const summary = scenarios.find((item) => item.scenario === scenario);
+  const rows = scanScenarios.flatMap(({ scenario, direction, label }) => {
+    const summary = scenarios.find(
+      (item) => item.scenario === scenario && (item.direction ?? 'Long') === direction,
+    );
 
     return summary ? [{ label, summary }] : [];
   });
@@ -43,7 +45,7 @@ export function ScanScenarioTable({ scenarios }: { scenarios: readonly ScenarioS
               summary.winningShare === null ? null : fractionToPercent(summary.winningShare);
 
             return (
-              <tr key={summary.scenario} className="border-t border-line">
+              <tr key={`${summary.direction}:${summary.scenario}`} className="border-t border-line">
                 <td className="py-1.5 pr-3 text-left">{label}</td>
                 <td className="py-1.5 pl-3 font-mono">{summary.trades}</td>
                 <td className="py-1.5 pl-3 font-mono">

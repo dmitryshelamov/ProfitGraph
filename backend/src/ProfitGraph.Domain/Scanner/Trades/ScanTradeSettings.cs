@@ -9,7 +9,9 @@ namespace ProfitGraph.Domain.Scanner.Trades;
 
 /// <summary>
 ///     How an owner's scanner trade cards trade on a venue (ADR 0060): the credential their bots use, the quote a stop may lose and the
-///     most quote one trade may spend. <see cref="StrategyId" /> is the owner's level trade strategy, created with the first trade.
+///     most quote one trade may spend. <see cref="StrategyId" /> is the owner's level trade strategy, created with the first trade, and
+///     <see cref="ShortStrategyId" /> its short mirror (ADR 0061). On a margin venue <see cref="Leverage" /> is the leverage of every
+///     trade's bot; elsewhere it is null.
 /// </summary>
 public sealed class ScanTradeSettings : AggregateRoot
 {
@@ -19,6 +21,8 @@ public sealed class ScanTradeSettings : AggregateRoot
     public decimal Risk { get; private set; }
     public decimal MaxAmount { get; private set; }
     public StrategyId? StrategyId { get; private set; }
+    public StrategyId? ShortStrategyId { get; private set; }
+    public decimal? Leverage { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
     private ScanTradeSettings(
@@ -28,21 +32,32 @@ public sealed class ScanTradeSettings : AggregateRoot
         decimal risk,
         decimal maxAmount,
         StrategyId? strategyId,
-        DateTimeOffset updatedAt)
+        DateTimeOffset updatedAt,
+        StrategyId? shortStrategyId,
+        decimal? leverage)
     {
-        Ensure(risk, maxAmount);
+        Ensure(risk, maxAmount, leverage);
         OwnerId = ownerId;
         Venue = venue;
         CredentialId = credentialId;
         Risk = risk;
         MaxAmount = maxAmount;
         StrategyId = strategyId;
+        ShortStrategyId = shortStrategyId;
+        Leverage = leverage;
         UpdatedAt = updatedAt;
     }
 
-    public static ScanTradeSettings Create(UserId ownerId, VenueId venue, ExchangeCredentialId credentialId, decimal risk, decimal maxAmount, DateTimeOffset now)
+    public static ScanTradeSettings Create(
+        UserId ownerId,
+        VenueId venue,
+        ExchangeCredentialId credentialId,
+        decimal risk,
+        decimal maxAmount,
+        DateTimeOffset now,
+        decimal? leverage = null)
     {
-        return new ScanTradeSettings(ownerId, venue, credentialId, risk, maxAmount, strategyId: null, now);
+        return new ScanTradeSettings(ownerId, venue, credentialId, risk, maxAmount, strategyId: null, now, shortStrategyId: null, leverage);
     }
 
     public static ScanTradeSettings Restore(
@@ -52,23 +67,35 @@ public sealed class ScanTradeSettings : AggregateRoot
         decimal risk,
         decimal maxAmount,
         StrategyId? strategyId,
-        DateTimeOffset updatedAt)
+        DateTimeOffset updatedAt,
+        StrategyId? shortStrategyId = null,
+        decimal? leverage = null)
     {
-        return new ScanTradeSettings(ownerId, venue, credentialId, risk, maxAmount, strategyId, updatedAt);
+        return new ScanTradeSettings(ownerId, venue, credentialId, risk, maxAmount, strategyId, updatedAt, shortStrategyId, leverage);
     }
 
-    public void Change(ExchangeCredentialId credentialId, decimal risk, decimal maxAmount, DateTimeOffset now)
+    public void Change(ExchangeCredentialId credentialId, decimal risk, decimal maxAmount, DateTimeOffset now, decimal? leverage = null)
     {
-        Ensure(risk, maxAmount);
+        Ensure(risk, maxAmount, leverage);
         CredentialId = credentialId;
         Risk = risk;
         MaxAmount = maxAmount;
+        Leverage = leverage;
         UpdatedAt = now;
     }
 
     public void UseStrategy(StrategyId strategyId, DateTimeOffset now)
     {
         StrategyId = strategyId;
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    ///     Records the owner's short level trade strategy (ADR 0061), created with the first short trade.
+    /// </summary>
+    public void UseShortStrategy(StrategyId strategyId, DateTimeOffset now)
+    {
+        ShortStrategyId = strategyId;
         UpdatedAt = now;
     }
 
@@ -80,14 +107,16 @@ public sealed class ScanTradeSettings : AggregateRoot
     {
         decimal amount = ScanTradeIdeas.Amount(Risk, entry, stop, feeRate);
 
-        return amount <= MaxAmount ? (amount, Risk) : (MaxAmount, MaxAmount * ((entry - stop) / entry + 2 * feeRate));
+        return amount <= MaxAmount ? (amount, Risk) : (MaxAmount, MaxAmount * (Math.Abs(entry - stop) / entry + 2 * feeRate));
     }
 
-    private static void Ensure(decimal risk, decimal maxAmount)
+    private static void Ensure(decimal risk, decimal maxAmount, decimal? leverage)
     {
-        if (risk <= 0m || maxAmount <= 0m)
+        if (risk <= 0m || maxAmount <= 0m || leverage < 1m)
         {
-            throw new ScanTradeRuleException(ScanTradeRuleException.InvalidSettings, "The risk and the largest amount of a trade are positive.");
+            throw new ScanTradeRuleException(
+                ScanTradeRuleException.InvalidSettings,
+                "The risk and the largest amount of a trade are positive, and a leverage is at least 1.");
         }
     }
 }

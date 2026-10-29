@@ -36,7 +36,7 @@ public sealed class StrategyTemplateEndpointTests
             .ShouldBe(
             [
                 "SmaCrossover", "Ladder", "LadderProfitFox", "LadderSma", "CapitulationDip", "VolumeMomentum", "LadderPlus", "DcaProfitFox", "Grid",
-                "EmaCrossover", "MacdTrend", "RsiReversion", "BollingerReversion", "LevelTrade"
+                "EmaCrossover", "MacdTrend", "RsiReversion", "BollingerReversion", "LevelTrade", "LevelTradeShort"
             ]);
         using IServiceScope scope = application.Services.CreateScope();
         var registry = scope.ServiceProvider.GetRequiredService<INodeTypeRegistry>();
@@ -96,6 +96,7 @@ public sealed class StrategyTemplateEndpointTests
                 "RsiReversion" => RsiReversionStrategyBlockFactory.Create(),
                 "BollingerReversion" => BollingerReversionStrategyBlockFactory.Create(),
                 "LevelTrade" => LevelTradeStrategyBlockFactory.Create(),
+                "LevelTradeShort" => LevelTradeShortStrategyBlockFactory.Create(),
                 _ => LadderResumeStrategyBlockFactory.Create()
             };
             StrategyGraph original = new StrategyDefinitionLowerer(registry.GetAll()).Lower(expectedDefinition).Graph;
@@ -170,6 +171,10 @@ public sealed class StrategyTemplateEndpointTests
     {
         TradingGraphCompilationResult compilation = new TradingGraphCompiler().Compile(graph, registry.GetAll());
         compilation.Validation.Diagnostics.ShouldBeEmpty();
+        CompiledTradingGraph plan = compilation.Graph.ShouldNotBeNull();
+
+        // A short plan replays on a margin account, which pays its fees in quote (ADR 0061).
+        FeeAsset fees = plan.Direction == PositionDirection.Short ? FeeAsset.Quote : FeeAsset.Base;
         decimal[] prices =
         [
             .. Enumerable.Range(start: 0, count: 60)
@@ -178,10 +183,10 @@ public sealed class StrategyTemplateEndpointTests
                 .Concat(Enumerable.Range(start: 0, count: 40).Select(index => 70m - index))
         ];
         var input = new BacktestInput(
-            compilation.Graph.ShouldNotBeNull(),
+            plan,
             EngineExecutionInputs.Empty,
             new ExecutionSettings(startingCapital: 1000m, slippage: 0m, marketFeeRate: 0m, limitFeeRate: 0m),
-            new InstrumentRules(quantityStep: 0.000001m, priceTick: 0.001m, minQuantity: 0m, minNotional: 1m, basePrecision: 6, quotePrecision: 8),
+            new InstrumentRules(quantityStep: 0.000001m, priceTick: 0.001m, minQuantity: 0m, minNotional: 1m, basePrecision: 6, quotePrecision: 8, fees),
             Timeframe.Parse("1h"),
             Array.Empty<Candle>(),
             prices.Select((price, index) => new Candle(DateTimeOffset.UnixEpoch.AddHours(index), price, price, price, price, Volume: 1m)));

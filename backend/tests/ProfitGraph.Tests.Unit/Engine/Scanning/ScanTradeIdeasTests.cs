@@ -1,3 +1,4 @@
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Scanning;
 
 namespace ProfitGraph.Tests.Unit.Engine.Scanning;
@@ -34,5 +35,39 @@ public sealed class ScanTradeIdeasTests
     {
         ScanTradeIdeas.Amount(risk: 10m, entry: 100m, stop: 90m, feeRate: 0m).ShouldBe(100m);
         Should.Throw<ArgumentException>(() => ScanTradeIdeas.Amount(risk: 10m, entry: 100m, stop: 100m, feeRate: 0m));
+    }
+
+    [Test]
+    public void ProposesTheMirrorShortsWhereShortsAreAllowed()
+    {
+        IReadOnlyList<ScanTradeIdea> shorts =
+        [
+            .. ScanTradeIdeas.Of(price: 100m, support: 88m, resistance: 105m, lastHourLow: null, lastHourHigh: 110m, shorts: true)
+                .Where(idea => idea.Direction == PositionDirection.Short)
+        ];
+
+        shorts.ShouldBe(
+        [
+            new ScanTradeIdea(ScanScenario.Levels, Entry: 100m, Stop: 105m, Target: 88m, 12m / 5m, ScanTradeIdeas.MarketEntryWait, PositionDirection.Short),
+            new ScanTradeIdea(ScanScenario.Target2R, Entry: 100m, Stop: 105m, Target: 90m, RewardRisk: 2m, ScanTradeIdeas.MarketEntryWait, PositionDirection.Short),
+
+            // Halfway up from 100 to the hour's high of 110.
+            new ScanTradeIdea(ScanScenario.Pullback, Entry: 105m, Stop: 110m, Target: 95m, RewardRisk: 2m, ScanTradeIdeas.PullbackWait, PositionDirection.Short)
+        ]);
+        ScanTradeIdeas.Of(price: 100m, support: 88m, resistance: 105m, lastHourLow: null, lastHourHigh: 110m)
+            .ShouldAllBe(idea => idea.Direction == PositionDirection.Long);
+    }
+
+    [Test]
+    public void AShortTargetStaysAboveZero()
+    {
+        // Two risks below 10 from a stop at 20 would be −10.
+        ScanTradeIdeas.Of(price: 10m, support: null, resistance: 20m, lastHourLow: null, lastHourHigh: null, shorts: true).ShouldBeEmpty();
+    }
+
+    [Test]
+    public void SizesAShortSoItsStopAboveLosesTheRisk()
+    {
+        ScanTradeIdeas.Amount(risk: 10m, entry: 100m, stop: 110m, feeRate: 0m).ShouldBe(100m);
     }
 }

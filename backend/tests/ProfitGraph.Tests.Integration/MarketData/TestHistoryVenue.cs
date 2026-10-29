@@ -23,6 +23,11 @@ public sealed class TestHistoryVenue(string id) : IVenueDescriptor
 
     public bool ConfirmsOrderAbsence => true;
 
+    /// <summary>
+    ///     Whether strategies may sell first here, as on futures (ADR 0061); off unless a test turns it on.
+    /// </summary>
+    public bool SupportsShort { get; init; }
+
     public bool TryParseSymbol(string? input, [NotNullWhen(true)] out InstrumentSymbol? symbol)
     {
         symbol = input is { Length: > 0 and <= 32 } && input.All(character => char.IsAsciiLetterUpper(character) || char.IsAsciiDigit(character))

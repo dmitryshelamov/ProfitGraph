@@ -47,6 +47,8 @@ public sealed class TradingNodeDefinition : INodeDefinition
             TradingNodeBehavior.CancelOrder => new CancelOrderNodeDefinition(),
             TradingNodeBehavior.Grid => new GridNodeDefinition(),
             TradingNodeBehavior.CancelGrid => new CancelGridNodeDefinition(),
+            TradingNodeBehavior.MarketCover => new MarketCoverNodeDefinition(),
+            TradingNodeBehavior.LimitCover => new LimitCoverNodeDefinition(),
             _ => throw new ArgumentOutOfRangeException(nameof(behavior))
         };
     }

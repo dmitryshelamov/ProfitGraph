@@ -2,6 +2,7 @@ using ProfitGraph.Api.Common.Parsing;
 using ProfitGraph.Api.Strategies.Contracts;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Strategies.Contracts;
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Blocks;
 using ProfitGraph.Engine.Graphs;
 
@@ -30,7 +31,8 @@ internal static class StrategyDefinitionHttpConverter
             definition.Values.Select(item => new StrategyValueInternal(item.Name, item.Expression.ToInternal())).ToArray(),
             definition.Blocks.Select(ToInternal).ToArray(),
             definition.Wires.Select(item => new StrategyWireInternal(new StrategyExitInternal(item.From.Block, item.From.Exit), item.To)).ToArray(),
-            definition.TemplateKind is null ? null : ParseEnum<StrategyTemplateKind>(definition.TemplateKind, "templateKind"));
+            definition.TemplateKind is null ? null : ParseEnum<StrategyTemplateKind>(definition.TemplateKind, "templateKind"),
+            definition.Direction is null ? PositionDirection.Long : ParseEnum<PositionDirection>(definition.Direction, "direction"));
     }
 
     public static StrategyDefinitionResponse ToResponse(this StrategyDefinitionInternal definition)
@@ -45,7 +47,8 @@ internal static class StrategyDefinitionHttpConverter
             definition.Values.Select(item => new StrategyValueResponse(item.Name, item.Expression.ToResponse())).ToArray(),
             definition.Blocks.Select(ToResponse).ToArray(),
             definition.Wires.Select(item => new StrategyWireResponse(new StrategyExitResponse(item.From.Block, item.From.Exit), item.To)).ToArray(),
-            definition.TemplateKind?.ToString());
+            definition.TemplateKind?.ToString(),
+            definition.Direction == PositionDirection.Short ? nameof(PositionDirection.Short) : null);
     }
 
     private static StrategyBlockInternal ToInternal(StrategyBlockRequest block)

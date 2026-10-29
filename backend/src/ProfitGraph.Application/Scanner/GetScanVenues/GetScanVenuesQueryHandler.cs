@@ -16,7 +16,8 @@ internal sealed class GetScanVenuesQueryHandler(IEnumerable<IMarketScanSource> s
             .. sources.Select(source => new ScanVenueInternal(
                 source.Venue.Value,
                 venues.Find(source.Venue.Value)?.Name ?? source.Venue.Value,
-                source.QuoteAsset))
+                source.QuoteAsset,
+                venues.Find(source.Venue.Value)?.SupportsShort ?? false))
         ]);
     }
 }

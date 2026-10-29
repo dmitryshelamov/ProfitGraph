@@ -5,6 +5,7 @@ using MediatR;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Application.Jobs.Ports;
+using ProfitGraph.Application.MarketData;
 using ProfitGraph.Application.Scanner.Contracts;
 using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Domain.MarketData;
@@ -19,10 +20,11 @@ namespace ProfitGraph.Application.Scanner.RunScanBacktest;
 ///     of the eight days before it (the longest metric window) through the scanner's request budget, replays them and collects the
 ///     pairs' signals, eight pairs at a time, since each request waits for the venue far longer than the budget asks. A pair whose
 ///     history cannot be read is listed as failed; a request pause after the venue's ban fails the job. Conditions on the spread are
-///     not checked, since history has no quotes.
+///     not checked, since history has no quotes. On a venue that allows shorts the short scenarios run too (ADR 0061).
 /// </summary>
 internal sealed class RunScanBacktestCommandHandler(
     IEnumerable<IMarketScanSource> sources,
+    VenueRegistry venues,
     IScanBacktestRepository backtests,
     ITransactionExecutor transactions,
     IBackgroundJobProgress progress,
@@ -45,6 +47,7 @@ internal sealed class RunScanBacktestCommandHandler(
         }
 
         IMarketScanSource source = sources.Find(backtest.Venue.Value);
+        bool shorts = venues.Find(backtest.Venue.Value) is { SupportsShort: true };
         IReadOnlyList<ScanInstrumentInternal> universe = await source.Universe(cancellationToken);
         var signals = new ConcurrentBag<ScanSignal>();
         var failed = new ConcurrentBag<string>();
@@ -58,7 +61,7 @@ internal sealed class RunScanBacktestCommandHandler(
             {
                 try
                 {
-                    foreach (ScanSignal signal in await Replay(source, backtest, instrument, token))
+                    foreach (ScanSignal signal in await Replay(source, backtest, instrument, shorts, token))
                     {
                         signals.Add(signal);
                     }
@@ -75,7 +78,7 @@ internal sealed class RunScanBacktestCommandHandler(
         var result = new ScanBacktestResult(
             universe.Count,
             [.. failed.Order(StringComparer.Ordinal)],
-            ScanStudy.Summarize(all),
+            ScanStudy.Summarize(all, shorts),
             [.. all.Take(ScanBacktest.MaxStoredSignals)],
             all.Length > ScanBacktest.MaxStoredSignals);
 
@@ -101,6 +104,7 @@ internal sealed class RunScanBacktestCommandHandler(
         IMarketScanSource source,
         ScanBacktest backtest,
         ScanInstrumentInternal instrument,
+        bool shorts,
         CancellationToken cancellationToken)
     {
         IReadOnlyList<ScanCandle> candles = await source.Candles(
@@ -124,6 +128,7 @@ internal sealed class RunScanBacktestCommandHandler(
             metrics => backtest.Filter.Keeps(metrics, Unknown),
             backtest.From,
             backtest.To,
-            ScanAlertWatch.Cooldown);
+            ScanAlertWatch.Cooldown,
+            shorts);
     }
 }

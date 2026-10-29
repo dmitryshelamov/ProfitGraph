@@ -1,6 +1,7 @@
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.MarketData.Ports;
 using ProfitGraph.Domain.MarketData;
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Market;
 
 namespace ProfitGraph.Application.MarketData;
@@ -73,5 +74,17 @@ public sealed class VenueRegistry
         IReadOnlyList<InputError> errors = TryResolveSeries(venue, symbol, timeframe, out CandleSeries? series);
 
         return series ?? throw new ApplicationValidationException(errors);
+    }
+
+    /// <summary>
+    ///     Refuses a short plan on a venue that does not allow shorts (ADR 0061); a long plan runs anywhere.
+    /// </summary>
+    public void EnsureDirection(VenueId venue, PositionDirection direction)
+    {
+        if (direction == PositionDirection.Short && Find(venue.Value) is not { SupportsShort: true })
+        {
+            throw new ApplicationValidationException(
+                [new InputError("strategy_short_unsupported", "StrategyId", "A short strategy runs only on a venue that allows shorts, such as futures.")]);
+        }
     }
 }

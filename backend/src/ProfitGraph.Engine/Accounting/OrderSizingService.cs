@@ -35,7 +35,7 @@ public sealed class OrderSizingService
                 : 0m),
             account.Portfolio.BaseAvailable,
             !string.IsNullOrWhiteSpace(request.Tag) && account.Orders.GetActive(request.Tag) is not null,
-            referencePrice: null,
+            settings.IsMargin ? request.GetReferencePrice() : null,
             request.GetMinimumOrderPolicy());
     }
 
@@ -90,7 +90,8 @@ public sealed class OrderSizingService
 
     internal static decimal PendingQuoteFees(IEnumerable<OrderSnapshot> orders, InstrumentRules rules, ExecutionSettings settings)
     {
-        if (rules.BuyFeeAsset != FeeAsset.Quote)
+        // A margin run's opening order reserves its fee with its margin (ADR 0061).
+        if (rules.BuyFeeAsset != FeeAsset.Quote || settings.IsMargin)
         {
             return 0m;
         }
@@ -170,6 +171,11 @@ public sealed class OrderSizingService
         }
 
         bool raise = side == OrderSide.Buy && minimumOrderPolicy == MinimumOrderPolicy.RaiseToExchangeMinimum;
+
+        if (settings.IsMargin)
+        {
+            return ResolveMargin(side, type, amount, price, rules, settings, quoteAvailable, baseAvailable, referencePrice, raise);
+        }
 
         // A raised buy is never cut to fit the remaining budget, even if lot rounding would make it fit.
         if (raise && amount > quoteAvailable)
@@ -256,5 +262,101 @@ public sealed class OrderSizingService
         {
             QuoteFee = quoteFee
         };
+    }
+
+    /// <summary>
+    ///     Sizes an order of a margin run (ADR 0061). An exit (a long's sale, a short's cover) gives a base quantity and reserves the
+    ///     position it closes. An entry reserves its notional divided by the leverage plus its quote fee: a long's buy spends a quote
+    ///     amount as on spot, a short's sale gives a base quantity, and a market sale is valued at the slipped reference price.
+    /// </summary>
+    private static OrderSizingResult ResolveMargin(
+        OrderSide side,
+        OrderType type,
+        decimal amount,
+        decimal? price,
+        InstrumentRules rules,
+        ExecutionSettings settings,
+        decimal quoteAvailable,
+        decimal baseAvailable,
+        decimal? referencePrice,
+        bool raise)
+    {
+        decimal leverage = settings.Leverage!.Value;
+        decimal? reached = referencePrice is { } reference && reference > 0m ? SlippageModel.Apply(reference, side, settings.Slippage) : null;
+        decimal? quantity;
+
+        if (side != settings.OpeningSide)
+        {
+            quantity = OrderNormalizer.NormalizeQuantity(amount, rules);
+
+            if (OrderNormalizer.CheckMinimums(quantity.Value, price ?? reached, rules) is { } exitFailure)
+            {
+                return new OrderSizingResult(quantity, price, Reservation: 0m, exitFailure);
+            }
+
+            return new OrderSizingResult(quantity, price, quantity.Value, quantity.Value > baseAvailable ? RejectionReason.InsufficientBase : null);
+        }
+
+        if (side == OrderSide.Buy && type == OrderType.Market)
+        {
+            var quoteUnit = new decimal(lo: 1, mid: 0, hi: 0, isNegative: false, (byte)rules.QuotePrecision);
+            decimal budget = DecimalRounding.FloorToStep(amount, quoteUnit);
+
+            if (raise && budget < rules.MinNotional)
+            {
+                budget = decimal.Ceiling(rules.MinNotional / quoteUnit) * quoteUnit;
+            }
+
+            if (budget <= 0m)
+            {
+                return new OrderSizingResult(Quantity: null, price, Reservation: 0m, RejectionReason.InvalidAmount);
+            }
+
+            if (budget < rules.MinNotional)
+            {
+                return new OrderSizingResult(Quantity: null, price, Reservation: 0m, RejectionReason.BelowMinNotional);
+            }
+
+            quantity = reached is { } buyPrice ? OrderNormalizer.NormalizeQuantity(budget / buyPrice, rules) : null;
+
+            if (quantity is { } bought && OrderNormalizer.CheckMinimums(bought, price: null, rules) is { } buyFailure)
+            {
+                return new OrderSizingResult(quantity, price, Reservation: 0m, buyFailure);
+            }
+
+            decimal budgetFee = QuoteFee(budget, rules, settings, type);
+            decimal budgetMargin = budget / leverage + budgetFee;
+
+            return new OrderSizingResult(quantity, price, budgetMargin, budgetMargin > quoteAvailable ? RejectionReason.InsufficientQuote : null)
+            {
+                QuoteFee = budgetFee,
+                QuoteBudget = budget
+            };
+        }
+
+        decimal? valuation = price ?? reached;
+
+        if (valuation is not { } entryPrice)
+        {
+            return new OrderSizingResult(Quantity: null, price, Reservation: 0m, RejectionReason.InvalidPrice);
+        }
+
+        quantity = OrderNormalizer.NormalizeQuantity(side == OrderSide.Buy ? amount / entryPrice : amount, rules);
+
+        if (raise && quantity.Value * entryPrice < rules.MinNotional)
+        {
+            quantity = decimal.Ceiling(rules.MinNotional / entryPrice / rules.QuantityStep) * rules.QuantityStep;
+        }
+
+        if (OrderNormalizer.CheckMinimums(quantity.Value, entryPrice, rules) is { } failure)
+        {
+            return new OrderSizingResult(quantity, price, Reservation: 0m, failure);
+        }
+
+        decimal notional = quantity.Value * entryPrice;
+        decimal fee = QuoteFee(notional, rules, settings, type);
+        decimal margin = notional / leverage + fee;
+
+        return new OrderSizingResult(quantity, price, margin, margin > quoteAvailable ? RejectionReason.InsufficientQuote : null) { QuoteFee = fee };
     }
 }

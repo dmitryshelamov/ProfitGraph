@@ -48,9 +48,12 @@ export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) 
   const [dailyLossLimitQuote, setDailyLossLimitQuote] = useState('10');
   const [allowForeignOrders, setAllowForeignOrders] = useState(false);
   const [steamSettings, setSteamSettings] = useState<SteamBotSettingsDraft | null>(null);
+  const [leverage, setLeverage] = useState('1');
   const venues = useQuery(venuesQuery());
   const venue = credentials.data?.find((item) => item.id === credentialId)?.venue;
   const steam = venue === 'steam';
+  // Bybit's USDT perpetuals trade at the bot's leverage (ADR 0061).
+  const futures = venue === 'bybit-linear';
   const readWithKey = venue !== undefined && venuesReadWithKey.has(venue);
   const steamDefaults = venues.data?.find((item) => item.id === 'steam')?.botSettings;
   const settings = steamSettings ?? steamBotSettingsDraft(steamDefaults);
@@ -89,6 +92,7 @@ export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) 
         dailyLossLimitQuote: dailyLossLimitQuote.trim(),
         allowForeignOrders,
         ...(steam ? { venueSettings: steamBotSettingsBody(settings) } : {}),
+        ...(futures ? { venueSettings: { leverage: leverage.trim() } } : {}),
       }),
     onSuccess: async (bot) => {
       await queryClient.invalidateQueries({ queryKey: botKeys.all });
@@ -222,6 +226,21 @@ export function CreateBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) 
           required
         />
       </Field>
+      {futures && (
+        <>
+          <Field label="Плечо">
+            <Input
+              value={leverage}
+              onChange={(event) => setLeverage(event.target.value)}
+              inputMode="decimal"
+              required
+            />
+          </Field>
+          <p className="text-sm text-muted md:col-span-2">
+            Бот держит маржу — объём позиции, делённый на плечо. Нужен hedge mode позиций на Bybit.
+          </p>
+        </>
+      )}
       {steam && (
         <>
           <Field label="Холд после покупки, дней">

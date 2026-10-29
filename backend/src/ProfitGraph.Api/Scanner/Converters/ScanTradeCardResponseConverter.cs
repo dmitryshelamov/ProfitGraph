@@ -24,7 +24,8 @@ internal static class ScanTradeCardResponseConverter
                     (int)idea.EntryValidity.TotalMinutes,
                     ScanSnapshotResponseConverter.Text(idea.Amount),
                     ScanSnapshotResponseConverter.Text(idea.Risk),
-                    idea.Taken))
+                    idea.Taken,
+                    idea.Direction.ToString()))
             ]);
     }
 
@@ -34,7 +35,8 @@ internal static class ScanTradeCardResponseConverter
             settings.Venue,
             settings.CredentialId,
             ExactGraphNumberParser.Format(settings.Risk),
-            ExactGraphNumberParser.Format(settings.MaxAmount));
+            ExactGraphNumberParser.Format(settings.MaxAmount),
+            ScanSnapshotResponseConverter.Text(settings.Leverage));
     }
 
     public static ScanLiveTradeResponse ToResponse(this ScanTradeInternal trade)
@@ -57,6 +59,7 @@ internal static class ScanTradeCardResponseConverter
             trade.OpenedAt,
             trade.ClosedAt,
             ScanSnapshotResponseConverter.Text(trade.RealizedPnl),
-            trade.FailureCode);
+            trade.FailureCode,
+            trade.Direction.ToString());
     }
 }

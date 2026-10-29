@@ -13,9 +13,11 @@ namespace ProfitGraph.Venues.Bybit.Trading;
 ///     <c>Group:Name</c> and the expiry. The key itself, its secret and IP list in the answer are never read. The UID is
 ///     required; failures carry only a reason, an HTTP status or a Bybit code.
 /// </summary>
-internal sealed class BybitAccountIdentityReader(BybitReadClient read) : IVenueAccountIdentityReader
+internal sealed class BybitAccountIdentityReader(BybitReadClient read, BybitMarket? market = null) : IVenueAccountIdentityReader
 {
-    public VenueId Venue => BybitVenue.VenueId;
+    private readonly BybitMarket _market = market ?? BybitMarket.Spot;
+
+    public VenueId Venue => _market.Venue;
 
     public async Task<AccountIdentityReadInternal> Read(ExchangeCredentialSecretsInternal credential, CancellationToken cancellationToken)
     {

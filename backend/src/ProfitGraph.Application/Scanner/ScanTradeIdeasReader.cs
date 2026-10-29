@@ -10,7 +10,8 @@ namespace ProfitGraph.Application.Scanner;
 ///     The trade cards' proposals for a pair on every timeframe of <see cref="ScanTradeOptions.LevelTimeframes" /> the venue offers
 ///     (ADR 0060): each timeframe's levels at the pair's price give its own levels and 2R trades; the pullback comes once, from the last
 ///     hour of the trades' own candles, under <see cref="PullbackTimeframe" />. A trade that another timeframe already proposes with
-///     the same prices is listed once, under the shorter timeframe. Without a price there are no proposals.
+///     the same prices is listed once, under the shorter timeframe. Without a price there are no proposals. On a venue that allows
+///     shorts the short proposals come with the long ones (ADR 0061).
 /// </summary>
 public sealed class ScanTradeIdeasReader(
     ScanTimeframeLevelsReader levels,
@@ -33,6 +34,7 @@ public sealed class ScanTradeIdeasReader(
         CancellationToken cancellationToken)
     {
         HashSet<string> offered = [.. venues.Find(venue)?.Timeframes.Select(timeframe => timeframe.Key) ?? []];
+        bool shorts = venues.Find(venue) is { SupportsShort: true };
         decimal? price = null;
         List<(string Timeframe, ScanTradeIdea Idea)> ideas = [];
 
@@ -43,7 +45,8 @@ public sealed class ScanTradeIdeasReader(
 
             if (read.Price is { } current)
             {
-                ideas.AddRange(ScanTradeIdeas.Of(current, read.Support, read.Resistance, lastHourLow: null).Select(idea => (timeframe, idea)));
+                ideas.AddRange(
+                    ScanTradeIdeas.Of(current, read.Support, read.Resistance, lastHourLow: null, lastHourHigh: null, shorts).Select(idea => (timeframe, idea)));
             }
         }
 
@@ -54,11 +57,12 @@ public sealed class ScanTradeIdeasReader(
             using IDisposable reads = MarketDataAccess.Use(await access.Read(venue, cancellationToken));
             CandleChartPage page = await chart.Read(series, end - LastHour, end, Math.Max((int)(LastHour / series.Timeframe.Duration), val2: 1), cancellationToken);
             decimal? low = page.Candles.Count > 0 ? page.Candles.Min(candle => candle.Low) : null;
+            decimal? high = page.Candles.Count > 0 ? page.Candles.Max(candle => candle.High) : null;
             ideas.AddRange(
-                ScanTradeIdeas.Of(now, support: null, resistance: null, low)
+                ScanTradeIdeas.Of(now, support: null, resistance: null, low, high, shorts)
                     .Select(idea => (PullbackTimeframe, idea)));
         }
 
-        return (price, [.. ideas.DistinctBy(item => (item.Idea.Scenario, item.Idea.Entry, item.Idea.Stop, item.Idea.Target))]);
+        return (price, [.. ideas.DistinctBy(item => (item.Idea.Scenario, item.Idea.Direction, item.Idea.Entry, item.Idea.Stop, item.Idea.Target))]);
     }
 }

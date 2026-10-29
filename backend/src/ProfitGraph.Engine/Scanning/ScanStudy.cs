@@ -1,3 +1,5 @@
+using ProfitGraph.Engine.Accounting;
+
 namespace ProfitGraph.Engine.Scanning;
 
 /// <summary>
@@ -7,7 +9,8 @@ namespace ProfitGraph.Engine.Scanning;
 ///     later, and its largest rise and drop to the highs and lows of the next day. Its trade scenarios (section 8) run on the same
 ///     minutes: a trade leaves at its stop, its target or 24 hours after its entry at that minute's close; a minute that touches both
 ///     stop and target counts as the stop, and a minute that opens beyond a level leaves at its open. Results are after an assumed
-///     0.1 % fee on each side. Deterministic for identical inputs.
+///     0.1 % fee on each side. Where shorts are allowed (ADR 0061) the mirror scenarios of <see cref="ScanTradeIdeas" /> run too: a
+///     short leaves at a high at its stop or a low at its target. Deterministic for identical inputs.
 /// </summary>
 public static class ScanStudy
 {
@@ -23,7 +26,8 @@ public static class ScanStudy
         Func<ScanMetrics, bool> keeps,
         DateTimeOffset from,
         DateTimeOffset to,
-        TimeSpan cooldown)
+        TimeSpan cooldown,
+        bool shorts = false)
     {
         ArgumentNullException.ThrowIfNull(replay);
         ArgumentNullException.ThrowIfNull(keeps);
@@ -46,7 +50,7 @@ public static class ScanStudy
 
             if (kept && previous == false && (lastSignal is not { } last || at - last >= cooldown))
             {
-                signals.Add(Signal(symbol, replay, index, metrics));
+                signals.Add(Signal(symbol, replay, index, metrics, shorts));
                 lastSignal = at;
             }
 
@@ -56,7 +60,7 @@ public static class ScanStudy
         return signals;
     }
 
-    public static ScanStudySummary Summarize(IReadOnlyList<ScanSignal> signals)
+    public static ScanStudySummary Summarize(IReadOnlyList<ScanSignal> signals, bool shorts = false)
     {
         ArgumentNullException.ThrowIfNull(signals);
 
@@ -68,10 +72,13 @@ public static class ScanStudy
             Outcome(signals, signal => signal.Change24h),
             Outcome(signals, signal => signal.MaxRise24h),
             Outcome(signals, signal => signal.MaxDrop24h),
-            [.. Enum.GetValues<ScanScenario>().Select(scenario => Scenario(signals, scenario))]);
+            [
+                .. Enum.GetValues<ScanScenario>().Select(scenario => Scenario(signals, scenario, PositionDirection.Long)),
+                .. shorts ? Enum.GetValues<ScanScenario>().Select(scenario => Scenario(signals, scenario, PositionDirection.Short)) : []
+            ]);
     }
 
-    private static ScanSignal Signal(string symbol, ScanReplay replay, int index, ScanMetrics metrics)
+    private static ScanSignal Signal(string symbol, ScanReplay replay, int index, ScanMetrics metrics, bool shorts)
     {
         IReadOnlyList<ScanCandle> minutes = replay.Minutes;
         decimal? entry = index + 1 < minutes.Count ? minutes[index + 1].Open : null;
@@ -87,10 +94,10 @@ public static class ScanStudy
             Change(minutes, index, entry, MinutesPerDay),
             Extreme(minutes, index, entry, highest: true),
             Extreme(minutes, index, entry, highest: false),
-            Trades(minutes, index, metrics));
+            Trades(minutes, index, metrics, shorts));
     }
 
-    internal static List<ScanTrade> Trades(IReadOnlyList<ScanCandle> minutes, int index, ScanMetrics metrics)
+    internal static List<ScanTrade> Trades(IReadOnlyList<ScanCandle> minutes, int index, ScanMetrics metrics, bool shorts = false)
     {
         List<ScanTrade> trades = [];
 
@@ -125,7 +132,86 @@ public static class ScanStudy
             trades.Add(pullback);
         }
 
+        if (shorts)
+        {
+            trades.AddRange(ShortTrades(minutes, index, metrics, open));
+        }
+
         return trades;
+    }
+
+    private static IEnumerable<ScanTrade> ShortTrades(IReadOnlyList<ScanCandle> minutes, int index, ScanMetrics metrics, decimal open)
+    {
+        if (metrics.Resistance is { } resistance && resistance > open)
+        {
+            if (metrics.Support is { } support && support > 0m && support < open &&
+                Run(minutes, index + 1, open, resistance, support, ScanScenario.Levels, fillMinute: false, PositionDirection.Short) is { } levels)
+            {
+                yield return levels;
+
+                if ((open - support) / (resistance - open) >= MinimumRewardRisk)
+                {
+                    yield return levels with { Scenario = ScanScenario.LevelsRewardRisk2 };
+                }
+            }
+
+            decimal twoRisks = open - 2 * (resistance - open);
+
+            if (twoRisks > 0m && Run(minutes, index + 1, open, resistance, twoRisks, ScanScenario.Target2R, fillMinute: false, PositionDirection.Short) is { } target)
+            {
+                yield return target;
+            }
+        }
+
+        if (Rally(minutes, index) is { } rally)
+        {
+            yield return rally;
+        }
+    }
+
+    /// <summary>
+    ///     A short limit halfway up the last hour's fall (ADR 0061), filled by the first minute within 4 hours that trades at it (at its
+    ///     open when it opens above), with the stop at the hour's highest high; a minute that opens at the stop or above never fills.
+    /// </summary>
+    private static ScanTrade? Rally(IReadOnlyList<ScanCandle> minutes, int index)
+    {
+        if (index < MinutesPerHour - 1)
+        {
+            return null;
+        }
+
+        decimal high = minutes[index].High;
+
+        for (int i = index - MinutesPerHour + 1; i < index; i++)
+        {
+            high = Math.Max(high, minutes[i].High);
+        }
+
+        decimal close = minutes[index].Close;
+
+        if (high <= close)
+        {
+            return null;
+        }
+
+        decimal limit = ScanTradeIdeas.RallyLimit(close, high);
+
+        for (int i = index + 1; i < minutes.Count && i <= index + (int)ScanTradeIdeas.PullbackWait.TotalMinutes; i++)
+        {
+            if (minutes[i].High < limit)
+            {
+                continue;
+            }
+
+            decimal fill = Math.Max(limit, minutes[i].Open);
+            decimal target = fill - 2 * (high - fill);
+
+            return fill >= high || target <= 0m
+                ? null
+                : Run(minutes, i, fill, high, target, ScanScenario.Pullback, fillMinute: true, PositionDirection.Short);
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -181,8 +267,11 @@ public static class ScanStudy
         decimal stop,
         decimal target,
         ScanScenario scenario,
-        bool fillMinute)
+        bool fillMinute,
+        PositionDirection direction = PositionDirection.Long)
     {
+        bool @short = direction == PositionDirection.Short;
+
         for (int i = start; i < start + MinutesPerDay; i++)
         {
             if (i >= minutes.Count)
@@ -193,20 +282,24 @@ public static class ScanStudy
             ScanCandle minute = minutes[i];
             bool first = i == start;
 
-            if (minute.Low <= stop)
+            if (@short ? minute.High >= stop : minute.Low <= stop)
             {
-                return Trade(scenario, entry, stop, target, minutes[start], minute, !first && minute.Open < stop ? minute.Open : stop, ScanTradeExit.Stop);
+                bool gapped = !first && (@short ? minute.Open > stop : minute.Open < stop);
+
+                return Trade(scenario, entry, stop, target, minutes[start], minute, gapped ? minute.Open : stop, ScanTradeExit.Stop, direction);
             }
 
-            if (!(first && fillMinute) && minute.High >= target)
+            if (!(first && fillMinute) && (@short ? minute.Low <= target : minute.High >= target))
             {
-                return Trade(scenario, entry, stop, target, minutes[start], minute, !first && minute.Open > target ? minute.Open : target, ScanTradeExit.Target);
+                bool gapped = !first && (@short ? minute.Open < target : minute.Open > target);
+
+                return Trade(scenario, entry, stop, target, minutes[start], minute, gapped ? minute.Open : target, ScanTradeExit.Target, direction);
             }
         }
 
         ScanCandle last = minutes[start + MinutesPerDay - 1];
 
-        return Trade(scenario, entry, stop, target, minutes[start], last, last.Close, ScanTradeExit.Time);
+        return Trade(scenario, entry, stop, target, minutes[start], last, last.Close, ScanTradeExit.Time, direction);
     }
 
     private static ScanTrade Trade(
@@ -217,9 +310,11 @@ public static class ScanStudy
         ScanCandle entered,
         ScanCandle exited,
         decimal exit,
-        ScanTradeExit reason)
+        ScanTradeExit reason,
+        PositionDirection direction)
     {
-        decimal net = exit - entry - (entry + exit) * FeeRate;
+        decimal moved = direction == PositionDirection.Long ? exit - entry : entry - exit;
+        decimal net = moved - (entry + exit) * FeeRate;
 
         return new ScanTrade(
             scenario,
@@ -230,16 +325,19 @@ public static class ScanStudy
             exited.OpenTime + TimeSpan.FromMinutes(1),
             exit,
             reason,
-            net / (entry - stop),
-            net / entry * Percent);
+            net / Math.Abs(entry - stop),
+            net / entry * Percent,
+            direction);
     }
 
-    private static ScanScenarioSummary Scenario(IReadOnlyList<ScanSignal> signals, ScanScenario scenario)
+    private static ScanScenarioSummary Scenario(IReadOnlyList<ScanSignal> signals, ScanScenario scenario, PositionDirection direction)
     {
         ScanTrade[] trades =
         [
             .. signals
-                .SelectMany(signal => (signal.Trades ?? []).Where(trade => trade.Scenario == scenario).Select(trade => (signal.Symbol, Trade: trade)))
+                .SelectMany(signal => (signal.Trades ?? [])
+                    .Where(trade => trade.Scenario == scenario && trade.Direction == direction)
+                    .Select(trade => (signal.Symbol, Trade: trade)))
                 .OrderBy(item => item.Trade.EnteredAt)
                 .ThenBy(item => item.Symbol, StringComparer.Ordinal)
                 .Select(item => item.Trade)
@@ -256,7 +354,8 @@ public static class ScanStudy
                 TotalR: 0,
                 MeanPercent: null,
                 LongestLosingStreak: 0,
-                MeanMinutes: null);
+                MeanMinutes: null,
+                direction);
         }
 
         decimal[] results = [.. trades.Select(trade => trade.ResultR).Order()];
@@ -279,7 +378,8 @@ public static class ScanStudy
             results.Sum(),
             trades.Sum(trade => trade.ResultPercent) / trades.Length,
             longest,
-            trades.Sum(trade => (decimal)(trade.ExitedAt - trade.EnteredAt).TotalMinutes) / trades.Length);
+            trades.Sum(trade => (decimal)(trade.ExitedAt - trade.EnteredAt).TotalMinutes) / trades.Length,
+            direction);
     }
 
     private static decimal? Change(IReadOnlyList<ScanCandle> candles, int index, decimal? entry, int minutes)

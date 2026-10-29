@@ -304,7 +304,9 @@ public sealed class GraphValidator
 
                 bool HasSource(string key) => connected.Contains(new PortReference(node.Id, key)) || node.Parameters.ContainsKey(key);
 
-                bool buy = Setting("side", "Buy") == "Buy";
+                // A short plan's buy covers a base quantity (ADR 0061).
+                bool buy = Setting("side", "Buy") == "Buy" &&
+                    !graph.Nodes.Any(candidate => candidate.TypeKey is nameof(TradingNodeBehavior.MarketCover) or nameof(TradingNodeBehavior.LimitCover));
                 bool limit = Setting("type", "Market") == "Limit";
 
                 if (!HasSource(buy ? "amount" : "quantity") || HasSource(buy ? "quantity" : "amount") || limit != HasSource("price"))

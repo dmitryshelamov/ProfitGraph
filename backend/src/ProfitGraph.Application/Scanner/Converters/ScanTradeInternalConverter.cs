@@ -25,11 +25,12 @@ internal static class ScanTradeInternalConverter
             trade.OpenedAt,
             trade.ClosedAt,
             trade.RealizedPnl,
-            trade.FailureCode);
+            trade.FailureCode,
+            trade.Direction);
     }
 
     public static ScanTradeSettingsInternal ToInternal(this ScanTradeSettings settings)
     {
-        return new ScanTradeSettingsInternal(settings.Venue.Value, settings.CredentialId.Value, settings.Risk, settings.MaxAmount);
+        return new ScanTradeSettingsInternal(settings.Venue.Value, settings.CredentialId.Value, settings.Risk, settings.MaxAmount, settings.Leverage);
     }
 }

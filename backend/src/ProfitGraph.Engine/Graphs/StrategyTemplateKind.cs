@@ -19,5 +19,6 @@ public enum StrategyTemplateKind
     MacdTrend,
     RsiReversion,
     BollingerReversion,
-    LevelTrade
+    LevelTrade,
+    LevelTradeShort
 }

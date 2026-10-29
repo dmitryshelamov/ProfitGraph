@@ -50,6 +50,7 @@ internal sealed class CreateBotCommandHandler(
         CompiledTradingGraph plan = compiler.Compile(version.Definition, parameters);
         ExchangeCredential credential = await credentials.GetOwned(command.CredentialId, command.OwnerId, cancellationToken);
         CandleSeries series = venues.ResolveSeries(credential.Venue.Value, command.Symbol, command.Timeframe);
+        venues.EnsureDirection(series.Venue, plan.Direction);
         IVenueFeeRateReader reader = feeReaders.Find(series.Venue) ?? throw new VenueFeeRatesUnavailableException("This venue cannot run bots in this deployment.");
         IInstrumentRulesSource source = rules.Find(series.Venue) ?? throw new VenueFeeRatesUnavailableException("The venue has no instrument rules.");
         ExchangeCredentialSecretsInternal secrets = protector.Decrypt(credential);

@@ -24,6 +24,16 @@ public sealed class TradingAccount : IGraphAccount
         Portfolio = new Portfolio(settings.StartingCapital);
         Orders = new OrderBook();
         _holds = settings.SettlementHold is { } hold ? new SettlementHoldBook(hold) : null;
+
+        if (settings.Leverage is { } leverage)
+        {
+            if (rules.BuyFeeAsset != FeeAsset.Quote)
+            {
+                throw new TradingInvariantException("A margin run pays its fees in quote.");
+            }
+
+            Portfolio.ConfigureMargin(leverage, settings.Direction);
+        }
     }
 
     /// <summary>
@@ -59,7 +69,8 @@ public sealed class TradingAccount : IGraphAccount
         OrderSizingResult sizing = _sizing.ResolveForSubmission(request, Rules, Settings, this);
         RejectionReason? reason = sizing.Reason;
 
-        decimal? quantity = sizing.Quantity;
+        // A margin run's market buy spends its quote budget at the fill's price, as on spot.
+        decimal? quantity = sizing.QuoteBudget is null ? sizing.Quantity : null;
         decimal? price = sizing.Price;
         decimal reservation = sizing.Reservation;
 
@@ -75,12 +86,12 @@ public sealed class TradingAccount : IGraphAccount
             request.Type,
             quantity,
             price,
-            request is { Side: OrderSide.Buy, Type: OrderType.Market } ? reservation : null,
+            Settings.IsMargin ? sizing.QuoteBudget : request is { Side: OrderSide.Buy, Type: OrderType.Market } ? reservation : null,
             reservation,
             request.OriginNodeId,
             request.EligibleFromCandleIndex);
 
-        if (order.Side == OrderSide.Buy)
+        if (order.Side == Settings.OpeningSide)
         {
             Portfolio.ReserveQuote(reservation);
         }
@@ -176,6 +187,12 @@ public sealed class TradingAccount : IGraphAccount
         }
 
         decimal principal = grossBase * price;
+
+        if (Settings.IsMargin)
+        {
+            return ExecuteMargin(order, price, grossBase, principal);
+        }
+
         decimal quoteFee = order.Side == OrderSide.Buy ? OrderSizingService.QuoteFee(principal, Rules, Settings, order.Type) : 0m;
 
         decimal rate = Settings.FeeRate(order.Type);
@@ -259,6 +276,47 @@ public sealed class TradingAccount : IGraphAccount
         return active;
     }
 
+    /// <summary>
+    ///     Fills a margin run's order at once (ADR 0061): an entry opens or adds to the position, an exit closes part or all of it;
+    ///     every fee is charged in quote on the fill's notional.
+    /// </summary>
+    private OrderExecution ExecuteMargin(Order order, decimal price, decimal grossBase, decimal principal)
+    {
+        decimal fee = OrderSizingService.QuoteFee(principal, Rules, Settings, order.Type);
+        bool opening = order.Side == Settings.OpeningSide;
+        var realized = 0m;
+        Release(order, OrderStatus.Filled);
+
+        if (order.Side == OrderSide.Buy)
+        {
+            if (opening)
+            {
+                Portfolio.OpenLong(principal, grossBase, fee, price);
+            }
+            else
+            {
+                realized = Portfolio.Cover(grossBase, principal, fee);
+            }
+
+            return new OrderExecution(
+                new Fill(order.Id, order.Tag, order.Side, order.Type, price, grossBase, grossBase, -(principal + fee), fee, FeeAsset.Quote, realized),
+                Rejection: null);
+        }
+
+        if (opening)
+        {
+            Portfolio.OpenShort(grossBase, principal, fee, price);
+        }
+        else
+        {
+            realized = Portfolio.Sell(grossBase, principal, fee);
+        }
+
+        return new OrderExecution(
+            new Fill(order.Id, order.Tag, order.Side, order.Type, price, grossBase, -grossBase, principal - fee, fee, FeeAsset.Quote, realized),
+            Rejection: null);
+    }
+
     private Order? Cancel(Order? order)
     {
         if (order is not { IsActive: true })
@@ -273,7 +331,7 @@ public sealed class TradingAccount : IGraphAccount
 
     private void Release(Order order, OrderStatus status)
     {
-        if (order.Side == OrderSide.Buy)
+        if (order.Side == Settings.OpeningSide)
         {
             Portfolio.ReleaseQuote(order.Reservation);
         }

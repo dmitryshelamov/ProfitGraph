@@ -22,10 +22,16 @@ public static class BybitRegistration
 {
     private const string ScanKlineClient = "bybit-scan-klines";
     private const string ScanQuoteClient = "bybit-scan-quotes";
+    private const string LinearKey = "bybit-linear";
+    private const string LinearHistoryClient = "bybit-linear-history";
+    private const string LinearInstrumentsClient = "bybit-linear-instruments";
+    private const string LinearCatalogClient = "bybit-linear-catalog";
+    private const string LinearScanKlineClient = "bybit-linear-scan-klines";
+    private const string LinearScanQuoteClient = "bybit-linear-scan-quotes";
 
     /// <summary>
-    ///     Registers Bybit Spot: its descriptor, public history, live candles, tradable pairs, instrument rules, the market scanner's data and the read-only fee rates of a credential. No
-    ///     order can be sent.
+    ///     Registers Bybit Spot and Bybit's USDT perpetuals (ADR 0061): their descriptors, public history, live candles, tradable pairs,
+    ///     instrument rules, the market scanner's data and the read-only fee rates of a credential. No order can be sent.
     /// </summary>
     public static IServiceCollection AddBybitVenue(this IServiceCollection services, IConfiguration configuration)
     {
@@ -73,7 +79,7 @@ public static class BybitRegistration
                 clients.CreateClient(ScanQuoteClient));
         });
 
-        return services;
+        return services.AddBybitLinearVenue();
     }
 
     /// <summary>
@@ -94,6 +100,7 @@ public static class BybitRegistration
         services.TryAddSingleton(new PrivateStreamReconnectPolicy());
         services.AddSingleton(provider => ActivatorUtilities.CreateInstance<BybitPrivateStreams>(provider, TimeProvider.System));
         services.AddTransient<IOrderGateway, BybitOrderGateway>();
+        services.AddTransient<IOrderGateway>(provider => ActivatorUtilities.CreateInstance<BybitOrderGateway>(provider, BybitMarket.Linear));
 
         return services;
     }
@@ -109,8 +116,71 @@ public static class BybitRegistration
             .Validate(options => options.IsValid(), "Live:Simulation needs a positive market price and a fee rate below 10%.")
             .ValidateOnStart();
         services.AddSingleton<IOrderGateway>(provider => new BybitSimulatedOrderGateway(provider.GetRequiredService<IOptions<BybitSimulationOptions>>().Value));
+        services.AddSingleton<IOrderGateway>(provider => new BybitSimulatedOrderGateway(
+            provider.GetRequiredService<IOptions<BybitSimulationOptions>>().Value,
+            BybitMarket.Linear));
 
         return services;
+    }
+
+    /// <summary>
+    ///     The USDT-perpetual venue <c>bybit-linear</c> (ADR 0061): the Spot classes for the linear category, its own instrument list,
+    ///     public stream and scanner data, and the bot settings that carry the leverage.
+    /// </summary>
+    private static IServiceCollection AddBybitLinearVenue(this IServiceCollection services)
+    {
+        services.AddSingleton<IVenueDescriptor, BybitLinearVenue>();
+        services.AddHttpClient(LinearHistoryClient, Configure).AddHttpMessageHandler<BybitResponseGuardHandler>();
+        services.AddTransient<IHistoricalCandleSource>(provider =>
+            ActivatorUtilities.CreateInstance<BybitHistoricalCandleSource>(provider, Client(provider, LinearHistoryClient), BybitMarket.Linear));
+        services.AddHttpClient(LinearInstrumentsClient, Configure).AddHttpMessageHandler(() => new BybitInstrumentsResponseGuardHandler(BybitMarket.Linear));
+        services.AddTransient<IInstrumentRulesSource>(provider =>
+            ActivatorUtilities.CreateInstance<BybitLinearInstrumentRulesSource>(provider, Client(provider, LinearInstrumentsClient)));
+        services.AddKeyedSingleton(
+            LinearKey,
+            (provider, _) => new BybitInstrumentList(TimeProvider.System, provider.GetRequiredService<BybitOptions>().InstrumentListLifetime));
+        services.AddHttpClient(LinearCatalogClient, Configure);
+        services.AddTransient<IInstrumentCatalog>(provider => ActivatorUtilities.CreateInstance<BybitLinearInstrumentCatalog>(
+            provider,
+            Client(provider, LinearCatalogClient),
+            provider.GetRequiredKeyedService<BybitInstrumentList>(LinearKey)));
+        services.AddKeyedSingleton<IBybitPublicStreamTransport>(
+            LinearKey,
+            (provider, _) => new BybitPublicWebSocketTransport(provider.GetRequiredService<BybitOptions>(), BybitMarket.Linear));
+        services.AddSingleton<ILiveCandleSource>(provider =>
+            ActivatorUtilities.CreateInstance<BybitLiveCandleSource>(provider, LinearTransport(provider), BybitMarket.Linear));
+        services.AddSingleton<ILiveMarkPriceSource>(provider =>
+            ActivatorUtilities.CreateInstance<BybitLiveMarkPriceSource>(provider, LinearTransport(provider), BybitMarket.Linear));
+        services.AddSingleton<IFormingCandleSource>(provider =>
+            ActivatorUtilities.CreateInstance<BybitFormingCandleSource>(provider, LinearTransport(provider), BybitMarket.Linear));
+        services.AddTransient<IVenueFeeRateReader>(provider => ActivatorUtilities.CreateInstance<BybitFeeRateReader>(provider, BybitMarket.Linear));
+        services.AddTransient<IVenueRestingOrderCapacity>(provider => ActivatorUtilities.CreateInstance<BybitRestingOrderCapacity>(provider, BybitMarket.Linear));
+        services.AddTransient<IAccountBalanceReader>(provider => ActivatorUtilities.CreateInstance<BybitAccountBalanceReader>(provider, BybitMarket.Linear));
+        services.AddTransient<IVenueAccountIdentityReader>(provider => ActivatorUtilities.CreateInstance<BybitAccountIdentityReader>(provider, BybitMarket.Linear));
+        services.AddSingleton<IVenueCredentialSchema>(new BybitCredentialSchema(BybitMarket.Linear));
+        services.AddSingleton<BybitLinearBotSettingsSchema>();
+        services.AddSingleton<IVenueBotSettings>(provider => provider.GetRequiredService<BybitLinearBotSettingsSchema>());
+        services.AddSingleton<IVenueLeverage>(provider => provider.GetRequiredService<BybitLinearBotSettingsSchema>());
+        services.AddHttpClient(LinearScanKlineClient, Configure).AddHttpMessageHandler<BybitResponseGuardHandler>();
+        services.AddHttpClient(LinearScanQuoteClient, Configure);
+        services.AddTransient<IMarketScanSource>(provider => ActivatorUtilities.CreateInstance<BybitMarketScanSource>(
+            provider,
+            Client(provider, LinearScanKlineClient),
+            Client(provider, LinearScanQuoteClient),
+            LinearTransport(provider),
+            BybitMarket.Linear));
+
+        return services;
+    }
+
+    private static HttpClient Client(IServiceProvider provider, string name)
+    {
+        return provider.GetRequiredService<IHttpClientFactory>().CreateClient(name);
+    }
+
+    private static IBybitPublicStreamTransport LinearTransport(IServiceProvider provider)
+    {
+        return provider.GetRequiredKeyedService<IBybitPublicStreamTransport>(LinearKey);
     }
 
     private static void Configure(IServiceProvider provider, HttpClient client)

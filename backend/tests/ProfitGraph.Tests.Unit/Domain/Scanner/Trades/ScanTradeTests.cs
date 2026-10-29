@@ -2,6 +2,7 @@ using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Scanner.Trades;
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Scanning;
 
@@ -127,7 +128,21 @@ public sealed class ScanTradeTests
         };
     }
 
-    private static ScanTrade Trade(decimal entry = 100m, decimal stop = 95m, decimal target = 110m)
+    [Test]
+    public void AShortTradeHasItsTargetBelowAndItsStopAbove()
+    {
+        ScanTrade trade = Trade(entry: 100m, stop: 105m, target: 90m, PositionDirection.Short);
+
+        trade.Direction.ShouldBe(PositionDirection.Short);
+        trade.Open(Now).ShouldBeTrue();
+        trade.RecordExit(ScanTradeExit.Target).ShouldBeTrue();
+        trade.Close(realizedPnl: 9.8m, Now.AddMinutes(5)).ShouldBeTrue();
+        trade.Status.ShouldBe(ScanTradeStatus.TookProfit);
+        Should.Throw<ScanTradeRuleException>(() => Trade(entry: 100m, stop: 95m, target: 110m, PositionDirection.Short));
+        Should.Throw<ScanTradeRuleException>(() => Trade(entry: 100m, stop: 105m, target: 0m, PositionDirection.Short));
+    }
+
+    private static ScanTrade Trade(decimal entry = 100m, decimal stop = 95m, decimal target = 110m, PositionDirection direction = PositionDirection.Long)
     {
         return ScanTrade.Create(
             ScanTradeId.New(),
@@ -143,6 +158,7 @@ public sealed class ScanTradeTests
             risk: 5.2m,
             BotId.New(),
             TimeSpan.FromHours(1),
-            Now);
+            Now,
+            direction);
     }
 }

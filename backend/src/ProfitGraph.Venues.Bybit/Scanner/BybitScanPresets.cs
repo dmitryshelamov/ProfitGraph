@@ -7,7 +7,8 @@ namespace ProfitGraph.Venues.Bybit.Scanner;
 ///     an hour up at least 3% on volume three times its usual. «Под лесенку» finds pairs for a Ladder: a range rather than a
 ///     trend (efficiency ratio at most 0.3), hourly swings of at least 0.5% against a round trip of taker fees near 0.2%, liquid,
 ///     a tight spread, and not falling (at most 5% down in a day, at most 25% below the week's high). The thresholds are a
-///     starting point the owner tunes by copying a preset.
+///     starting point the owner tunes by copying a preset. USDT perpetuals (ADR 0061) have «Импульс» and its mirror «Падение», an
+///     hour down at least 3% on volume three times its usual, for short ideas.
 /// </summary>
 internal static class BybitScanPresets
 {
@@ -41,4 +42,33 @@ internal static class BybitScanPresets
             BuiltIn: true,
             AlertsEnabled: false)
     ];
+
+    internal static readonly IReadOnlyList<ScanPresetInternal> Linear =
+    [
+        All[0] with { Venue = BybitMarket.Linear.Venue.Value, Conditions = [.. All[0].Conditions.Select(Liquid)] },
+        new ScanPresetInternal(
+            Id: null,
+            BybitMarket.Linear.Venue.Value,
+            "Падение",
+            [
+                new ScanConditionInternal("Change1h", Minimum: null, Maximum: -3m), new ScanConditionInternal("VolumeSpike", Minimum: 3m, Maximum: null),
+                new ScanConditionInternal("Turnover24h", Minimum: 1_000_000m, Maximum: null)
+            ],
+            "Change1h",
+            SortDescending: false,
+            HideStale: true,
+            BuiltIn: true,
+            AlertsEnabled: false)
+    ];
+
+    internal static IReadOnlyList<ScanPresetInternal> For(BybitMarket market)
+    {
+        return market.IsLinear ? Linear : All;
+    }
+
+    // Futures turnover runs far above spot's; the linear «Импульс» asks for a million a day.
+    private static ScanConditionInternal Liquid(ScanConditionInternal condition)
+    {
+        return condition.Metric == "Turnover24h" ? condition with { Minimum = 1_000_000m } : condition;
+    }
 }

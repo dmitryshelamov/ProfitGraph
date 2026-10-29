@@ -61,7 +61,8 @@ internal static class ScanBacktestResponseConverter
             ExactGraphNumberParser.Format(scenario.TotalR),
             ScanSnapshotResponseConverter.Text(scenario.MeanPercent),
             scenario.LongestLosingStreak,
-            ScanSnapshotResponseConverter.Text(scenario.MeanMinutes));
+            ScanSnapshotResponseConverter.Text(scenario.MeanMinutes),
+            scenario.Direction.ToString());
     }
 
     private static ScanTradeResponse ToResponse(ScanTrade trade)
@@ -76,7 +77,8 @@ internal static class ScanBacktestResponseConverter
             ExactGraphNumberParser.Format(trade.Exit),
             trade.Reason.ToString(),
             ExactGraphNumberParser.Format(trade.ResultR),
-            ExactGraphNumberParser.Format(trade.ResultPercent));
+            ExactGraphNumberParser.Format(trade.ResultPercent),
+            trade.Direction.ToString());
     }
 
     private static ScanOutcomeSummaryResponse ToResponse(ScanOutcomeSummary outcome)

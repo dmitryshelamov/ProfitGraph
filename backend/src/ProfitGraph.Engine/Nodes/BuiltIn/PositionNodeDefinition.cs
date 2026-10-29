@@ -45,9 +45,9 @@ public sealed class PositionNodeDefinition : INodeDefinition
         context.Number("costBasis", account.CostBasis);
         context.Number("realizedPnl", account.RealizedPnl);
 
-        if (account.BaseTotal > 0m)
+        if (account.BaseTotal != 0m)
         {
-            context.Number("averageCost", account.CostBasis / account.BaseTotal);
+            context.Number("averageCost", account.CostBasis / Math.Abs(account.BaseTotal));
         }
 
         if (PositionHoldingPeriod.BarsHeld(context.Dispatch) is { } barsHeld)

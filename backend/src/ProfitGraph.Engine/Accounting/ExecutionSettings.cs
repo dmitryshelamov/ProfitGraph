@@ -27,6 +27,24 @@ public sealed record ExecutionSettings
     /// </summary>
     public LimitFillMode LimitFill { get; private init; }
 
+    /// <summary>
+    ///     The leverage of a margin run (ADR 0061), or null for a spot run. A margin run reserves an opening order's notional
+    ///     divided by it, plus the order's fee, and pays every fee in quote.
+    /// </summary>
+    public decimal? Leverage { get; private init; }
+
+    /// <summary>
+    ///     Which way the run trades; a short run is a margin run.
+    /// </summary>
+    public PositionDirection Direction { get; private init; }
+
+    public bool IsMargin => Leverage.HasValue;
+
+    /// <summary>
+    ///     The side of an order that opens or adds to the position.
+    /// </summary>
+    public OrderSide OpeningSide => Direction == PositionDirection.Long ? OrderSide.Buy : OrderSide.Sell;
+
     public ExecutionSettings(decimal startingCapital, decimal slippage, decimal limitFeeRate, decimal marketFeeRate)
         : this(startingCapital, slippage, limitFeeRate, marketFeeRate, sellerFees: null)
     {
@@ -80,6 +98,39 @@ public sealed record ExecutionSettings
         }
 
         return this with { LimitFill = mode };
+    }
+
+    /// <summary>
+    ///     The same parameters as a margin run with the given leverage (ADR 0061).
+    /// </summary>
+    public ExecutionSettings WithMargin(decimal leverage)
+    {
+        if (leverage < 1m)
+        {
+            throw new TradingInvariantException("Leverage must be at least 1.");
+        }
+
+        if (SellerFees is not null || SettlementHold is not null)
+        {
+            throw new TradingInvariantException("A margin run has neither seller fees nor a settlement hold.");
+        }
+
+        return this with { Leverage = leverage };
+    }
+
+    /// <summary>
+    ///     The same parameters trading in the given direction; a short run without a leverage becomes a margin run at 1×.
+    /// </summary>
+    public ExecutionSettings WithDirection(PositionDirection direction)
+    {
+        if (!Enum.IsDefined(direction))
+        {
+            throw new TradingInvariantException("Unknown position direction.");
+        }
+
+        ExecutionSettings settings = direction == PositionDirection.Short && Leverage is null ? WithMargin(leverage: 1m) : this;
+
+        return settings with { Direction = direction };
     }
 
     public decimal FeeRate(OrderType type)

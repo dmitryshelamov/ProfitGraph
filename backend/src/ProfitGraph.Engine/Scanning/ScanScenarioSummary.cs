@@ -1,3 +1,5 @@
+using ProfitGraph.Engine.Accounting;
+
 namespace ProfitGraph.Engine.Scanning;
 
 /// <summary>
@@ -13,4 +15,5 @@ public sealed record ScanScenarioSummary(
     decimal TotalR,
     decimal? MeanPercent,
     int LongestLosingStreak,
-    decimal? MeanMinutes);
+    decimal? MeanMinutes,
+    PositionDirection Direction = PositionDirection.Long);

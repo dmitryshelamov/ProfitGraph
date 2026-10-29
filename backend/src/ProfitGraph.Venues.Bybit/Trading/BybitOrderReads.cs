@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Venues.Bybit.Trading;
 
@@ -30,8 +31,8 @@ internal sealed class BybitOrderReads(BybitReadClient read)
     }
 
     /// <summary>
-    ///     Whether the key may trade Spot and cannot withdraw. A key Bybit refuses is not allowed; an unreadable answer
-    ///     throws.
+    ///     Whether the key may trade the bot's market and cannot withdraw: Spot trading, or for USDT perpetuals (ADR 0061) contract
+    ///     orders and positions. A key Bybit refuses is not allowed; an unreadable answer throws.
     /// </summary>
     public async Task<bool> KeyMayTrade(BybitBotContext context, CancellationToken cancellationToken)
     {
@@ -51,7 +52,11 @@ internal sealed class BybitOrderReads(BybitReadClient read)
         {
             JsonElement result = key.Body.GetProperty("result");
             JsonElement permissions = result.GetProperty("permissions");
-            bool canTrade = permissions.GetProperty("Spot").EnumerateArray().Any(item => item.GetString() == "SpotTrade");
+            bool canTrade = context.Market.IsLinear
+                ? permissions.TryGetProperty("ContractTrade", out JsonElement contract) &&
+                contract.EnumerateArray().Select(item => item.GetString()).ToHashSet(StringComparer.Ordinal) is var granted && granted.Contains("Order") &&
+                granted.Contains("Position")
+                : permissions.GetProperty("Spot").EnumerateArray().Any(item => item.GetString() == "SpotTrade");
             bool canWithdraw = permissions.TryGetProperty("Wallet", out JsonElement wallet) && wallet.EnumerateArray().Any(item => item.GetString() == "Withdraw");
 
             return result.GetProperty("readOnly").GetInt32() == 0 && canTrade && !canWithdraw;
@@ -69,8 +74,8 @@ internal sealed class BybitOrderReads(BybitReadClient read)
     {
         string symbol = Uri.EscapeDataString(context.Symbol);
         List<string> ids = [];
-        ids.AddRange(await List(context, "/v5/order/realtime", $"category=spot&symbol={symbol}&openOnly=0&limit=50", cancellationToken));
-        ids.AddRange(await List(context, "/v5/execution/list", $"category=spot&symbol={symbol}&limit=100", cancellationToken));
+        ids.AddRange(await List(context, "/v5/order/realtime", $"category={context.Market.Name}&symbol={symbol}&openOnly=0&limit=50", cancellationToken));
+        ids.AddRange(await List(context, "/v5/execution/list", $"category={context.Market.Name}&symbol={symbol}&limit=100", cancellationToken));
 
         return ids;
     }
@@ -86,9 +91,9 @@ internal sealed class BybitOrderReads(BybitReadClient read)
         DateTimeOffset until,
         CancellationToken cancellationToken)
     {
-        string query = string.Create(
+        var query = string.Create(
             CultureInfo.InvariantCulture,
-            $"category=spot&symbol={Uri.EscapeDataString(context.Symbol)}&startTime={since.ToUnixTimeMilliseconds()}&endTime={until.ToUnixTimeMilliseconds()}&limit=100");
+            $"category={context.Market.Name}&symbol={Uri.EscapeDataString(context.Symbol)}&startTime={since.ToUnixTimeMilliseconds()}&endTime={until.ToUnixTimeMilliseconds()}&limit=100");
 
         return (await List(context, "/v5/execution/list", query, cancellationToken)).Contains(clientOrderId, StringComparer.Ordinal);
     }
@@ -133,9 +138,58 @@ internal sealed class BybitOrderReads(BybitReadClient read)
         }
     }
 
+    /// <summary>
+    ///     The bot's side of a USDT perpetual in hedge mode (ADR 0061): its size, positive for a long and negative for a short, or
+    ///     null when the symbol is in one-way mode. An unreadable answer throws.
+    /// </summary>
+    public async Task<decimal?> HedgePosition(BybitBotContext context, CancellationToken cancellationToken)
+    {
+        BybitRestResult listed = await read.Get(
+            context.Credential,
+            "/v5/position/list",
+            $"category=linear&symbol={Uri.EscapeDataString(context.Symbol)}",
+            cancellationToken);
+
+        if (listed.Outcome != BybitRestOutcome.Accepted)
+        {
+            throw new BybitOrderUnresolvedException();
+        }
+
+        try
+        {
+            JsonElement[] positions = [.. listed.Body.GetProperty("result").GetProperty("list").EnumerateArray()];
+
+            if (positions.Any(position => position.GetProperty("positionIdx").GetInt32() == 0))
+            {
+                return null;
+            }
+
+            JsonElement[] side = [.. positions.Where(position => position.GetProperty("positionIdx").GetInt32() == context.PositionIndex)];
+
+            if (side.Length > 1)
+            {
+                throw new BybitOrderUnresolvedException();
+            }
+
+            decimal size = side.Length == 0 || side[0].GetProperty("size").GetString() is not { Length: > 0 } text
+                ? 0m
+                : decimal.Parse(text, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture);
+
+            return context.Direction == PositionDirection.Long ? size : -size;
+        }
+        catch (Exception exception) when (exception is KeyNotFoundException or InvalidOperationException or FormatException)
+        {
+            throw new BybitOrderUnresolvedException();
+        }
+    }
+
     private async Task<BybitSpotOrder?> Find(BybitBotContext context, string path, string clientOrderId, CancellationToken cancellationToken)
     {
-        BybitRestResult found = await read.Get(context.Credential, path, $"category=spot&orderLinkId={Uri.EscapeDataString(clientOrderId)}", cancellationToken);
+        BybitRestResult found = await read.Get(
+            context.Credential,
+            path,
+            $"category={context.Market.Name}&orderLinkId={Uri.EscapeDataString(clientOrderId)}",
+            cancellationToken);
 
         if (found.Outcome != BybitRestOutcome.Accepted)
         {
@@ -148,7 +202,8 @@ internal sealed class BybitOrderReads(BybitReadClient read)
 
             return list.GetArrayLength() == 0
                 ? null
-                : BybitSpotOrder.Parse(list[0]) is { } order && order.ClientOrderId == clientOrderId
+                : BybitSpotOrder.Parse(list[0], context.Market.IsLinear ? context.Instrument.QuoteAsset : null) is { } order &&
+                order.ClientOrderId == clientOrderId
                     ? order
                     : throw new BybitOrderUnresolvedException();
         }
@@ -180,7 +235,13 @@ internal sealed class BybitOrderReads(BybitReadClient read)
             try
             {
                 JsonElement result = listed.Body.GetProperty("result");
-                ids.AddRange(result.GetProperty("list").EnumerateArray().Select(item => item.GetProperty("orderLinkId").GetString() ?? string.Empty));
+
+                // A USDT perpetual's funding is an execution of no order (ADR 0061).
+                ids.AddRange(
+                    result.GetProperty("list")
+                        .EnumerateArray()
+                        .Where(item => !IsFunding(item))
+                        .Select(item => item.GetProperty("orderLinkId").GetString() ?? string.Empty));
                 cursor = result.TryGetProperty("nextPageCursor", out JsonElement next) ? next.GetString() ?? string.Empty : string.Empty;
             }
             catch (Exception exception) when (exception is KeyNotFoundException or InvalidOperationException)
@@ -196,5 +257,10 @@ internal sealed class BybitOrderReads(BybitReadClient read)
         while (cursor.Length > 0);
 
         return ids;
+    }
+
+    internal static bool IsFunding(JsonElement item)
+    {
+        return item.TryGetProperty("execType", out JsonElement kind) && kind.GetString() == "Funding";
     }
 }

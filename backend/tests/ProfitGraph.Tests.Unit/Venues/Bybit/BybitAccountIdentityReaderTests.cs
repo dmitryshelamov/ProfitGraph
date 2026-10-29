@@ -32,7 +32,7 @@ public sealed class BybitAccountIdentityReaderTests
             () => identity.Name.ShouldBe("invented bot key"),
             () => identity.Kind.ShouldBe("main"),
             () => (identity.AccessLevel, identity.ReadOnly).ShouldBe(("read_write", false)),
-            () => identity.Permissions.ShouldBe(["Spot:SpotTrade", "Wallet:AccountTransfer", "Wallet:Withdraw"]),
+            () => identity.Permissions.ShouldBe(["Spot:SpotTrade", "ContractTrade:Order", "ContractTrade:Position", "Wallet:AccountTransfer", "Wallet:Withdraw"]),
             () => identity.ExpiresAt.ShouldBe(new DateTimeOffset(year: 2027, month: 1, day: 24, hour: 0, minute: 0, second: 0, TimeSpan.Zero)));
         new[] { identity.AccountId, identity.Name, identity.Kind, identity.AccessLevel }.ShouldNotContain(MockBybitExchange.ApiKey);
         _harness.Exchange.Requests.ShouldContain((HttpMethod.Get, "/v5/user/query-api"));

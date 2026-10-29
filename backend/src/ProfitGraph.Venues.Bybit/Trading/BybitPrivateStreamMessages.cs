@@ -6,12 +6,13 @@ using System.Text.Json;
 namespace ProfitGraph.Venues.Bybit.Trading;
 
 /// <summary>
-///     Bybit private stream messages: the signed <c>auth</c> request, the Spot order and execution subscription,
+///     Bybit private stream messages: the signed <c>auth</c> request, the Spot or USDT-perpetual order and execution subscription,
 ///     confirmations, and the orders a message names. The secret's bytes are cleared after signing.
 /// </summary>
 internal static class BybitPrivateStreamMessages
 {
     public const string Subscribe = """{"op":"subscribe","args":["order.spot","execution.spot"]}""";
+    public const string SubscribeLinear = """{"op":"subscribe","args":["order.linear","execution.linear"]}""";
     public const string Ping = """{"op":"ping"}""";
 
     /// <summary>
@@ -63,7 +64,8 @@ internal static class BybitPrivateStreamMessages
         using JsonDocument document = JsonDocument.Parse(message);
         JsonElement root = document.RootElement;
 
-        if (!root.TryGetProperty("topic", out JsonElement topic) || topic.GetString() is not ("order.spot" or "execution.spot"))
+        if (!root.TryGetProperty("topic", out JsonElement topic) ||
+            topic.GetString() is not ("order.spot" or "execution.spot" or "order.linear" or "execution.linear"))
         {
             return [];
         }
@@ -74,6 +76,7 @@ internal static class BybitPrivateStreamMessages
             [
                 .. root.GetProperty("data")
                     .EnumerateArray()
+                    .Where(item => !BybitOrderReads.IsFunding(item))
                     .Select(item => (item.GetProperty("orderLinkId").GetString() ?? string.Empty, item.GetProperty("symbol").GetString() ?? string.Empty))
                     .Distinct()
             ];

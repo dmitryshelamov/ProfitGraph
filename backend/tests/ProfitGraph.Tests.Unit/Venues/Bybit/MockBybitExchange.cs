@@ -68,6 +68,28 @@ internal sealed class MockBybitExchange : HttpMessageHandler
     /// </summary>
     public bool ListUnavailable { get; set; }
 
+    /// <summary>
+    ///     Answers like USDT perpetuals (ADR 0061): an order reports its fee in <c>cumExecFee</c>.
+    /// </summary>
+    public bool Linear { get; set; }
+
+    /// <summary>
+    ///     The sides of the symbol's position as <c>/v5/position/list</c> reports them: hedge mode by default.
+    /// </summary>
+    public List<(int Index, string Size)> Positions { get; } = [(1, "0"), (2, "0")];
+
+    /// <summary>
+    ///     The bodies of <c>/v5/position/set-leverage</c>, and the retCode it answers with, or null for success.
+    /// </summary>
+    public List<string> LeverageBodies { get; } = [];
+
+    public int? LeverageCode { get; set; }
+
+    /// <summary>
+    ///     How many funding executions of no order the symbol's execution list carries.
+    /// </summary>
+    public int FundingExecutions { get; set; }
+
     public void AddOrder(string clientOrderId, string side, string status, decimal cumulativeBase, decimal cumulativeQuote, Dictionary<string, decimal> fees)
     {
         _orders[clientOrderId] = Order(clientOrderId, "BTCUSDT", side, status, cumulativeBase, cumulativeQuote, fees);
@@ -106,7 +128,24 @@ internal sealed class MockBybitExchange : HttpMessageHandler
             "/v5/order/realtime" when HttpUtility.ParseQueryString(query)["orderLinkId"] is null => OpenOrders(),
             "/v5/order/realtime" => Lookup(query, open: true),
             "/v5/execution/list" when ListUnavailable => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
-            "/v5/execution/list" => Json(new { retCode = 0, result = new { list = Executions.Select(id => new { orderLinkId = id, symbol = "BTCUSDT" }).ToArray() } }),
+            "/v5/execution/list" => Json(
+                new
+                {
+                    retCode = 0,
+                    result = new
+                    {
+                        list = Executions.Select(id => new { orderLinkId = id, symbol = "BTCUSDT", execType = "Trade" })
+                            .Concat(Enumerable.Repeat(new { orderLinkId = string.Empty, symbol = "BTCUSDT", execType = "Funding" }, FundingExecutions))
+                            .ToArray()
+                    }
+                }),
+            "/v5/position/list" => Json(
+                new
+                {
+                    retCode = 0,
+                    result = new { list = Positions.Select(position => new { symbol = "BTCUSDT", positionIdx = position.Index, size = position.Size }).ToArray() }
+                }),
+            "/v5/position/set-leverage" => SetLeverage(body!),
             "/v5/user/query-api" when KeyCode is { } code => Json(new { retCode = code, retMsg = "refused" }),
             "/v5/user/query-api" => Json(
                 new
@@ -124,7 +163,11 @@ internal sealed class MockBybitExchange : HttpMessageHandler
                         readOnly = KeyReadOnly ? 1 : 0,
                         ips = new[] { "*" },
                         permissions = new
-                            { Spot = new[] { "SpotTrade" }, Wallet = KeyCanWithdraw ? new[] { "AccountTransfer", "Withdraw" } : new[] { "AccountTransfer" } }
+                        {
+                            Spot = new[] { "SpotTrade" },
+                            ContractTrade = new[] { "Order", "Position" },
+                            Wallet = KeyCanWithdraw ? new[] { "AccountTransfer", "Withdraw" } : new[] { "AccountTransfer" }
+                        }
                     }
                 }),
             "/v5/order/history" => Lookup(query, open: false),
@@ -176,6 +219,16 @@ internal sealed class MockBybitExchange : HttpMessageHandler
         return Json(new { retCode = 0, result = new { orderId = "1", orderLinkId = clientOrderId } });
     }
 
+    private HttpResponseMessage SetLeverage(string body)
+    {
+        lock (LeverageBodies)
+        {
+            LeverageBodies.Add(body);
+        }
+
+        return Json(LeverageCode is { } code ? new { retCode = code, retMsg = "scripted" } : new { retCode = 0, retMsg = "OK" });
+    }
+
     private HttpResponseMessage Cancel(string body)
     {
         if (CancelCode is { } code)
@@ -198,7 +251,7 @@ internal sealed class MockBybitExchange : HttpMessageHandler
 
     private HttpResponseMessage OpenOrders()
     {
-        object[] list = [.. _orders.Values.Where(order => order["orderStatus"] is "New" or "PartiallyFilled").Select(Shape)];
+        object[] list = [.. _orders.Values.Where(order => order["orderStatus"] is "New" or "PartiallyFilled").Select(order => Shape(order))];
 
         return Json(new { retCode = 0, result = new { list, nextPageCursor = string.Empty } });
     }
@@ -208,24 +261,35 @@ internal sealed class MockBybitExchange : HttpMessageHandler
         string clientOrderId = HttpUtility.ParseQueryString(query)["orderLinkId"] ?? string.Empty;
         object[] list = _orders.TryGetValue(clientOrderId, out Dictionary<string, string>? order) &&
             open == order["orderStatus"] is "New" or "PartiallyFilled"
-                ? [Shape(order)]
+                ? [Shape(order, Linear)]
                 : [];
 
         return Json(new { retCode = 0, result = new { list } });
     }
 
-    private static object Shape(Dictionary<string, string> order)
+    private static object Shape(Dictionary<string, string> order, bool linear = false)
     {
-        return new Dictionary<string, object>
+        var fees = JsonSerializer.Deserialize<Dictionary<string, string>>(order["cumFeeDetail"])!;
+        var shape = new Dictionary<string, object>
         {
             ["orderLinkId"] = order["orderLinkId"],
             ["symbol"] = order["symbol"],
             ["side"] = order["side"],
             ["orderStatus"] = order["orderStatus"],
             ["cumExecQty"] = order["cumExecQty"],
-            ["cumExecValue"] = order["cumExecValue"],
-            ["cumFeeDetail"] = JsonSerializer.Deserialize<Dictionary<string, string>>(order["cumFeeDetail"])!
+            ["cumExecValue"] = order["cumExecValue"]
         };
+
+        if (linear)
+        {
+            shape["cumExecFee"] = fees.Values.Sum(fee => decimal.Parse(fee, CultureInfo.InvariantCulture)).ToString(CultureInfo.InvariantCulture);
+        }
+        else
+        {
+            shape["cumFeeDetail"] = fees;
+        }
+
+        return shape;
     }
 
     private static Dictionary<string, string> Order(

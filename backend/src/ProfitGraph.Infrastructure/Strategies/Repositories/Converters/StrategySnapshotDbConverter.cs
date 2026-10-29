@@ -62,6 +62,12 @@ internal sealed class StrategySnapshotDbConverter
                     (_, value) => value is not null and not "Reject";
             }
 
+            // A long definition keeps its stored shape; only a short one (ADR 0061) stores its direction.
+            if (info.Type == typeof(StrategyDefinitionInternal))
+            {
+                info.Properties.Single(property => property.Name == "direction").ShouldSerialize = (_, value) => value is PositionDirection.Short;
+            }
+
             // A grid block's settings and a grid cancel's target (ADR 0058) are stored only where present, so other blocks keep their shape.
             if (info.Type == typeof(StrategyBlockInternal))
             {
@@ -78,7 +84,7 @@ internal sealed class StrategySnapshotDbConverter
             Converters =
             {
                 new ClosedEnumJsonConverter<StrategyParameterDisplayUnit>(), new ClosedEnumJsonConverter<StrategyTemplateKind>(),
-                new ClosedEnumJsonConverter<RejectionReason>()
+                new ClosedEnumJsonConverter<RejectionReason>(), new ClosedEnumJsonConverter<PositionDirection>()
             }
         };
     }

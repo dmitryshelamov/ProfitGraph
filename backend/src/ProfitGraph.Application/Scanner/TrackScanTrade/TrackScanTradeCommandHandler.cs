@@ -54,7 +54,7 @@ internal sealed class TrackScanTradeCommandHandler(
         bool ran = account is not null;
         bool stoppedByOwner = bot.DesiredState == BotDesiredState.Stopped && (ran || now - trade.CreatedAt >= StartGrace);
 
-        if (working.Length > 0 || account is { BaseTotal: > 0m } || (!ran && !stoppedByOwner))
+        if (working.Length > 0 || account is { BaseTotal: not 0m } || (!ran && !stoppedByOwner))
         {
             return false;
         }

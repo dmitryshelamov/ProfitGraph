@@ -10,15 +10,21 @@ using ProfitGraph.Domain.MarketData;
 namespace ProfitGraph.Venues.Bybit.Trading;
 
 /// <summary>
-///     The credential's current Spot maker and taker rates of one symbol (<c>GET /v5/account/fee-rate</c>, read only).
+///     The credential's current maker and taker rates of the market (Spot, or USDT perpetuals by ADR 0061) of one symbol (<c>GET /v5/account/fee-rate</c>, read only).
 /// </summary>
-internal sealed class BybitFeeRateReader(BybitReadClient client) : IVenueFeeRateReader
+internal sealed class BybitFeeRateReader(BybitReadClient client, BybitMarket? market = null) : IVenueFeeRateReader
 {
-    public VenueId Venue => BybitVenue.VenueId;
+    private readonly BybitMarket _market = market ?? BybitMarket.Spot;
+
+    public VenueId Venue => _market.Venue;
 
     public async Task<VenueFeeRatesInternal> Read(ExchangeCredentialSecretsInternal credential, InstrumentSymbol symbol, CancellationToken cancellationToken)
     {
-        BybitRestResult result = await client.Get(credential, "/v5/account/fee-rate", $"category=spot&symbol={Uri.EscapeDataString(symbol.Value)}", cancellationToken);
+        BybitRestResult result = await client.Get(
+            credential,
+            "/v5/account/fee-rate",
+            $"category={_market.Name}&symbol={Uri.EscapeDataString(symbol.Value)}",
+            cancellationToken);
 
         try
         {

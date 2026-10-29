@@ -1,3 +1,5 @@
+using ProfitGraph.Engine.Accounting;
+
 namespace ProfitGraph.Engine.Blocks;
 
 public static class StrategyBlockSchema
@@ -12,4 +14,13 @@ public static class StrategyBlockSchema
             "Compare", "CrossesAbove", "CrossesBelow", "PositionFlat", "PositionFlatPreview", "NoActiveOrders", "NoActiveTaggedOrder", "HasBaseBalance",
             "OrderSizePreviewValid"
         });
+
+    /// <summary>
+    ///     The size an order node of the side takes: a long's buy spends a quote amount, every other order gives a base quantity, a
+    ///     short's buy included (ADR 0061).
+    /// </summary>
+    public static string NativeSize(string? side, PositionDirection direction)
+    {
+        return side == "Buy" && direction == PositionDirection.Long ? "amount" : "quantity";
+    }
 }

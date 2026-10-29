@@ -21,6 +21,7 @@ trial whose selections break a relation. The replay engine never branches on the
 | `RsiReversion` | Отскок RSI | Counter-trend: buy when RSI returns above an oversold level |
 | `BollingerReversion` | Возврат от полосы Боллинджера | Counter-trend: buy on a close below the lower Bollinger band, sell at the middle band |
 | `LevelTrade` | Сделка по уровням | One trade between given prices: a limit entry, a limit target and a stop on the close; the scanner's trade cards run it ([ADR 0060](adr/0060-scanner-trade-cards.md)) |
+| `LevelTradeShort` | Сделка по уровням, шорт | Its short mirror on futures: a limit sale at the entry, a limit buy at the target and a buy after a close at or above the stop ([ADR 0061](adr/0061-bybit-futures-and-short-trades.md)) |
 
 ## Indicator templates
 
@@ -66,6 +67,7 @@ Parameter rules (besides every named parameter being positive):
 | `RsiReversion` | `rsiEntry < rsiExit < 100`, `stopLoss < 1` |
 | `BollingerReversion` | `stopLoss < 1` |
 | `LevelTrade` | `stopPrice < entryPrice < targetPrice` |
+| `LevelTradeShort` | `targetPrice < entryPrice < stopPrice` |
 
 Periods outside 1–200 are rejected by the engine for every strategy (`UnboundedIndicatorPeriod`), so the templates do
 not repeat that rule.
@@ -82,3 +84,15 @@ not repeat that rule.
   base by market (`level.stop`); a low below the stop with a close above it keeps the position. A gap can sell well below the
   stop.
 - **Expiry** is not in the graph: the scanner's tracking cancels an overdue entry through the owner's cancel (ADR 0060).
+
+`LevelTradeShort` is a short strategy (ADR 0061): its direction is `Short`, so it runs only on a venue that allows shorts, and its
+buy blocks cover a base quantity. On start it sells `sellAmount / entryPrice` at `entryPrice` (`level.entry`); the target buys back
+what the short owes (`baseAvailable`) at `targetPrice` (`level.target`), unless the last close is at or above the stop; a closed
+candle at or above `stopPrice` cancels both and buys back by market (`level.stop`).
+
+## Short strategies
+
+A strategy definition has a direction, `Long` unless it says `Short` (ADR 0061). A short strategy's sale opens the position and
+its buy blocks lower to the `MarketCover` and `LimitCover` nodes, which buy a base quantity; `baseAvailable` is what the position
+can close, `position.quantity` is negative while short. It needs a buy block, has no grid, and is refused on a venue without shorts
+(`strategy_short_unsupported`). A running bot cannot change its strategy's direction.

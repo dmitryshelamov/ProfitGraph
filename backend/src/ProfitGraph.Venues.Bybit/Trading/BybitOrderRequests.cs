@@ -6,9 +6,10 @@ using ProfitGraph.Engine.Accounting;
 namespace ProfitGraph.Venues.Bybit.Trading;
 
 /// <summary>
-///     Builds Bybit Spot order bodies from engine orders: prices and quantities round down to the instrument's steps, and
-///     an order below Bybit's minimums is rejected before anything is sent. A market buy with a quote budget is sized in
-///     quote, every other market order in base.
+///     Builds Bybit order bodies from engine orders: prices and quantities round down to the instrument's steps, and
+///     an order below Bybit's minimums is rejected before anything is sent. A Spot market buy with a quote budget is sized in
+///     quote, every other market order in base. A USDT-perpetual order (ADR 0061) names its hedge-mode side, and an exit is
+///     reduce-only, so it can never open the other side; its market buy of a quote budget is sized in base at the last price.
 /// </summary>
 internal static class BybitOrderRequests
 {
@@ -21,14 +22,23 @@ internal static class BybitOrderRequests
         InstrumentRules rules = context.Instrument.Rules;
         var body = new Dictionary<string, object>(StringComparer.Ordinal)
         {
-            ["category"] = "spot",
+            ["category"] = context.Market.Name,
             ["symbol"] = context.Symbol,
             ["side"] = order.Side == OrderSide.Buy ? "Buy" : "Sell",
             ["orderType"] = order.Type == OrderType.Limit ? "Limit" : "Market",
-            ["orderLinkId"] = clientOrderId,
-            ["isLeverage"] = 0
+            ["orderLinkId"] = clientOrderId
         };
         decimal quantity;
+
+        if (context.Market.IsLinear)
+        {
+            body["positionIdx"] = context.PositionIndex;
+            body["reduceOnly"] = context.Reduces(order.Side);
+        }
+        else
+        {
+            body["isLeverage"] = 0;
+        }
 
         if (order.Type == OrderType.Limit)
         {
@@ -47,6 +57,20 @@ internal static class BybitOrderRequests
 
             body["price"] = Text(price);
         }
+        else if (context.Market.IsLinear && order.Side == OrderSide.Buy && order.QuoteBudget is > 0m)
+        {
+            if (lastPrice is not { } buyPrice)
+            {
+                return null;
+            }
+
+            quantity = RoundDown(order.QuoteBudget.Value / buyPrice, rules.QuantityStep);
+
+            if (quantity <= 0m || quantity < rules.MinQuantity || quantity * buyPrice < rules.MinNotional)
+            {
+                return null;
+            }
+        }
         else if (order.Side == OrderSide.Buy && order.QuoteBudget is > 0m)
         {
             quantity = RoundDown(order.QuoteBudget.Value, context.Instrument.QuotePrecisionIncrement);
@@ -60,7 +84,11 @@ internal static class BybitOrderRequests
         else if (order.Quantity is > 0m)
         {
             quantity = RoundDown(order.Quantity.Value, rules.QuantityStep);
-            body["marketUnit"] = "baseCoin";
+
+            if (!context.Market.IsLinear)
+            {
+                body["marketUnit"] = "baseCoin";
+            }
 
             if (quantity <= 0m || quantity < rules.MinQuantity || lastPrice is not { } price || quantity * price < rules.MinNotional)
             {

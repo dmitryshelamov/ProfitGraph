@@ -39,5 +39,11 @@ public enum BotStatusReason
     /// <summary>
     ///     The daily loss limit stopped the bot.
     /// </summary>
-    DailyLossLimit
+    DailyLossLimit,
+
+    /// <summary>
+    ///     The venue holds the bot's symbol in a position mode the bot cannot trade, such as a futures symbol that nets long and
+    ///     short in one position (ADR 0061); the owner switches it and resumes the bot.
+    /// </summary>
+    VenuePositionMode
 }

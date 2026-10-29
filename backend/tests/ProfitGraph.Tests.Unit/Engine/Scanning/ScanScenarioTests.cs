@@ -1,3 +1,4 @@
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Scanning;
 
 namespace ProfitGraph.Tests.Unit.Engine.Scanning;
@@ -89,6 +90,62 @@ public sealed class ScanScenarioTests
 
         (pullback.Scenario, pullback.Entry, pullback.Stop, pullback.Target).ShouldBe((ScanScenario.Pullback, 95m, 90m, 105m));
         (pullback.EnteredAt, pullback.Exit, pullback.Reason).ShouldBe((Start.AddMinutes(70), 105m, ScanTradeExit.Target));
+    }
+
+    [Test]
+    public void AShortLevelsTradeFallsToTheSupport()
+    {
+        // Entry 100 at minute 1, stop at the resistance 104, target at the support 98; minute 3 trades down to 97.5.
+        List<ScanCandle> minutes = Flat(count: 10, price: 100m);
+        minutes[3] = minutes[3] with { Low = 97.5m };
+
+        List<ScanTrade> trades = ScanStudy.Trades(minutes, index: 0, AtLevels, shorts: true);
+
+        ScanTrade levels = trades.Single(trade => trade is { Scenario: ScanScenario.Levels, Direction: PositionDirection.Short });
+        (levels.Entry, levels.Stop, levels.Target, levels.Exit, levels.Reason).ShouldBe((100m, 104m, 98m, 98m, ScanTradeExit.Target));
+        levels.ResultR.ShouldBe((100m - 98m - 198m * 0.001m) / 4m);
+
+        // Reward-to-risk 0.5 takes no «R:R ≥ 2» trade; the 2R target at 92 is not reached before the history ends.
+        trades.Where(trade => trade.Direction == PositionDirection.Short).Select(trade => trade.Scenario).ShouldBe([ScanScenario.Levels]);
+        ScanStudy.Trades(minutes, index: 0, AtLevels).ShouldAllBe(trade => trade.Direction == PositionDirection.Long);
+    }
+
+    [Test]
+    public void AShortStopsAtAHighAndAGapAboveLeavesAtTheOpen()
+    {
+        List<ScanCandle> minutes = Flat(count: 10, price: 100m);
+        minutes[2] = new ScanCandle(minutes[2].OpenTime, Open: 106m, High: 107m, Low: 105m, Close: 106m, Volume: 1, Turnover: 1);
+
+        ScanTrade levels = ScanStudy.Trades(minutes, index: 0, AtLevels, shorts: true)
+            .Single(trade => trade is { Scenario: ScanScenario.Levels, Direction: PositionDirection.Short });
+
+        (levels.Exit, levels.Reason).ShouldBe((106m, ScanTradeExit.Stop));
+        levels.ResultR.ShouldBe((100m - 106m - 206m * 0.001m) / 4m);
+    }
+
+    [Test]
+    public void AShortPullbackFillsHalfwayUpTheLastHourFall()
+    {
+        // The last hour fell from a high of 110 to a close of 100: the limit is 105, the stop 110 and the target 95.
+        List<ScanCandle> minutes = Flat(count: 200, price: 100m);
+        minutes[0] = minutes[0] with { High = 110m };
+        minutes[70] = new ScanCandle(minutes[70].OpenTime, Open: 104m, High: 105.5m, Low: 104m, Close: 105m, Volume: 1, Turnover: 1);
+        minutes[90] = minutes[90] with { Low = 94.5m };
+
+        ScanTrade rally = ScanStudy.Trades(minutes, index: 59, new ScanMetrics(), shorts: true)
+            .Single(trade => trade.Direction == PositionDirection.Short);
+
+        (rally.Scenario, rally.Entry, rally.Stop, rally.Target).ShouldBe((ScanScenario.Pullback, 105m, 110m, 95m));
+        (rally.EnteredAt, rally.Exit, rally.Reason).ShouldBe((Start.AddMinutes(70), 95m, ScanTradeExit.Target));
+    }
+
+    [Test]
+    public void TheSummaryListsShortScenariosOnlyWhereShortsAreAllowed()
+    {
+        ScanSignal[] signals = [Signal(Start, resultR: 1m)];
+
+        ScanStudy.Summarize(signals).Scenarios!.ShouldAllBe(item => item.Direction == PositionDirection.Long);
+        ScanStudy.Summarize(signals, shorts: true).Scenarios!.Count(item => item.Direction == PositionDirection.Short).ShouldBe(4);
     }
 
     [Test]

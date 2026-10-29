@@ -29,7 +29,8 @@ namespace ProfitGraph.Venues.Bybit.Scanner;
 ///     <see cref="BybitOptions.ScannerQuoteAsset" />, klines with turnover read backwards in pages of 1000, every pair's best bid
 ///     and ask from one ticker request, and 1-minute kline topics, up to 100 on one public connection. Each REST attempt takes a
 ///     turn of <see cref="BybitScanRequestBudget" />; a 403 starts its ban pause. Bybit's Spot instrument list carries no listing
-///     time, so <see cref="ScanInstrumentInternal.ListedAt" /> stays null.
+///     time, so <see cref="ScanInstrumentInternal.ListedAt" /> stays null. For USDT perpetuals (ADR 0061) the paged linear list
+///     gives the universe with each contract's launch time, and the linear tickers the quotes.
 /// </summary>
 internal sealed class BybitMarketScanSource(
     HttpClient klineClient,
@@ -38,19 +39,22 @@ internal sealed class BybitMarketScanSource(
     BybitResilienceExecutor resilience,
     BybitScanRequestBudget budget,
     IBybitPublicStreamTransport transport,
-    BybitOptions options) : IMarketScanSource, IDisposable
+    BybitOptions options,
+    BybitMarket? market = null) : IMarketScanSource, IDisposable
 {
     private const int PageSize = 1000;
     private const int TopicsPerConnection = 100;
 
+    private readonly BybitMarket _market = market ?? BybitMarket.Spot;
+
     private readonly IExchangeRestClient _klines = BybitRestClientFactory.Create(klineClient, loggerFactory, options.AttemptTimeout);
     private readonly IExchangeRestClient _quotes = BybitRestClientFactory.Create(quoteClient, loggerFactory, options.AttemptTimeout);
 
-    public VenueId Venue => BybitVenue.VenueId;
+    public VenueId Venue => _market.Venue;
 
     public int MaxSymbolsPerStream => TopicsPerConnection;
 
-    public IReadOnlyList<ScanPresetInternal> BuiltInPresets => BybitScanPresets.All;
+    public IReadOnlyList<ScanPresetInternal> BuiltInPresets => BybitScanPresets.For(_market);
 
     public string QuoteAsset => options.ScannerQuoteAsset;
 
@@ -62,6 +66,11 @@ internal sealed class BybitMarketScanSource(
 
     public async Task<IReadOnlyList<ScanInstrumentInternal>> Universe(CancellationToken cancellationToken)
     {
+        if (_market.IsLinear)
+        {
+            return await LinearUniverse(cancellationToken);
+        }
+
         BybitResponse<BybitSpotSymbol> data = await Execute(
             "instrument list",
             token => _quotes.Bybit.V5Api.ExchangeData.GetSpotSymbolsAsync(ct: token),
@@ -99,7 +108,7 @@ internal sealed class BybitMarketScanSource(
             BybitResponse<BybitKline> data = await Execute(
                 "kline",
                 token => _klines.Bybit.V5Api.ExchangeData.GetKlinesAsync(
-                    Category.Spot,
+                    _market.Category,
                     symbol.Value,
                     BybitHistoricalCandleSource.Interval(timeframe),
                     from.UtcDateTime,
@@ -108,7 +117,7 @@ internal sealed class BybitMarketScanSource(
                     token),
                 cancellationToken);
 
-            if (data.Category != Category.Spot || data.Symbol != symbol.Value || data.List is null)
+            if (data.Category != _market.Category || data.Symbol != symbol.Value || data.List is null)
             {
                 throw new MarketScanException(MarketScanErrorCodes.InvalidProviderData, "Bybit returned another symbol or market, or no candle list.");
             }
@@ -138,6 +147,11 @@ internal sealed class BybitMarketScanSource(
 
     public async Task<IReadOnlyList<ScanQuoteInternal>> Quotes(CancellationToken cancellationToken)
     {
+        if (_market.IsLinear)
+        {
+            return await LinearQuotes(cancellationToken);
+        }
+
         BybitResponse<BybitSpotTicker> data = await Execute(
             "ticker",
             token => _quotes.Bybit.V5Api.ExchangeData.GetSpotTickersAsync(ct: token),
@@ -176,6 +190,45 @@ internal sealed class BybitMarketScanSource(
         }
     }
 
+    private async Task<IReadOnlyList<ScanInstrumentInternal>> LinearUniverse(CancellationToken cancellationToken)
+    {
+        IReadOnlyList<BybitLinearInverseSymbol> instruments = await Execute(
+            "instrument list",
+            token => BybitLinearInstruments.All(_quotes, resilience, budget.Take, token),
+            cancellationToken);
+
+        return
+        [
+            .. instruments
+                .Where(instrument => BybitLinearInstruments.IsTradable(instrument) && instrument.QuoteAsset == options.ScannerQuoteAsset)
+                .DistinctBy(instrument => instrument.Name)
+                .OrderBy(instrument => instrument.Name, StringComparer.Ordinal)
+                .Select(instrument => new ScanInstrumentInternal(
+                    instrument.Name,
+                    instrument.LaunchTime > DateTime.UnixEpoch ? new DateTimeOffset(DateTime.SpecifyKind(instrument.LaunchTime, DateTimeKind.Utc)) : null))
+        ];
+    }
+
+    private async Task<IReadOnlyList<ScanQuoteInternal>> LinearQuotes(CancellationToken cancellationToken)
+    {
+        BybitResponse<BybitLinearInverseTicker> data = await Execute(
+            "ticker",
+            token => _quotes.Bybit.V5Api.ExchangeData.GetLinearInverseTickersAsync(Category.Linear, ct: token),
+            cancellationToken);
+
+        if (data.Category != Category.Linear || data.List is null)
+        {
+            throw new MarketScanException(MarketScanErrorCodes.InvalidProviderData, "Bybit returned no linear ticker list.");
+        }
+
+        return
+        [
+            .. data.List
+                .DistinctBy(ticker => ticker.Symbol)
+                .Select(ticker => new ScanQuoteInternal(ticker.Symbol, Positive(ticker.BestBidPrice), Positive(ticker.BestAskPrice)))
+        ];
+    }
+
     private static ScanCandle Candle(BybitKline row)
     {
         return new ScanCandle(
@@ -199,20 +252,31 @@ internal sealed class BybitMarketScanSource(
         return price is > 0 ? price : null;
     }
 
-    private async Task<T> Execute<T>(string request, Func<CancellationToken, Task<HttpResult<T>>> call, CancellationToken cancellationToken)
+    private Task<T> Execute<T>(string request, Func<CancellationToken, Task<HttpResult<T>>> call, CancellationToken cancellationToken)
     {
-        try
-        {
-            return await resilience.ExecuteAsync(
-                async token =>
+        return Execute(
+            request,
+            async token => await resilience.ExecuteAsync(
+                async attempt =>
                 {
-                    await budget.Take(token);
-                    HttpResult<T> result = await call(token);
-                    token.ThrowIfCancellationRequested();
+                    await budget.Take(attempt);
+                    HttpResult<T> result = await call(attempt);
+                    attempt.ThrowIfCancellationRequested();
 
                     return result.Success ? result.Data : throw new BybitApiException(result);
                 },
-                cancellationToken);
+                token),
+            cancellationToken);
+    }
+
+    /// <summary>
+    ///     Runs a request that takes its own budget turns and translates its failures for the scanner.
+    /// </summary>
+    private async Task<T> Execute<T>(string request, Func<CancellationToken, Task<T>> run, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await run(cancellationToken);
         }
         catch (BybitApiException exception) when (exception.IsForbidden)
         {

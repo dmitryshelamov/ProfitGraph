@@ -7,9 +7,9 @@ namespace ProfitGraph.Venues.Bybit.Trading;
 /// <summary>
 ///     A Bybit credential is an API key and secret, entered in the web form.
 /// </summary>
-internal sealed class BybitCredentialSchema : IVenueCredentialSchema
+internal sealed class BybitCredentialSchema(BybitMarket? market = null) : IVenueCredentialSchema
 {
-    public VenueId Venue => BybitVenue.VenueId;
+    public VenueId Venue { get; } = (market ?? BybitMarket.Spot).Venue;
 
     public IReadOnlyList<string> Fields { get; } = [ExchangeCredentialFields.ApiKey, ExchangeCredentialFields.ApiSecret];
 

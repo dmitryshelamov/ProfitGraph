@@ -43,6 +43,11 @@ public interface IVenueDescriptor
     bool ConfirmsExpiredOrders => false;
 
     /// <summary>
+    ///     Whether a strategy may sell first on this venue (ADR 0061): a short strategy backtests and runs only where it is true.
+    /// </summary>
+    bool SupportsShort => false;
+
+    /// <summary>
     ///     Turns user input into the venue's canonical symbol, or reports that the input is not a symbol of this venue.
     /// </summary>
     bool TryParseSymbol(string? input, [NotNullWhen(true)] out InstrumentSymbol? symbol);

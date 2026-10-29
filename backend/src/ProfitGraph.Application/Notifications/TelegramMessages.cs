@@ -79,6 +79,7 @@ public static class TelegramMessages
         [nameof(BotStatusReason.VenueAccountProtection)] = "аккаунт площадки под защитой, сначала проверьте его",
         [nameof(BotStatusReason.Killed)] = "аварийная остановка",
         [nameof(BotStatusReason.DailyLossLimit)] = "достигнут дневной лимит убытка",
+        [nameof(BotStatusReason.VenuePositionMode)] = "на бирже не тот режим позиций: нужен hedge mode",
         ["RiskLimit"] = "лимит риска"
     };
 

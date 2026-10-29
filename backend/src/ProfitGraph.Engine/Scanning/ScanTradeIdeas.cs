@@ -1,3 +1,5 @@
+using ProfitGraph.Engine.Accounting;
+
 namespace ProfitGraph.Engine.Scanning;
 
 /// <summary>
@@ -5,7 +7,9 @@ namespace ProfitGraph.Engine.Scanning;
 ///     section 8), with the current price in place of the next minute's open: <see cref="ScanScenario.Levels" /> from the support to the
 ///     resistance and <see cref="ScanScenario.Target2R" /> from the support to two risks above, both entering at the price within an
 ///     hour; <see cref="ScanScenario.Pullback" /> a limit halfway down the last hour's rise, stopped at that hour's lowest low, targeting
-///     two risks above and waiting four hours. Deterministic for identical inputs.
+///     two risks above and waiting four hours. Where shorts are allowed (ADR 0061) the mirrors join them: <c>Levels</c> from the
+///     resistance down to the support, <c>Target2R</c> from the resistance to two risks below, and <c>Pullback</c> a limit halfway up
+///     the last hour's fall, stopped at its highest high. Deterministic for identical inputs.
 /// </summary>
 public static class ScanTradeIdeas
 {
@@ -21,7 +25,13 @@ public static class ScanTradeIdeas
     /// </summary>
     public static readonly TimeSpan MarketEntryWait = TimeSpan.FromHours(1);
 
-    public static IReadOnlyList<ScanTradeIdea> Of(decimal price, decimal? support, decimal? resistance, decimal? lastHourLow)
+    public static IReadOnlyList<ScanTradeIdea> Of(
+        decimal price,
+        decimal? support,
+        decimal? resistance,
+        decimal? lastHourLow,
+        decimal? lastHourHigh = null,
+        bool shorts = false)
     {
         List<ScanTradeIdea> ideas = [];
 
@@ -46,6 +56,11 @@ public static class ScanTradeIdeas
             ideas.Add(Idea(ScanScenario.Pullback, limit, low, limit + TargetRisks * (limit - low), PullbackWait));
         }
 
+        if (shorts)
+        {
+            ideas.AddRange(Shorts(price, support, resistance, lastHourHigh));
+        }
+
         return ideas;
     }
 
@@ -55,12 +70,12 @@ public static class ScanTradeIdeas
     /// </summary>
     public static decimal Amount(decimal risk, decimal entry, decimal stop, decimal feeRate)
     {
-        if (risk <= 0m || stop <= 0m || stop >= entry || feeRate < 0m)
+        if (risk <= 0m || stop <= 0m || entry <= 0m || stop == entry || feeRate < 0m)
         {
-            throw new ArgumentException("A trade risks a positive amount with its stop below its entry.");
+            throw new ArgumentException("A trade risks a positive amount with its stop away from its entry.");
         }
 
-        return risk / ((entry - stop) / entry + 2 * feeRate);
+        return risk / (Math.Abs(entry - stop) / entry + 2 * feeRate);
     }
 
     /// <summary>
@@ -71,8 +86,51 @@ public static class ScanTradeIdeas
         return close - (close - low) / 2;
     }
 
-    private static ScanTradeIdea Idea(ScanScenario scenario, decimal entry, decimal stop, decimal target, TimeSpan validity)
+    /// <summary>
+    ///     A short pullback's limit: halfway from the close up to the last hour's highest high (ADR 0061).
+    /// </summary>
+    internal static decimal RallyLimit(decimal close, decimal high)
     {
-        return new ScanTradeIdea(scenario, entry, stop, target, (target - entry) / (entry - stop), validity);
+        return close + (high - close) / 2;
+    }
+
+    private static IEnumerable<ScanTradeIdea> Shorts(decimal price, decimal? support, decimal? resistance, decimal? lastHourHigh)
+    {
+        if (resistance is { } stop && stop > price)
+        {
+            if (support is { } target && target > 0m && target < price)
+            {
+                yield return Idea(ScanScenario.Levels, price, stop, target, MarketEntryWait, PositionDirection.Short);
+            }
+
+            decimal twoRisks = price - TargetRisks * (stop - price);
+
+            if (twoRisks > 0m)
+            {
+                yield return Idea(ScanScenario.Target2R, price, stop, twoRisks, MarketEntryWait, PositionDirection.Short);
+            }
+        }
+
+        if (lastHourHigh is { } high && high > price)
+        {
+            decimal limit = RallyLimit(price, high);
+            decimal target = limit - TargetRisks * (high - limit);
+
+            if (target > 0m)
+            {
+                yield return Idea(ScanScenario.Pullback, limit, high, target, PullbackWait, PositionDirection.Short);
+            }
+        }
+    }
+
+    private static ScanTradeIdea Idea(
+        ScanScenario scenario,
+        decimal entry,
+        decimal stop,
+        decimal target,
+        TimeSpan validity,
+        PositionDirection direction = PositionDirection.Long)
+    {
+        return new ScanTradeIdea(scenario, entry, stop, target, (target - entry) / (entry - stop), validity, direction);
     }
 }

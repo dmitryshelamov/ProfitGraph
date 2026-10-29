@@ -60,7 +60,7 @@ internal sealed class BybitPrivateStreams(
     {
         long serverTime = await read.ServerTime(cancellationToken) ?? throw new BybitOrderUnresolvedException();
 
-        return await transport.Connect(context.Credential, serverTime + (long)options.PrivateStreamAuthLifetime.TotalMilliseconds, cancellationToken);
+        return await transport.Connect(context.Credential, serverTime + (long)options.PrivateStreamAuthLifetime.TotalMilliseconds, context.Market, cancellationToken);
     }
 
     /// <summary>
@@ -163,7 +163,7 @@ internal sealed class BybitPrivateStreams(
             if (BybitClientOrderIds.TryParse(clientOrderId, out BotId? owner, out long engineOrderId) && owner == context.BotId)
             {
                 BybitSpotOrder order = await reads.LookUp(context, clientOrderId, cancellationToken) ?? throw new BybitOrderUnresolvedException();
-                updates.Publish(context.BotId, BybitOrderTranslation.Updates(engineOrderId, order, context.Instrument.BaseAsset, context.Instrument.QuoteAsset));
+                updates.Publish(context.BotId, BybitOrderTranslation.Updates(engineOrderId, order, context));
             }
             else if (!allowForeignOrders)
             {
@@ -198,7 +198,7 @@ internal sealed class BybitPrivateStreams(
         {
             if (await reads.LookUp(context, order.ClientOrderId.Value, cancellationToken) is { } found)
             {
-                updates.Publish(context.BotId, BybitOrderTranslation.Updates(order.EngineOrderId, found, context.Instrument.BaseAsset, context.Instrument.QuoteAsset));
+                updates.Publish(context.BotId, BybitOrderTranslation.Updates(order.EngineOrderId, found, context));
             }
         }
     }

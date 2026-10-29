@@ -14,4 +14,5 @@ public sealed record ScanTradeResponse(
     string Exit,
     string Reason,
     string ResultR,
-    string ResultPercent);
+    string ResultPercent,
+    string Direction);

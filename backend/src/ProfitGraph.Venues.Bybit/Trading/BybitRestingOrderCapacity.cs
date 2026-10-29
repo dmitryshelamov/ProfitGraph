@@ -8,9 +8,11 @@ namespace ProfitGraph.Venues.Bybit.Trading;
 ///     How many resting Spot orders one bot may keep on a pair (ADR 0058): <see cref="BybitOptions.MaxRestingOrdersPerBot" />.
 ///     The number is ours, below what Bybit allows an account; check it against Bybit's documentation before a grid trades.
 /// </summary>
-internal sealed class BybitRestingOrderCapacity(BybitOptions options) : IVenueRestingOrderCapacity
+internal sealed class BybitRestingOrderCapacity(BybitOptions options, BybitMarket? market = null) : IVenueRestingOrderCapacity
 {
-    public VenueId Venue => BybitVenue.VenueId;
+    private readonly BybitMarket _market = market ?? BybitMarket.Spot;
+
+    public VenueId Venue => _market.Venue;
 
     public int MaxRestingOrders(InstrumentSymbol symbol)
     {

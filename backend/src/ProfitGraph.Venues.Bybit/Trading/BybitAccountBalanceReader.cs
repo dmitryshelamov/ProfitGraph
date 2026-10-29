@@ -12,9 +12,11 @@ namespace ProfitGraph.Venues.Bybit.Trading;
 ///     ADR 0069): account equity in USD, the available balance when Bybit reports one, and every coin. Equity is required;
 ///     a malformed coin is skipped without losing the totals. Failures carry only a reason, an HTTP status or a Bybit code.
 /// </summary>
-internal sealed class BybitAccountBalanceReader(BybitReadClient read, TimeProvider clock) : IAccountBalanceReader
+internal sealed class BybitAccountBalanceReader(BybitReadClient read, TimeProvider clock, BybitMarket? market = null) : IAccountBalanceReader
 {
-    public VenueId Venue => BybitVenue.VenueId;
+    private readonly BybitMarket _market = market ?? BybitMarket.Spot;
+
+    public VenueId Venue => _market.Venue;
 
     public async Task<AccountBalanceReadInternal> Read(ExchangeCredentialSecretsInternal credential, CancellationToken cancellationToken)
     {

@@ -9,14 +9,22 @@ namespace ProfitGraph.Venues.Bybit.Trading;
 /// </summary>
 internal static class BybitOrderTranslation
 {
-    public static IReadOnlyList<ExternalOrderUpdate> Updates(long engineOrderId, BybitSpotOrder order, string baseAsset, string quoteAsset)
+    /// <summary>
+    ///     The updates of a bot's order in its market: a USDT perpetual pays every fee in quote (ADR 0061).
+    /// </summary>
+    public static IReadOnlyList<ExternalOrderUpdate> Updates(long engineOrderId, BybitSpotOrder order, BybitBotContext context)
+    {
+        return Updates(engineOrderId, order, context.Instrument.BaseAsset, context.Instrument.QuoteAsset, context.Market.IsLinear);
+    }
+
+    public static IReadOnlyList<ExternalOrderUpdate> Updates(long engineOrderId, BybitSpotOrder order, string baseAsset, string quoteAsset, bool quoteFees = false)
     {
         if (order.Status == "Rejected")
         {
             return [ExternalOrderUpdate.Reject(engineOrderId, RejectionReason.BrokerRejected, "Bybit rejected the order.")];
         }
 
-        string feeAsset = order.Side == "Buy" ? baseAsset : quoteAsset;
+        string feeAsset = order.Side == "Buy" && !quoteFees ? baseAsset : quoteAsset;
 
         if (order.CumulativeFees.Any(pair => pair.Key != feeAsset && pair.Value != 0m))
         {

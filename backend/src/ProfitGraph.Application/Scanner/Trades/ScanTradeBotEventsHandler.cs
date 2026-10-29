@@ -3,7 +3,6 @@ using MediatR;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Bots.Positions;
 using ProfitGraph.Domain.Scanner.Trades;
-using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Templates;
 
 using ScanTradeExit = ProfitGraph.Engine.Scanning.ScanTradeExit;
@@ -11,9 +10,9 @@ using ScanTradeExit = ProfitGraph.Engine.Scanning.ScanTradeExit;
 namespace ProfitGraph.Application.Scanner.Trades;
 
 /// <summary>
-///     Follows a scanner trade's bot as the outbox delivers its events (ADR 0060): the opened position opens the trade, a filled sale
-///     of the target or the stop names the exit, and the closed position closes the trade with the bot's realized profit. Events of
-///     other bots are ignored.
+///     Follows a scanner trade's bot as the outbox delivers its events (ADR 0060): the opened position opens the trade, a filled exit
+///     at the target or the stop names the exit, a sale for a long and a buy for a short (ADR 0061), and the closed position closes the
+///     trade with the bot's realized profit. Events of other bots are ignored.
 /// </summary>
 internal sealed class ScanTradeBotEventsHandler(IScanTradeRepository trades)
     : INotificationHandler<BotPositionOpened>,
@@ -24,8 +23,8 @@ internal sealed class ScanTradeBotEventsHandler(IScanTradeRepository trades)
     {
         ScanTradeExit? exit = notification.Fill switch
         {
-            { Side: OrderSide.Sell, Tag: LevelTradeStrategyBlockFactory.TargetTag } => ScanTradeExit.Target,
-            { Side: OrderSide.Sell, Tag: LevelTradeStrategyBlockFactory.StopTag } => ScanTradeExit.Stop,
+            { Tag: LevelTradeStrategyBlockFactory.TargetTag } => ScanTradeExit.Target,
+            { Tag: LevelTradeStrategyBlockFactory.StopTag } => ScanTradeExit.Stop,
             _ => null
         };
 

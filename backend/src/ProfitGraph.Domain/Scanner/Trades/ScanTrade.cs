@@ -2,6 +2,7 @@ using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Common;
 using ProfitGraph.Domain.MarketData;
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Scanning;
 
@@ -10,7 +11,8 @@ namespace ProfitGraph.Domain.Scanner.Trades;
 /// <summary>
 ///     A trade the owner created from a scanner trade card (ADR 0060). Its own bot runs the level trade strategy with its prices and
 ///     amount; the trade follows the bot's position: it opens when the entry buys, and closes by the target, the stop or otherwise when
-///     the position closes. An entry that waits past <see cref="ExpiresAt" /> is cancelled and the trade expires.
+///     the position closes. An entry that waits past <see cref="ExpiresAt" /> is cancelled and the trade expires. A short trade
+///     (ADR 0061) sells at its entry, with its stop above and its target below.
 /// </summary>
 public sealed class ScanTrade : AggregateRoot
 {
@@ -28,6 +30,7 @@ public sealed class ScanTrade : AggregateRoot
     public decimal Entry { get; }
     public decimal Stop { get; }
     public decimal Target { get; }
+    public PositionDirection Direction { get; }
 
     /// <summary>
     ///     The quote the entry spends.
@@ -89,17 +92,21 @@ public sealed class ScanTrade : AggregateRoot
         ScanTradeExit? exit,
         decimal? realizedPnl,
         string? failureCode,
-        bool botReleased)
+        bool botReleased,
+        PositionDirection direction)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(symbol);
         ArgumentNullException.ThrowIfNull(levelsTimeframe);
 
-        if (stop <= 0m || stop >= entry || target <= entry)
+        if (direction == PositionDirection.Long ? stop <= 0m || stop >= entry || target <= entry : target <= 0m || target >= entry || stop <= entry)
         {
-            throw new ScanTradeRuleException(ScanTradeRuleException.InvalidLevels, "A trade's stop is positive and below its entry, and its target above it.");
+            throw new ScanTradeRuleException(
+                ScanTradeRuleException.InvalidLevels,
+                "A long trade's stop is positive and below its entry and its target above it; a short trade's are the other way round.");
         }
 
-        if (amount <= 0m || risk <= 0m || expiresAt <= createdAt || !Enum.IsDefined(scenario) || !Enum.IsDefined(status) || (botReleased && IsLiveStatus(status)))
+        if (amount <= 0m || risk <= 0m || expiresAt <= createdAt || !Enum.IsDefined(scenario) || !Enum.IsDefined(status) || !Enum.IsDefined(direction) ||
+            (botReleased && IsLiveStatus(status)))
         {
             throw new ArgumentException("A trade spends and risks a positive amount and its entry expires after it was created.");
         }
@@ -113,6 +120,7 @@ public sealed class ScanTrade : AggregateRoot
         Entry = entry;
         Stop = stop;
         Target = target;
+        Direction = direction;
         Amount = amount;
         Risk = risk;
         BotId = botId;
@@ -141,7 +149,8 @@ public sealed class ScanTrade : AggregateRoot
         decimal risk,
         BotId botId,
         TimeSpan entryValidity,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        PositionDirection direction = PositionDirection.Long)
     {
         return new ScanTrade(
             id,
@@ -164,7 +173,8 @@ public sealed class ScanTrade : AggregateRoot
             exit: null,
             realizedPnl: null,
             failureCode: null,
-            botReleased: false);
+            botReleased: false,
+            direction);
     }
 
     public static ScanTrade Restore(
@@ -188,7 +198,8 @@ public sealed class ScanTrade : AggregateRoot
         ScanTradeExit? exit,
         decimal? realizedPnl,
         string? failureCode,
-        bool botReleased)
+        bool botReleased,
+        PositionDirection direction = PositionDirection.Long)
     {
         return new ScanTrade(
             id,
@@ -211,7 +222,8 @@ public sealed class ScanTrade : AggregateRoot
             exit,
             realizedPnl,
             failureCode,
-            botReleased);
+            botReleased,
+            direction);
     }
 
     /// <summary>

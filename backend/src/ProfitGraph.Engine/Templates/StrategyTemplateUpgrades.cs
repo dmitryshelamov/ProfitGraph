@@ -59,13 +59,14 @@ public static class StrategyTemplateUpgrades
             definition.Values,
             [.. definition.Blocks, .. blocks],
             [.. definition.Wires, .. LadderResumeRestore.Wires()],
-            definition.TemplateKind);
+            definition.TemplateKind,
+            definition.Direction);
     }
 
     private static bool HasWires(StrategyDefinition definition)
     {
-        return RequiredWires.All(
-            wire => definition.Wires.Any(candidate => candidate.From.Block == wire.From && candidate.From.Exit == wire.Exit && candidate.To == wire.To));
+        return RequiredWires.All(wire =>
+            definition.Wires.Any(candidate => candidate.From.Block == wire.From && candidate.From.Exit == wire.Exit && candidate.To == wire.To));
     }
 
     /// <summary>
@@ -91,7 +92,8 @@ public static class StrategyTemplateUpgrades
             definition.Values,
             [.. definition.Blocks, .. blocks],
             [.. definition.Wires, .. LadderManualFillRebuild.Wires()],
-            definition.TemplateKind);
+            definition.TemplateKind,
+            definition.Direction);
     }
 
     private static bool IsResumeEvent(StrategyBlock block)

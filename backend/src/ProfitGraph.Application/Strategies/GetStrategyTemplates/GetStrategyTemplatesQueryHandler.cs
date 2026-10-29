@@ -32,6 +32,7 @@ internal sealed class GetStrategyTemplatesQueryHandler : IRequestHandler<GetStra
         StrategyDefinition rsiReversion = RsiReversionStrategyBlockFactory.Create();
         StrategyDefinition bollingerReversion = BollingerReversionStrategyBlockFactory.Create();
         StrategyDefinition levelTrade = LevelTradeStrategyBlockFactory.Create();
+        StrategyDefinition levelTradeShort = LevelTradeShortStrategyBlockFactory.Create();
         IReadOnlyList<StrategyTemplateInternal> templates =
         [
             new StrategyTemplateInternal(
@@ -117,6 +118,12 @@ internal sealed class GetStrategyTemplatesQueryHandler : IRequestHandler<GetStra
                 "Сделка по уровням",
                 "Одна сделка: лимитная покупка на входе, лимитная продажа на цели и продажа по рынку, когда свеча закрылась на стопе или ниже; карточки сканера запускают её отдельным ботом.",
                 levelTrade.ToInternal(),
+                StrategyTemplateLayouts.LevelTrade().ToInternal()),
+            new StrategyTemplateInternal(
+                levelTradeShort.TemplateKind!.Value,
+                "Сделка по уровням, шорт",
+                "Одна шорт-сделка на фьючерсах: лимитная продажа на входе, лимитная покупка на цели и покупка по рынку, когда свеча закрылась на стопе или выше; карточки сканера запускают её отдельным ботом.",
+                levelTradeShort.ToInternal(),
                 StrategyTemplateLayouts.LevelTrade().ToInternal())
         ];
 

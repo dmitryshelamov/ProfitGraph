@@ -8,7 +8,7 @@ import { Button } from '@/shared/ui/Button';
 
 import { createScanTrade, scannerKeys } from '../api/scannerApi';
 import { formatMetric, withQuote } from '../model/format';
-import { tradeScenarioHints, tradeScenarioLabels } from '../model/trades';
+import { tradeDirectionLabel, tradeScenarioHint, tradeScenarioLabels } from '../model/trades';
 import type { ScanTradeIdea, ScanTradeIdeas } from '../model/types';
 import { useScanQuote } from './useScanQuote';
 
@@ -17,6 +17,7 @@ const createErrors: Record<string, string> = {
   scan_trade_entry_moved: 'Цена ушла от входа — карточки обновятся.',
   scan_trade_pair_not_scanned: 'Пары нет в последнем снимке сканера.',
   scan_trade_settings_missing: 'Сначала задайте риск и ключ.',
+  scan_trade_short_unsupported: 'На этой бирже нет шорта.',
 };
 
 type Outcome = { readonly botId: string } | { readonly error: string };
@@ -24,7 +25,8 @@ type Outcome = { readonly botId: string } | { readonly error: string };
 /**
  * The trade cards of a pair on every timeframe (ADR 0060), grouped by the timeframe whose levels gave them. The owner ticks the
  * wanted ones and «Создать выбранные» creates a bot with real orders for each: it buys at the entry, sells at the target and sells by
- * market when a candle closes at the stop. «Скрыть» hides a card until the cards change; a card a live trade already took cannot be
+ * market when a candle closes at the stop. On futures a short card (ADR 0061) sells at the entry and buys back at the target or after
+ * a close at the stop. «Скрыть» hides a card until the cards change; a card a live trade already took cannot be
  * ticked.
  */
 export function ScanTradeCards({ venue, ideas }: { venue: string; ideas: ScanTradeIdeas }) {
@@ -43,7 +45,7 @@ export function ScanTradeCards({ venue, ideas }: { venue: string; ideas: ScanTra
   if (ideas.ideas.length === 0) {
     return (
       <p className="text-sm text-muted">
-        Идей нет: ни на одном таймфрейме нет поддержки ниже цены, а последний час не рос.
+        Идей нет: ни на одном таймфрейме нет уровней вокруг цены, а последний час стоял на месте.
       </p>
     );
   }
@@ -154,13 +156,15 @@ function TradeCard({
   onHide: () => void;
 }) {
   const label = tradeScenarioLabels[idea.scenario] ?? idea.scenario;
+  const short = idea.direction === 'Short';
+  const direction = tradeDirectionLabel(idea.direction);
   const goodRewardRisk = (compareDecimals(idea.rewardRisk, '2') ?? -1) >= 0;
   const hours = idea.entryValidityMinutes / 60;
   const locked = idea.taken || outcome !== undefined;
 
   return (
     <article
-      aria-label={`Идея: ${label} ${idea.timeframe}`}
+      aria-label={`Идея: ${direction} ${label} ${idea.timeframe}`}
       className={`flex flex-col gap-3 rounded-lg border bg-panel-2 p-4 ${checked && !locked ? 'border-link' : 'border-line-strong'}`}
     >
       <header className="flex items-start justify-between gap-2">
@@ -173,8 +177,17 @@ function TradeCard({
             onChange={(event) => onToggle(event.target.checked)}
           />
           <span>
-            <span className="font-semibold">{label}</span>
-            <span className="block text-xs text-muted">{tradeScenarioHints[idea.scenario]}</span>
+            <span className="flex items-center gap-2">
+              <span
+                className={`rounded border px-1.5 text-xs font-semibold ${short ? 'border-danger-border text-down' : 'border-line-strong text-up'}`}
+              >
+                {direction}
+              </span>
+              <span className="font-semibold">{label}</span>
+            </span>
+            <span className="block text-xs text-muted">
+              {tradeScenarioHint(idea.scenario, idea.direction)}
+            </span>
           </span>
         </label>
         <span
@@ -184,12 +197,25 @@ function TradeCard({
         </span>
       </header>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-        <dt className="text-text-secondary">Цель</dt>
-        <dd className="text-right text-up">{formatMetric(idea.target, 6)}</dd>
-        <dt className="text-text-secondary">Вход, лимит</dt>
-        <dd className="text-right">{formatMetric(idea.entry, 6)}</dd>
-        <dt className="text-text-secondary">Стоп</dt>
-        <dd className="text-right text-down">{formatMetric(idea.stop, 6)}</dd>
+        {short ? (
+          <>
+            <dt className="text-text-secondary">Стоп</dt>
+            <dd className="text-right text-down">{formatMetric(idea.stop, 6)}</dd>
+            <dt className="text-text-secondary">Продажа, лимит</dt>
+            <dd className="text-right">{formatMetric(idea.entry, 6)}</dd>
+            <dt className="text-text-secondary">Цель</dt>
+            <dd className="text-right text-up">{formatMetric(idea.target, 6)}</dd>
+          </>
+        ) : (
+          <>
+            <dt className="text-text-secondary">Цель</dt>
+            <dd className="text-right text-up">{formatMetric(idea.target, 6)}</dd>
+            <dt className="text-text-secondary">Вход, лимит</dt>
+            <dd className="text-right">{formatMetric(idea.entry, 6)}</dd>
+            <dt className="text-text-secondary">Стоп</dt>
+            <dd className="text-right text-down">{formatMetric(idea.stop, 6)}</dd>
+          </>
+        )}
         <dt className="text-text-secondary">Сумма</dt>
         <dd className="text-right">
           {idea.amount ? withQuote(formatMetric(idea.amount, 2), quote) : '—'}
@@ -232,7 +258,7 @@ function TradeCard({
 }
 
 function key(idea: ScanTradeIdea): string {
-  return `${idea.timeframe}:${idea.scenario}:${idea.entry}:${idea.stop}:${idea.target}`;
+  return `${idea.timeframe}:${idea.direction ?? 'Long'}:${idea.scenario}:${idea.entry}:${idea.stop}:${idea.target}`;
 }
 
 function total(

@@ -5,6 +5,7 @@ const readableNames: Record<string, string> = {
   slowPeriod: 'Период медленной SMA',
   smaPeriod: 'Период SMA',
   buyAmount: 'Сумма одной покупки',
+  sellAmount: 'Сумма продажи',
   allocationCap: 'Лимит текущей позиции',
   drop: 'Снижение для усреднения',
   rise: 'Рост для продажи',

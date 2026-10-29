@@ -229,7 +229,7 @@ public sealed class BybitOrderGatewayTests
         venue.GetServices<IOrderGateway>().ShouldBeEmpty();
         venue.GetService<BybitTradeClient>().ShouldBeNull();
         venue.GetServices<IVenueFeeRateReader>().ShouldNotBeEmpty();
-        trading.GetServices<IOrderGateway>().Single().Venue.ShouldBe(new VenueId("bybit"));
+        trading.GetServices<IOrderGateway>().Select(gateway => gateway.Venue.Value).ShouldBe(["bybit", "bybit-linear"]);
     }
 
     [Test]

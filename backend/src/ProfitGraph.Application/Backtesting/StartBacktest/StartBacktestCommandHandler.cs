@@ -41,6 +41,7 @@ internal sealed class StartBacktestCommandHandler(
         IReadOnlyDictionary<string, decimal> parameters = request.Parameters ?? new Dictionary<string, decimal>();
         CompiledTradingGraph plan = compiler.Compile(version.Definition, parameters);
         CandleSeries series = venues.ResolveSeries(request.Venue, request.Symbol, request.Timeframe);
+        venues.EnsureDirection(series.Venue, plan.Direction);
         await credentials.Check(request.UserId, request.CredentialId, series.Venue, cancellationToken);
         BacktestConfiguration configuration = BacktestFreezing.Freeze(request, series, parameters, plan, clock.GetUtcNow());
         GridFeeFinding[] errors = [.. GridFeeCheck.Check(plan, EngineExecutionInputs.Empty, configuration.Settings).Where(finding => finding.IsError)];

@@ -10,9 +10,10 @@ namespace ProfitGraph.Venues.Bybit.LiveData;
 ///     The last-trade price of a Spot symbol from Bybit's public ticker stream (S5-19); the connection is never
 ///     authenticated. The stream ends when Bybit closes the connection.
 /// </summary>
-internal sealed class BybitLiveMarkPriceSource(IBybitPublicStreamTransport transport) : ILiveMarkPriceSource
+internal sealed class BybitLiveMarkPriceSource(IBybitPublicStreamTransport transport, BybitMarket? market = null) : ILiveMarkPriceSource
 {
-    public VenueId Venue => BybitVenue.VenueId;
+    private readonly BybitMarket _market = market ?? BybitMarket.Spot;
+    public VenueId Venue => _market.Venue;
 
     public async IAsyncEnumerable<LiveMarkPriceInternal> Subscribe(InstrumentSymbol symbol, [EnumeratorCancellation] CancellationToken cancellationToken)
     {

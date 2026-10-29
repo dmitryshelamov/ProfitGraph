@@ -1,4 +1,5 @@
 using ProfitGraph.Domain.Scanner.Trades;
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Scanning;
 
 namespace ProfitGraph.Application.Scanner.Contracts;
@@ -21,4 +22,5 @@ public sealed record ScanTradeInternal(
     DateTimeOffset? OpenedAt,
     DateTimeOffset? ClosedAt,
     decimal? RealizedPnl,
-    string? FailureCode);
+    string? FailureCode,
+    PositionDirection Direction = PositionDirection.Long);

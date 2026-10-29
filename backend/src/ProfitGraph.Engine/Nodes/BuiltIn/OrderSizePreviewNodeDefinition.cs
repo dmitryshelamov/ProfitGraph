@@ -72,7 +72,10 @@ public sealed class OrderSizePreviewNodeDefinition : INodeDefinition
         ResolvedEngineParameters parameters = context.Parameters;
         OrderSide selectedSide = ParseSide(parameters.TextSettings["side"]);
         OrderType selectedType = ParseType(parameters.TextSettings["type"]);
-        EngineValue amount = parameters[selectedSide == OrderSide.Buy ? "amount" : "quantity"];
+        ExecutionSettings settings = context.Dispatch.Settings;
+
+        // A short's buy covers a base quantity (ADR 0061).
+        EngineValue amount = parameters[selectedSide == OrderSide.Buy && settings.Direction == PositionDirection.Long ? "amount" : "quantity"];
         EngineValue price = parameters["price"];
 
         if (!amount.IsAvailable || (selectedType == OrderType.Limit && !price.IsAvailable))
@@ -121,7 +124,7 @@ public sealed class OrderSizePreviewNodeDefinition : INodeDefinition
             context.Number("normalizedQuantity", sizing.Quantity.Value);
         }
 
-        context.Number(selectedSide == OrderSide.Buy ? "requiredQuote" : "requiredBase", sizing.Reservation);
+        context.Number(selectedSide == settings.OpeningSide ? "requiredQuote" : "requiredBase", sizing.Reservation);
 
         if (sizing.Reason.HasValue)
         {

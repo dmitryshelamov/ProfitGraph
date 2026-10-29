@@ -226,19 +226,21 @@ public sealed class ActionCollector
             return;
         }
 
-        bool buy = node.TradingBehavior is TradingNodeBehavior.MarketBuy or TradingNodeBehavior.LimitBuy;
-        bool limit = node.TradingBehavior is TradingNodeBehavior.LimitBuy or TradingNodeBehavior.LimitSell;
+        bool cover = node.TradingBehavior is TradingNodeBehavior.MarketCover or TradingNodeBehavior.LimitCover;
+        bool buy = cover || node.TradingBehavior is TradingNodeBehavior.MarketBuy or TradingNodeBehavior.LimitBuy;
+        bool limit = node.TradingBehavior is TradingNodeBehavior.LimitBuy or TradingNodeBehavior.LimitSell or TradingNodeBehavior.LimitCover;
         var order = new OrderRequest(
             buy ? OrderSide.Buy : OrderSide.Sell,
             limit ? OrderType.Limit : OrderType.Market,
-            values[buy ? "amount" : "quantity"].Number,
+            values[buy && !cover ? "amount" : "quantity"].Number,
             limit ? values["price"].Number : null,
             values["tag"].Tag,
             node.Node.Id,
             context.EligibleFromCandleIndex,
             buy && values.TextSettings.GetValueOrDefault("minimumOrderPolicy") == "RaiseToExchangeMinimum"
                 ? MinimumOrderPolicy.RaiseToExchangeMinimum
-                : MinimumOrderPolicy.Reject);
+                : MinimumOrderPolicy.Reject,
+            limit ? null : context.MarketPrice);
         requests.Add(new SubmitActionRequest(order));
     }
 }
