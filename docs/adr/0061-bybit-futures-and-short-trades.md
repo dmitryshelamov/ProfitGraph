@@ -48,11 +48,15 @@ exchanged every few hours, and the account's margin mode and position mode decid
   with `coin=USDT, mode=3`), and reconciliation reads `/v5/position/list` and stops the bot with `VenuePositionMode` when the symbol
   is in one-way mode. *Alternative: one-way mode, `positionIdx=0`, reduce-only exits, and a 409 `scan_trade_opposite_live` that
   forbids a long and a short trade on one pair at once.*
-- **Leverage (owner).** *Recommendation: 1× only.* Before a bot's first order on a symbol the gateway sets
-  `buyLeverage=sellLeverage=1` (`/v5/position/set-leverage`; `110043`, "not modified", is success). The engine reserves the whole
-  notional of an opening order as margin, as spot reserves the quote of a buy, so a bot never uses more than its allocation and a
-  short's liquidation price is about twice its entry. The bot does not touch the account's margin mode (cross by default in a
-  Unified account); under 1× it does not change the bot's risk.
+- **Leverage (owner: "плечо - настраиваемый параметр").** A `bybit-linear` bot has a leverage setting, 1× by default, from 1 up
+  to the instrument's `leverageFilter.maxLeverage`; the scanner trade settings carry the leverage their bots get. Before a bot's
+  first order on a symbol, and after the setting changes, the gateway sets `buyLeverage=sellLeverage` to it
+  (`/v5/position/set-leverage`; `110043`, "not modified", is success). The engine reserves `notional / leverage` of an opening
+  order as margin, plus its fee; the bot's allocation limits that margin, so the position's notional reaches up to allocation ×
+  leverage. A trade is refused when its stop lies beyond the estimated liquidation price
+  (`entry × (1 ∓ 1 / leverage ± maintenance margin rate)`), so the stop acts first. The bot does not touch the account's margin
+  mode (cross by default in a Unified account): under cross margin a leveraged loss past the bot's margin is covered by the whole
+  USDT wallet, spot bots' USDT included.
 - **Orders.** `category=linear`, `positionIdx` as above, `reduceOnly` on exits, `timeInForce=GTC` for limits; a market order is
   sized in base (`marketUnit` is spot only). The minimum checks use the linear rules; a market exit's notional is checked at the
   ticker's last price, as on spot.
@@ -74,7 +78,7 @@ exchanged every few hours, and the account's margin mode and position mode decid
   flips: a long run cannot go below zero, a short run cannot go above zero.
 - **Short accounting** (`Portfolio`, `TradingAccount`, `ExternallyExecutedAccount`). The base balance may be negative in a short
   run; equity stays `quote + base × close`, so the result, drawdown and every metric need no second formula. A sale that opens or
-  adds to the short reserves its notional plus fee in quote as margin (rejected with `InsufficientQuote` beyond it, `RiskLimit`
+  adds to the short reserves its notional divided by the run's leverage (1 in spot and by default) plus fee in quote as margin (rejected with `InsufficientQuote` beyond it, `RiskLimit`
   beyond the allocation); its proceeds are credited to quote and its fee charged. A buy reduces the short and reserves the short
   quantity it covers (rejected with `InsufficientBase` beyond the uncovered short); its cost is debited and its fee charged.
   Realized profit of a cover is the proceeds share of the covered quantity minus its cost and fees, as a sale's is today. The
@@ -141,8 +145,8 @@ lets each be edited on its own; a direction parameter would put a branch into ev
 - Funding is neither simulated nor booked: a trade's result on the bot page leaves out the funding Bybit charges or pays while the
   position is open, at most a few settlements for a one-day trade. The account card's wallet shows it.
 - Hedge mode is an account setting the owner keeps; their manual futures trading in Bybit then also has two sides per symbol.
-- With 1× leverage a futures trade ties up as much USDT as a spot trade of the same amount; spot and futures bots share the Unified
-  account's USDT.
+- A futures trade ties up its notional divided by the leverage; at 1× as much USDT as a spot trade of the same amount. Spot and
+  futures bots share the Unified account's USDT.
 - The stop stays software on minute closes (ADR 0060): it can slip and does not act while the Worker is down.
 
 ## Implementation order
