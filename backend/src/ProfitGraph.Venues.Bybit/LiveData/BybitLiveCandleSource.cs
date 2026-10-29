@@ -24,12 +24,14 @@ internal sealed class BybitLiveCandleSource(
     IServiceScopeFactory scopes,
     BybitOptions options,
     TimeProvider clock,
-    ILogger<BybitLiveCandleSource> logger) : ILiveCandleSource
+    ILogger<BybitLiveCandleSource> logger,
+    BybitMarket? market = null) : ILiveCandleSource
 {
+    private readonly BybitMarket _market = market ?? BybitMarket.Spot;
     private readonly Dictionary<(string Symbol, string Timeframe), BybitLiveCandleFeed> _feeds = [];
     private readonly Lock _gate = new Lock();
 
-    public VenueId Venue => BybitVenue.VenueId;
+    public VenueId Venue => _market.Venue;
 
     public async IAsyncEnumerable<Candle> Subscribe(
         InstrumentSymbol symbol,
@@ -124,7 +126,7 @@ internal sealed class BybitLiveCandleSource(
         CancellationToken cancellationToken)
     {
         using IServiceScope scope = scopes.CreateScope();
-        IHistoricalCandleSource source = scope.ServiceProvider.GetServices<IHistoricalCandleSource>().First(candidate => candidate.Venue == BybitVenue.VenueId);
+        IHistoricalCandleSource source = scope.ServiceProvider.GetServices<IHistoricalCandleSource>().First(candidate => candidate.Venue == _market.Venue);
 
         return (await source.Get(symbol, timeframe, from, to, cancellationToken)).Candles;
     }
@@ -133,6 +135,6 @@ internal sealed class BybitLiveCandleSource(
     {
         using IServiceScope scope = scopes.CreateScope();
         await scope.ServiceProvider.GetRequiredService<ISender>()
-            .Send(new MarkFeedStaleCommand(BybitVenue.VenueId.Value, symbol.Value, timeframe.Key, stale), cancellationToken);
+            .Send(new MarkFeedStaleCommand(_market.Venue.Value, symbol.Value, timeframe.Key, stale), cancellationToken);
     }
 }

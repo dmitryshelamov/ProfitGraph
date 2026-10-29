@@ -20,17 +20,23 @@ using ProfitGraph.Engine.Market;
 namespace ProfitGraph.Venues.Bybit.MarketData;
 
 /// <summary>
-///     Public Spot klines of Bybit (Profit Fox Designer ADR 0017): backward paging with an exclusive end, discovery of the
+///     Public klines of a Bybit market (Spot, or USDT perpetuals by ADR 0061) (Profit Fox Designer ADR 0017): backward paging with an exclusive end, discovery of the
 ///     first candle by binary search over "is there a candle before t", and strict checks of every page.
 /// </summary>
-internal sealed class BybitHistoricalCandleSource(HttpClient httpClient, ILoggerFactory loggerFactory, BybitResilienceExecutor resilience, BybitOptions options)
-    : IHistoricalCandleSource, IDisposable
+internal sealed class BybitHistoricalCandleSource(
+    HttpClient httpClient,
+    ILoggerFactory loggerFactory,
+    BybitResilienceExecutor resilience,
+    BybitOptions options,
+    BybitMarket? market = null) : IHistoricalCandleSource, IDisposable
 {
     private const int PageSize = 1000;
 
+    private readonly BybitMarket _market = market ?? BybitMarket.Spot;
+
     private readonly IExchangeRestClient _client = BybitRestClientFactory.Create(httpClient, loggerFactory, options.AttemptTimeout);
 
-    public VenueId Venue => BybitVenue.VenueId;
+    public VenueId Venue => _market.Venue;
 
     public string Source => "bybit";
 
@@ -134,7 +140,7 @@ internal sealed class BybitHistoricalCandleSource(HttpClient httpClient, ILogger
                 async token =>
                 {
                     HttpResult<BybitResponse<BybitKline>> result = await _client.Bybit.V5Api.ExchangeData.GetKlinesAsync(
-                        Category.Spot,
+                        _market.Category,
                         symbol.Value,
                         Interval(timeframe),
                         from.UtcDateTime,
@@ -147,7 +153,7 @@ internal sealed class BybitHistoricalCandleSource(HttpClient httpClient, ILogger
                 },
                 cancellationToken);
 
-            if (data.Category != Category.Spot || data.Symbol != symbol.Value || data.List is null)
+            if (data.Category != _market.Category || data.Symbol != symbol.Value || data.List is null)
             {
                 throw Failure(HistoricalDataErrorCodes.InvalidProviderData, "Bybit returned another symbol or market, or no candle list.", from, to);
             }

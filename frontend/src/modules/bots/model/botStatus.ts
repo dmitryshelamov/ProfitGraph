@@ -25,6 +25,7 @@ const reasonLabels: Record<BotStatusReason, string> = {
   VenueAccountProtection: 'аккаунт площадки под защитой, сначала проверьте его',
   Killed: 'аварийная остановка',
   DailyLossLimit: 'достигнут дневной лимит убытка',
+  VenuePositionMode: 'на бирже не тот режим позиций: нужен hedge mode',
 };
 
 const diagnosticLabels: Record<string, string> = {

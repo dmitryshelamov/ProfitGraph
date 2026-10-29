@@ -16,6 +16,11 @@ public sealed class BybitOptions
     public string PublicSpotStreamAddress { get; init; } = "wss://stream.bybit.com/v5/public/spot";
 
     /// <summary>
+    ///     The public WebSocket of USDT perpetuals' live klines (ADR 0061); it is never authenticated.
+    /// </summary>
+    public string PublicLinearStreamAddress { get; init; } = "wss://stream.bybit.com/v5/public/linear";
+
+    /// <summary>
     ///     The private WebSocket of a live bot's orders and executions.
     /// </summary>
     public string PrivateStreamAddress { get; init; } = "wss://stream.bybit.com/v5/private";
@@ -130,6 +135,7 @@ public sealed class BybitOptions
     {
         return IsValidBaseAddress(BaseAddress) &&
             Uri.TryCreate(PublicSpotStreamAddress, UriKind.Absolute, out Uri? stream) && stream.Scheme is "wss" or "ws" &&
+            Uri.TryCreate(PublicLinearStreamAddress, UriKind.Absolute, out Uri? linearStream) && linearStream.Scheme is "wss" or "ws" &&
             Uri.TryCreate(PrivateStreamAddress, UriKind.Absolute, out Uri? privateStream) && privateStream.Scheme is "wss" or "ws" &&
             LiveFeedStallMargin > TimeSpan.Zero &&
             MaxRetryAttempts is > 0 and <= 10 &&

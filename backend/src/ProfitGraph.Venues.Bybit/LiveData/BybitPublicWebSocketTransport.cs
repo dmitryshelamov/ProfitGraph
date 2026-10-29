@@ -7,9 +7,14 @@ using ProfitGraph.Venues.Bybit.MarketData;
 
 namespace ProfitGraph.Venues.Bybit.LiveData;
 
-internal sealed class BybitPublicWebSocketTransport(BybitOptions options) : IBybitPublicStreamTransport
+/// <summary>
+///     The public WebSocket of one Bybit market (ADR 0061), Spot unless another is given.
+/// </summary>
+internal sealed class BybitPublicWebSocketTransport(BybitOptions options, BybitMarket? market = null) : IBybitPublicStreamTransport
 {
     private const int TopicsPerSubscribe = 10;
+
+    private readonly BybitMarket _market = market ?? BybitMarket.Spot;
 
     public IAsyncEnumerable<string> Connect(string topic, CancellationToken cancellationToken)
     {
@@ -20,7 +25,7 @@ internal sealed class BybitPublicWebSocketTransport(BybitOptions options) : IByb
     {
         using var socket = new ClientWebSocket();
         socket.Options.KeepAliveInterval = options.StreamKeepAliveInterval;
-        await socket.ConnectAsync(new Uri(options.PublicSpotStreamAddress), cancellationToken);
+        await socket.ConnectAsync(new Uri(_market.PublicStreamAddress(options)), cancellationToken);
 
         foreach (string subscribe in SubscribeMessages(topics))
         {

@@ -12,9 +12,10 @@ namespace ProfitGraph.Venues.Bybit.LiveData;
 ///     0026). Every update of the topic is passed on with Bybit's own confirm flag as the closed flag; nothing is stored, and the
 ///     connection is never authenticated. The caller owns reconnecting, so each subscription is one connection.
 /// </summary>
-internal sealed class BybitFormingCandleSource(IBybitPublicStreamTransport transport) : IFormingCandleSource
+internal sealed class BybitFormingCandleSource(IBybitPublicStreamTransport transport, BybitMarket? market = null) : IFormingCandleSource
 {
-    public VenueId Venue => BybitVenue.VenueId;
+    private readonly BybitMarket _market = market ?? BybitMarket.Spot;
+    public VenueId Venue => _market.Venue;
 
     public bool Supports(Timeframe timeframe)
     {

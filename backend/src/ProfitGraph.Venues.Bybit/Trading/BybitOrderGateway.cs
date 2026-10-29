@@ -17,7 +17,8 @@ namespace ProfitGraph.Venues.Bybit.Trading;
 ///     client ID and never places again on an empty answer. Only an explicit Bybit rejection rejects; every unknown
 ///     outcome is an exception, so the intent retries and eventually degrades the bot. Reconciliation checks the key and
 ///     the symbol before a bot trades (ADR 0016, stage 5.8). A submit Bybit does not know is closed only when a long wait and
-///     independent evidence prove it never took effect (ADR 0030); otherwise it is unresolved.
+///     independent evidence prove it never took effect (ADR 0030); otherwise it is unresolved. The same gateway serves USDT
+///     perpetuals (ADR 0061): reconciliation also requires the symbol in hedge mode, and an entry first sets the bot's leverage.
 /// </summary>
 internal sealed class BybitOrderGateway(
     BybitTradeClient trade,
@@ -26,9 +27,17 @@ internal sealed class BybitOrderGateway(
     BybitPrivateStreams streams,
     BybitBotContexts contexts,
     BybitOrderUpdates updates,
-    BybitAbsenceProofs proofs) : IOrderGateway
+    BybitAbsenceProofs proofs,
+    BybitMarket? market = null) : IOrderGateway
 {
-    public VenueId Venue => BybitVenue.VenueId;
+    /// <summary>
+    ///     Bybit's answer when the leverage asked for is the one already set.
+    /// </summary>
+    private const int LeverageNotModified = 110043;
+
+    private readonly BybitMarket _market = market ?? BybitMarket.Spot;
+
+    public VenueId Venue => _market.Venue;
 
     public ClientOrderId ClientOrderIdFor(BotId botId, long engineOrderId)
     {
@@ -64,12 +73,19 @@ internal sealed class BybitOrderGateway(
             return null;
         }
 
-        decimal? lastPrice = submit.Order is { Type: OrderType.Market, Side: OrderSide.Sell } ? await LastPrice(context.Symbol, cancellationToken) : null;
+        decimal? lastPrice = submit.Order.Type == OrderType.Market && (submit.Order.Side == OrderSide.Sell || context.Market.IsLinear)
+            ? await LastPrice(context, cancellationToken)
+            : null;
         string? body = BybitOrderRequests.Create(context, submit.ClientOrderId.Value, submit.Order, lastPrice);
 
         if (body is null)
         {
-            return ExternalOrderUpdate.Reject(submit.Order.Id, RejectionReason.BelowMinNotional, "The order is below Bybit Spot minimums.");
+            return ExternalOrderUpdate.Reject(submit.Order.Id, RejectionReason.BelowMinNotional, $"The order is below Bybit {context.Market.Title} minimums.");
+        }
+
+        if (context.Market.IsLinear && !context.Reduces(submit.Order.Side))
+        {
+            await SetLeverage(context, cancellationToken);
         }
 
         BybitRestResult placed = await trade.Post(context.Credential, "/v5/order/create", body, markPlaceStarted, cancellationToken);
@@ -81,7 +97,7 @@ internal sealed class BybitOrderGateway(
             case BybitRestOutcome.Rejected:
                 return ExternalOrderUpdate.Reject(
                     submit.Order.Id,
-                    Rejection(placed.Code, submit.Order.Side),
+                    Rejection(placed.Code, submit.Order.Side, context),
                     string.Create(CultureInfo.InvariantCulture, $"Bybit rejected the order ({placed.Code})."));
             case BybitRestOutcome.Duplicate:
                 await PublishExisting(context, submit.ClientOrderId.Value, cancellationToken);
@@ -95,7 +111,7 @@ internal sealed class BybitOrderGateway(
     public async Task Cancel(BotId botId, ClientOrderId clientOrderId, CancellationToken cancellationToken)
     {
         BybitBotContext context = await contexts.Get(botId, cancellationToken);
-        string body = JsonSerializer.Serialize(new { category = "spot", symbol = context.Symbol, orderLinkId = clientOrderId.Value });
+        string body = JsonSerializer.Serialize(new { category = context.Market.Name, symbol = context.Symbol, orderLinkId = clientOrderId.Value });
         BybitRestResult cancelled = await trade.Post(context.Credential, "/v5/order/cancel", body, beforeSend: null, cancellationToken);
 
         if (cancelled.Outcome == BybitRestOutcome.Accepted)
@@ -121,6 +137,12 @@ internal sealed class BybitOrderGateway(
         if (!await reads.KeyMayTrade(context, cancellationToken))
         {
             return new BotReconciliationInternal([], [], BotStatusReason.KeyPermissions);
+        }
+
+        // Long and short trades of one pair hold separate sides only in hedge mode, which the owner sets (ADR 0061).
+        if (context.Market.IsLinear && await reads.HedgePosition(context, cancellationToken) is null)
+        {
+            return new BotReconciliationInternal([], [], BotStatusReason.VenuePositionMode);
         }
 
         await streams.Open(context, request.AllowForeignOrders, cancellationToken);
@@ -212,7 +234,7 @@ internal sealed class BybitOrderGateway(
                 continue;
             }
 
-            found.AddRange(BybitOrderTranslation.Updates(order.EngineOrderId, existing, context.Instrument.BaseAsset, context.Instrument.QuoteAsset));
+            found.AddRange(BybitOrderTranslation.Updates(order.EngineOrderId, existing, context));
             orders.Add(new ReconciledOrderInternal(order.ClientOrderId, existing.IsFinal));
         }
 
@@ -230,14 +252,33 @@ internal sealed class BybitOrderGateway(
     {
         BybitSpotOrder order = await reads.LookUp(context, clientOrderId, cancellationToken) ?? throw new BybitOrderUnresolvedException();
         BybitClientOrderIds.TryParse(order.ClientOrderId, out _, out long engineOrderId);
-        updates.Publish(context.BotId, BybitOrderTranslation.Updates(engineOrderId, order, context.Instrument.BaseAsset, context.Instrument.QuoteAsset));
+        updates.Publish(context.BotId, BybitOrderTranslation.Updates(engineOrderId, order, context));
 
         return order;
     }
 
-    private async Task<decimal> LastPrice(string symbol, CancellationToken cancellationToken)
+    /// <summary>
+    ///     Sets the bot's leverage on both sides of its USDT perpetual (ADR 0061); the leverage already set is success. Any other
+    ///     answer leaves the entry unsent, so the intent retries and Bybit's refusal of a leverage above the contract's maximum
+    ///     degrades the bot.
+    /// </summary>
+    private async Task SetLeverage(BybitBotContext context, CancellationToken cancellationToken)
     {
-        BybitRestResult ticker = await read.Public($"/v5/market/tickers?category=spot&symbol={Uri.EscapeDataString(symbol)}", cancellationToken);
+        string leverage = context.Leverage.ToString(CultureInfo.InvariantCulture);
+        string body = JsonSerializer.Serialize(new { category = "linear", symbol = context.Symbol, buyLeverage = leverage, sellLeverage = leverage });
+        BybitRestResult set = await trade.Post(context.Credential, "/v5/position/set-leverage", body, beforeSend: null, cancellationToken);
+
+        if (set.Outcome != BybitRestOutcome.Accepted && set.Code != LeverageNotModified)
+        {
+            throw new BybitOrderUnresolvedException();
+        }
+    }
+
+    private async Task<decimal> LastPrice(BybitBotContext context, CancellationToken cancellationToken)
+    {
+        BybitRestResult ticker = await read.Public(
+            $"/v5/market/tickers?category={context.Market.Name}&symbol={Uri.EscapeDataString(context.Symbol)}",
+            cancellationToken);
 
         try
         {
@@ -254,8 +295,14 @@ internal sealed class BybitOrderGateway(
         }
     }
 
-    private static RejectionReason Rejection(int? code, OrderSide side)
+    private static RejectionReason Rejection(int? code, OrderSide side, BybitBotContext context)
     {
+        // A USDT perpetual's exit closes a position and its entry spends margin; 110017 there is a reduce-only order beyond the side.
+        if (context.Market.IsLinear && code is 110004 or 110007 or 110012 or 110017)
+        {
+            return context.Reduces(side) ? RejectionReason.InsufficientBase : RejectionReason.InsufficientQuote;
+        }
+
         return code switch
         {
             110004 or 110007 or 110012 => side == OrderSide.Buy ? RejectionReason.InsufficientQuote : RejectionReason.InsufficientBase,

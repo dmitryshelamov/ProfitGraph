@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 
 using ProfitGraph.Application.Accounts.Contracts;
+using ProfitGraph.Venues.Bybit;
 using ProfitGraph.Venues.Bybit.Trading;
 
 namespace ProfitGraph.Tests.Unit.Venues.Bybit;
@@ -15,13 +16,18 @@ internal sealed class FakeBybitPrivateTransport : IBybitPrivateStreamTransport
     public List<(string ApiKey, long ExpiresAt)> Connects { get; } = [];
 
     /// <summary>
+    ///     The market each connection subscribed to.
+    /// </summary>
+    public List<BybitMarket> Markets { get; } = [];
+
+    /// <summary>
     ///     Refuses every following connection.
     /// </summary>
     public bool Refuse { get; set; }
 
     public bool CurrentIsDisposed => _current?.IsDisposed ?? false;
 
-    public Task<IBybitPrivateConnection> Connect(ExchangeCredentialSecretsInternal credential, long expiresAt, CancellationToken cancellationToken)
+    public Task<IBybitPrivateConnection> Connect(ExchangeCredentialSecretsInternal credential, long expiresAt, BybitMarket market, CancellationToken cancellationToken)
     {
         if (Refuse)
         {
@@ -29,6 +35,7 @@ internal sealed class FakeBybitPrivateTransport : IBybitPrivateStreamTransport
         }
 
         Connects.Add((credential.ApiKey, expiresAt));
+        Markets.Add(market);
         _current = new FakeBybitPrivateConnection(Channel.CreateUnbounded<string>());
 
         return Task.FromResult<IBybitPrivateConnection>(_current);

@@ -8,8 +8,13 @@ namespace ProfitGraph.Venues.Bybit.Instruments;
 ///     Reads an instruments response before the SDK does and rejects any rule that decimal could not hold exactly, so a
 ///     captured snapshot never carries a silently rounded step, tick or minimum.
 /// </summary>
-internal sealed class BybitInstrumentsResponseGuardHandler : DelegatingHandler
+internal sealed class BybitInstrumentsResponseGuardHandler(BybitMarket market) : DelegatingHandler
 {
+    public BybitInstrumentsResponseGuardHandler()
+        : this(BybitMarket.Spot)
+    {
+    }
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         HttpResponseMessage response = await base.SendAsync(request, cancellationToken);
@@ -47,13 +52,28 @@ internal sealed class BybitInstrumentsResponseGuardHandler : DelegatingHandler
         }
     }
 
-    private static void Validate(JsonElement result)
+    private void Validate(JsonElement result)
     {
         JsonElement list = result.GetProperty("list");
 
-        if (result.GetProperty("category").GetString() != "spot" || list.ValueKind != JsonValueKind.Array)
+        if (result.GetProperty("category").GetString() != market.Name || list.ValueKind != JsonValueKind.Array)
         {
             throw new FormatException();
+        }
+
+        // A USDT perpetual's lot filter has a quantity step, a minimum quantity and a minimum notional (ADR 0061).
+        if (market.IsLinear)
+        {
+            foreach (JsonElement row in list.EnumerateArray())
+            {
+                JsonElement lot = row.GetProperty("lotSizeFilter");
+                BybitExactDecimal.Validate(lot.GetProperty("qtyStep"));
+                BybitExactDecimal.Validate(lot.GetProperty("minOrderQty"));
+                BybitExactDecimal.Validate(lot.GetProperty("minNotionalValue"));
+                BybitExactDecimal.Validate(row.GetProperty("priceFilter").GetProperty("tickSize"));
+            }
+
+            return;
         }
 
         // An empty list is an unknown symbol and the status is checked by the source: request errors, not data errors.

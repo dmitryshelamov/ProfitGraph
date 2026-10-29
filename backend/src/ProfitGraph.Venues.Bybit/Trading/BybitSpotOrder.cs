@@ -4,7 +4,8 @@ using System.Text.Json;
 namespace ProfitGraph.Venues.Bybit.Trading;
 
 /// <summary>
-///     A Spot order as Bybit reports it, with cumulative execution and fees by asset.
+///     A Spot or USDT-perpetual order as Bybit reports it, with cumulative execution and fees by asset. A linear order reports one
+///     fee in its settle coin (ADR 0061); a rebate below zero is not a fee and counts as none.
 /// </summary>
 internal sealed record BybitSpotOrder(
     string ClientOrderId,
@@ -20,12 +21,21 @@ internal sealed record BybitSpotOrder(
     /// <summary>
     ///     Reads one item of an order list; an executed order without fee detail is incomplete and gives null.
     /// </summary>
-    public static BybitSpotOrder? Parse(JsonElement item)
+    public static BybitSpotOrder? Parse(JsonElement item, string? linearFeeAsset = null)
     {
         var fees = new Dictionary<string, decimal>(StringComparer.Ordinal);
         bool hasFeeDetail = item.TryGetProperty("cumFeeDetail", out JsonElement detail) && detail.ValueKind == JsonValueKind.Object;
 
-        if (hasFeeDetail)
+        if (linearFeeAsset is not null)
+        {
+            hasFeeDetail = item.TryGetProperty("cumExecFee", out JsonElement linearFee) && linearFee.ValueKind == JsonValueKind.String;
+
+            if (hasFeeDetail && decimal.Parse(linearFee.GetString()!, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture) is var paid)
+            {
+                fees[linearFeeAsset] = Math.Max(paid, val2: 0m);
+            }
+        }
+        else if (hasFeeDetail)
         {
             foreach (JsonProperty fee in detail.EnumerateObject())
             {

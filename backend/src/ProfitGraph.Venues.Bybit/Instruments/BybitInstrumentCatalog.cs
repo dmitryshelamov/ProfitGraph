@@ -66,7 +66,7 @@ internal sealed class BybitInstrumentCatalog(
     ///     Bybit publishes no coin icons without a key, so the base coin's picture comes from CoinCap's public icon set by
     ///     ticker; a coin it lacks shows the plate on the page.
     /// </summary>
-    private static InstrumentAppearanceInternal? Appearance(string baseAsset)
+    internal static InstrumentAppearanceInternal? Appearance(string baseAsset)
     {
         return baseAsset.Length <= 12 && baseAsset.All(char.IsAsciiLetterOrDigit)
             ? new InstrumentAppearanceInternal(

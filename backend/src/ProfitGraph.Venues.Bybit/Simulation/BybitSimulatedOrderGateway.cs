@@ -16,16 +16,18 @@ namespace ProfitGraph.Venues.Bybit.Simulation;
 ///     Bybit order execution simulated in memory for end-to-end tests; nothing leaves the process. A market order fills at
 ///     once at the configured price with the configured fee, a limit order rests until it is cancelled, and a lookup or a
 ///     reconciliation finds what this process placed. A restart forgets every order, so a bot with orders in flight then
-///     stays closed as it would against a venue that cannot find them.
+///     stays closed as it would against a venue that cannot find them. A USDT-perpetual gateway (ADR 0061) charges every fee in quote.
 /// </summary>
-internal sealed class BybitSimulatedOrderGateway(BybitSimulationOptions options) : IOrderGateway
+internal sealed class BybitSimulatedOrderGateway(BybitSimulationOptions options, BybitMarket? market = null) : IOrderGateway
 {
     private const int BasePrecision = 8;
+
+    private readonly BybitMarket _market = market ?? BybitMarket.Spot;
 
     private readonly ConcurrentDictionary<string, BybitSimulatedOrder> _orders = new ConcurrentDictionary<string, BybitSimulatedOrder>();
     private readonly ConcurrentDictionary<BotId, Channel<ExternalOrderUpdate>> _updates = new ConcurrentDictionary<BotId, Channel<ExternalOrderUpdate>>();
 
-    public VenueId Venue => BybitVenue.VenueId;
+    public VenueId Venue => _market.Venue;
 
     public ClientOrderId ClientOrderIdFor(BotId botId, long engineOrderId)
     {
@@ -69,7 +71,7 @@ internal sealed class BybitSimulatedOrderGateway(BybitSimulationOptions options)
         }
 
         decimal grossQuote = grossBase * price;
-        decimal fee = order.Side == OrderSide.Buy ? grossBase * options.FeeRate : grossQuote * options.FeeRate;
+        decimal fee = order.Side == OrderSide.Buy && !_market.IsLinear ? grossBase * options.FeeRate : grossQuote * options.FeeRate;
         Publish(submit.BotId, ExternalOrderUpdate.Accept(order.Id));
         Record(submit, ExternalOrderUpdate.Final(order.Id, grossBase, grossQuote, fee));
 
