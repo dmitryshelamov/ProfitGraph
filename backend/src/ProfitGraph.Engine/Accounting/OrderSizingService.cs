@@ -197,7 +197,10 @@ public sealed class OrderSizingService
                 return new OrderSizingResult(quantity, price, reservation, RejectionReason.BelowMinNotional);
             }
 
-            if (reservation > quoteAvailable)
+            // A quote-paid fee comes on top of the budget; the fill spends at most the budget plus its fee.
+            decimal marketQuoteFee = QuoteFee(reservation, rules, settings, type);
+
+            if (reservation + marketQuoteFee > quoteAvailable)
             {
                 return new OrderSizingResult(quantity, price, reservation, RejectionReason.InsufficientQuote);
             }

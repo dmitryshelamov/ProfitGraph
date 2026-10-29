@@ -35,6 +35,10 @@ neutral core changes (TC1–TC6) and keeps everything specific to T-Invest in th
   down to the step; a sell rounds down to whole lots; fees in roubles leave no fractional shares. In live the gateway
   turns a market buy budget into lots at the last price plus the bot's slippage and rejects less than one lot locally
   (`BelowMinQuantity`), as Steam prices a market buy from the lowest listing.
+- **A market buy needs its budget and its fee.** A quote-paid fee comes on top of a market buy budget, so submission
+  and preview require `budget + fee(budget)` of available quote, as a limit buy requires its cost and fee. Otherwise a
+  budget equal to nearly all the cash filled at the next open and drove the quote balance below zero, and the run ended
+  with `TradingInvariantException` (GAZP 4h, 2026-10). Bybit pays fees in the base asset and is unchanged.
 
 ### History, closures and empty intervals
 
