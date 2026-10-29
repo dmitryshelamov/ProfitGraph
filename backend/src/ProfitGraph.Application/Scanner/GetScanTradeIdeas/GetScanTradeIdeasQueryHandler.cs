@@ -1,3 +1,4 @@
+using ProfitGraph.Engine.Accounting;
 using MediatR;
 
 using ProfitGraph.Application.Scanner.Contracts;
@@ -48,7 +49,8 @@ internal sealed class GetScanTradeIdeasQueryHandler(
                         idea.EntryValidity,
                         size?.Amount,
                         size?.Risk,
-                        live.Any(trade => trade.Takes(idea.Scenario, idea.Entry, idea.Stop, idea.Target)));
+                        live.Any(trade => trade.Takes(idea.Scenario, idea.Entry, idea.Stop, idea.Target)),
+                        idea.Direction);
                 })
             ]);
     }

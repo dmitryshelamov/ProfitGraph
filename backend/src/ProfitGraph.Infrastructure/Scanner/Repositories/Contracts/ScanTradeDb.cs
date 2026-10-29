@@ -23,4 +23,5 @@ internal sealed class ScanTradeDb
     public decimal? RealizedPnl { get; init; }
     public string? FailureCode { get; init; }
     public bool BotReleased { get; init; }
+    public string Direction { get; init; } = "Long";
 }

@@ -1,3 +1,4 @@
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Scanning;
 
 namespace ProfitGraph.Application.Scanner.Contracts;
@@ -16,4 +17,5 @@ public sealed record ScanTradeIdeaInternal(
     TimeSpan EntryValidity,
     decimal? Amount,
     decimal? Risk,
-    bool Taken);
+    bool Taken,
+    PositionDirection Direction = PositionDirection.Long);

@@ -3,6 +3,7 @@ using ProfitGraph.Api.Scanner.Contracts;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Scanner.CreateScanTrade;
 using ProfitGraph.Application.Scanner.SetScanTradeSettings;
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Scanning;
 
 namespace ProfitGraph.Api.Scanner.Converters;
@@ -18,13 +19,19 @@ internal static class ScanTradeCardRequestConverter
             errors.Add(new InputError("invalid_value", nameof(request.Scenario), "Unknown scenario."));
         }
 
+        PositionDirection direction = request.Direction switch
+        {
+            null or nameof(PositionDirection.Long) => PositionDirection.Long,
+            nameof(PositionDirection.Short) => PositionDirection.Short,
+            _ => Invalid(errors, nameof(request.Direction), "Unknown direction.")
+        };
         decimal entry = Number(request.Entry, nameof(request.Entry), errors);
         decimal stop = Number(request.Stop, nameof(request.Stop), errors);
         decimal target = Number(request.Target, nameof(request.Target), errors);
 
         return errors.Count > 0
             ? throw new ApplicationValidationException(errors)
-            : new CreateScanTradeCommand(ownerId, venue, request.Symbol, request.Timeframe, scenario, entry, stop, target);
+            : new CreateScanTradeCommand(ownerId, venue, request.Symbol, request.Timeframe, scenario, entry, stop, target, direction);
     }
 
     public static SetScanTradeSettingsCommand ToCommand(this ScanTradeSettingsRequest request, Guid ownerId, string venue)
@@ -32,10 +39,18 @@ internal static class ScanTradeCardRequestConverter
         var errors = new List<InputError>();
         decimal risk = Number(request.Risk, nameof(request.Risk), errors);
         decimal maxAmount = Number(request.MaxAmount, nameof(request.MaxAmount), errors);
+        decimal? leverage = request.Leverage is null ? null : Number(request.Leverage, nameof(request.Leverage), errors);
 
         return errors.Count > 0
             ? throw new ApplicationValidationException(errors)
-            : new SetScanTradeSettingsCommand(ownerId, venue, request.CredentialId, risk, maxAmount);
+            : new SetScanTradeSettingsCommand(ownerId, venue, request.CredentialId, risk, maxAmount, leverage);
+    }
+
+    private static PositionDirection Invalid(List<InputError> errors, string field, string message)
+    {
+        errors.Add(new InputError("invalid_value", field, message));
+
+        return PositionDirection.Long;
     }
 
     private static decimal Number(string? value, string field, List<InputError> errors)

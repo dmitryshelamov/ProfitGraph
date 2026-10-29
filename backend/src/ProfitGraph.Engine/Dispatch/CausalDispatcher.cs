@@ -372,6 +372,13 @@ public sealed class CausalDispatcher
         }
 
         CompiledTradingGraph nextGraph = compilation.Graph;
+
+        // The account was opened for one direction; a running bot keeps it (ADR 0061).
+        if (nextGraph.Direction != Account.Settings.Direction)
+        {
+            return GraphChangeResultFailure("A graph change cannot turn a long run into a short one or back.");
+        }
+
         CandleValueEvaluator nextEvaluator;
 
         try

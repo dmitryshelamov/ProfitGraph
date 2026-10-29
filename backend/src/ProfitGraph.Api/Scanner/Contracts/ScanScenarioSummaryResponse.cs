@@ -13,4 +13,5 @@ public sealed record ScanScenarioSummaryResponse(
     string TotalR,
     string? MeanPercent,
     int LongestLosingStreak,
-    string? MeanMinutes);
+    string? MeanMinutes,
+    string Direction);

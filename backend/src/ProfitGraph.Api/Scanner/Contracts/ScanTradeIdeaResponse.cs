@@ -2,7 +2,7 @@ namespace ProfitGraph.Api.Scanner.Contracts;
 
 /// <summary>
 ///     A trade card's proposal (ADR 0060): the timeframe whose levels gave it, the scenario, its prices, reward-to-risk and how many
-///     minutes its entry waits; with the owner's settings, the quote it spends and risks; and whether a live trade already took it.
+///     minutes its entry waits; with the owner's settings, the quote it spends and risks; whether a live trade already took it, and its direction (ADR 0061).
 ///     Decimals are exact strings.
 /// </summary>
 public sealed record ScanTradeIdeaResponse(
@@ -15,4 +15,5 @@ public sealed record ScanTradeIdeaResponse(
     int EntryValidityMinutes,
     string? Amount,
     string? Risk,
-    bool Taken);
+    bool Taken,
+    string Direction);

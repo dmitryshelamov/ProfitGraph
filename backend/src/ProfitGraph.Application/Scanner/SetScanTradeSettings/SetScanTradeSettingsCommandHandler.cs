@@ -1,3 +1,5 @@
+using ProfitGraph.Application.MarketData;
+using ProfitGraph.Application.Bots.Ports;
 using MediatR;
 
 using ProfitGraph.Application.Accounts;
@@ -16,6 +18,7 @@ internal sealed class SetScanTradeSettingsCommandHandler(
     IEnumerable<IMarketScanSource> sources,
     IExchangeCredentialRepository credentials,
     IScanTradeSettingsRepository settings,
+    VenuePorts<IVenueLeverage> leverages,
     TimeProvider clock) : IRequestHandler<SetScanTradeSettingsCommand, ScanTradeSettingsInternal>
 {
     public async Task<ScanTradeSettingsInternal> Handle(SetScanTradeSettingsCommand command, CancellationToken cancellationToken)
@@ -31,13 +34,21 @@ internal sealed class SetScanTradeSettingsCommandHandler(
                 [new InputError(ScanTradeErrorCodes.WrongVenue, nameof(command.CredentialId), "The credential belongs to another venue.")]);
         }
 
+        bool margin = leverages.Find(venue) is not null;
+
+        if (!margin && command.Leverage is not null)
+        {
+            throw new ApplicationValidationException([new InputError("invalid_value", nameof(command.Leverage), "This venue has no leverage.")]);
+        }
+
+        decimal? leverage = margin ? command.Leverage ?? 1m : null;
         DateTimeOffset now = clock.GetUtcNow();
         ScanTradeSettings? stored = await settings.Get(owner, venue, cancellationToken);
-        ScanTradeSettings saved = stored ?? ScanTradeSettings.Create(owner, venue, credential.Id, command.Risk, command.MaxAmount, now);
+        ScanTradeSettings saved = stored ?? ScanTradeSettings.Create(owner, venue, credential.Id, command.Risk, command.MaxAmount, now, leverage);
 
         if (stored is not null)
         {
-            saved.Change(credential.Id, command.Risk, command.MaxAmount, now);
+            saved.Change(credential.Id, command.Risk, command.MaxAmount, now, leverage);
         }
 
         await settings.Save(saved, cancellationToken);

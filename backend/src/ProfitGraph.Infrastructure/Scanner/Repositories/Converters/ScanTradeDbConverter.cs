@@ -4,6 +4,7 @@ using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Scanner.Trades;
 using ProfitGraph.Domain.Strategies;
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Scanning;
 using ProfitGraph.Infrastructure.Scanner.Repositories.Contracts;
@@ -37,7 +38,8 @@ internal static class ScanTradeDbConverter
             row.Exit is null ? null : Enum.Parse<ScanTradeExit>(row.Exit),
             row.RealizedPnl,
             row.FailureCode,
-            row.BotReleased);
+            row.BotReleased,
+            Enum.Parse<PositionDirection>(row.Direction));
     }
 
     public static ScanTradeDb ToDb(this ScanTrade trade)
@@ -64,7 +66,8 @@ internal static class ScanTradeDbConverter
             Exit = trade.Exit?.ToString(),
             RealizedPnl = trade.RealizedPnl,
             FailureCode = trade.FailureCode,
-            BotReleased = trade.BotReleased
+            BotReleased = trade.BotReleased,
+            Direction = trade.Direction.ToString()
         };
     }
 
@@ -77,7 +80,9 @@ internal static class ScanTradeDbConverter
             row.Risk,
             row.MaxAmount,
             row.StrategyId is { } strategy ? new StrategyId(strategy) : null,
-            row.UpdatedAt);
+            row.UpdatedAt,
+            row.ShortStrategyId is { } shortStrategy ? new StrategyId(shortStrategy) : null,
+            row.Leverage);
     }
 
     public static ScanTradeSettingsDb ToDb(this ScanTradeSettings settings)
@@ -90,6 +95,8 @@ internal static class ScanTradeDbConverter
             Risk = settings.Risk,
             MaxAmount = settings.MaxAmount,
             StrategyId = settings.StrategyId?.Value,
+            ShortStrategyId = settings.ShortStrategyId?.Value,
+            Leverage = settings.Leverage,
             UpdatedAt = settings.UpdatedAt
         };
     }

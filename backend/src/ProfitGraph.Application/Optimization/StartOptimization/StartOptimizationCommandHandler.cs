@@ -79,6 +79,7 @@ internal sealed class StartOptimizationCommandHandler(
             () => new OptimizationConstraints(request.MinExecutions ?? 1, request.MaxDrawdownPercent ?? 50m),
             "MaxDrawdownPercent");
         CandleSeries series = venues.ResolveSeries(backtest.Venue, backtest.Symbol, backtest.Timeframe);
+        venues.EnsureDirection(series.Venue, plan.Direction);
         await credentials.Check(backtest.UserId, backtest.CredentialId, series.Venue, cancellationToken);
         BacktestConfiguration frozen = BacktestFreezing.Freeze(backtest, series, parameters, plan, clock.GetUtcNow());
         WalkForwardSettings? walkForward = request.WalkForward is { } requested ? WalkForward(requested, frozen) : null;

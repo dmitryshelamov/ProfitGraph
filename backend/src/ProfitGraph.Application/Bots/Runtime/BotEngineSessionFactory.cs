@@ -20,7 +20,8 @@ namespace ProfitGraph.Application.Bots.Runtime;
 ///     the bot's values, warms on public closed history and starts once; a stored run restores its checkpoint on the
 ///     history ending at its last candle, warms on the candles missed since and resumes without <c>Start</c>. History, rules
 ///     and gaps are read with the bot's credential as market data access, and history reaches back over market closures
-///     (ADR 0023, TC3).
+///     (ADR 0023, TC3). On a margin venue the run reserves margin at the bot's leverage and trades in its plan's direction
+///     (ADR 0061); a short plan anywhere else does not open.
 /// </summary>
 public sealed class BotEngineSessionFactory(
     IStrategyRepository strategies,
@@ -31,6 +32,7 @@ public sealed class BotEngineSessionFactory(
     BacktestCompiler compiler,
     BotRootCommitter committer,
     BotMarketDataAccess access,
+    VenuePorts<IVenueLeverage> leverages,
     TimeProvider clock)
 {
     public async Task<BotEngineSession> Open(Bot bot, LeaseHolderId holder, long epoch, IOrderGateway gateway, CancellationToken cancellationToken)
@@ -57,6 +59,15 @@ public sealed class BotEngineSessionFactory(
         ExecutionSettings settings = bot.FeeRates.SellerFees is { } sellerFees
             ? new ExecutionSettings(capital, slippage: 0m, sellerFees)
             : new ExecutionSettings(capital, slippage: 0m, bot.FeeRates.LimitRate, bot.FeeRates.MarketRate);
+
+        if (leverages.Find(bot.Series.Venue) is { } margin)
+        {
+            settings = settings.WithMargin(margin.Leverage(bot.VenueSettings)).WithDirection(plan.Direction);
+        }
+        else if (plan.Direction == PositionDirection.Short)
+        {
+            throw new OrderGatewaySafetyException(BotStatusReason.UnknownVenue, "A short strategy runs only on a margin venue.");
+        }
         Timeframe timeframe = bot.Series.Timeframe;
         DateTimeOffset to = timeframe.FloorToGrid(clock.GetUtcNow());
         DateTimeOffset through = stored?.Engine.LastClosedCandle.OpenTime ?? to - timeframe.Duration;

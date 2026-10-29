@@ -22,4 +22,5 @@ public sealed record ScanLiveTradeResponse(
     DateTimeOffset? OpenedAt,
     DateTimeOffset? ClosedAt,
     string? RealizedPnl,
-    string? FailureCode);
+    string? FailureCode,
+    string Direction);
