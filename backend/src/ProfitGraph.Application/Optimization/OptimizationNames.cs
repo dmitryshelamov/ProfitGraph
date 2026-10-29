@@ -11,6 +11,8 @@ public static class OptimizationNames
 
     public static IReadOnlyList<string> Methods { get; } = ["auto", "grid", "random", "coarse_to_fine", "tpe"];
 
+    public static IReadOnlyList<string> ListStates { get; } = ["active", "completed", "failed", "cancelled"];
+
     public static IReadOnlyList<string> Objectives { get; } = ["in_sample_return_percent", "in_sample_total_pnl", "in_sample_return_to_drawdown"];
 
     public static string Method(OptimizationSearchMethod method)
@@ -34,6 +36,21 @@ public static class OptimizationNames
             "coarse_to_fine" => OptimizationSearchMethod.CoarseToFine,
             "tpe" => OptimizationSearchMethod.Tpe,
             _ => throw new ArgumentOutOfRangeException(nameof(method))
+        };
+    }
+
+    /// <summary>
+    ///     The listed state of a transport name, or null for an unknown one.
+    /// </summary>
+    public static OptimizationListState? ParseListState(string state)
+    {
+        return state switch
+        {
+            "active" => OptimizationListState.Active,
+            "completed" => OptimizationListState.Completed,
+            "failed" => OptimizationListState.Failed,
+            "cancelled" => OptimizationListState.Cancelled,
+            _ => null
         };
     }
 

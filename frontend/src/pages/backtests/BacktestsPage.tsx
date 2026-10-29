@@ -1,102 +1,94 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { useDeferredValue, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 
-import { type RankingOrder, rankingQuery, type RankingSort, RunsTable } from '@/modules/backtests';
-import { CompareToggle } from '@/modules/comparison';
-import { strategiesQuery } from '@/modules/strategies';
-import { Button } from '@/shared/ui/Button';
+import { backtestKeys } from '@/modules/backtests';
+import { activeJobsFingerprint, ActiveJobsPanel, activeJobsQuery } from '@/modules/jobs';
+import { optimizationKeys } from '@/modules/optimizations';
 import { Card } from '@/shared/ui/Card';
-import { Field } from '@/shared/ui/Field';
-import { Input } from '@/shared/ui/Input';
 import { PageHeader } from '@/shared/ui/PageHeader';
 
-const fallbackQuote = 'USDT';
+import { OptimizationsList } from './OptimizationsList';
+import { RunsList } from './RunsList';
+import { backtestsRoute, type ListSearch } from './search';
+
+const tabs = [
+  { id: 'runs', label: 'Прогоны' },
+  { id: 'optimizations', label: 'Оптимизации' },
+] as const;
 
 /**
- * The user's completed runs in one quote currency, sorted by a result column (best full-period return first by default);
- * returns in different currencies are not compared. The currency starts as the one of the user's most recent run.
- * Runs can be picked for a side-by-side comparison.
+ * The user's background work and its results: what runs and waits in the Worker's queues, then finished runs and
+ * optimizations with filters kept in the address. A job that starts, pauses or ends refreshes the lists.
  */
 export function BacktestsPage() {
-  const strategies = useQuery(strategiesQuery());
-  const [typedQuote, setQuote] = useState<string | null>(null);
-  const quote = typedQuote ?? latestQuote(strategies.data) ?? fallbackQuote;
-  const deferred = useDeferredValue(quote.trim().toUpperCase());
-  const [sort, setSort] = useState<RankingSort>('return');
-  const [order, setOrder] = useState<RankingOrder>('desc');
-  const options = rankingQuery(deferred, sort, order);
-  const ranking = useInfiniteQuery({
-    ...options,
-    enabled: options.enabled && (strategies.isFetched || typedQuote !== null),
-  });
-  const runs = ranking.data?.pages.flatMap((page) => page.items) ?? [];
+  const search = backtestsRoute.useSearch();
+  const navigate = backtestsRoute.useNavigate();
+  const queryClient = useQueryClient();
+  const active = useQuery(activeJobsQuery());
+  const fingerprint = active.data ? activeJobsFingerprint(active.data.jobs) : undefined;
+  const seen = useRef<string | undefined>(undefined);
+  const tab = search.tab ?? 'runs';
+
+  useEffect(() => {
+    if (fingerprint === undefined) {
+      return;
+    }
+
+    if (seen.current !== undefined && seen.current !== fingerprint) {
+      void queryClient.invalidateQueries({ queryKey: backtestKeys.rankings });
+      void queryClient.invalidateQueries({ queryKey: backtestKeys.facets });
+      void queryClient.invalidateQueries({ queryKey: optimizationKeys.lists });
+    }
+
+    seen.current = fingerprint;
+  }, [fingerprint, queryClient]);
+
+  function update(changes: Partial<ListSearch>) {
+    void navigate({
+      search: (previous) =>
+        Object.fromEntries(
+          Object.entries({ ...previous, ...changes }).filter(([, value]) => value !== undefined),
+        ),
+      replace: true,
+    });
+  }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
         title="Прогоны"
-        meta="Завершённые прогоны; столбцы итогов сортируют список, флажки выбирают прогоны для сравнения."
+        meta="Что сейчас выполняется и ждёт в очереди, завершённые прогоны и оптимизации. Фильтры сохраняются в адресе страницы."
       />
+      <ActiveJobsPanel />
       <Card>
-        <Field label="Валюта котировки" className="mb-4 w-48">
-          <Input
-            value={quote}
-            onChange={(event) => setQuote(event.target.value)}
-            spellCheck={false}
-          />
-        </Field>
-        {ranking.isError ? (
-          <p role="alert" className="text-danger-text">
-            Не удалось загрузить прогоны.
-          </p>
-        ) : runs.length === 0 ? (
-          <p className="text-muted">
-            {ranking.isPending ? 'Загрузка…' : 'Завершённых прогонов в этой валюте нет.'}
-          </p>
-        ) : (
-          <>
-            <RunsTable
-              runs={runs}
-              showStrategy
-              sorting={{
-                sort,
-                order,
-                onSort: (column, direction) => {
-                  setSort(column);
-                  setOrder(direction);
-                },
-              }}
-              action={(run) => (
-                <CompareToggle
-                  item={{ kind: 'run', id: run.id }}
-                  label={`Сравнить прогон ${run.symbol}`}
-                />
-              )}
-            />
-            {ranking.hasNextPage && (
-              <Button
-                size="sm"
-                className="mt-3"
-                disabled={ranking.isFetchingNextPage}
-                onClick={() => void ranking.fetchNextPage()}
-              >
-                Показать ещё
-              </Button>
-            )}
-          </>
-        )}
+        <div role="tablist" aria-label="Списки" className="mb-4 flex gap-4 border-b border-line">
+          {tabs.map((item) => (
+            <button
+              key={item.id}
+              id={`tab-${item.id}`}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.id}
+              aria-controls={`panel-${item.id}`}
+              onClick={() => update({ tab: item.id === 'runs' ? undefined : item.id })}
+              className={`-mb-px border-b-2 px-1 pb-2 text-sm ${
+                tab === item.id
+                  ? 'border-text text-text'
+                  : 'border-transparent text-text-secondary hover:text-text'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+          {tab === 'runs' ? (
+            <RunsList search={search} update={update} />
+          ) : (
+            <OptimizationsList search={search} update={update} />
+          )}
+        </div>
       </Card>
     </div>
   );
-}
-
-/** The quote currency of the most recently created run among the strategies' latest runs. */
-function latestQuote(
-  strategies:
-    | ReadonlyArray<{ latestRun: { createdAt: string; quoteAsset: string | null } | null }>
-    | undefined,
-) {
-  return strategies
-    ?.flatMap((strategy) => (strategy.latestRun?.quoteAsset ? [strategy.latestRun] : []))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]?.quoteAsset;
 }

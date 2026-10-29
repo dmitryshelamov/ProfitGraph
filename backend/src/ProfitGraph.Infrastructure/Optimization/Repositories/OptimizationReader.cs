@@ -6,6 +6,7 @@ using ProfitGraph.Application.Optimization;
 using ProfitGraph.Application.Optimization.Contracts;
 using ProfitGraph.Application.Optimization.Ports;
 using ProfitGraph.Domain.Accounts;
+using ProfitGraph.Domain.Jobs;
 using ProfitGraph.Domain.Optimization;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Infrastructure.Common.Postgres;
@@ -63,28 +64,61 @@ internal sealed class OptimizationReader(NpgsqlConnection connection, PostgresTr
         return new OptimizationTrialPageInternal(page, rows.Length > limit ? page[^1].Sequence : null);
     }
 
-    public async Task<OptimizationSummaryPageInternal> ForStrategy(StrategyId strategyId, Guid? after, int limit, CancellationToken cancellationToken)
+    public Task<OptimizationSummaryPageInternal> ForStrategy(StrategyId strategyId, Guid? after, int limit, CancellationToken cancellationToken)
     {
-        OptimizationSummaryDb[] rows =
-        [
-            .. await connection.QueryAsync<OptimizationSummaryDb>(
-                Command(OptimizationReadQueries.ForStrategy, new { StrategyId = strategyId.Value, After = after, Take = limit + 1 }, cancellationToken))
-        ];
-        OptimizationSummaryInternal[] page =
-        [
-            .. rows.Take(limit)
-                .Select(row => new OptimizationSummaryInternal(
-                    row.Id,
-                    row.StrategyVersion,
-                    row.CreatedAt.ToUniversalTime(),
-                    row.Venue,
-                    row.Symbol,
-                    row.Timeframe,
-                    OptimizationNames.Method(Enum.Parse<OptimizationSearchMethod>(row.Method)),
-                    row.Status,
-                    row.ExecutedTrials,
-                    row.BestObjective))
-        ];
+        return Summaries(OptimizationReadQueries.ForStrategy, new { StrategyId = strategyId.Value, After = after, Take = limit + 1 }, limit, cancellationToken);
+    }
+
+    public Task<OptimizationSummaryPageInternal> List(
+        UserId ownerId,
+        OptimizationListFilterInternal filter,
+        Guid? after,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        var parameters = new
+        {
+            OwnerId = ownerId.Value,
+            Statuses = filter.State is { } state ? Statuses(state) : null,
+            filter.StrategyId,
+            filter.Venue,
+            Search = filter.Search is { } search ? $"%{EscapeLike(search)}%" : null,
+            filter.Timeframe,
+            Method = filter.Method?.ToString(),
+            After = after,
+            Take = limit + 1
+        };
+
+        return Summaries(OptimizationReadQueries.List, parameters, limit, cancellationToken);
+    }
+
+    /// <summary>
+    ///     The job statuses of a listed state; a paused optimization is still active.
+    /// </summary>
+    private static string[] Statuses(OptimizationListState state)
+    {
+        return state switch
+        {
+            OptimizationListState.Active => [nameof(BackgroundJobStatus.Queued), nameof(BackgroundJobStatus.Running), nameof(BackgroundJobStatus.Paused)],
+            OptimizationListState.Completed => [nameof(BackgroundJobStatus.Completed)],
+            OptimizationListState.Failed => [nameof(BackgroundJobStatus.Failed)],
+            OptimizationListState.Cancelled => [nameof(BackgroundJobStatus.Cancelled)],
+            _ => throw new ArgumentOutOfRangeException(nameof(state))
+        };
+    }
+
+    /// <summary>
+    ///     Escapes the <c>ILIKE</c> wildcards of a typed search so that it matches as plain text.
+    /// </summary>
+    private static string EscapeLike(string text)
+    {
+        return text.Replace(@"\", @"\\", StringComparison.Ordinal).Replace("%", @"\%", StringComparison.Ordinal).Replace("_", @"\_", StringComparison.Ordinal);
+    }
+
+    private async Task<OptimizationSummaryPageInternal> Summaries(string sql, object parameters, int limit, CancellationToken cancellationToken)
+    {
+        OptimizationSummaryDb[] rows = [.. await connection.QueryAsync<OptimizationSummaryDb>(Command(sql, parameters, cancellationToken))];
+        OptimizationSummaryInternal[] page = [.. rows.Take(limit).Select(row => row.ToInternal())];
 
         return new OptimizationSummaryPageInternal(page, rows.Length > limit ? page[^1].Id : null);
     }

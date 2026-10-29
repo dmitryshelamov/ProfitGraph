@@ -21,4 +21,9 @@ public interface IOptimizationReader
     Task<OptimizationTrialPageInternal> Trials(OptimizationId id, long afterSequence, int limit, CancellationToken cancellationToken);
 
     Task<OptimizationSummaryPageInternal> ForStrategy(StrategyId strategyId, Guid? after, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     The owner's optimizations that pass the filter, newest first.
+    /// </summary>
+    Task<OptimizationSummaryPageInternal> List(UserId ownerId, OptimizationListFilterInternal filter, Guid? after, int limit, CancellationToken cancellationToken);
 }

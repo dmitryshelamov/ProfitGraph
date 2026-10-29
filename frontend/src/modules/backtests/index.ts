@@ -1,7 +1,14 @@
 export { startBacktest } from './api/backtestsApi';
-export type { RankingOrder, RankingSort } from './api/runsApi';
+export type {
+  RankingFilters,
+  RankingOrder,
+  RankingOrigin,
+  RankingSort,
+  RankingStatus,
+} from './api/runsApi';
 export {
   backtestChartQuery,
+  backtestFacetsQuery,
   backtestKeys,
   backtestRunQuery,
   rankingQuery,

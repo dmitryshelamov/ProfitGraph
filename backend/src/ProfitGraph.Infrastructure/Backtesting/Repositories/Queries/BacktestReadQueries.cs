@@ -76,7 +76,7 @@ internal static class BacktestReadQueries
         SELECT r.id AS Id, r.strategy_id AS StrategyId, s.name AS StrategyName, r.strategy_version AS StrategyVersion,
             r.configuration ->> 'venue' AS Venue, r.configuration ->> 'symbol' AS Symbol, r.configuration ->> 'timeframe' AS Timeframe,
             r.created_at AS CreatedAt, j.status AS Status, r.outcome AS Outcome, r.quote_asset AS QuoteAsset, r.total_pnl AS TotalPnl,
-            r.return_percent AS ReturnPercent, r.max_drawdown_percent AS MaxDrawdownPercent
+            r.return_percent AS ReturnPercent, r.max_drawdown_percent AS MaxDrawdownPercent, r.optimization_id AS OptimizationId
         FROM backtest_runs r
         JOIN background_jobs j ON j.id = r.id
         JOIN strategies s ON s.id = r.strategy_id
@@ -101,8 +101,50 @@ internal static class BacktestReadQueries
          """;
 
     /// <summary>
+    ///     The filter values of the owner's finished runs with their counts, most runs first in each dimension. Quotes count
+    ///     the completed runs with a result only, the population the ranking compares.
+    /// </summary>
+    public const string Facets =
+        $"""
+         WITH finished AS (
+             SELECT r.strategy_id, s.name, r.quote_asset, r.optimization_id, r.configuration ->> 'venue' AS venue,
+                 r.configuration ->> 'timeframe' AS timeframe, {StatusCategory} AS category
+             FROM backtest_runs r
+             JOIN background_jobs j ON j.id = r.id
+             JOIN strategies s ON s.id = r.strategy_id
+             WHERE r.owner_id = @OwnerId
+         )
+         SELECT 'quote' AS Dimension, quote_asset AS Value, NULL AS Name, count(*)::int AS Count FROM finished WHERE category = 'completed' GROUP BY quote_asset
+         UNION ALL
+         SELECT 'status', category, NULL, count(*)::int FROM finished WHERE category IS NOT NULL GROUP BY category
+         UNION ALL
+         SELECT 'origin', CASE WHEN optimization_id IS NULL THEN 'manual' ELSE 'optimization' END, NULL, count(*)::int
+         FROM finished WHERE category IS NOT NULL GROUP BY 2
+         UNION ALL
+         SELECT 'venue', venue, NULL, count(*)::int FROM finished WHERE category IS NOT NULL GROUP BY venue
+         UNION ALL
+         SELECT 'timeframe', timeframe, NULL, count(*)::int FROM finished WHERE category IS NOT NULL GROUP BY timeframe
+         UNION ALL
+         SELECT 'strategy', strategy_id::text, name, count(*)::int FROM finished WHERE category IS NOT NULL GROUP BY strategy_id, name
+         ORDER BY Dimension, Count DESC, Value;
+         """;
+
+    /// <summary>
+    ///     How a run ended for the lists: completed with a result, failed or cancelled; null while it is queued or running.
+    ///     A job that completed without a result ended with the engine's failed or cancelled outcome.
+    /// </summary>
+    private const string StatusCategory =
+        """
+        CASE WHEN r.return_percent IS NOT NULL THEN 'completed'
+            WHEN j.status = 'Failed' OR r.outcome = 'failed' THEN 'failed'
+            WHEN j.status = 'Cancelled' OR r.outcome = 'cancelled' THEN 'cancelled'
+        END
+        """;
+
+    /// <summary>
     ///     The ranking ordered by one whitelisted column, with start time and identifier breaking ties in the same direction
-    ///     so that the cursor row compares as a tuple.
+    ///     so that the cursor row compares as a tuple. A null filter parameter does not filter; <c>@Search</c> is an
+    ///     escaped <c>ILIKE</c> pattern.
     /// </summary>
     public static string Ranking(string column, bool ascending)
     {
@@ -111,9 +153,18 @@ internal static class BacktestReadQueries
 
         return $"""
                 {Summary}
-                WHERE r.owner_id = @OwnerId AND r.quote_asset = @Quote AND r.return_percent IS NOT NULL AND {column} IS NOT NULL
+                WHERE r.owner_id = @OwnerId AND {StatusCategory} = @Status AND {column} IS NOT NULL
+                    AND (@Quote::text IS NULL OR r.quote_asset = @Quote::text)
+                    AND (@StrategyId::uuid IS NULL OR r.strategy_id = @StrategyId::uuid)
+                    AND (@Venue::text IS NULL OR r.configuration ->> 'venue' = @Venue::text)
                     AND (@Symbol::text IS NULL OR r.configuration ->> 'symbol' = @Symbol::text)
+                    AND (@Search::text IS NULL OR r.configuration ->> 'symbol' ILIKE @Search::text ESCAPE '\' OR s.name ILIKE @Search::text ESCAPE '\')
                     AND (@Timeframe::text IS NULL OR r.configuration ->> 'timeframe' = @Timeframe::text)
+                    AND (@Origin::text IS NULL OR (r.optimization_id IS NOT NULL) = (@Origin::text = 'optimization'))
+                    AND (@From::timestamptz IS NULL OR r.created_at >= @From::timestamptz)
+                    AND (@To::timestamptz IS NULL OR r.created_at < @To::timestamptz)
+                    AND (@MinReturn::numeric IS NULL OR r.return_percent >= @MinReturn::numeric)
+                    AND (@MaxDrawdown::numeric IS NULL OR r.max_drawdown_percent <= @MaxDrawdown::numeric)
                     AND (@After::uuid IS NULL OR ({column}, r.created_at, r.id) {compare}
                         (SELECT {column.Replace("r.", "c.")}, c.created_at, c.id FROM backtest_runs c WHERE c.id = @After::uuid))
                 ORDER BY {column} {direction}, r.created_at {direction}, r.id {direction}

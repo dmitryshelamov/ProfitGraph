@@ -2,6 +2,10 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 
+using Dapper;
+
+using Npgsql;
+
 using ProfitGraph.Tests.Integration.Common;
 
 namespace ProfitGraph.Tests.Integration.Jobs;
@@ -53,13 +57,58 @@ public sealed class JobsEndpointTests
     }
 
     [Test]
+    public async Task ActiveJobsAreTheOwnersQueuedJobsInTheWorkersOrder_CountingOtherUsersJobsAhead()
+    {
+        await using var application = new ProfitGraphApiFactory();
+        using HttpClient owner = await application.CreateSignedInClient();
+        using HttpClient other = await application.CreateSignedInClient();
+        Guid ownerId = await JobScenario.UserId(owner);
+        var request = new TestJobRequest(Steps: 1, StepMilliseconds: 1);
+        Guid first = await JobScenario.Queue(application, ownerId, request);
+        Guid foreign = await JobScenario.Queue(application, await JobScenario.UserId(other), request);
+        Guid second = await JobScenario.Queue(application, ownerId, request);
+        Guid cancelled = await JobScenario.Queue(application, ownerId, request);
+        (await owner.PostAsync($"/api/jobs/{cancelled}/cancel", content: null)).StatusCode.ShouldBe(HttpStatusCode.Accepted);
+
+        JsonNode[] jobs = [.. (await owner.GetFromJsonAsync<JsonNode>("/api/jobs/active"))!["jobs"]!.AsArray().Select(job => job!)];
+        JsonNode[] foreignJobs = [.. (await other.GetFromJsonAsync<JsonNode>("/api/jobs/active"))!["jobs"]!.AsArray().Select(job => job!)];
+
+        jobs.Select(job => job["id"]!.GetValue<Guid>()).ShouldBe([first, second]);
+        jobs.ShouldAllBe(job => job["kind"]!.GetValue<string>() == "test_job" && job["lane"]!.GetValue<string>() == "main"
+            && job["status"]!.GetValue<string>() == "Queued" && job["strategyId"] == null);
+        jobs[1]["queuePosition"]!.GetValue<int>().ShouldBe(jobs[0]["queuePosition"]!.GetValue<int>() + 2);
+        foreignJobs.Select(job => job["id"]!.GetValue<Guid>()).ShouldBe([foreign]);
+        foreignJobs[0]["queuePosition"]!.GetValue<int>().ShouldBe(jobs[0]["queuePosition"]!.GetValue<int>() + 1);
+    }
+
+    [Test]
+    public async Task ActiveJobsTellWhetherTheWorkerBeatsItsHeartbeat()
+    {
+        await using var application = new ProfitGraphApiFactory();
+        using HttpClient client = await application.CreateSignedInClient();
+        await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+        await connection.OpenAsync();
+
+        await connection.ExecuteAsync(
+            "INSERT INTO worker_heartbeats (name, beat_at) VALUES ('worker', now() - interval '1 hour') ON CONFLICT (name) DO UPDATE SET beat_at = EXCLUDED.beat_at");
+        var stale = (await client.GetFromJsonAsync<JsonNode>("/api/jobs/active"))!["workerOnline"]!.GetValue<bool>();
+        await connection.ExecuteAsync("UPDATE worker_heartbeats SET beat_at = now() WHERE name = 'worker'");
+        var fresh = (await client.GetFromJsonAsync<JsonNode>("/api/jobs/active"))!["workerOnline"]!.GetValue<bool>();
+
+        stale.ShouldBeFalse();
+        fresh.ShouldBeTrue();
+    }
+
+    [Test]
     public async Task JobsRequireSignIn()
     {
         await using var application = new ProfitGraphApiFactory();
         using HttpClient anonymous = application.CreateClient();
 
         using HttpResponseMessage response = await anonymous.GetAsync($"/api/jobs/{Guid.NewGuid()}");
+        using HttpResponseMessage active = await anonymous.GetAsync("/api/jobs/active");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        active.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 }

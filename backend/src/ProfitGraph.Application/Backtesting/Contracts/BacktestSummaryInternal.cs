@@ -1,7 +1,8 @@
 namespace ProfitGraph.Application.Backtesting.Contracts;
 
 /// <summary>
-///     A run in a list: what it ran on, its job status and, once it completed, its result.
+///     A run in a list: what it ran on, its job status, the optimization that started it, if any, and, once it completed,
+///     its result.
 /// </summary>
 public sealed record BacktestSummaryInternal(
     Guid Id,
@@ -17,4 +18,5 @@ public sealed record BacktestSummaryInternal(
     string? QuoteAsset,
     decimal? TotalPnl,
     decimal? ReturnPercent,
-    decimal? MaxDrawdownPercent);
+    decimal? MaxDrawdownPercent,
+    Guid? OptimizationId);

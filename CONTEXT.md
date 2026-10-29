@@ -100,9 +100,15 @@ range and fill counts. A run keeps at most 5000 buckets.
 ### Background Job
 
 Durable work that runs in the Worker after the request that started it has returned, such as a history download
-or a backtest: queued, running, then completed, failed or cancelled, with progress. A job belongs to the user who
-started it; cancelling a running job is a request that the Worker honours. See
+or a backtest: queued, running, then completed, failed or cancelled, with progress; an optimization can also be
+paused. A job belongs to the user who started it; cancelling a running job is a request that the Worker honours. See
 [ADR 0011](docs/adr/0011-background-jobs.md).
+
+### Worker Lane
+
+One queue of the Worker that runs one job at a time: `main` for history downloads and backtests, `optimization` for
+optimizations, so a long search never holds back a backtest. A queued job's place in its lane counts every user's
+queued jobs, in the order the Worker claims them: oldest first.
 
 ### Venue Bot Settings
 

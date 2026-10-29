@@ -26,8 +26,16 @@ internal sealed class WorkerHeartbeatHealthCheck(NpgsqlDataSource dataSource, IO
 
         TimeSpan age = clock.GetUtcNow() - new DateTimeOffset(DateTime.SpecifyKind(beatAt, DateTimeKind.Utc));
 
-        return age <= options.Value.PollingInterval * 3
+        return IsFresh(age, options.Value)
             ? HealthCheckResult.Healthy()
             : HealthCheckResult.Degraded($"The Worker last reported {age.TotalSeconds:F0} s ago: background jobs are not processed.");
+    }
+
+    /// <summary>
+    ///     A heartbeat younger than three polling intervals means the Worker is processing jobs.
+    /// </summary>
+    internal static bool IsFresh(TimeSpan age, BackgroundJobOptions options)
+    {
+        return age <= options.PollingInterval * 3;
     }
 }
