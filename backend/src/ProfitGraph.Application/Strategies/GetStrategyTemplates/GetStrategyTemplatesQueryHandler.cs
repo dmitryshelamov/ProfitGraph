@@ -31,6 +31,7 @@ internal sealed class GetStrategyTemplatesQueryHandler : IRequestHandler<GetStra
         StrategyDefinition macdTrend = MacdTrendStrategyBlockFactory.Create();
         StrategyDefinition rsiReversion = RsiReversionStrategyBlockFactory.Create();
         StrategyDefinition bollingerReversion = BollingerReversionStrategyBlockFactory.Create();
+        StrategyDefinition levelTrade = LevelTradeStrategyBlockFactory.Create();
         IReadOnlyList<StrategyTemplateInternal> templates =
         [
             new StrategyTemplateInternal(
@@ -110,7 +111,13 @@ internal sealed class GetStrategyTemplatesQueryHandler : IRequestHandler<GetStra
                 "Возврат от полосы Боллинджера",
                 "Покупка после закрытия ниже нижней полосы Боллинджера; выход при возврате к средней линии или по стопу.",
                 bollingerReversion.ToInternal(),
-                StrategyTemplateLayouts.IndicatorSignal().ToInternal())
+                StrategyTemplateLayouts.IndicatorSignal().ToInternal()),
+            new StrategyTemplateInternal(
+                levelTrade.TemplateKind!.Value,
+                "Сделка по уровням",
+                "Одна сделка: лимитная покупка на входе, лимитная продажа на цели и продажа по рынку, когда свеча закрылась на стопе или ниже; карточки сканера запускают её отдельным ботом.",
+                levelTrade.ToInternal(),
+                StrategyTemplateLayouts.LevelTrade().ToInternal())
         ];
 
         return Task.FromResult(templates);

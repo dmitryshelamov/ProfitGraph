@@ -17,7 +17,8 @@ public sealed class TemplateParameterRulesTests
         SmaStrategyBlockFactory.Create(), LadderStrategyBlockFactory.Create(), LadderResumeStrategyBlockFactory.Create(), LadderSmaStrategyBlockFactory.Create(),
         ProfitFoxLadderStrategyBlockFactory.Create(), LadderPlusStrategyBlockFactory.Create(), ProfitFoxDcaStrategyBlockFactory.Create(),
         CapitulationDipStrategyBlockFactory.Create(), VolumeMomentumStrategyBlockFactory.Create(), EmaCrossoverStrategyBlockFactory.Create(),
-        MacdTrendStrategyBlockFactory.Create(), RsiReversionStrategyBlockFactory.Create(), BollingerReversionStrategyBlockFactory.Create()
+        MacdTrendStrategyBlockFactory.Create(), RsiReversionStrategyBlockFactory.Create(), BollingerReversionStrategyBlockFactory.Create(),
+        LevelTradeStrategyBlockFactory.Create()
     ];
 
     [TestCaseSource(nameof(Templates))]
@@ -44,6 +45,8 @@ public sealed class TemplateParameterRulesTests
         AssertSingle(RsiReversionStrategyBlockFactory.Create(rsiExit: 100m), "rsiExit", "RSI reversion requires rsiExit < 100.");
         AssertSingle(RsiReversionStrategyBlockFactory.Create(stopLoss: 1m), "stopLoss", "RSI reversion requires 0 < stopLoss < 1.");
         AssertSingle(BollingerReversionStrategyBlockFactory.Create(stopLoss: 1m), "stopLoss", "Bollinger reversion requires 0 < stopLoss < 1.");
+        AssertSingle(LevelTradeStrategyBlockFactory.Create(stopPrice: 100m), "stopPrice", "A level trade requires stopPrice < entryPrice.");
+        AssertSingle(LevelTradeStrategyBlockFactory.Create(targetPrice: 99m), "targetPrice", "A level trade requires entryPrice < targetPrice.");
     }
 
     [Test]

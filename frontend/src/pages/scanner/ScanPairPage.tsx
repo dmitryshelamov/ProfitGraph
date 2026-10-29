@@ -3,25 +3,33 @@ import { getRouteApi, Link } from '@tanstack/react-router';
 
 import {
   defaultScanChartTimeframe,
-  rowLevels,
   scanChartTimeframes,
+  scanLevelsQuery,
   ScanPairChart,
   ScanRowMetrics,
   scanSnapshotQuery,
+  ScanTimeframeLevels,
+  ScanTradePanel,
+  timeframeLevels,
   useScanSnapshotUpdates,
 } from '@/modules/scanner';
+import { ApiErrorMessage } from '@/shared/ui/ApiErrorMessage';
 import { Card } from '@/shared/ui/Card';
 import { DateTime } from '@/shared/ui/DateTime';
 import { PageHeader } from '@/shared/ui/PageHeader';
 
 const route = getRouteApi('/_authenticated/_shell/scanner/$venue/$symbol');
 
-/** A scanner pair (ADR 0059): its chart on a chosen timeframe and its metrics from the latest snapshot. */
+/**
+ * A scanner pair (ADR 0059): its chart on a chosen timeframe with that timeframe's support, resistance and reward-to-risk,
+ * and its metrics from the latest snapshot, which stay on hours.
+ */
 export function ScanPairPage() {
   const { venue, symbol } = route.useParams();
   const { timeframe = defaultScanChartTimeframe } = route.useSearch();
   const snapshot = useQuery(scanSnapshotQuery(venue));
   const row = snapshot.data?.rows.find((item) => item.symbol === symbol);
+  const levels = useQuery(scanLevelsQuery(venue, symbol, timeframe));
 
   useScanSnapshotUpdates(venue);
 
@@ -60,26 +68,40 @@ export function ScanPairPage() {
             venue={venue}
             symbol={symbol}
             timeframe={timeframe}
-            levels={rowLevels(row)}
+            levels={timeframeLevels(levels.data)}
           />
         </Card>
-        <Card title="Метрики">
-          {row ? (
-            <div className="space-y-3">
-              <ScanRowMetrics row={row} />
-              {snapshot.data?.computedAt && (
-                <p className="text-xs text-muted">
-                  Снимок <DateTime value={snapshot.data.computedAt} />
-                </p>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-muted">
-              {snapshot.isPending ? 'Загрузка…' : 'Пары нет в последнем снимке сканера.'}
-            </p>
-          )}
-        </Card>
+        <div className="space-y-6">
+          <Card title={`Уровни ${timeframe}`}>
+            {levels.data ? (
+              <ScanTimeframeLevels levels={levels.data} />
+            ) : levels.isError ? (
+              <ApiErrorMessage error={levels.error} fallback="Не удалось посчитать уровни." />
+            ) : (
+              <p className="text-sm text-muted">Загрузка…</p>
+            )}
+          </Card>
+          <Card title="Метрики (уровни по 1h)">
+            {row ? (
+              <div className="space-y-3">
+                <ScanRowMetrics row={row} />
+                {snapshot.data?.computedAt && (
+                  <p className="text-xs text-muted">
+                    Снимок <DateTime value={snapshot.data.computedAt} />
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted">
+                {snapshot.isPending ? 'Загрузка…' : 'Пары нет в последнем снимке сканера.'}
+              </p>
+            )}
+          </Card>
+        </div>
       </div>
+      <Card title="Идеи входа по всем таймфреймам">
+        <ScanTradePanel venue={venue} symbol={symbol} />
+      </Card>
     </div>
   );
 }

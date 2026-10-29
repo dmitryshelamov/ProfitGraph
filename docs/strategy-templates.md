@@ -20,6 +20,7 @@ trial whose selections break a relation. The replay engine never branches on the
 | `MacdTrend` | MACD по тренду | Trend: buy on a MACD cross above its signal line while the price is above a trend EMA |
 | `RsiReversion` | Отскок RSI | Counter-trend: buy when RSI returns above an oversold level |
 | `BollingerReversion` | Возврат от полосы Боллинджера | Counter-trend: buy on a close below the lower Bollinger band, sell at the middle band |
+| `LevelTrade` | Сделка по уровням | One trade between given prices: a limit entry, a limit target and a stop on the close; the scanner's trade cards run it ([ADR 0060](adr/0060-scanner-trade-cards.md)) |
 
 ## Indicator templates
 
@@ -64,6 +65,20 @@ Parameter rules (besides every named parameter being positive):
 | `MacdTrend` | `macdFast < macdSlow`, `stopLoss < 1` |
 | `RsiReversion` | `rsiEntry < rsiExit < 100`, `stopLoss < 1` |
 | `BollingerReversion` | `stopLoss < 1` |
+| `LevelTrade` | `stopPrice < entryPrice < targetPrice` |
 
 Periods outside 1–200 are rejected by the engine for every strategy (`UnboundedIndicatorPeriod`), so the templates do
 not repeat that rule.
+
+## Level trade
+
+`LevelTrade` places one trade and never buys again in the same run, so a bot runs it once:
+
+- **Entry.** On `OnStart`, with no working order and a flat position, a limit buy of `buyAmount` quote at `entryPrice`
+  (tag `level.entry`).
+- **Target.** When the entry fills, or is cancelled after a partial fill, a limit sale of the free base at `targetPrice`
+  (`level.target`), unless the last close is already at or below the stop.
+- **Stop.** On a closed candle with a position, a close at or below `stopPrice` cancels the entry and the target and sells the free
+  base by market (`level.stop`); a low below the stop with a close above it keeps the position. A gap can sell well below the
+  stop.
+- **Expiry** is not in the graph: the scanner's tracking cancels an overdue entry through the owner's cancel (ADR 0060).

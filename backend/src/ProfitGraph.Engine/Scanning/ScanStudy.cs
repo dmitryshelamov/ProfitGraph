@@ -14,7 +14,6 @@ public static class ScanStudy
     private const decimal Percent = 100m;
     private const int MinutesPerDay = 1440;
     private const int MinutesPerHour = 60;
-    private const int PullbackWaitMinutes = 240;
     private const decimal FeeRate = 0.001m;
     private const decimal MinimumRewardRisk = 2m;
 
@@ -154,9 +153,9 @@ public static class ScanStudy
             return null;
         }
 
-        decimal limit = close - (close - low) / 2;
+        decimal limit = ScanTradeIdeas.PullbackLimit(close, low);
 
-        for (int i = index + 1; i < minutes.Count && i <= index + PullbackWaitMinutes; i++)
+        for (int i = index + 1; i < minutes.Count && i <= index + (int)ScanTradeIdeas.PullbackWait.TotalMinutes; i++)
         {
             if (minutes[i].Low > limit)
             {

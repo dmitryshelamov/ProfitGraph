@@ -35,6 +35,9 @@ const readableNames: Record<string, string> = {
   rsiExit: 'Уровень RSI для выхода',
   bandPeriod: 'Период полос Боллинджера',
   bandWidth: 'Ширина полос в σ',
+  entryPrice: 'Цена входа',
+  stopPrice: 'Цена стопа',
+  targetPrice: 'Цена цели',
 };
 
 export function parameterReadableName(name: string): string {

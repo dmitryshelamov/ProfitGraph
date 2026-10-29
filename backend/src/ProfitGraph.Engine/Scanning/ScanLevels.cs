@@ -1,16 +1,22 @@
 namespace ProfitGraph.Engine.Scanning;
 
 /// <summary>
-///     Support and resistance from closed hours (ADR 0059, section 8): swing highs and lows (above or below the two hours before and
-///     not below or above the two after) and the extremes of the hours, prices within 0.5 % merged into their mean. The nearest
-///     resistance lies more than 0.1 % above the price, the nearest support more than 0.1 % below it. Deterministic.
+///     Support and resistance from closed candles of one timeframe (ADR 0059, section 8): swing highs and lows (above or below the two
+///     candles before and not below or above the two after) and the extremes of the candles, prices within 0.5 % merged into their
+///     mean. The scanner's metrics use its hours; a pair's chart uses the candles of its timeframe. The nearest resistance lies more
+///     than 0.1 % above the price, the nearest support more than 0.1 % below it. Deterministic.
 /// </summary>
 public static class ScanLevels
 {
     /// <summary>
-    ///     The fewest closed hours levels are drawn from.
+    ///     The fewest closed candles levels are drawn from.
     /// </summary>
-    public const int MinimumHours = 24;
+    public const int MinimumCandles = 24;
+
+    /// <summary>
+    ///     The most closed candles levels are drawn from: the scanner's week of hours.
+    /// </summary>
+    public const int MaximumCandles = 168;
 
     private const int SwingSide = 2;
     private const decimal MergeWithin = 0.005m;
@@ -18,30 +24,30 @@ public static class ScanLevels
     private const decimal Percent = 100m;
 
     /// <summary>
-    ///     The levels of the hours, lowest first; none below <see cref="MinimumHours" />.
+    ///     The levels of the candles, lowest first; none below <see cref="MinimumCandles" />.
     /// </summary>
-    public static IReadOnlyList<decimal> Of(IReadOnlyList<ScanCandle> hours)
+    public static IReadOnlyList<decimal> Of(IReadOnlyList<ScanCandle> candles)
     {
-        ArgumentNullException.ThrowIfNull(hours);
+        ArgumentNullException.ThrowIfNull(candles);
 
-        if (hours.Count < MinimumHours)
+        if (candles.Count < MinimumCandles)
         {
             return [];
         }
 
-        List<decimal> prices = [hours.Max(hour => hour.High), hours.Min(hour => hour.Low)];
+        List<decimal> prices = [candles.Max(candle => candle.High), candles.Min(candle => candle.Low)];
 
-        for (int i = SwingSide; i < hours.Count - SwingSide; i++)
+        for (int i = SwingSide; i < candles.Count - SwingSide; i++)
         {
-            decimal high = hours[i].High;
-            decimal low = hours[i].Low;
+            decimal high = candles[i].High;
+            decimal low = candles[i].Low;
 
-            if (high > hours[i - 1].High && high > hours[i - 2].High && high >= hours[i + 1].High && high >= hours[i + 2].High)
+            if (high > candles[i - 1].High && high > candles[i - 2].High && high >= candles[i + 1].High && high >= candles[i + 2].High)
             {
                 prices.Add(high);
             }
 
-            if (low < hours[i - 1].Low && low < hours[i - 2].Low && low <= hours[i + 1].Low && low <= hours[i + 2].Low)
+            if (low < candles[i - 1].Low && low < candles[i - 2].Low && low <= candles[i + 1].Low && low <= candles[i + 2].Low)
             {
                 prices.Add(low);
             }

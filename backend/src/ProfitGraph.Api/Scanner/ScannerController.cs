@@ -11,8 +11,12 @@ using ProfitGraph.Application.Scanner.DeleteScanPreset;
 using ProfitGraph.Application.Scanner.GetScanBacktest;
 using ProfitGraph.Application.Scanner.GetScanBacktests;
 using ProfitGraph.Application.Scanner.GetScanCandles;
+using ProfitGraph.Application.Scanner.GetScanLevels;
 using ProfitGraph.Application.Scanner.GetScanPresets;
 using ProfitGraph.Application.Scanner.GetScanSnapshot;
+using ProfitGraph.Application.Scanner.GetScanTradeIdeas;
+using ProfitGraph.Application.Scanner.GetScanTrades;
+using ProfitGraph.Application.Scanner.GetScanTradeSettings;
 using ProfitGraph.Application.Scanner.GetScanVenues;
 using ProfitGraph.Application.Scanner.SetScanPresetAlerts;
 using ProfitGraph.Application.Scanner.StartScanBacktest;
@@ -62,6 +66,22 @@ public sealed class ScannerController(ISender sender) : ControllerBase
             cancellationToken);
 
         return page.ToResponse();
+    }
+
+    /// <summary>
+    ///     A pair's support, resistance and reward-to-risk on the chart's timeframe: the levels of its last 168 closed candles of that
+    ///     timeframe at the price of its snapshot row (ADR 0059, section 8). The scanner's own metrics stay on hours.
+    /// </summary>
+    [HttpGet("{venue}/levels")]
+    public async Task<ActionResult<ScanLevelsResponse>> GetLevels(
+        string venue,
+        [FromQuery] string? symbol,
+        [FromQuery] string? timeframe,
+        CancellationToken cancellationToken)
+    {
+        ScanLevelsInternal levels = await sender.Send(new GetScanLevelsQuery(venue, symbol ?? string.Empty, timeframe ?? string.Empty), cancellationToken);
+
+        return levels.ToResponse();
     }
 
     /// <summary>
@@ -137,6 +157,56 @@ public sealed class ScannerController(ISender sender) : ControllerBase
         await sender.Send(new DeleteScanPresetCommand(UserId(), presetId), cancellationToken);
 
         return NoContent();
+    }
+
+    /// <summary>
+    ///     The pair's trade cards now (ADR 0060): the preset backtest's scenarios on the levels of every timeframe, sized by the owner's
+    ///     settings.
+    /// </summary>
+    [HttpGet("{venue}/trade-ideas")]
+    public async Task<ActionResult<ScanTradeIdeasResponse>> GetTradeIdeas(string venue, [FromQuery] string? symbol, CancellationToken cancellationToken)
+    {
+        ScanTradeIdeasInternal ideas = await sender.Send(new GetScanTradeIdeasQuery(UserId(), venue, symbol ?? string.Empty), cancellationToken);
+
+        return ideas.ToResponse();
+    }
+
+    [HttpGet("{venue}/trade-settings")]
+    public async Task<ActionResult<ScanTradeSettingsStateResponse>> GetTradeSettings(string venue, CancellationToken cancellationToken)
+    {
+        ScanTradeSettingsInternal? settings = await sender.Send(new GetScanTradeSettingsQuery(UserId(), venue), cancellationToken);
+
+        return new ScanTradeSettingsStateResponse(settings?.ToResponse());
+    }
+
+    [HttpPut("{venue}/trade-settings")]
+    public async Task<ActionResult<ScanTradeSettingsResponse>> SetTradeSettings(string venue, ScanTradeSettingsRequest request, CancellationToken cancellationToken)
+    {
+        ScanTradeSettingsInternal settings = await sender.Send(request.ToCommand(UserId(), venue), cancellationToken);
+
+        return settings.ToResponse();
+    }
+
+    /// <summary>
+    ///     The owner's latest trades from cards on the venue, newest first; one pair's with <c>symbol</c>.
+    /// </summary>
+    [HttpGet("{venue}/trades")]
+    public async Task<ActionResult<IReadOnlyList<ScanLiveTradeResponse>>> GetTrades(string venue, [FromQuery] string? symbol, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<ScanTradeInternal> trades = await sender.Send(new GetScanTradesQuery(UserId(), venue, symbol), cancellationToken);
+
+        return Ok(trades.Select(trade => trade.ToResponse()).ToList());
+    }
+
+    /// <summary>
+    ///     Creates a trade from a card with real orders (ADR 0060): its own bot of the level trade strategy, started at once.
+    /// </summary>
+    [HttpPost("{venue}/trades")]
+    public async Task<ActionResult<ScanLiveTradeResponse>> CreateTrade(string venue, CreateScanTradeRequest request, CancellationToken cancellationToken)
+    {
+        ScanTradeInternal trade = await sender.Send(request.ToCommand(UserId(), venue), cancellationToken);
+
+        return StatusCode(StatusCodes.Status201Created, trade.ToResponse());
     }
 
     private Guid UserId()

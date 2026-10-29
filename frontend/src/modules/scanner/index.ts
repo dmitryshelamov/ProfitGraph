@@ -4,6 +4,7 @@ export {
   scanBacktestQuery,
   scanBacktestsQuery,
   scanCandlesQuery,
+  scanLevelsQuery,
   scannerKeys,
   scanPresetsQuery,
   scanSnapshotQuery,
@@ -17,13 +18,14 @@ export {
   scanChartTimeframes,
 } from './model/chartTimeframes';
 export { applyView } from './model/filter';
-export { rowLevels } from './model/levels';
+export { timeframeLevels } from './model/levels';
 export type { ScanMetric } from './model/metrics';
 export type { PresetDraft } from './model/presetDraft';
 export { draftInput, draftOf, draftProblem, emptyDraft } from './model/presetDraft';
 export type {
   ScanBacktest,
   ScanCandlesPage,
+  ScanLevels,
   ScanPreset,
   ScanRow,
   ScanSignal,
@@ -41,3 +43,5 @@ export { ScanPairChart } from './ui/ScanPairChart';
 export { ScanRowMetrics } from './ui/ScanRowMetrics';
 export { ScanScenarioTable } from './ui/ScanScenarioTable';
 export { ScanSignalsTable } from './ui/ScanSignalsTable';
+export { ScanTimeframeLevels } from './ui/ScanTimeframeLevels';
+export { ScanTradePanel } from './ui/ScanTradePanel';

@@ -41,6 +41,12 @@ internal static class StrategyTemplateLayouts
         return CapitulationDip();
     }
 
+    // The level trade of the scanner's trade cards is laid out by the editor like the ladders.
+    public static GraphLayout LevelTrade()
+    {
+        return Empty();
+    }
+
     private static GraphLayout Empty()
     {
         return new GraphLayout(new Dictionary<string, NodePosition>(StringComparer.Ordinal));

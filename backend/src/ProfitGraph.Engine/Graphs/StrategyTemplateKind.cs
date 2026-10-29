@@ -18,5 +18,6 @@ public enum StrategyTemplateKind
     EmaCrossover,
     MacdTrend,
     RsiReversion,
-    BollingerReversion
+    BollingerReversion,
+    LevelTrade
 }
