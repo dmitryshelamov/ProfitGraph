@@ -4,6 +4,7 @@ using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Bots.Alerts;
 using ProfitGraph.Domain.Notifications;
+using ProfitGraph.Domain.Scanner;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Tests.Unit.Domain.Bots;
 
@@ -117,6 +118,30 @@ public sealed class TelegramMessagesTests
         TelegramNotification alert = Alert(nameof(BotAlertKind.Killed), reason: null);
 
         TelegramMessages.Buttons(alert).ShouldBe([new TelegramButtonInternal("Принято", $"ack:{alert.AlertId!.Value.Value:D}")]);
+    }
+
+    [Test]
+    public void ScanAlertNamesThePresetTheVenueAndEachPairWithItsMetrics()
+    {
+        var presetId = ScanPresetId.New();
+        var details = new Dictionary<string, string>
+        {
+            ["venue"] = "bybit",
+            ["preset"] = "Импульс <мой>",
+            ["count"] = "12",
+            ["symbol.0"] = "HYPEUSDT",
+            ["metrics.0"] = "Price=87.439;Change1h=3.3911541;VolumeSpike=21.2416;Turnover24h=48597250.39;Unknown=1",
+            ["symbol.1"] = "SOLUSDT",
+            ["metrics.1"] = "Price=187.5;Spread=0.0011436"
+        };
+        TelegramNotification alert = TelegramNotification.QueueScanAlert(TelegramNotificationId.New(), UserId.New(), presetId, details, DateTimeOffset.UnixEpoch);
+
+        string text = TelegramMessages.Notification(alert, bot: null, new StubVenueDescriptor("Bybit", market: null));
+
+        text.ShouldBe(
+            "📡 <b>Сканер · Импульс &lt;мой&gt;</b>\nБиржа: Bybit\nНовые пары: 12\n\n<b>HYPEUSDT</b>\n" +
+            "Цена: 87.439 · 1 ч: 3.39% · Всплеск: ×21.24 · Оборот 24 ч: 48597250\n\n<b>SOLUSDT</b>\nЦена: 187.5 · Спред: 0.001%\n\n…и ещё 10");
+        TelegramMessages.Buttons(alert).ShouldBe([new TelegramButtonInternal("Отключить", $"scanoff:{presetId.Value:D}")]);
     }
 
     private static TelegramNotification Filled(string side, string grossBase, string grossQuote, string fee, string feeAsset, string? realizedPnl)

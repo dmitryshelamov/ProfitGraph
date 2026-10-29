@@ -1,3 +1,5 @@
+using ProfitGraph.Engine.Scanning;
+
 namespace ProfitGraph.Domain.Scanner;
 
 /// <summary>
@@ -22,5 +24,13 @@ public sealed record ScanCondition
         Metric = metric;
         Minimum = minimum;
         Maximum = maximum;
+    }
+
+    /// <summary>
+    ///     Whether a pair's metric lies within the bounds, both inclusive; an empty metric never does.
+    /// </summary>
+    public bool Holds(ScanMetrics metrics)
+    {
+        return metrics.Of(Metric) is { } value && (Minimum is not { } minimum || value >= minimum) && (Maximum is not { } maximum || value <= maximum);
     }
 }

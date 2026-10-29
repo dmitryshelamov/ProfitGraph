@@ -1,6 +1,7 @@
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Scanner;
+using ProfitGraph.Engine.Scanning;
 
 namespace ProfitGraph.Tests.Unit.Domain.Scanner;
 
@@ -57,6 +58,33 @@ public sealed class ScanPresetTests
         Should.Throw<ScanPresetRuleException>(() => preset.Change(preset.Name, twice, ByChange, hideStale: true, Now));
         Should.Throw<ScanPresetRuleException>(() => new ScanPresetName(" "));
         Should.Throw<ScanPresetRuleException>(() => new ScanPresetName(new string(c: 'a', count: 101)));
+    }
+
+    [Test]
+    public void KeepsAPairWhenEveryConditionHoldsInclusively()
+    {
+        var preset = ScanPreset.Create(
+            UserId.New(),
+            new VenueId("bybit"),
+            new ScanPresetName("Импульс"),
+            [new ScanCondition(ScanMetric.Change1h, minimum: 3, maximum: null), new ScanCondition(ScanMetric.Spread, minimum: null, maximum: 0.1m)],
+            ByChange,
+            hideStale: true,
+            Now);
+
+        preset.Keeps(new ScanMetrics { Change1h = 3, Spread = 0.1m }).ShouldBeTrue();
+        preset.Keeps(new ScanMetrics { Change1h = 2.99m, Spread = 0.05m }).ShouldBeFalse();
+        preset.Keeps(new ScanMetrics { Change1h = 5, Spread = 0.11m }).ShouldBeFalse();
+        preset.Keeps(new ScanMetrics { Change1h = 5 }).ShouldBeFalse();
+        preset.Keeps(new ScanMetrics { Change1h = 5, Spread = 0.05m, Stale = true }).ShouldBeFalse();
+    }
+
+    [Test]
+    public void KeepsAStalePairWhenAskedTo()
+    {
+        var preset = ScanPreset.Create(UserId.New(), new VenueId("bybit"), new ScanPresetName("Все"), [], ByChange, hideStale: false, Now);
+
+        preset.Keeps(new ScanMetrics { Stale = true }).ShouldBeTrue();
     }
 
     private static ScanPreset Preset()

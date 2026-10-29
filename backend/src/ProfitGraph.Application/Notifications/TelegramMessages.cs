@@ -7,6 +7,7 @@ using ProfitGraph.Application.Notifications.Contracts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Bots.Alerts;
 using ProfitGraph.Domain.Notifications;
+using ProfitGraph.Domain.Scanner;
 using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Application.Notifications;
@@ -22,13 +23,41 @@ public static class TelegramMessages
     public const string UnknownCode = "ProfitGraph: код не найден или истёк. Получите новый код в профиле.";
 
     public const string Help =
-        "ProfitGraph: чтобы получать уведомления, отправьте /start и код из профиля. Кнопка «Принято» под алертом отмечает его прочитанным.";
+        "ProfitGraph: чтобы получать уведомления, отправьте /start и код из профиля. Кнопка «Принято» под алертом отмечает его прочитанным, «Отключить» под алертом сканера выключает алерты пресета.";
 
     public const string AcknowledgeAction = "ack";
     public const string Acknowledged = "Принято";
     public const string AlreadyAcknowledged = "Алерт уже принят";
     public const string AlertNotFound = "Алерт не найден";
     public const string UnknownButton = "Эта кнопка больше не работает";
+    public const string DisableScanAlertsAction = "scanoff";
+    public const string DisableScanAlerts = "Отключить";
+    public const string ScanAlertsDisabled = "Алерты пресета отключены";
+    public const string ScanAlertsAlreadyOff = "Алерты пресета уже отключены";
+
+    /// <summary>
+    ///     How a scanner alert names a metric and how many decimal places it shows, as the scanner page does; null keeps the exact value.
+    /// </summary>
+    private static readonly Dictionary<ScanMetric, (string Label, int? Places, string Unit)> ScanMetricTexts = new Dictionary<ScanMetric, (string, int?, string)>
+    {
+        [ScanMetric.Price] = ("Цена", null, string.Empty),
+        [ScanMetric.Change5m] = ("5 мин", 2, "%"),
+        [ScanMetric.Change15m] = ("15 мин", 2, "%"),
+        [ScanMetric.Change1h] = ("1 ч", 2, "%"),
+        [ScanMetric.Change4h] = ("4 ч", 2, "%"),
+        [ScanMetric.Change24h] = ("24 ч", 2, "%"),
+        [ScanMetric.Turnover1h] = ("Оборот 1 ч", 0, string.Empty),
+        [ScanMetric.Turnover24h] = ("Оборот 24 ч", 0, string.Empty),
+        [ScanMetric.VolumeSpike] = ("Всплеск", 2, "×"),
+        [ScanMetric.Natr24h] = ("Волатильность", 2, "%"),
+        [ScanMetric.EfficiencyRatio24h] = ("ER 24 ч", 2, string.Empty),
+        [ScanMetric.DistanceToHigh24h] = ("До max 24 ч", 2, "%"),
+        [ScanMetric.DistanceToLow24h] = ("От min 24 ч", 2, "%"),
+        [ScanMetric.DistanceToHigh7d] = ("До max 7 д", 2, "%"),
+        [ScanMetric.DistanceToLow7d] = ("От min 7 д", 2, "%"),
+        [ScanMetric.Spread] = ("Спред", 3, "%"),
+        [ScanMetric.ListingAgeDays] = ("Возраст", 0, " дн")
+    };
 
     private static readonly Dictionary<string, string> ReasonTexts = new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -57,15 +86,23 @@ public static class TelegramMessages
     }
 
     /// <summary>
-    ///     The buttons under a notification: «Принято» under an alert, nothing under anything else.
+    ///     The buttons under a notification: «Принято» under an alert, «Отключить» under a scanner alert, nothing under anything else.
     /// </summary>
     public static IReadOnlyList<TelegramButtonInternal> Buttons(TelegramNotification notification)
     {
-        return notification.AlertId is { } alertId ? [new TelegramButtonInternal(Acknowledged, $"{AcknowledgeAction}:{alertId.Value:D}")] : [];
+        ArgumentNullException.ThrowIfNull(notification);
+
+        if (notification.AlertId is { } alertId)
+        {
+            return [new TelegramButtonInternal(Acknowledged, $"{AcknowledgeAction}:{alertId.Value:D}")];
+        }
+
+        return notification.PresetId is { } presetId ? [new TelegramButtonInternal(DisableScanAlerts, $"{DisableScanAlertsAction}:{presetId.Value:D}")] : [];
     }
 
     /// <summary>
-    ///     The text of a notification; <paramref name="venue" /> names the bot's venue in a filled-order message.
+    ///     The text of a notification; <paramref name="venue" /> names the bot's venue in a filled-order message and the preset's venue in
+    ///     a scanner alert.
     /// </summary>
     public static string Notification(TelegramNotification notification, Bot? bot, IVenueDescriptor? venue)
     {
@@ -81,6 +118,7 @@ public static class TelegramMessages
             TelegramNotificationKind.Recovered => Lines("🔄 <b>Бот снова работает</b>", Line("Бот", name)),
             TelegramNotificationKind.PositionClosed => PositionClosed(notification.Details, name),
             TelegramNotificationKind.OrderFilled => OrderFilled(notification.Details, bot, name, venue),
+            TelegramNotificationKind.ScanAlert => ScanAlert(notification.Details, venue),
             _ => throw new ArgumentOutOfRangeException(nameof(notification), notification.Kind, "Unknown notification kind.")
         };
     }
@@ -131,6 +169,69 @@ public static class TelegramMessages
         }
 
         return string.Join(separator: '\n', lines);
+    }
+
+    /// <summary>
+    ///     A scanner alert (ADR 0059): the preset, the venue, how many pairs entered its result, and each named pair with its price and
+    ///     the preset's metrics, rounded as on the scanner page.
+    /// </summary>
+    private static string ScanAlert(IReadOnlyDictionary<string, string> details, IVenueDescriptor? venue)
+    {
+        int count = int.Parse(details["count"], CultureInfo.InvariantCulture);
+        List<string> lines =
+        [
+            $"📡 <b>Сканер · {Encode(details.GetValueOrDefault("preset") ?? string.Empty)}</b>",
+            Line("Биржа", venue?.Name ?? details.GetValueOrDefault("venue") ?? string.Empty),
+            Line(count == 1 ? "Новая пара" : "Новые пары", count.ToString(CultureInfo.InvariantCulture))
+        ];
+        var named = 0;
+
+        for (var index = 0; details.TryGetValue($"symbol.{index}", out string? symbol); index++)
+        {
+            named++;
+            lines.Add(string.Empty);
+            lines.Add($"<b>{Encode(symbol)}</b>");
+
+            string metrics = string.Join(
+                " · ",
+                (details.GetValueOrDefault($"metrics.{index}") ?? string.Empty)
+                .Split(separator: ';', StringSplitOptions.RemoveEmptyEntries)
+                .Select(ScanMetricText)
+                .OfType<string>());
+
+            if (metrics.Length > 0)
+            {
+                lines.Add(metrics);
+            }
+        }
+
+        if (count > named)
+        {
+            lines.Add(string.Empty);
+            lines.Add($"…и ещё {(count - named).ToString(CultureInfo.InvariantCulture)}");
+        }
+
+        return string.Join(separator: '\n', lines);
+    }
+
+    /// <summary>
+    ///     One <c>Metric=value</c> pair of a scanner alert as people read it; an unknown metric is left out.
+    /// </summary>
+    private static string? ScanMetricText(string pair)
+    {
+        string[] parts = pair.Split(separator: '=', count: 2);
+
+        if (parts.Length != 2 || !Enum.TryParse(parts[0], out ScanMetric metric) ||
+            !ScanMetricTexts.TryGetValue(metric, out (string Label, int? Places, string Unit) text) ||
+            !decimal.TryParse(parts[1], NumberStyles.Number, CultureInfo.InvariantCulture, out decimal value))
+        {
+            return null;
+        }
+
+        string number = text.Places is { } places ? Fixed(value, places) : ExactDecimalText.Format(value);
+
+        // Labels, units and invariant numbers carry no markup, so they are not encoded; HTML would turn × into an entity.
+        return text.Unit == "×" ? $"{text.Label}: ×{number}" : $"{text.Label}: {number}{text.Unit}";
     }
 
     private static string PositionClosed(IReadOnlyDictionary<string, string> details, string name)

@@ -719,6 +719,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scanner/presets/{presetId}/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    presetId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ScanPresetAlertsRequest"];
+                    "text/json": components["schemas"]["ScanPresetAlertsRequest"];
+                    "application/*+json": components["schemas"]["ScanPresetAlertsRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanPresetResponse"];
+                        "application/json": components["schemas"]["ScanPresetResponse"];
+                        "text/json": components["schemas"]["ScanPresetResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scanner/presets/{presetId}": {
         parameters: {
             query?: never;
@@ -4790,6 +4835,9 @@ export interface components {
             minimum: null | string;
             maximum: null | string;
         };
+        ScanPresetAlertsRequest: {
+            enabled: boolean;
+        };
         ScanPresetRequest: {
             name: string;
             conditions: components["schemas"]["ScanConditionRequest"][];
@@ -4807,6 +4855,7 @@ export interface components {
             sortDescending: boolean;
             hideStale: boolean;
             builtIn: boolean;
+            alertsEnabled: boolean;
         };
         ScanSnapshotResponse: {
             venue: string;

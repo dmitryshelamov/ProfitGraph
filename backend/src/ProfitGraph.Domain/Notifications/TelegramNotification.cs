@@ -2,11 +2,12 @@ using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Bots.Alerts;
 using ProfitGraph.Domain.Common;
+using ProfitGraph.Domain.Scanner;
 
 namespace ProfitGraph.Domain.Notifications;
 
 /// <summary>
-///     A message waiting for its owner's Telegram chat (ADR 0042). A sender claims it for <see cref="ClaimDuration" />,
+///     A message waiting for its owner's Telegram chat (ADR 0042): about a bot, or a scanner preset's alert (ADR 0059). A sender claims it for <see cref="ClaimDuration" />,
 ///     sends it outside any transaction and records the outcome only while its claim is the current one, so a sender that
 ///     died leaves it to another after the claim expires. Delivery is at least once. A temporary failure waits by
 ///     <see cref="TelegramRetrySchedule" />; a notification older than <see cref="MaxAge" /> is skipped instead of sent.
@@ -23,10 +24,21 @@ public sealed class TelegramNotification : AggregateRoot
 
     private static readonly TimeSpan NotificationMaxAge = TimeSpan.FromHours(1);
     private static readonly TimeSpan AlertMaxAge = TimeSpan.FromHours(24);
+    private static readonly TimeSpan ScanAlertMaxAge = TimeSpan.FromMinutes(15);
 
     public TelegramNotificationId Id { get; }
     public UserId OwnerId { get; }
-    public BotId BotId { get; }
+
+    /// <summary>
+    ///     The bot the message is about; null for a <see cref="TelegramNotificationKind.ScanAlert" />.
+    /// </summary>
+    public BotId? BotId { get; }
+
+    /// <summary>
+    ///     The preset a <see cref="TelegramNotificationKind.ScanAlert" /> reports; null for other kinds.
+    /// </summary>
+    public ScanPresetId? PresetId { get; }
+
     public TelegramNotificationKind Kind { get; }
 
     /// <summary>
@@ -50,15 +62,21 @@ public sealed class TelegramNotification : AggregateRoot
     public string? LastError { get; private set; }
 
     /// <summary>
-    ///     How old a notification may be when it is sent: a day for an alert, an hour for anything else, so a sender that
-    ///     comes back after downtime does not flood the chat.
+    ///     How old a notification may be when it is sent: a day for an alert, 15 minutes for a scanner alert, an hour for anything
+    ///     else, so a sender that comes back after downtime does not flood the chat.
     /// </summary>
-    public TimeSpan MaxAge => Kind == TelegramNotificationKind.Alert ? AlertMaxAge : NotificationMaxAge;
+    public TimeSpan MaxAge => Kind switch
+    {
+        TelegramNotificationKind.Alert => AlertMaxAge,
+        TelegramNotificationKind.ScanAlert => ScanAlertMaxAge,
+        _ => NotificationMaxAge
+    };
 
     private TelegramNotification(
         TelegramNotificationId id,
         UserId ownerId,
-        BotId botId,
+        BotId? botId,
+        ScanPresetId? presetId,
         TelegramNotificationKind kind,
         BotAlertId? alertId,
         IReadOnlyDictionary<string, string> details,
@@ -78,9 +96,15 @@ public sealed class TelegramNotification : AggregateRoot
             throw new ArgumentException("An alert notification names its alert, and only it does.", nameof(alertId));
         }
 
+        if (kind == TelegramNotificationKind.ScanAlert != presetId.HasValue || kind == TelegramNotificationKind.ScanAlert == botId.HasValue)
+        {
+            throw new ArgumentException("A scanner alert names its preset and no bot; every other notification names its bot.", nameof(presetId));
+        }
+
         Id = id;
         OwnerId = ownerId;
         BotId = botId;
+        PresetId = presetId;
         Kind = kind;
         AlertId = alertId;
         Details = new Dictionary<string, string>(details, StringComparer.Ordinal).AsReadOnly();
@@ -110,8 +134,38 @@ public sealed class TelegramNotification : AggregateRoot
             id,
             ownerId,
             botId,
+            presetId: null,
             kind,
             alertId,
+            details,
+            at,
+            TelegramNotificationStatus.Pending,
+            attempts: 0,
+            at,
+            claimId: null,
+            claimedUntil: null,
+            sentAt: null,
+            lastError: null);
+    }
+
+    /// <summary>
+    ///     A new alert of a scanner preset (ADR 0059) about pairs that entered its result in the snapshot computed at
+    ///     <paramref name="at" />, due at once.
+    /// </summary>
+    public static TelegramNotification QueueScanAlert(
+        TelegramNotificationId id,
+        UserId ownerId,
+        ScanPresetId presetId,
+        IReadOnlyDictionary<string, string> details,
+        DateTimeOffset at)
+    {
+        return new TelegramNotification(
+            id,
+            ownerId,
+            botId: null,
+            presetId,
+            TelegramNotificationKind.ScanAlert,
+            alertId: null,
             details,
             at,
             TelegramNotificationStatus.Pending,
@@ -126,7 +180,8 @@ public sealed class TelegramNotification : AggregateRoot
     public static TelegramNotification Restore(
         TelegramNotificationId id,
         UserId ownerId,
-        BotId botId,
+        BotId? botId,
+        ScanPresetId? presetId,
         TelegramNotificationKind kind,
         BotAlertId? alertId,
         IReadOnlyDictionary<string, string> details,
@@ -139,7 +194,22 @@ public sealed class TelegramNotification : AggregateRoot
         DateTimeOffset? sentAt,
         string? lastError)
     {
-        return new TelegramNotification(id, ownerId, botId, kind, alertId, details, createdAt, status, attempts, nextAttemptAt, claimId, claimedUntil, sentAt, lastError);
+        return new TelegramNotification(
+            id,
+            ownerId,
+            botId,
+            presetId,
+            kind,
+            alertId,
+            details,
+            createdAt,
+            status,
+            attempts,
+            nextAttemptAt,
+            claimId,
+            claimedUntil,
+            sentAt,
+            lastError);
     }
 
     /// <summary>

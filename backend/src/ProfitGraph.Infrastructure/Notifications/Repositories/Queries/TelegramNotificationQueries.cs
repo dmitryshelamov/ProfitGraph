@@ -3,15 +3,15 @@ namespace ProfitGraph.Infrastructure.Notifications.Repositories.Queries;
 internal static class TelegramNotificationQueries
 {
     private const string Columns = """
-                                   id AS Id, owner_id AS OwnerId, bot_id AS BotId, kind AS Kind, alert_id AS AlertId, details::text AS Details,
+                                   id AS Id, owner_id AS OwnerId, bot_id AS BotId, scan_preset_id AS ScanPresetId, kind AS Kind, alert_id AS AlertId, details::text AS Details,
                                    created_at AS CreatedAt, status AS Status, attempts AS Attempts, next_attempt_at AS NextAttemptAt, claim_id AS ClaimId,
                                    claimed_until AS ClaimedUntil, sent_at AS SentAt, last_error AS LastError
                                    """;
 
     internal const string Insert = """
-                                   INSERT INTO telegram_notifications (id, owner_id, bot_id, kind, alert_id, details, created_at, status, attempts, next_attempt_at,
+                                   INSERT INTO telegram_notifications (id, owner_id, bot_id, scan_preset_id, kind, alert_id, details, created_at, status, attempts, next_attempt_at,
                                        claim_id, claimed_until, sent_at, last_error)
-                                   VALUES (@Id, @OwnerId, @BotId, @Kind, @AlertId, CAST(@Details AS jsonb), @CreatedAt, @Status, @Attempts, @NextAttemptAt,
+                                   VALUES (@Id, @OwnerId, @BotId, @ScanPresetId, @Kind, @AlertId, CAST(@Details AS jsonb), @CreatedAt, @Status, @Attempts, @NextAttemptAt,
                                        @ClaimId, @ClaimedUntil, @SentAt, @LastError)
                                    """;
 

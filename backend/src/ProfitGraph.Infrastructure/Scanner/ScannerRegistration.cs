@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
+using ProfitGraph.Application.Scanner.Alerts;
 using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Domain.Scanner;
 using ProfitGraph.Infrastructure.Common;
@@ -22,6 +23,8 @@ public static class ScannerRegistration
             .ValidateOnStart();
         services.AddScoped<IScanSnapshotRepository, ScanSnapshotRepository>();
         services.AddScoped<IScanPresetRepository, ScanPresetRepository>();
+        services.AddScoped<IScanAlertWatchRepository, ScanAlertWatchRepository>();
+        services.AddScoped<ScanAlertQueue>();
         services.AddSingleton<IScanSnapshotNotifications, ScanSnapshotNotifications>();
         services.AddHealthChecks().AddCheck<ScannerHealthCheck>(ScannerHealthCheck.Name, tags: [HealthTags.Ready]);
 

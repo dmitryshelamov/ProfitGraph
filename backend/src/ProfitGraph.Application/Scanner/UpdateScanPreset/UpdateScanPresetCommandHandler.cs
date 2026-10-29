@@ -8,7 +8,12 @@ using ProfitGraph.Domain.Scanner;
 
 namespace ProfitGraph.Application.Scanner.UpdateScanPreset;
 
-internal sealed class UpdateScanPresetCommandHandler(IScanPresetRepository presets, TimeProvider clock) : IRequestHandler<UpdateScanPresetCommand, ScanPresetInternal>
+/// <summary>
+///     Changes the user's own preset; a preset whose alerts are on starts its watch again, so its changed conditions report only pairs
+///     that enter the new result later (ADR 0059).
+/// </summary>
+internal sealed class UpdateScanPresetCommandHandler(IScanPresetRepository presets, IScanAlertWatchRepository watches, TimeProvider clock)
+    : IRequestHandler<UpdateScanPresetCommand, ScanPresetInternal>
 {
     public async Task<ScanPresetInternal> Handle(UpdateScanPresetCommand command, CancellationToken cancellationToken)
     {
@@ -23,11 +28,19 @@ internal sealed class UpdateScanPresetCommandHandler(IScanPresetRepository prese
             throw new StateConflictException("A preset with this name already exists.", ScanPresetErrorCodes.NameTaken);
         }
 
+        ScanAlertWatch? watch = await watches.GetForUpdate(id, cancellationToken);
+
         if (preset.Change(name, command.Definition.ToDomainConditions(), command.Definition.ToDomainSort(), command.Definition.HideStale, clock.GetUtcNow()))
         {
             await presets.Update(preset, cancellationToken);
+
+            if (watch is not null)
+            {
+                watch.Restart();
+                await watches.Update(watch, cancellationToken);
+            }
         }
 
-        return preset.ToInternal();
+        return preset.ToInternal(alertsEnabled: watch is not null);
     }
 }
