@@ -4,7 +4,7 @@ import { Button } from '@/shared/ui/Button';
 import { DateTime } from '@/shared/ui/DateTime';
 
 import { botFeedQuery } from '../api/botsApi';
-import { feedLabel, reasonLabel } from '../model/botStatus';
+import { feedLabel, feedReasonLabel } from '../model/botStatus';
 import { absenceProofText, autoCheckFailure } from '../model/orderAbsence';
 import { waitingReason } from '../model/orderWaiting';
 import type { BotFeedEntry } from '../model/types';
@@ -41,15 +41,14 @@ function details(entry: BotFeedEntry): string {
   }
 
   if (reason) {
+    const label = feedReasonLabel(entry.kind, reason);
     const unclosed = autoCheckFailure(entry.details.detail);
 
     if (unclosed) {
-      return `${reasonLabel(reason)}; автоматически заявку закрыть не удалось: ${unclosed}`;
+      return `${label}; автоматически заявку закрыть не удалось: ${unclosed}`;
     }
 
-    return entry.details.detail
-      ? `${reasonLabel(reason)} (${entry.details.detail})`
-      : reasonLabel(reason);
+    return entry.details.detail ? `${label} (${entry.details.detail})` : label;
   }
 
   if (entry.details.restatedClose) {

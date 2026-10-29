@@ -133,7 +133,9 @@ neutral core changes (TC1–TC6) and keeps everything specific to T-Invest in th
   local.
 - **Rejections.** A definitive rejection is a gRPC status whose description is exactly a number from Profit Fox Designer
   ADR 0079's table; `30098` and `30099` are waiting, other known codes map to rejection reasons, unknown ones to
-  `BrokerRejected` with the code. Anything else is an unknown outcome. Text is never searched.
+  `BrokerRejected` with the code. Anything else is an unknown outcome. Text is never searched. `30057`, a request key
+  T-Invest already knows from another order (for example a copy of the bot on the same account), rejects with
+  `DuplicateRequest`; nothing is placed.
 - **Waiting codes.** `PriceBand` (with the bounds), `SessionClosed` and `CarryOver` are neutral waiting codes of a
   `LocalAccepted` order, as ADR 0022 describes for Steam; core change TC4 carries them to the feed and the bot page, and
   texts are made at the boundary.
