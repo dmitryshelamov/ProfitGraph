@@ -8,7 +8,7 @@ How ProfitGraph runs in production and how to deploy it ([ADR 0053](adr/0053-pro
 |---|---|
 | Host | `192.168.8.111` (`soyo-01`, Ubuntu 26.04), user `soyo` in the `docker` group, SSH by key |
 | Address | `https://192.168.8.111` (Caddy, certificate from its local CA) |
-| Stack | Compose project `profitgraph-production` in `~/profitgraph`: `postgres`, `migrate`, `api`, `worker`, `web` |
+| Stack | Compose project `profitgraph-production` in `~/profitgraph`: `postgres`, `migrate`, `api`, `worker`, `worker-scanner` (the market scanner, ADR 0059), `web` |
 | Settings | `~/profitgraph/.env` and `~/profitgraph/master-keys.env`, both `600`, never in the repository |
 | Deployed version | `~/profitgraph/deployed-version` |
 | Images | `ghcr.io/dmitryshelamov/profitgraph-backend` and `profitgraph-web`, tags `1.0.<run number>` |

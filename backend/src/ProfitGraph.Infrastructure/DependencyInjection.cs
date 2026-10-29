@@ -29,6 +29,7 @@ using ProfitGraph.Infrastructure.MarketData;
 using ProfitGraph.Infrastructure.Notifications;
 using ProfitGraph.Infrastructure.Notifications.Repositories;
 using ProfitGraph.Infrastructure.Optimization;
+using ProfitGraph.Infrastructure.Scanner;
 using ProfitGraph.Infrastructure.Strategies;
 using ProfitGraph.Infrastructure.Strategies.Repositories;
 using ProfitGraph.Infrastructure.Strategies.Repositories.Converters;
@@ -56,6 +57,7 @@ public static class DependencyInjection
         services.AddScoped(provider => provider.GetRequiredService<IOptionsMonitor<QueryLimitOptions>>().CurrentValue);
         services.AddPostgres(configuration);
         services.AddOutbox(configuration);
+        services.AddScanner(configuration);
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
         services.AddScoped<IExchangeCredentialRepository, ExchangeCredentialRepository>();
