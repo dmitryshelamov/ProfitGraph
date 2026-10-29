@@ -19,6 +19,7 @@ import {
   openOrderPrice,
   openOrderQuantity,
   openOrderState,
+  orderCancelMode,
   orderCancelState,
 } from '../model/openOrders';
 import type { Bot, BotOpenOrder } from '../model/types';
@@ -27,13 +28,15 @@ const cancelErrorCodes = new Set([
   'order_not_open',
   'order_cancel_pending',
   'order_cancel_request_pending',
+  'order_not_sent',
   'bot_not_running',
 ]);
 
 /**
  * The bot's open orders. While the bot runs, the owner may cancel one of them (ADR 0048): after a confirmation the request
  * waits for the bot, which cancels the order as it cancels its own, and the block follows it until the order is gone or
- * the request is rejected. The strategy does not place the order again at once, but it may later by its own rules.
+ * the request is rejected; the strategy then places the missing orders again (ADR 0051). Once the bot is stopped, the cancel
+ * goes to the exchange at once and the strategy restores its orders at the next start (ADR 0055).
  */
 export function BotOpenOrders({ bot, display }: { bot: Bot; display: BotDisplay }) {
   const botId = bot.id;
@@ -58,7 +61,8 @@ export function BotOpenOrders({ bot, display }: { bot: Bot; display: BotDisplay 
   });
   const waiting = useQuery(botWaitingOrdersQuery(botId)).data ?? [];
   const state = request ? orderCancelState(request, orders.data ?? []) : null;
-  const running = bot.desiredState === 'Running' && bot.runtimeStatus === 'Running';
+  const mode = orderCancelMode(bot);
+  const cancellable = mode !== null;
   const busy = cancel.isPending || (state !== null && !state.settled);
   const answered =
     request && request.status !== 'Pending'
@@ -119,7 +123,7 @@ export function BotOpenOrders({ bot, display }: { bot: Bot; display: BotDisplay 
             <th className="py-2">Цена{display.quoteAsset ? `, ${display.quoteAsset}` : ''}</th>
             <th className="py-2">Исполнено{display.baseAsset ? `, ${display.baseAsset}` : ''}</th>
             <th className="py-2">Состояние</th>
-            {running && (
+            {cancellable && (
               <th className="py-2">
                 <span className="sr-only">Действие</span>
               </th>
@@ -148,7 +152,7 @@ export function BotOpenOrders({ bot, display }: { bot: Bot; display: BotDisplay 
                     <span className="block text-muted">{orderState.reason}</span>
                   ) : null}
                 </td>
-                {running && (
+                {cancellable && (
                   <td className="py-2 text-right">
                     {cancelling ? (
                       <span className="text-muted">Отмена…</span>
@@ -170,17 +174,20 @@ export function BotOpenOrders({ bot, display }: { bot: Bot; display: BotDisplay 
           })}
         </tbody>
       </table>
-      {running && target && (
+      {cancellable && target && (
         <div className="space-y-2 text-sm" role="alert">
           <p>
             Отменить ордер {target.engineOrderId}
             {target.tag ? ` (${target.tag})` : ''}: {target.side === 'Buy' ? 'покупка' : 'продажа'}{' '}
             {quantity(target, display)} {display.baseAsset ?? ''}, цена {price(target, display)}?
-            Бот попросит биржу снять ордер; уже исполненная часть останется в позиции.
+            {mode === 'stopped'
+              ? ' Бот остановлен: биржу попросят снять ордер сразу; уже исполненная часть останется в позиции.'
+              : ' Бот попросит биржу снять ордер; уже исполненная часть останется в позиции.'}
           </p>
           <p className="text-muted">
-            Когда биржа подтвердит отмену, стратегия выставит недостающие ордера заново по своим
-            правилам, по текущей позиции. Ручная заявка заново не выставляется.
+            {mode === 'stopped'
+              ? 'При следующем запуске стратегия выставит недостающие ордера заново по своим правилам, по текущей позиции. Ручная заявка заново не выставляется.'
+              : 'Когда биржа подтвердит отмену, стратегия выставит недостающие ордера заново по своим правилам, по текущей позиции. Ручная заявка заново не выставляется.'}
           </p>
           <div className="flex gap-2">
             <Button size="sm" disabled={busy} onClick={() => cancel.mutate(target.engineOrderId)}>
@@ -192,8 +199,10 @@ export function BotOpenOrders({ bot, display }: { bot: Bot; display: BotDisplay 
           </div>
         </div>
       )}
-      {!running && orders.data.some(canCancelOpenOrder) && (
-        <p className="text-sm text-muted">Отменить ордер можно, пока бот работает.</p>
+      {!cancellable && orders.data.some(canCancelOpenOrder) && (
+        <p className="text-sm text-muted">
+          Отменить ордер можно, пока бот работает или после его остановки.
+        </p>
       )}
       {status}
     </div>

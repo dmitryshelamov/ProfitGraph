@@ -1,6 +1,7 @@
 # ADR 0048: The Owner Cancels an Active Order of a Running Bot
 
-Status: Proposed, 2026-10-28. Section 4 is superseded by ADR 0051: the owner's cancel resumes the strategy. Supplements ADR 0016,
+Status: Proposed, 2026-10-28. Section 4 is superseded by ADR 0051: the owner's cancel resumes the strategy. Section 2 is superseded
+by ADR 0055: a stopped bot's order is cancelled through a cancel intent, as the kill switch cancels it. Supplements ADR 0016,
 ADR 0024, ADR 0027 and ADR 0039; builds the "cancel of a manual order" that ADR 0027 left as a next step, for any of the bot's orders.
 Proven on the scripted venue, unit tests and the frontend's fake API only; nothing was sent to a real venue. The owner reviews it in the
 pull request.

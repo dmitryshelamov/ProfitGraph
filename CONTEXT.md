@@ -390,7 +390,9 @@ The owner's request to cancel one working order of a running live bot from the b
 ([ADR 0048](docs/adr/0048-owner-cancels-an-active-order.md)). The bot's runner takes it as a root and the engine cancels the order as it
 cancels its own, so the cancel goes out as an ordinary cancel intent; the venue's confirmation resumes the strategy, which places the
 orders it misses again by its own rules ([ADR 0051](docs/adr/0051-owner-cancel-resumes-the-strategy.md)). A request nobody takes within
-a minute expires.
+a minute expires. A stopped bot with no runner takes the request at once: its order gets a cancel intent, as a kill gives it, the
+dispatcher sends it to the venue, and the next start's reconciliation ends the order and lets the strategy restore its orders
+([ADR 0055](docs/adr/0055-owner-cancels-an-order-of-a-stopped-bot.md)).
 
 ### Order Lifecycle Output
 

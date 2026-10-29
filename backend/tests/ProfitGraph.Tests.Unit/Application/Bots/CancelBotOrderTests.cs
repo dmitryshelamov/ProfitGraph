@@ -15,6 +15,8 @@ using ProfitGraph.Domain.Bots.Checkpoints;
 using ProfitGraph.Domain.Bots.Feed;
 using ProfitGraph.Domain.Bots.Leases;
 using ProfitGraph.Domain.Bots.OrderCancels;
+using ProfitGraph.Domain.Bots.OrderIntents;
+using ProfitGraph.Domain.Bots.OrderWaiting;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Dispatch;
 using ProfitGraph.Engine.Market;
@@ -25,6 +27,7 @@ namespace ProfitGraph.Tests.Unit.Application.Bots;
 /// <summary>
 ///     The owner's cancel of one working order of a running bot (ADR 0048): stored for the runner only for an order the bot's last
 ///     checkpoint holds as working, one at a time per bot, read back by its owner and recorded in the feed when the engine took it.
+///     A stopped bot without a runner (ADR 0055) gets a cancel intent at once for an order that left for the venue.
 /// </summary>
 public sealed class CancelBotOrderTests
 {
@@ -34,16 +37,22 @@ public sealed class CancelBotOrderTests
     private IBotRepository _bots = null!;
     private IBotCheckpointRepository _checkpoints = null!;
     private IOrderCancelRequestRepository _cancels = null!;
+    private IOrderIntentRepository _intents = null!;
+    private IBotLeaseRepository _leases = null!;
+    private OrderSnapshot _order = null!;
 
     [SetUp]
     public void SetUp()
     {
-        _bot = BotFixture.Running();
         _bots = Substitute.For<IBotRepository>();
-        _bots.Get(_bot.Id, Arg.Any<CancellationToken>()).Returns(_bot);
+        _leases = Substitute.For<IBotLeaseRepository>();
+        UseBot(BotFixture.Running(), leaseHeld: true);
         _checkpoints = Substitute.For<IBotCheckpointRepository>();
         _cancels = Substitute.For<IOrderCancelRequestRepository>();
         _cancels.TryAdd(Arg.Any<OrderCancelRequest>(), Arg.Any<CancellationToken>()).Returns(true);
+        _intents = Substitute.For<IOrderIntentRepository>();
+        _intents.ListByBot(Arg.Any<BotId>(), Arg.Any<CancellationToken>()).Returns([]);
+        _intents.TryAdd(Arg.Any<OrderIntent>(), Arg.Any<CancellationToken>()).Returns(true);
         Checkpoint(OrderStatus.Active);
     }
 
@@ -78,15 +87,89 @@ public sealed class CancelBotOrderTests
     }
 
     [Test]
-    public async Task AStoppedBotRefuses()
+    public async Task AStoppingBotWhoseRunnerStillHoldsTheLeaseRefuses()
     {
-        _bot = BotFixture.Stopped();
-        _bots.Get(_bot.Id, Arg.Any<CancellationToken>()).Returns(_bot);
+        Bot stopping = BotFixture.Running();
+        stopping.Stop(Now);
+        UseBot(stopping, leaseHeld: true);
 
-        var stopped = await Should.ThrowAsync<BotRuleException>(() => Handle(_bot.OwnerId.Value, engineOrderId: 7));
+        var refused = await Should.ThrowAsync<BotRuleException>(() => Handle(_bot.OwnerId.Value, engineOrderId: 7));
 
-        stopped.Code.ShouldBe(BotRuleException.NotRunning);
+        refused.Code.ShouldBe(BotRuleException.NotRunning);
         await _cancels.DidNotReceive().TryAdd(Arg.Any<OrderCancelRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task AStoppedBotsSentOrderGetsACancelIntentAndARequestedCancel()
+    {
+        UseStoppedBot();
+        Checkpoint(OrderStatus.Active);
+        Submitted(sent: true);
+
+        OrderCancelInternal cancel = await Handle(_bot.OwnerId.Value, engineOrderId: 7);
+
+        cancel.ShouldSatisfyAllConditions(
+            () => cancel.Status.ShouldBe(OrderCancelStatus.Requested),
+            () => cancel.EngineOrderId.ShouldBe(7),
+            () => cancel.ResolvedAt.ShouldBe(Now));
+        await _intents.Received(1)
+            .TryAdd(
+                Arg.Is<OrderIntent>(intent => intent!.Kind == OrderIntentKind.Cancel && intent.EngineOrderId == 7 &&
+                    intent.ClientOrderId == new ClientOrderId("pg-test-7") && !intent.FromKill && intent.Status == OrderIntentStatus.Pending),
+                Arg.Any<CancellationToken>());
+        await _cancels.Received(1)
+            .TryAdd(
+                Arg.Is<OrderCancelRequest>(request => request!.Status == OrderCancelStatus.Requested &&
+                    request.DomainEvents.OfType<OrderCancelRequested>().Single().EngineOrderId == 7),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task AStoppedBotsDeferredSubmitIsCancelledThroughAnIntent()
+    {
+        UseStoppedBot();
+        OrderIntent deferred = Submitted(sent: false);
+        deferred.Claim(Now);
+        deferred.Defer(new OrderDeferral(OrderWaitingCode.SettlementHold, Now), Now.AddMinutes(1), Now);
+
+        (await Handle(_bot.OwnerId.Value, engineOrderId: 7)).Status.ShouldBe(OrderCancelStatus.Requested);
+        await _intents.Received(1).TryAdd(Arg.Is<OrderIntent>(intent => intent!.Kind == OrderIntentKind.Cancel), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task AStoppedBotsSubmitThatNeverLeftRefuses()
+    {
+        UseStoppedBot();
+        Checkpoint(OrderStatus.PendingSubmit);
+        Submitted(sent: false);
+
+        (await Should.ThrowAsync<StateConflictException>(() => Handle(_bot.OwnerId.Value, engineOrderId: 7))).Code.ShouldBe("order_not_sent");
+        await _intents.DidNotReceive().TryAdd(Arg.Any<OrderIntent>(), Arg.Any<CancellationToken>());
+        await _cancels.DidNotReceive().TryAdd(Arg.Any<OrderCancelRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task AStoppedBotsOrderWithACancelAlreadyRefuses()
+    {
+        UseStoppedBot();
+        OrderIntent submit = Submitted(sent: true);
+        _intents.ListByBot(_bot.Id, Arg.Any<CancellationToken>())
+            .Returns([submit, OrderIntent.Cancel(OrderIntentId.New(), _bot.Id, engineOrderId: 7, submit.ClientOrderId, fromKill: true, Now)]);
+
+        (await Should.ThrowAsync<StateConflictException>(() => Handle(_bot.OwnerId.Value, engineOrderId: 7))).Code.ShouldBe("order_cancel_pending");
+        await _intents.DidNotReceive().TryAdd(Arg.Any<OrderIntent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task AStoppedBotWithAnExpiredLeaseTakesTheCancel()
+    {
+        Bot stopped = BotFixture.Running();
+        stopped.Stop(Now);
+        UseBot(stopped, leaseHeld: false);
+        Checkpoint(OrderStatus.Active);
+        Submitted(sent: true);
+
+        (await Handle(_bot.OwnerId.Value, engineOrderId: 7)).Status.ShouldBe(OrderCancelStatus.Requested);
     }
 
     [Test]
@@ -199,14 +282,49 @@ public sealed class CancelBotOrderTests
 
     private Task<OrderCancelInternal> Handle(Guid owner, long engineOrderId)
     {
-        var handler = new CancelBotOrderCommandHandler(_bots, _checkpoints, _cancels, new FakeTimeProvider(Now));
+        var handler = new CancelBotOrderCommandHandler(_bots, _leases, _checkpoints, _cancels, _intents, new FakeTimeProvider(Now));
 
         return handler.Handle(new CancelBotOrderCommand(owner, _bot.Id.Value, engineOrderId), CancellationToken.None);
     }
 
+    private void UseBot(Bot bot, bool leaseHeld)
+    {
+        _bot = bot;
+        _bots.Get(bot.Id, Arg.Any<CancellationToken>()).Returns(bot);
+        _bots.GetForUpdate(bot.Id, Arg.Any<CancellationToken>()).Returns(bot);
+        BotLease lease = BotLease.Acquire(bot.Id, LeaseHolderId.New(), leaseHeld ? Now : Now.AddMinutes(-10), TimeSpan.FromMinutes(1));
+        _leases.GetForUpdate(bot.Id, Arg.Any<CancellationToken>()).Returns(lease);
+    }
+
+    private void UseStoppedBot()
+    {
+        UseBot(BotFixture.Stopped(), leaseHeld: false);
+        _leases.GetForUpdate(_bot.Id, Arg.Any<CancellationToken>()).Returns((BotLease?)null);
+        Checkpoint(OrderStatus.Active);
+    }
+
+    /// <summary>
+    ///     The submit of order 7: sent to the venue, or still waiting in the process.
+    /// </summary>
+    private OrderIntent Submitted(bool sent)
+    {
+        OrderIntent submit = OrderIntent.Submit(OrderIntentId.New(), _bot.Id, _order, new ClientOrderId("pg-test-7"), Now);
+
+        if (sent)
+        {
+            submit.Claim(Now);
+            submit.MarkPlaceStarted(Now);
+            submit.MarkSent(Now);
+        }
+
+        _intents.ListByBot(_bot.Id, Arg.Any<CancellationToken>()).Returns([submit]);
+
+        return submit;
+    }
+
     private void Checkpoint(OrderStatus status)
     {
-        var order = new OrderSnapshot(
+        _order = new OrderSnapshot(
             Id: 7,
             "ladder.exit",
             OrderSide.Sell,
@@ -230,7 +348,7 @@ public sealed class CancelBotOrderTests
             FeesQuote: 0m,
             LastBuyPrice: 100m,
             NextOrderId: 8,
-            [order],
+            [_order],
             [new ExternalOrderProgressCheckpoint(OrderId: 7, Confirmed: true, GrossBase: 0m, GrossQuote: 0m, Fee: 0m, BaseChange: 0m, QuoteChange: 0m, RealizedPnl: 0m)]);
         var engine = new GraphEngineCheckpoint(
             account,

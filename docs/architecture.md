@@ -232,7 +232,8 @@ src/
   The bot page lists its alerts with acknowledgement and sends an owner manual order, market or limit, followed until the runner
   resolves it; a limit order asks for confirmation first and checks the price against the instrument's tick. Its open orders
   offer a confirmed cancel while the bot runs, a request the runner turns into the engine's ordinary cancel and the page follows
-  until the order is gone or the request is rejected ([ADR 0048](adr/0048-owner-cancels-an-active-order.md)). `TradingHaltBanner` shows the global halt to everyone and lets the Owner halt or resume. When a save is
+  until the order is gone or the request is rejected ([ADR 0048](adr/0048-owner-cancels-an-active-order.md)), and once it is
+  stopped, a cancel intent sent at once ([ADR 0055](adr/0055-owner-cancels-an-order-of-a-stopped-bot.md)). `TradingHaltBanner` shows the global halt to everyone and lets the Owner halt or resume. When a save is
   refused with `live_impact`, the editor lists the running bots and saves again with `confirmLiveImpact`.
 - **Live reports.** The bot page shows the position, the feed and the fills; the feed and the fills page backwards
   through `before` cursors. Its chart (`BotChart`, drawn by `CandleHistoryChart` in `modules/market-chart`) shows the

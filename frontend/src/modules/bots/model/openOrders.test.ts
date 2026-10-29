@@ -5,6 +5,7 @@ import {
   openOrderQuantity,
   openOrderState,
   openOrderStatusLabel,
+  orderCancelMode,
   orderCancelState,
 } from './openOrders';
 
@@ -55,6 +56,16 @@ describe('open orders', () => {
     expect(canCancelOpenOrder({ status: 'PendingCancel' })).toBe(false);
   });
 
+  it('offers a cancel while the bot runs or once it is stopped, not while it starts or stops', () => {
+    expect(orderCancelMode({ desiredState: 'Running', runtimeStatus: 'Running' })).toBe('running');
+    expect(orderCancelMode({ desiredState: 'Running', runtimeStatus: 'Starting' })).toBeNull();
+    expect(orderCancelMode({ desiredState: 'Running', runtimeStatus: 'Degraded' })).toBeNull();
+    expect(orderCancelMode({ desiredState: 'Stopped', runtimeStatus: 'Stopped' })).toBe('stopped');
+    expect(orderCancelMode({ desiredState: 'Stopped', runtimeStatus: 'Degraded' })).toBe('stopped');
+    expect(orderCancelMode({ desiredState: 'Stopped', runtimeStatus: 'Running' })).toBeNull();
+    expect(orderCancelMode({ desiredState: 'Stopped', runtimeStatus: 'Starting' })).toBeNull();
+  });
+
   it('follows an owner’s cancel until the order is gone or the request is rejected', () => {
     const cancel = { engineOrderId: 2, rejectionReason: null };
 
@@ -76,7 +87,10 @@ describe('open orders', () => {
 
   it('names why a cancel was refused, and shows an unknown code as it is', () => {
     expect(cancelProblemLabel('order_cancel_pending')).toBe('ордер уже отменяется');
-    expect(cancelProblemLabel('bot_not_running')).toBe('бот не работает');
+    expect(cancelProblemLabel('bot_not_running')).toBe('бот запускается или ещё останавливается');
+    expect(cancelProblemLabel('order_not_sent')).toBe(
+      'ордер ещё не отправлен на биржу и ждёт запуска бота',
+    );
     expect(cancelProblemLabel('something_new')).toBe('something_new');
   });
 });

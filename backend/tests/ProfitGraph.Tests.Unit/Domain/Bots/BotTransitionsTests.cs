@@ -91,7 +91,7 @@ public sealed class BotTransitionsTests
             () => bot.DesiredState.ShouldBe(BotDesiredState.Running),
             () => bot.RuntimeStatus.ShouldBe(BotRuntimeStatus.Running),
             () => Should.NotThrow(bot.EnsureAcceptsManualOrders),
-            () => Should.NotThrow(bot.EnsureAcceptsOrderCancels));
+            () => Should.NotThrow(() => bot.EnsureAcceptsOrderCancels(leaseHeld: true)));
     }
 
     [Test]
@@ -759,12 +759,32 @@ public sealed class BotTransitionsTests
     }
 
     [Test]
-    public void OrderCancelsNeedARunningBot()
+    public void OrderCancelsNeedARunningBotOrAStoppedOneWithoutARunner()
     {
-        Should.NotThrow(() => BotFixture.Running().EnsureAcceptsOrderCancels());
-        Should.Throw<BotRuleException>(() => BotFixture.Started().EnsureAcceptsOrderCancels()).Code.ShouldBe(BotRuleException.NotRunning);
-        Should.Throw<BotRuleException>(() => BotFixture.FailedOnce().EnsureAcceptsOrderCancels()).Code.ShouldBe(BotRuleException.NotRunning);
-        Should.Throw<BotRuleException>(() => BotFixture.Stopped().EnsureAcceptsOrderCancels()).Code.ShouldBe(BotRuleException.NotRunning);
+        Bot stopping = BotFixture.Running();
+        stopping.Stop(Now);
+        Bot stoppedAfterFailure = BotFixture.FailedOnce();
+        stoppedAfterFailure.Stop(Now);
+
+        Should.NotThrow(() => BotFixture.Running().EnsureAcceptsOrderCancels(leaseHeld: true));
+        Should.NotThrow(() => BotFixture.Stopped().EnsureAcceptsOrderCancels(leaseHeld: false));
+        Should.NotThrow(() => stopping.EnsureAcceptsOrderCancels(leaseHeld: false));
+        Should.NotThrow(() => stoppedAfterFailure.EnsureAcceptsOrderCancels(leaseHeld: false));
+        Should.Throw<BotRuleException>(() => stopping.EnsureAcceptsOrderCancels(leaseHeld: true)).Code.ShouldBe(BotRuleException.NotRunning);
+        Should.Throw<BotRuleException>(() => BotFixture.Started().EnsureAcceptsOrderCancels(leaseHeld: false)).Code.ShouldBe(BotRuleException.NotRunning);
+        Should.Throw<BotRuleException>(() => BotFixture.FailedOnce().EnsureAcceptsOrderCancels(leaseHeld: false)).Code.ShouldBe(BotRuleException.NotRunning);
+    }
+
+    [Test]
+    public void OnlyAStoppedBotWithoutARunnerIsStoppedWithoutRunner()
+    {
+        Bot stopping = BotFixture.Running();
+        stopping.Stop(Now);
+
+        BotFixture.Stopped().IsStoppedWithoutRunner(leaseHeld: false).ShouldBeTrue();
+        stopping.IsStoppedWithoutRunner(leaseHeld: false).ShouldBeTrue();
+        stopping.IsStoppedWithoutRunner(leaseHeld: true).ShouldBeFalse();
+        BotFixture.Running().IsStoppedWithoutRunner(leaseHeld: false).ShouldBeFalse();
     }
 
     [Test]
