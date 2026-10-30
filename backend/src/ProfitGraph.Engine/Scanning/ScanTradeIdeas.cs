@@ -9,11 +9,29 @@ namespace ProfitGraph.Engine.Scanning;
 ///     hour; <see cref="ScanScenario.Pullback" /> a limit halfway down the last hour's rise, stopped at that hour's lowest low, targeting
 ///     two risks above and waiting four hours. Where shorts are allowed (ADR 0061) the mirrors join them: <c>Levels</c> from the
 ///     resistance down to the support, <c>Target2R</c> from the resistance to two risks below, and <c>Pullback</c> a limit halfway up
-///     the last hour's fall, stopped at its highest high. Deterministic for identical inputs.
+///     the last hour's fall, stopped at its highest high. With the average range of the levels' timeframe (ADR 0070) a stop at a level
+///     lies a quarter of that range beyond it, and an entry at the price whose stop is nearer than one range is not proposed: a candle
+///     of the timeframe would reach it by its usual move. Deterministic for identical inputs.
 /// </summary>
 public static class ScanTradeIdeas
 {
     private const decimal TargetRisks = 2m;
+
+    /// <summary>
+    ///     How far beyond its level a stop lies, in average ranges of the levels' timeframe (ADR 0070).
+    /// </summary>
+    public const decimal StopBuffer = 0.25m;
+
+    /// <summary>
+    ///     The nearest a stop of an entry at the price may be, in average ranges of the levels' timeframe (ADR 0070).
+    /// </summary>
+    public const decimal MinimumStopRanges = 1m;
+
+    /// <summary>
+    ///     The significant digits a price taken from a level keeps (ADR 0070): a level is a mean of prices with any number of digits,
+    ///     and a trade's prices are stored with 18 decimals.
+    /// </summary>
+    private const int StopDigits = 8;
 
     /// <summary>
     ///     How long the pullback's limit waits, in the backtest and on a card.
@@ -31,7 +49,8 @@ public static class ScanTradeIdeas
         decimal? resistance,
         decimal? lastHourLow,
         decimal? lastHourHigh = null,
-        bool shorts = false)
+        bool shorts = false,
+        decimal? averageRange = null)
     {
         List<ScanTradeIdea> ideas = [];
 
@@ -40,11 +59,11 @@ public static class ScanTradeIdeas
             return ideas;
         }
 
-        if (support is { } stop && stop > 0m && stop < price)
+        if (support is { } level && level > 0m && level < price && LevelStop(price, level, averageRange) is { } stop)
         {
             if (resistance is { } target && target > price)
             {
-                ideas.Add(Idea(ScanScenario.Levels, price, stop, target, MarketEntryWait));
+                ideas.Add(Idea(ScanScenario.Levels, price, stop, LevelTarget(price, target), MarketEntryWait));
             }
 
             ideas.Add(Idea(ScanScenario.Target2R, price, stop, price + TargetRisks * (price - stop), MarketEntryWait));
@@ -58,7 +77,7 @@ public static class ScanTradeIdeas
 
         if (shorts)
         {
-            ideas.AddRange(Shorts(price, support, resistance, lastHourHigh));
+            ideas.AddRange(Shorts(price, support, resistance, lastHourHigh, averageRange));
         }
 
         return ideas;
@@ -81,6 +100,57 @@ public static class ScanTradeIdeas
     }
 
     /// <summary>
+    ///     The stop of an entry at <paramref name="entry" /> guarded by <paramref name="level" /> (ADR 0070): the level moved a
+    ///     <see cref="StopBuffer" /> of the average range beyond it, or null when that stop is nearer the entry than
+    ///     <see cref="MinimumStopRanges" /> ranges or not above zero. Without an average range the stop is the level. The stop keeps
+    ///     <see cref="StopDigits" /> significant digits, rounded away from the entry.
+    /// </summary>
+    public static decimal? LevelStop(decimal entry, decimal level, decimal? averageRange)
+    {
+        bool below = level < entry;
+
+        if (averageRange is not { } range || range <= 0m)
+        {
+            return Significant(level, below);
+        }
+
+        decimal stop = below ? level - StopBuffer * range : level + StopBuffer * range;
+
+        if (stop <= 0m)
+        {
+            return null;
+        }
+
+        stop = Significant(stop, below);
+
+        return Math.Abs(entry - stop) < MinimumStopRanges * range ? null : stop;
+    }
+
+    /// <summary>
+    ///     The target at <paramref name="level" />, with <see cref="StopDigits" /> significant digits rounded towards the entry.
+    /// </summary>
+    public static decimal LevelTarget(decimal entry, decimal level)
+    {
+        return Significant(level, down: level > entry);
+    }
+
+    /// <summary>
+    ///     <paramref name="value" /> with <see cref="StopDigits" /> significant digits, rounded down or up.
+    /// </summary>
+    private static decimal Significant(decimal value, bool down)
+    {
+        int places = Math.Clamp(StopDigits - 1 - (int)Math.Floor(Math.Log10((double)value)), min: 0, max: 20);
+        var scale = 1m;
+
+        for (var i = 0; i < places; i++)
+        {
+            scale *= 10m;
+        }
+
+        return (down ? Math.Floor(value * scale) : Math.Ceiling(value * scale)) / scale;
+    }
+
+    /// <summary>
     ///     The pullback's limit: halfway from the close down to the last hour's lowest low.
     /// </summary>
     internal static decimal PullbackLimit(decimal close, decimal low)
@@ -96,13 +166,13 @@ public static class ScanTradeIdeas
         return close + (high - close) / 2;
     }
 
-    private static IEnumerable<ScanTradeIdea> Shorts(decimal price, decimal? support, decimal? resistance, decimal? lastHourHigh)
+    private static IEnumerable<ScanTradeIdea> Shorts(decimal price, decimal? support, decimal? resistance, decimal? lastHourHigh, decimal? averageRange)
     {
-        if (resistance is { } stop && stop > price)
+        if (resistance is { } level && level > price && LevelStop(price, level, averageRange) is { } stop)
         {
             if (support is { } target && target > 0m && target < price)
             {
-                yield return Idea(ScanScenario.Levels, price, stop, target, MarketEntryWait, PositionDirection.Short);
+                yield return Idea(ScanScenario.Levels, price, stop, LevelTarget(price, target), MarketEntryWait, PositionDirection.Short);
             }
 
             decimal twoRisks = price - TargetRisks * (stop - price);

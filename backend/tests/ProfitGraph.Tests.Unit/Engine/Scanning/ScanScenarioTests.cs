@@ -31,6 +31,21 @@ public sealed class ScanScenarioTests
     }
 
     [Test]
+    public void WithTheHoursAverageRangeTheStopLiesBelowTheSupportAndANearOneTradesNothing()
+    {
+        // A range of 2 moves the stop from the support of 98 to 97.5, 2.5 points away; minute 3 dips to 97.4.
+        List<ScanCandle> minutes = Flat(count: 10, price: 100m);
+        minutes[3] = minutes[3] with { Low = 97.4m };
+
+        ScanTrade levels = ScanStudy.Trades(minutes, index: 0, AtLevels, averageRange: 2m).Single(trade => trade.Scenario == ScanScenario.Levels);
+
+        (levels.Stop, levels.Exit, levels.Reason).ShouldBe((97.5m, 97.5m, ScanTradeExit.Stop));
+
+        // A range of 4 puts the stop at 97, 3 points away, nearer than one range: no level trade.
+        ScanStudy.Trades(minutes, index: 0, AtLevels, averageRange: 4m).ShouldBeEmpty();
+    }
+
+    [Test]
     public void AMinuteTouchingStopAndTargetCountsAsTheStop()
     {
         List<ScanCandle> minutes = Flat(count: 10, price: 100m);

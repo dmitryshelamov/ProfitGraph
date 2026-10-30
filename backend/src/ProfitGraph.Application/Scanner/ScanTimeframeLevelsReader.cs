@@ -63,6 +63,7 @@ public sealed class ScanTimeframeLevelsReader(
             metrics.Resistance,
             metrics.DistanceToSupport,
             metrics.DistanceToResistance,
-            metrics.RewardRisk);
+            metrics.RewardRisk,
+            ScanLevels.AverageRange(candles));
     }
 }

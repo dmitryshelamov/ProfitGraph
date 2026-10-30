@@ -11,7 +11,8 @@ namespace ProfitGraph.Application.Scanner;
 ///     (ADR 0060): each timeframe's levels at the pair's price give its own levels and 2R trades; the pullback comes once, from the last
 ///     hour of the trades' own candles, under <see cref="PullbackTimeframe" />. A trade that another timeframe already proposes with
 ///     the same prices is listed once, under the shorter timeframe. Without a price there are no proposals. On a venue that allows
-///     shorts the short proposals come with the long ones (ADR 0061).
+///     shorts the short proposals come with the long ones (ADR 0061). A stop at a level lies beyond it by a quarter of that timeframe's
+///     average range, and an entry at the price with a stop nearer than one range is left out (ADR 0070).
 /// </summary>
 public sealed class ScanTradeIdeasReader(
     ScanTimeframeLevelsReader levels,
@@ -46,7 +47,8 @@ public sealed class ScanTradeIdeasReader(
             if (read.Price is { } current)
             {
                 ideas.AddRange(
-                    ScanTradeIdeas.Of(current, read.Support, read.Resistance, lastHourLow: null, lastHourHigh: null, shorts).Select(idea => (timeframe, idea)));
+                    ScanTradeIdeas.Of(current, read.Support, read.Resistance, lastHourLow: null, lastHourHigh: null, shorts, read.AverageRange)
+                        .Select(idea => (timeframe, idea)));
             }
         }
 

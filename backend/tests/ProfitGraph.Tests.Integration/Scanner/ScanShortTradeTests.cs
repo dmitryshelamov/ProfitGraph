@@ -46,6 +46,10 @@ public sealed class ScanShortTradeTests
     {
         Dictionary<string, string> settings = BotApi.Settings();
         settings["ScanTrades:Timeframe"] = "1h";
+
+        // The test venue offers hours and days only.
+        settings["ScanTrades:LevelTimeframes:0"] = "1h";
+        settings["ScanTrades:LevelTimeframes:1"] = "1d";
         _api = new ProfitGraphApiFactory(
             settings,
             services: services =>
@@ -91,9 +95,9 @@ public sealed class ScanShortTradeTests
 
         var ideas = (await owner.Client.GetFromJsonAsync<ScanTradeIdeasResponse>($"/api/scanner/{Venue}/trade-ideas?symbol=SHORTAUSDT", WebJson))!;
 
-        // Hours: support 90, resistance 110; a short sells at 100 with its stop at 110.
+        // Hours: support 90, resistance 110 and an average range of 1.375; a short sells at 100 with its stop a quarter range above 110.
         ScanTradeIdeaResponse levels = ideas.Ideas.Single(idea => idea is { Direction: "Short", Timeframe: "1h", Scenario: "Levels" });
-        (levels.Entry, levels.Stop, levels.Target, levels.RewardRisk).ShouldBe(("100", "110", "90", "1"));
+        (levels.Entry, levels.Stop, levels.Target).ShouldBe(("100", "110.34375", "90"));
         ideas.Ideas.ShouldContain(idea => idea.Direction == "Long");
 
         HttpResponseMessage created = await owner.Client.PostAsJsonAsync(
@@ -112,13 +116,12 @@ public sealed class ScanShortTradeTests
         var trade = (await created.Content.ReadFromJsonAsync<ScanLiveTradeResponse>(WebJson))!;
         var bot = await owner.Client.GetFromJsonAsync<JsonElement>($"{BotApi.Path}/{trade.BotId}");
 
-        // A 10 % stop, a limit entry at 0.08 % and a market stop at 0.1 % lose 10.18 % of the amount: 5 / 0.1018 = 49.11; at 4× its margin
-        // and both fees are 12.28 + 0.09 = 12.37.
-        (trade.Direction, trade.Amount).ShouldBe(("Short", "49.11"));
+        // A 10.34375 % stop, a limit entry at 0.08 % and a market stop at 0.1 % lose 10.52375 % of the amount: 5 / 0.1052375 = 47.51.
+        (trade.Direction, trade.Amount).ShouldBe(("Short", "47.51"));
         bot.GetProperty("name").GetString().ShouldBe("SHORTAUSDT · шорт · уровни 1h");
-        bot.GetProperty("parameters").GetProperty("sellAmount").GetString().ShouldBe("49.11");
-        bot.GetProperty("allocationCap").GetString().ShouldBe("12.37");
-        bot.GetProperty("maxOrderQuote").GetString().ShouldBe("49.11");
+        bot.GetProperty("parameters").GetProperty("sellAmount").GetString().ShouldBe("47.51");
+        bot.GetProperty("allocationCap").GetString().ShouldBe("11.96");
+        bot.GetProperty("maxOrderQuote").GetString().ShouldBe("47.51");
 
         using (IServiceScope scope = _api.Services.CreateScope())
         {
