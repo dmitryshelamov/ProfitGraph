@@ -6,6 +6,7 @@ export type BotAlertKind = Schemas['BotAlertKind'];
 export type BotRuntimeStatus = Schemas['BotRuntimeStatus'];
 export type BotStatusReason = NonNullable<Schemas['BotStatusReason']>;
 export type ManualOrder = Schemas['ManualOrderResponse'];
+export type BotPositionClose = Schemas['BotPositionCloseResponse'];
 export type OrderSide = Schemas['OrderSide'];
 export type TradingHalt = Schemas['TradingHaltResponse'];
 export type LiveImpactBot = Schemas['LiveImpactBotResponse'];

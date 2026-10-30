@@ -26,5 +26,10 @@ public enum RejectionReason
     /// <summary>
     ///     The venue already knows the order's request key from another order, so it placed nothing for this one.
     /// </summary>
-    DuplicateRequest
+    DuplicateRequest,
+
+    /// <summary>
+    ///     The owner is closing the position (ADR 0064): the strategy places no order until the close ends.
+    /// </summary>
+    PositionClosing
 }

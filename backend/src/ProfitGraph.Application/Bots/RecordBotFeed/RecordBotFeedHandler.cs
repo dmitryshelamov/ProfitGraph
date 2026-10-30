@@ -10,6 +10,7 @@ using ProfitGraph.Domain.Bots.Fills;
 using ProfitGraph.Domain.Bots.OrderCancels;
 using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Domain.Bots.OrderWaiting;
+using ProfitGraph.Domain.Bots.PositionCloses;
 using ProfitGraph.Domain.Bots.Positions;
 
 namespace ProfitGraph.Application.Bots.RecordBotFeed;
@@ -49,7 +50,9 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
         INotificationHandler<BotFeeCorrected>,
         INotificationHandler<BotOrderWaitingStarted>,
         INotificationHandler<BotOrderWaitingEnded>,
-        INotificationHandler<BotHistoryRestated>
+        INotificationHandler<BotHistoryRestated>,
+        INotificationHandler<BotPositionCloseStarted>,
+        INotificationHandler<BotPositionCloseEnded>
 {
     public Task Handle(BotDegraded notification, CancellationToken cancellationToken)
     {
@@ -217,6 +220,30 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
         }
 
         return Record(notification.BotId, BotFeedKind.SettingsChanged, notification.At, cancellationToken, [.. details]);
+    }
+
+    public Task Handle(BotPositionCloseEnded notification, CancellationToken cancellationToken)
+    {
+        return notification.Reason is { } failure
+            ? Record(
+                notification.BotId,
+                BotFeedKind.PositionCloseEnded,
+                notification.At,
+                cancellationToken,
+                ("outcome", notification.Status.ToString()),
+                ("failure", failure))
+            : Record(notification.BotId, BotFeedKind.PositionCloseEnded, notification.At, cancellationToken, ("outcome", notification.Status.ToString()));
+    }
+
+    public Task Handle(BotPositionCloseStarted notification, CancellationToken cancellationToken)
+    {
+        return Record(
+            notification.BotId,
+            BotFeedKind.PositionCloseStarted,
+            notification.At,
+            cancellationToken,
+            ("cancelledOrders", Number(notification.CancelledOrders)),
+            ("stopAfter", notification.StopAfter ? "true" : "false"));
     }
 
     public Task Handle(BotPositionClosed notification, CancellationToken cancellationToken)

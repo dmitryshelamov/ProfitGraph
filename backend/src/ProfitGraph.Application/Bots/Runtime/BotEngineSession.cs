@@ -6,6 +6,7 @@ using ProfitGraph.Domain.Bots.Leases;
 using ProfitGraph.Domain.Bots.ManualOrders;
 using ProfitGraph.Domain.Bots.OrderCancels;
 using ProfitGraph.Domain.Bots.OrderIntents;
+using ProfitGraph.Domain.Bots.PositionCloses;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Blocks;
@@ -382,6 +383,25 @@ public sealed class BotEngineSession
         return true;
     }
 
+    /// <summary>
+    ///     Starts the owner's position close (ADR 0064) and commits its start with the root: the engine asks every working order to
+    ///     cancel and rejects the strategy's orders until the close ends. The roots after it sell the position once nothing works
+    ///     (<see cref="AdvancePositionClose" />). Returns false when the engine has no candle yet or another close is in progress.
+    /// </summary>
+    public async Task<bool> ProcessPositionClose(BotPositionClose request, CancellationToken cancellationToken)
+    {
+        if (Checkpoint is null || LastCandle is null || _dispatcher.PositionClose is not null)
+        {
+            return false;
+        }
+
+        int cancelled = _dispatcher.BeginPositionClose(request.Id.Value);
+        _dispatcher.Drain(cancellationToken);
+        await Save(liveCandle: false, cancellationToken, positionCloseStarted: cancelled);
+
+        return true;
+    }
+
     private async Task StartAt(Candle candle, int index, CancellationToken cancellationToken)
     {
         _dispatcher.StartAndDrain(new ReachedMarketContext(candle, index, candle.OpenTime + _timeframe.Duration, PricePhase.Open, candle.Open, index));
@@ -415,9 +435,11 @@ public sealed class BotEngineSession
         CancellationToken cancellationToken,
         BotRootManualOrder? manualOrder = null,
         ExternalOrderUpdate? update = null,
-        BotRootOrderCancel? orderCancel = null)
+        BotRootOrderCancel? orderCancel = null,
+        int? positionCloseStarted = null)
     {
         DateTimeOffset now = _clock.GetUtcNow();
+        BotRootPositionClose? positionClose = AdvancePositionClose(positionCloseStarted, cancellationToken);
         GraphEngineCheckpoint current = _dispatcher.CaptureCheckpoint(_version.Value.ToString("D"), LastCandle!.OpenTime + _timeframe.Duration);
         BotOrderFill? filled = BotRootAccounting.OrderFilled(Checkpoint, current, update, _dispatcher.Account.Rules);
         await _committer.Commit(
@@ -432,7 +454,8 @@ public sealed class BotEngineSession
                 BotRootAccounting.Fills(_botId, Checkpoint, current, update, _dispatcher.Account.Rules.BuyFeeAsset, now),
                 BotRootAccounting.Position(Checkpoint, current, now),
                 BotRootAccounting.FeeCorrections(_botId, Checkpoint, current, update, now),
-                orderCancel),
+                orderCancel,
+                positionClose),
             bot =>
             {
                 bot.ApplyStrategyVersion(_version, now);
@@ -462,6 +485,64 @@ public sealed class BotEngineSession
             cancellationToken);
         Checkpoint = current;
         _restatement = null;
+    }
+
+    /// <summary>
+    ///     Moves the position close in progress after a root (ADR 0064). While the bot still has a working order the close waits.
+    ///     Then it sells what the position holds at the market; a position that is flat, or a sale the instrument's minimums
+    ///     refuse, leaves only a remainder no order can sell, and the close ends closed. Once the sale ended the close ends closed
+    ///     when the position is flat and failed otherwise. Nothing when no close is in progress and none started.
+    /// </summary>
+    private BotRootPositionClose? AdvancePositionClose(int? started, CancellationToken cancellationToken)
+    {
+        if (_dispatcher.PositionClose is not { } close)
+        {
+            return null;
+        }
+
+        var id = new BotPositionCloseId(close.RequestId);
+        IReadOnlyList<OrderSnapshot> orders = _dispatcher.Account.Capture().Orders;
+        var waiting = new BotRootPositionClose(id, started);
+
+        if (close.SellOrderId is not { } sellOrderId)
+        {
+            if (orders.Count > 0)
+            {
+                return started is null ? null : waiting;
+            }
+
+            if (_dispatcher.PositionOpenedAt is null)
+            {
+                _dispatcher.EndPositionClose();
+
+                return waiting with { Closed = true };
+            }
+
+            Candle last = LastCandle!;
+            var context = new ReachedMarketContext(last, _lastCandleIndex, last.OpenTime + _timeframe.Duration, PricePhase.External, last.Close, _lastCandleIndex + 1);
+            OrderSubmission sale = _dispatcher.SubmitPositionCloseOrder(context);
+            _dispatcher.Drain(cancellationToken);
+
+            if (sale.Order is { } order)
+            {
+                return waiting with { SellOrderId = order.Id };
+            }
+
+            _dispatcher.EndPositionClose();
+
+            return sale.Rejection!.Reason is RejectionReason.ZeroQuantity or RejectionReason.BelowMinQuantity or RejectionReason.BelowMinNotional
+                ? waiting with { Closed = true }
+                : waiting with { Failure = sale.Rejection.Reason.ToString() };
+        }
+
+        if (orders.Any(order => order.Id == sellOrderId))
+        {
+            return started is null ? null : waiting;
+        }
+
+        _dispatcher.EndPositionClose();
+
+        return _dispatcher.PositionOpenedAt is null ? waiting with { Closed = true } : waiting with { Failure = PositionCloseRequests.NotEmptiedReason };
     }
 
     /// <summary>

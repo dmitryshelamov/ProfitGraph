@@ -115,6 +115,7 @@ const rejectionLabels: Readonly<Record<string, string>> = {
   BrokerRejected: 'биржа отклонила заявку',
   DuplicateRequest:
     'брокер уже получал заявку с этим ключом, например от копии бота; ничего не выставлено',
+  PositionClosing: 'владелец закрывает позицию: стратегия не выставляет заявок до конца закрытия',
 };
 
 /** The owner-facing reason of a rejected order; an unknown code is shown as it is. */

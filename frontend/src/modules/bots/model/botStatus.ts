@@ -119,6 +119,8 @@ const feedLabels: Record<BotFeedKind, string> = {
   OrderWaitingEnded: 'Заявка больше не ждёт',
   HistoryRestated: 'История свечей пересчитана площадкой',
   OrderCancelRequested: 'Отмена ордера по запросу владельца',
+  PositionCloseStarted: 'Закрытие позиции по запросу владельца',
+  PositionCloseEnded: 'Закрытие позиции завершено',
 };
 
 export function feedLabel(kind: BotFeedKind): string {

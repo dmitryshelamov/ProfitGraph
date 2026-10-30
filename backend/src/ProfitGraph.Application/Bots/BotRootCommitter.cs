@@ -8,6 +8,7 @@ using ProfitGraph.Domain.Bots.ManualOrders;
 using ProfitGraph.Domain.Bots.OrderCancels;
 using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Domain.Bots.OrderWaiting;
+using ProfitGraph.Domain.Bots.PositionCloses;
 using ProfitGraph.Domain.Bots.Positions;
 using ProfitGraph.Engine.Accounting;
 
@@ -25,6 +26,7 @@ public sealed class BotRootCommitter(
     IOrderIntentRepository intents,
     IManualOrderRequestRepository manualOrders,
     IOrderCancelRequestRepository orderCancels,
+    IBotPositionCloseRepository positionCloses,
     IBotFillRepository fills,
     IBotFeeCorrectionRepository feeCorrections,
     IBotOrderWaitingRepository waiting,
@@ -71,6 +73,11 @@ public sealed class BotRootCommitter(
                 if (commit.OrderCancel is { } cancel)
                 {
                     await Resolve(cancel, now, cancellationToken);
+                }
+
+                if (commit.PositionClose is { } close)
+                {
+                    await Advance(bot, close, now, cancellationToken);
                 }
 
                 foreach (BotFill fill in commit.Fills ?? [])
@@ -128,6 +135,44 @@ public sealed class BotRootCommitter(
     ///     Resolves the owner's order cancel the root processed (ADR 0048). A request that is no longer pending, because it expired
     ///     while it waited, fails the commit, so the engine restarts from its stored state without the cancel.
     /// </summary>
+    /// <summary>
+    ///     Moves the position close the root worked on (ADR 0064). A close that is no longer pending when its root starts it,
+    ///     because it expired while it waited, fails the commit, so the engine restarts from its stored state without it. A close
+    ///     that ended stops the bot when the owner asked for it or when it failed.
+    /// </summary>
+    private async Task Advance(Bot bot, BotRootPositionClose step, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        BotPositionClose close = await positionCloses.GetForUpdate(step.CloseId, cancellationToken) is { IsActive: true } active
+            ? active
+            : throw new BotRuleException(BotRuleException.PositionCloseResolved, "The position close has already ended.");
+
+        if (step.Started is { } cancelled)
+        {
+            close.Start(cancelled, now);
+        }
+
+        if (step.SellOrderId is { } sell)
+        {
+            close.Sell(sell, now);
+        }
+
+        if (step.Failure is { } failure)
+        {
+            close.Fail(failure, now);
+        }
+        else if (step.Closed)
+        {
+            close.Close(now);
+        }
+
+        if (close is { IsActive: false } && (close.StopAfter || close.Status == BotPositionCloseStatus.Failed))
+        {
+            bot.Stop(now);
+        }
+
+        await positionCloses.Update(close, cancellationToken);
+    }
+
     private async Task Resolve(BotRootOrderCancel cancel, DateTimeOffset now, CancellationToken cancellationToken)
     {
         OrderCancelRequest request = await orderCancels.GetForUpdate(cancel.RequestId, cancellationToken) is { Status: OrderCancelStatus.Pending } pending

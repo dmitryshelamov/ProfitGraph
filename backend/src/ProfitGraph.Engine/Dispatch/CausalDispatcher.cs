@@ -51,10 +51,19 @@ public sealed class CausalDispatcher
     private bool _isDraining;
     private int _lastClosedCandleIndex = -1;
     private Candle? _lastClosedCandle;
-    private DateTimeOffset? _positionOpenedAt;
 
     public bool AreIndicatorsReady => _evaluator.AreIndicatorsReady;
     public IGraphAccount Account { get; }
+
+    /// <summary>
+    ///     The owner's position close in progress (ADR 0064), or null.
+    /// </summary>
+    public PositionCloseState? PositionClose { get; private set; }
+
+    /// <summary>
+    ///     When the open position opened; null while the position is flat, which includes a remainder no order can sell.
+    /// </summary>
+    public DateTimeOffset? PositionOpenedAt { get; private set; }
 
     public DispatchBatch LastBatch => new DispatchBatch(_observations, _skips, _facts, _occurrences);
     public ExecutionPublicationFact? LastPublishedExecution { get; private set; }
@@ -212,8 +221,9 @@ public sealed class CausalDispatcher
             Started,
             graphVersionId,
             _orderGraphVersions.ToImmutableDictionary(),
-            _positionOpenedAt,
-            _grids.Values.Where(grid => grid.Phase != GridPhase.Stopped).Select(grid => grid.Capture()).ToImmutableArray());
+            PositionOpenedAt,
+            _grids.Values.Where(grid => grid.Phase != GridPhase.Stopped).Select(grid => grid.Capture()).ToImmutableArray(),
+            PositionClose);
     }
 
     public static CausalDispatcher Restore(
@@ -268,8 +278,10 @@ public sealed class CausalDispatcher
             _lastClosedCandleIndex = checkpoint.LastClosedCandleIndex,
             Started = checkpoint.Started,
             GraphVersionId = checkpoint.GraphVersionId,
-            _positionOpenedAt = checkpoint.PositionOpenedAt
+            PositionOpenedAt = checkpoint.PositionOpenedAt,
+            PositionClose = checkpoint.PositionClose
         };
+        account.ClosingPosition = checkpoint.PositionClose is not null;
 
         for (var index = 0; index < closedHistory.Count; index++)
         {
@@ -429,7 +441,7 @@ public sealed class CausalDispatcher
 
         foreach (OrderSnapshot order in Account.Capture().Orders)
         {
-            if (nextGraph.NodesById.ContainsKey(order.OriginNodeId) || order.OriginNodeId == ManualOrder.OriginNodeId)
+            if (nextGraph.NodesById.ContainsKey(order.OriginNodeId) || order.OriginNodeId is ManualOrder.OriginNodeId or PositionCloseOrder.OriginNodeId)
             {
                 continue;
             }
@@ -651,6 +663,107 @@ public sealed class CausalDispatcher
         }
     }
 
+    /// <summary>
+    ///     Starts the owner's position close (ADR 0064): from now on the strategy's orders are rejected locally, and every working
+    ///     order not already awaiting cancellation is asked to cancel as an owner's cancel is (ADR 0048). Returns how many were asked.
+    /// </summary>
+    public int BeginPositionClose(Guid requestId)
+    {
+        EnsureIdle();
+
+        if (Account is not ExternallyExecutedAccount account || PositionClose is not null)
+        {
+            throw new InvalidOperationException("A position close needs an externally executed account and no close in progress.");
+        }
+
+        try
+        {
+            PositionClose = new PositionCloseState(requestId);
+            account.ClosingPosition = true;
+
+            return account.Capture()
+                .Orders.Where(order => order.Status is OrderStatus.Active or OrderStatus.PendingSubmit)
+                .Select(order => order.Id)
+                .ToArray()
+                .Count(id => account.RequestCancel(id).Disposition == ExternalCancelDisposition.Pending);
+        }
+        catch
+        {
+            _faulted = true;
+
+            throw;
+        }
+    }
+
+    /// <summary>
+    ///     Sells what the position holds at the market once the bot has no working order (ADR 0064), against the last closed
+    ///     candle as an owner's order is. The account rounds the quantity down to its step and rejects what falls below the
+    ///     instrument's minimums; an accepted order becomes the close's sell order.
+    /// </summary>
+    public OrderSubmission SubmitPositionCloseOrder(ReachedMarketContext context)
+    {
+        EnsureIdle();
+
+        if (PositionClose is not { SellOrderId: null } close || Account is not ExternallyExecutedAccount account)
+        {
+            throw new InvalidOperationException("Only a position close without a sell order submits one.");
+        }
+
+        if (context.Phase != PricePhase.External || _lastClosedCandle != context.Candle)
+        {
+            throw new ArgumentException("A position close must use the last closed candle and External phase.", nameof(context));
+        }
+
+        _guard.BeginExternal(context.CandleIndex, context.MarketPrice);
+
+        try
+        {
+            AccountSnapshot snapshot = account.Capture();
+            var request = new OrderRequest(
+                OrderSide.Sell,
+                OrderType.Market,
+                snapshot.BaseAvailable,
+                LimitPrice: null,
+                PositionCloseOrder.Tag,
+                PositionCloseOrder.OriginNodeId,
+                context.EligibleFromCandleIndex);
+            OrderSubmission result = account.Submit(request);
+
+            if (result.Order is { } order)
+            {
+                if (order.Status == OrderStatus.PendingSubmit)
+                {
+                    _pendingSubmissionAttempts.Add(order.Id, checked(++_nextAttemptId));
+                }
+
+                PositionClose = close with { SellOrderId = order.Id };
+            }
+
+            return result;
+        }
+        catch
+        {
+            _faulted = true;
+
+            throw;
+        }
+    }
+
+    /// <summary>
+    ///     Ends the owner's position close, however it ended; the strategy may place orders again.
+    /// </summary>
+    public void EndPositionClose()
+    {
+        EnsureIdle();
+
+        if (Account is ExternallyExecutedAccount account)
+        {
+            account.ClosingPosition = false;
+        }
+
+        PositionClose = null;
+    }
+
     internal IReadOnlyList<EventOccurrence> ApplySimulatedOrderUpdate(ExternalOrderUpdate update, ReachedMarketContext context)
     {
         EnsureIdle();
@@ -853,7 +966,7 @@ public sealed class CausalDispatcher
                 if (retainProjections)
                 {
                     snapshot = Account.Capture();
-                    var context = new DispatchEvaluationContext(snapshot, Account.Rules, Account.Settings, routed.Market, _positionOpenedAt, _closures);
+                    var context = new DispatchEvaluationContext(snapshot, Account.Rules, Account.Settings, routed.Market, PositionOpenedAt, _closures);
                     outputs = _evaluator.ReadRoutedDispatch(occurrence, _routedValues, context);
                     ActionCollectionResult collection = _collector.Collect(
                         _graph,
@@ -866,7 +979,7 @@ public sealed class CausalDispatcher
                 }
                 else
                 {
-                    EngineValue[] replayOutputs = _evaluator.ReadDispatchForReplay(occurrence, _routedValues, Account, routed.Market, _positionOpenedAt, _closures);
+                    EngineValue[] replayOutputs = _evaluator.ReadDispatchForReplay(occurrence, _routedValues, Account, routed.Market, PositionOpenedAt, _closures);
                     _collector.CollectForReplay(
                         _graph,
                         occurrence,
@@ -1081,11 +1194,11 @@ public sealed class CausalDispatcher
     {
         if (PositionHoldingPeriod.IsFlat(after, Account.Rules, Account.Settings, context.MarketPrice))
         {
-            _positionOpenedAt = null;
+            PositionOpenedAt = null;
         }
         else if (PositionHoldingPeriod.IsFlat(before, Account.Rules, Account.Settings, context.MarketPrice))
         {
-            _positionOpenedAt = openingTime;
+            PositionOpenedAt = openingTime;
         }
     }
 

@@ -23,4 +23,5 @@ public sealed record BotRootCommit(
     IReadOnlyList<BotFill>? Fills = null,
     BotRootPosition? Position = null,
     IReadOnlyList<BotFeeCorrection>? FeeCorrections = null,
-    BotRootOrderCancel? OrderCancel = null);
+    BotRootOrderCancel? OrderCancel = null,
+    BotRootPositionClose? PositionClose = null);

@@ -2312,6 +2312,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bots/{id}/position-close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotPositionCloseResponse"];
+                        "application/json": components["schemas"]["BotPositionCloseResponse"];
+                        "text/json": components["schemas"]["BotPositionCloseResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RequestPositionCloseRequest"];
+                    "text/json": components["schemas"]["RequestPositionCloseRequest"];
+                    "application/*+json": components["schemas"]["RequestPositionCloseRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BotPositionCloseResponse"];
+                        "application/json": components["schemas"]["BotPositionCloseResponse"];
+                        "text/json": components["schemas"]["BotPositionCloseResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bots/{id}/manual-orders": {
         parameters: {
             query?: never;
@@ -4572,7 +4640,7 @@ export interface components {
             occurredAt: string;
         };
         /** @enum {unknown} */
-        BotFeedKind: "Started" | "Stopped" | "Killed" | "Degraded" | "Recovered" | "RuntimeStopped" | "RunRestarted" | "GraphVersionApplied" | "GraphChangeRejected" | "FeedStalled" | "FeedRecovered" | "ExchangeUnavailable" | "SubmitHeld" | "OrderPlaced" | "OrderRejected" | "OrderFailed" | "OrderAbsenceConfirmed" | "Fill" | "PositionOpened" | "PositionClosed" | "SettingsChanged" | "FeeCorrected" | "OrderWaiting" | "OrderWaitingEnded" | "HistoryRestated" | "OrderAbsenceProven" | "OrderCancelRequested";
+        BotFeedKind: "Started" | "Stopped" | "Killed" | "Degraded" | "Recovered" | "RuntimeStopped" | "RunRestarted" | "GraphVersionApplied" | "GraphChangeRejected" | "FeedStalled" | "FeedRecovered" | "ExchangeUnavailable" | "SubmitHeld" | "OrderPlaced" | "OrderRejected" | "OrderFailed" | "OrderAbsenceConfirmed" | "Fill" | "PositionOpened" | "PositionClosed" | "SettingsChanged" | "FeeCorrected" | "OrderWaiting" | "OrderWaitingEnded" | "HistoryRestated" | "OrderAbsenceProven" | "OrderCancelRequested" | "PositionCloseStarted" | "PositionCloseEnded";
         BotFeedPageResponse: {
             items: components["schemas"]["BotFeedEntryResponse"][];
             /** Format: int64 */
@@ -4624,6 +4692,25 @@ export interface components {
             low: null | string;
             high: null | string;
         };
+        BotPositionCloseResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            botId: string;
+            stopAfter: boolean;
+            status: components["schemas"]["BotPositionCloseStatus"];
+            /** Format: int32 */
+            cancelledOrders: null | number;
+            /** Format: int64 */
+            engineOrderId: null | number;
+            failureReason: null | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            resolvedAt: null | string;
+        };
+        /** @enum {string} */
+        BotPositionCloseStatus: "Pending" | "Cancelling" | "Selling" | "Closed" | "Failed";
         BotPositionCycleResponse: {
             /** Format: uuid */
             id: string;
@@ -5115,6 +5202,9 @@ export interface components {
         };
         RenameExchangeCredentialRequest: {
             label: string;
+        };
+        RequestPositionCloseRequest: {
+            stopAfter: boolean;
         };
         RenameStrategyRequest: {
             name: string;

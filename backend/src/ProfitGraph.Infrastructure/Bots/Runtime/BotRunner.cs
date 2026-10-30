@@ -14,12 +14,14 @@ using ProfitGraph.Application.Bots.RenewBotLease;
 using ProfitGraph.Application.Bots.ReportBotRuntime;
 using ProfitGraph.Application.Bots.ResolveManualOrder;
 using ProfitGraph.Application.Bots.ResolveOrderCancel;
+using ProfitGraph.Application.Bots.ResolvePositionClose;
 using ProfitGraph.Application.Bots.Runtime;
 using ProfitGraph.Application.MarketData;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Bots.Leases;
 using ProfitGraph.Domain.Bots.ManualOrders;
 using ProfitGraph.Domain.Bots.OrderCancels;
+using ProfitGraph.Domain.Bots.PositionCloses;
 using ProfitGraph.Domain.Strategies;
 
 namespace ProfitGraph.Infrastructure.Bots.Runtime;
@@ -174,6 +176,7 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
         tasks.Add(Produce(scope.ServiceProvider.GetRequiredService<BotUpdateBus>().Read(bot.Id, _producers.Token), update => new BotRoot(Candle: null, update)));
         tasks.Add(Produce(PendingManualOrders(_producers.Token), id => new BotRoot(Candle: null, Update: null, id)));
         tasks.Add(Produce(PendingOrderCancels(_producers.Token), id => new BotRoot(Candle: null, Update: null, OrderCancel: id)));
+        tasks.Add(Produce(PendingPositionCloses(_producers.Token), id => new BotRoot(Candle: null, Update: null, PositionClose: id)));
         tasks.Add(Produce(NewStrategyVersions(session, _producers.Token), _ => new BotRoot(Candle: null, Update: null, GraphChange: true)));
 
         var follower = scope.ServiceProvider.GetRequiredService<BotGraphFollower>();
@@ -197,6 +200,10 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
             else if (root.OrderCancel is { } orderCancel)
             {
                 await ProcessOrderCancel(scope, sender, session, orderCancel, hostToken);
+            }
+            else if (root.PositionClose is { } positionClose)
+            {
+                await ProcessPositionClose(scope, sender, session, positionClose, hostToken);
             }
         }
     }
@@ -251,6 +258,32 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
         }
 
         await session.ProcessOrderCancel(request, hostToken);
+    }
+
+    /// <summary>
+    ///     A pending position close (ADR 0064) is started in the engine with the start in the root's commit; one that waited past its
+    ///     lifetime fails as expired without reaching the engine.
+    /// </summary>
+    private async Task ProcessPositionClose(IServiceScope scope, ISender sender, BotEngineSession session, BotPositionCloseId id, CancellationToken hostToken)
+    {
+        BotPositionClose? close = await scope.ServiceProvider.GetRequiredService<IBotPositionCloseRepository>().Get(id, hostToken);
+
+        if (close is not { Status: BotPositionCloseStatus.Pending })
+        {
+            return;
+        }
+
+        if (close.IsExpired(clock.GetUtcNow()))
+        {
+            if (!await sender.Send(new ResolvePositionCloseCommand(bot.Id.Value, holder.Value, epoch, id.Value, BotPositionClose.ExpiredReason), hostToken))
+            {
+                throw new BotLeaseLostException();
+            }
+
+            return;
+        }
+
+        await session.ProcessPositionClose(close, hostToken);
     }
 
     /// <summary>
@@ -316,6 +349,28 @@ internal sealed class BotRunner(Bot bot, LeaseHolderId holder, long epoch, IServ
                 last = pending.Id;
 
                 yield return pending.Id;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     The bot's pending position close each time a new one appears.
+    /// </summary>
+    private async IAsyncEnumerable<BotPositionCloseId> PendingPositionCloses([EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        BotPositionCloseId? last = null;
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            await Task.Delay(options.ManualOrderPollInterval, clock, cancellationToken);
+            using IServiceScope scope = scopes.CreateScope();
+            BotPositionClose? active = await scope.ServiceProvider.GetRequiredService<IBotPositionCloseRepository>().GetActive(bot.Id, cancellationToken);
+
+            if (active is { Status: BotPositionCloseStatus.Pending } && active.Id != last)
+            {
+                last = active.Id;
+
+                yield return active.Id;
             }
         }
     }
