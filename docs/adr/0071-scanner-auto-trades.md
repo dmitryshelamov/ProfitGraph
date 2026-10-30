@@ -153,6 +153,11 @@ The owner asked to build the whole decision at once ("делай все сраз
   entries make nothing, and the missed mean R counts trades held to the horizon with the stopped ones, so it is the measured loss of a
   card that did not reach its target rather than −1. A band needs `ScanTrades:MinOddsTrades` (100) closed trades.
 
+### 2b. A backtest of an earlier period (amended 2026-10-31)
+
+Section 5 needs a second backtest over another 30 days. `POST /api/scanner/{venue}/backtests` takes `daysBack` (0 to 335): the period
+ends that many days before now. The scanner page offers the last 30 days and the three 30-day periods before them.
+
 ### 3. Trend, RSI and the market as scanner metrics
 
 Three metrics join the table, presets, alerts and replay, computed by the engine from the hours the scanner holds:

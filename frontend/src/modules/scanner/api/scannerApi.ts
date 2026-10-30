@@ -160,13 +160,17 @@ export function scanLevelsQuery(venue: string, symbol: string, timeframe: string
   });
 }
 
-/** Replays the preset's conditions over the venue's last 30 days in a background job. */
+/** Replays the preset's conditions over 30 days of the venue's history ending `daysBack` days ago, in a background job. */
 export async function startScanBacktest(
   venue: string,
   input: ScanPresetInput,
+  daysBack = 0,
 ): Promise<ScanBacktest> {
   return unwrap(
-    await api.POST('/api/scanner/{venue}/backtests', { params: { path: { venue } }, body: input }),
+    await api.POST('/api/scanner/{venue}/backtests', {
+      params: { path: { venue }, query: daysBack > 0 ? { daysBack } : {} },
+      body: input,
+    }),
   );
 }
 
