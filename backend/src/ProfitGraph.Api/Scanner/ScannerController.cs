@@ -85,13 +85,17 @@ public sealed class ScannerController(ISender sender) : ControllerBase
     }
 
     /// <summary>
-    ///     Replays a preset's conditions (saved or not) over the venue's last 30 days in a background job and answers the backtest; follow
-    ///     its job, then read it again for the result (ADR 0059, section 6).
+    ///     Replays a preset's conditions (saved or not) over 30 days of the venue's history in a background job and answers the backtest;
+    ///     follow its job, then read it again for the result (ADR 0059, section 6). The period ends now, or <c>daysBack</c> days ago.
     /// </summary>
     [HttpPost("{venue}/backtests")]
-    public async Task<ActionResult<ScanBacktestResponse>> StartBacktest(string venue, ScanPresetRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ScanBacktestResponse>> StartBacktest(
+        string venue,
+        ScanPresetRequest request,
+        [FromQuery] int? daysBack,
+        CancellationToken cancellationToken)
     {
-        ScanBacktestInternal backtest = await sender.Send(new StartScanBacktestCommand(UserId(), venue, request.ToInternal()), cancellationToken);
+        ScanBacktestInternal backtest = await sender.Send(new StartScanBacktestCommand(UserId(), venue, request.ToInternal(), daysBack ?? 0), cancellationToken);
 
         return StatusCode(StatusCodes.Status202Accepted, backtest.ToResponse());
     }

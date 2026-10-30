@@ -84,8 +84,9 @@ export function ScannerPage() {
   });
 
   const navigate = useNavigate();
+  const [daysBack, setDaysBack] = useState(0);
   const backtest = useMutation({
-    mutationFn: () => startScanBacktest(current!, draftInput(view)),
+    mutationFn: () => startScanBacktest(current!, draftInput(view), daysBack),
     onSuccess: (started) =>
       navigate({ to: '/scanner/backtests/$backtestId', params: { backtestId: started.id } }),
   });
@@ -209,6 +210,19 @@ export function ScannerPage() {
               problem={problem}
             />
             <div className="space-y-2 border-t border-line pt-3">
+              <label className="flex items-center gap-2 text-sm">
+                <span className="text-text-secondary">Период</span>
+                <select
+                  className="rounded-md border border-line-strong bg-panel px-2 py-1 text-sm"
+                  value={daysBack}
+                  onChange={(event) => setDaysBack(Number(event.target.value))}
+                >
+                  <option value={0}>последние 30 дней</option>
+                  <option value={30}>30–60 дней назад</option>
+                  <option value={60}>60–90 дней назад</option>
+                  <option value={90}>90–120 дней назад</option>
+                </select>
+              </label>
               <Button
                 disabled={backtest.isPending || problem !== null}
                 onClick={() => backtest.mutate()}
@@ -217,6 +231,8 @@ export function ScannerPage() {
               </Button>
               <p className="text-xs text-muted">
                 Что было с парами после входа в результат пресета: через 15 мин, 1 ч, 4 ч и 24 ч.
+                Более ранний период нужен автосделкам: правило доказывается двумя проверками, где
+                рынок шёл в разные стороны.
               </p>
               {backtest.isError && (
                 <ApiErrorMessage error={backtest.error} fallback="Не удалось запустить проверку." />

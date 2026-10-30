@@ -27,7 +27,7 @@ internal sealed class StartScanBacktestCommandHandler(
         IMarketScanSource source = sources.Find(command.Venue);
         var owner = new UserId(command.UserId);
         DateTimeOffset now = clock.GetUtcNow();
-        var to = new DateTimeOffset(now.UtcTicks - now.UtcTicks % TimeSpan.TicksPerMinute, TimeSpan.Zero);
+        DateTimeOffset to = new DateTimeOffset(now.UtcTicks - now.UtcTicks % TimeSpan.TicksPerMinute, TimeSpan.Zero) - TimeSpan.FromDays(command.DaysBack);
         var filter = new ScanFilter(command.Definition.ToDomainConditions(), command.Definition.HideStale);
         var jobId = BackgroundJobId.New();
         ScanBacktest backtest = ScanBacktest.Start(owner, source.Venue, new ScanPresetName(command.Definition.Name), filter, to - Period, to, jobId, now);

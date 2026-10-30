@@ -89,6 +89,21 @@ public sealed class ScanBacktestTests
     }
 
     [Test]
+    public async Task ABacktestMayEndDaysBackForAnotherMarket()
+    {
+        using HttpClient client = await _api.CreateSignedInClient();
+        var preset = new ScanPresetRequest("Раньше", [], "Change1h", SortDescending: true, HideStale: true);
+
+        var earlier = (await (await client.PostAsJsonAsync($"/api/scanner/{TestHistoryVenue.WithHistory}/backtests?daysBack=30", preset)).Content
+            .ReadFromJsonAsync<ScanBacktestResponse>())!;
+        HttpResponseMessage tooFar = await client.PostAsJsonAsync($"/api/scanner/{TestHistoryVenue.WithHistory}/backtests?daysBack=400", preset);
+
+        (earlier.To - earlier.From).ShouldBe(TimeSpan.FromDays(30));
+        earlier.To.ShouldBeInRange(DateTimeOffset.UtcNow.AddDays(-30).AddMinutes(-2), DateTimeOffset.UtcNow.AddDays(-30));
+        tooFar.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Test]
     public async Task AnotherUserCannotReadTheBacktest()
     {
         using HttpClient owner = await _api.CreateSignedInClient();

@@ -862,7 +862,9 @@ export interface paths {
         put?: never;
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    daysBack?: number;
+                };
                 header?: never;
                 path: {
                     venue: string;
