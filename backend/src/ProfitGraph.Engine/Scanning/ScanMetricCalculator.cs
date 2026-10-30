@@ -30,6 +30,7 @@ public static class ScanMetricCalculator
         IReadOnlyList<ScanCandle> minutes = input.Minutes;
         IReadOnlyList<ScanCandle> hours = input.Hours;
         decimal? close = minutes.Count > 0 ? minutes[^1].Close : null;
+        IReadOnlyList<ScanCandle>? range = Range(minutes);
 
         var metrics = new ScanMetrics
         {
@@ -50,8 +51,9 @@ public static class ScanMetricCalculator
             DistanceToLow24h = close is { } c2 ? DistanceToLow(c2, Last(minutes, MinutesPerDay)) : null,
             DistanceToHigh7d = close is { } c3 ? DistanceToHigh(c3, Week(minutes, hours)) : null,
             DistanceToLow7d = close is { } c4 ? DistanceToLow(c4, Week(minutes, hours)) : null,
-            Breakout4h = close is { } c5 ? DistanceToHigh(c5, Last(minutes, RangeMinutes, ImpulseMinutes)) : null,
-            Range4h = Width(Last(minutes, RangeMinutes, ImpulseMinutes)),
+            Breakout4h = close is { } c5 ? DistanceToHigh(c5, range) : null,
+            Breakdown4h = close is { } c6 ? DistanceToLow(c6, range) : null,
+            Range4h = Width(range),
             Spread = Spread(input.BestBid, input.BestAsk),
             ListingAgeDays = input.ListedAt is { } listedAt ? ListingAgeDays(listedAt, input.Now) : null,
             Stale = IsStale(minutes, input.Now)
@@ -242,11 +244,30 @@ public static class ScanMetricCalculator
     }
 
     /// <summary>
-    ///     Последние <paramref name="count" /> свечей перед <paramref name="skip" /> последними; пусто, пока свечей не хватает.
+    ///     Диапазон перед движением (ADR 0066, ADR 0068): последние 240 минут со сделками перед последними 15 минутами. Минуты без
+    ///     сделок пропускаются, поэтому ночь и выходные биржи не попадают в диапазон; пусто, пока таких минут меньше 240.
     /// </summary>
-    private static IReadOnlyList<ScanCandle>? Last(IReadOnlyList<ScanCandle> candles, int count, int skip = 0)
+    private static IReadOnlyList<ScanCandle>? Range(IReadOnlyList<ScanCandle> minutes)
     {
-        if (candles.Count < count + skip)
+        var range = new List<ScanCandle>(RangeMinutes);
+
+        for (int i = minutes.Count - ImpulseMinutes - 1; i >= 0 && range.Count < RangeMinutes; i--)
+        {
+            if (minutes[i].Volume > 0)
+            {
+                range.Add(minutes[i]);
+            }
+        }
+
+        return range.Count < RangeMinutes ? null : range;
+    }
+
+    /// <summary>
+    ///     Последние <paramref name="count" /> свечей; пусто, пока свечей не хватает.
+    /// </summary>
+    private static IReadOnlyList<ScanCandle>? Last(IReadOnlyList<ScanCandle> candles, int count)
+    {
+        if (candles.Count < count)
         {
             return null;
         }
@@ -255,7 +276,7 @@ public static class ScanMetricCalculator
 
         for (var i = 0; i < count; i++)
         {
-            window[i] = candles[candles.Count - skip - count + i];
+            window[i] = candles[candles.Count - count + i];
         }
 
         return window;

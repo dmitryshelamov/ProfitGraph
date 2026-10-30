@@ -39,6 +39,7 @@ internal static class ScanSnapshotResponseConverter
             Text(metrics.DistanceToHigh7d),
             Text(metrics.DistanceToLow7d),
             Text(metrics.Breakout4h),
+            Text(metrics.Breakdown4h),
             Text(metrics.Range4h),
             Text(metrics.Resistance),
             Text(metrics.Support),

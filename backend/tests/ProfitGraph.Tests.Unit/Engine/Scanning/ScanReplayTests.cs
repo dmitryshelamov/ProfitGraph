@@ -45,6 +45,11 @@ public sealed class ScanReplayTests
         }
 
         replay.At(index: 14_399).VolumeSpike.ShouldNotBeNull();
+
+        // The range of a morning reaches back over the night to the evening's minutes with trades.
+        bool overNight = Enumerable.Range(start: 254, count: 14_146)
+            .Any(index => replay.At(index).Breakout4h != null && minutes.Skip(index - 254).Take(240).Any(minute => minute.Volume == 0));
+        overNight.ShouldBeTrue();
     }
 
     [Test]
@@ -60,8 +65,9 @@ public sealed class ScanReplayTests
         replay.At(index: 13_699).VolumeSpike5m.ShouldNotBeNull();
         replay.At(index: 13_699).VolumeSpike15m.ShouldNotBeNull();
         replay.At(index: 253).Breakout4h.ShouldBeNull();
-        replay.At(index: 254).Breakout4h.ShouldNotBeNull();
-        replay.At(index: 254).Range4h.ShouldNotBeNull();
+        replay.At(index: 13_699).Breakout4h.ShouldNotBeNull();
+        replay.At(index: 13_699).Breakdown4h.ShouldNotBeNull();
+        replay.At(index: 13_699).Range4h.ShouldNotBeNull();
         replay.At(index: 13_699).Spread.ShouldBeNull();
         (replay.At(index: 13_699).Support ?? replay.At(index: 13_699).Resistance).ShouldNotBeNull();
     }

@@ -264,7 +264,7 @@ public sealed class TInvestMarketScanSourceTests
         TInvestMarketScanSource source = Source();
 
         source.QuoteAsset.ShouldBe("RUB");
-        source.BuiltInPresets.Select(preset => preset.Name).ShouldBe(["Импульс", "Под лесенку"]);
+        source.BuiltInPresets.Select(preset => preset.Name).ShouldBe(["Импульс", "Ранний импульс", "Падение", "Раннее падение", "Под лесенку"]);
         source.BuiltInPresets.ShouldAllBe(preset => preset.Venue == "tinvest" && preset.BuiltIn && preset.HideStale);
         source.BuiltInPresets.SelectMany(preset => preset.Conditions).ShouldNotContain(condition => condition.Metric == "Spread");
         (await source.Quotes(CancellationToken.None)).ShouldBeEmpty();

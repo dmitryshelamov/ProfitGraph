@@ -79,3 +79,5 @@ backtest did (#218: 2,825 and −0.29 R).
   table, says whether a variant pays after fees, and the owner tunes a copy of the preset the same way.
 - The 15-minute spike makes «Импульс» itself cheaper to tighten: a copy can ask for both an hourly and a 15-minute spike.
 - A short mirror (a breakdown below the range) needs a distance to the range's low; it is added when a short preset needs it.
+  [ADR 0068](0068-scanner-presets-on-every-venue.md) adds it (`Breakdown4h`, «Раннее падение»), offers the preset on every venue and
+  measures the range over minutes with trades.
