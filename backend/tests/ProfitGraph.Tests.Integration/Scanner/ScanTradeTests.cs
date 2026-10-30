@@ -20,10 +20,13 @@ using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Application.Scanner.ReplaceScanSnapshot;
 using ProfitGraph.Application.Scanner.TrackScanTrade;
 using ProfitGraph.Application.Scanner.Trades;
+using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Bots.MarkPrices;
 using ProfitGraph.Domain.Bots.Positions;
+using ProfitGraph.Domain.Jobs;
 using ProfitGraph.Domain.MarketData;
+using ProfitGraph.Domain.Scanner;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Scanning;
 using ProfitGraph.Engine.Templates;
@@ -116,7 +119,7 @@ public sealed class ScanTradeTests
             ]);
         ScanTradeIdeaResponse levels = ideas.Ideas[2];
         (levels.Entry, levels.EntryValidityMinutes).ShouldBe(("100", 60));
-        decimal.Parse(levels.RewardRisk, CultureInfo.InvariantCulture).ShouldBe(expected: 20m / 5.4479m, tolerance: 0.0001m);
+        decimal.Parse(levels.RewardRisk, CultureInfo.InvariantCulture).ShouldBe(20m / 5.4479m, tolerance: 0.0001m);
 
         // The test venue's rates for the owner's credential; the snapshot row has no spread.
         ideas.Costs.ShouldBe(new ScanTradeCostsResponse("0.0008", "0.001", "0", FeesFromVenue: true, SpreadKnown: false));
@@ -159,6 +162,49 @@ public sealed class ScanTradeTests
         bot = await owner.Client.GetFromJsonAsync<JsonElement>($"{BotApi.Path}/{trade.BotId}");
         bot.GetProperty("desiredState").GetString().ShouldBe("Stopped");
         (await Track(trade.Id)).ShouldBeFalse();
+    }
+
+    [Test]
+    public async Task CardsTakeTheirOddsFromTheOwnersLatestBacktestOfCardsLikeThem()
+    {
+        // A NATR of 4 % puts the 10.34 % stop of the hours' level card in the band beyond 1.5 and up to 3 NATRs.
+        BotOwner owner = await SetUp("TRADEOUSDT", natr: 4m);
+        BotOwner stranger = await SetUp("TRADEOUSDT", natr: 4m);
+        ScanTradeIdeasResponse before = await Ideas(owner, "TRADEOUSDT");
+        ScanTradeIdeaResponse levels = before.Ideas.First(idea => idea is { Timeframe: "1h", Scenario: "Levels" });
+        var proposal = new ScanTradeIdea(
+            ScanScenario.Levels,
+            Number(levels.Entry),
+            Number(levels.Stop),
+            Number(levels.Target),
+            Number(levels.RewardRisk),
+            TimeSpan.FromMinutes(levels.EntryValidityMinutes));
+
+        // 160 of 200 cards like it filled, 64 of them reached the target, the 96 others lost 1.1 R on average.
+        var odds = new ScanCardOdds(
+            "1h",
+            ScanScenario.Levels,
+            PositionDirection.Long,
+            ScanCardBands.Chance(proposal.RewardRisk),
+            ScanCardBands.Stop(proposal, natrPercent: 4m)!.Value,
+            Cards: 200,
+            Filled: 160,
+            Targets: 64,
+            Stops: 96,
+            MeanR: -0.1m,
+            MissedMeanR: -1.1m);
+        Guid backtestId = await StoreBacktest(owner, odds);
+
+        ScanTradeIdeasResponse after = await Ideas(owner, "TRADEOUSDT");
+
+        (before.OddsSource, levels.Odds).ShouldBe((null, null));
+        (after.OddsSource!.BacktestId, after.OddsSource.PresetName).ShouldBe((backtestId, "Шансы"));
+        ScanCardChanceResponse chance = after.Ideas.First(idea => idea is { Timeframe: "1h", Scenario: "Levels" }).Odds!;
+        (Number(chance.Chance), Number(chance.FillShare), Number(chance.MissedR), chance.Trades).ShouldBe((0.4m, 0.8m, -1.1m, 160));
+        decimal win = Number(after.Ideas.First(idea => idea is { Timeframe: "1h", Scenario: "Levels" }).Profit!) / 5m;
+        Number(chance.ExpectedR).ShouldBe(Math.Round(0.8m * (0.4m * win + 0.6m * -1.1m), decimals: 4), tolerance: 0.0002m);
+        after.Ideas.Where(idea => idea is not { Timeframe: "1h", Scenario: "Levels" }).ShouldAllBe(idea => idea.Odds == null);
+        (await Ideas(stranger, "TRADEOUSDT")).OddsSource.ShouldBeNull();
     }
 
     [Test]
@@ -308,13 +354,55 @@ public sealed class ScanTradeTests
         return (await owner.Client.GetFromJsonAsync<List<ScanLiveTradeResponse>>($"/api/scanner/{Venue}/trades?symbol={symbol}", WebJson))!;
     }
 
-    private async Task<BotOwner> SetUp(string symbol, decimal? spread = null)
+    private static decimal Number(string value)
+    {
+        return decimal.Parse(value, NumberStyles.Number, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    ///     A completed backtest of the owner on the venue whose cards ended as <paramref name="odds" />.
+    /// </summary>
+    private async Task<Guid> StoreBacktest(BotOwner owner, ScanCardOdds odds)
+    {
+        using IServiceScope scope = _api.Services.CreateScope();
+        Guid ownerId;
+
+        await using (var connection = new NpgsqlConnection(TestDatabase.ConnectionString))
+        {
+            ownerId = await connection.ExecuteScalarAsync<Guid>("SELECT user_id FROM exchange_credentials WHERE id = @Id", new { Id = owner.CredentialId });
+        }
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        ScanBacktest backtest = ScanBacktest.Start(
+            new UserId(ownerId),
+            new VenueId(Venue),
+            new ScanPresetName("Шансы"),
+            new ScanFilter([], HideStale: false),
+            now.AddDays(-30),
+            now,
+            new BackgroundJobId(Guid.NewGuid()),
+            now);
+        backtest.Complete(new ScanBacktestResult(Pairs: 1, [], ScanStudy.Summarize([], shorts: false, [odds]), [], SignalsTruncated: false), now);
+        await scope.ServiceProvider.GetRequiredService<ITransactionExecutor>()
+            .ExecuteAsync(
+                async () =>
+                {
+                    await scope.ServiceProvider.GetRequiredService<IScanBacktestRepository>().Add(backtest, CancellationToken.None);
+
+                    return true;
+                },
+                CancellationToken.None);
+
+        return backtest.Id.Value;
+    }
+
+    private async Task<BotOwner> SetUp(string symbol, decimal? spread = null, decimal? natr = null)
     {
         BotOwner owner = await BotApi.NewOwner(_api);
         (await owner.Client.PutAsJsonAsync($"/api/scanner/{Venue}/trade-settings", new { credentialId = owner.CredentialId, risk = "5", maxAmount = "1000" }))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
         using IServiceScope scope = _api.Services.CreateScope();
-        var row = new ScanSnapshotRowInternal(symbol, new ScanMetrics { Price = 100m, Spread = spread }, Incomplete: false);
+        var row = new ScanSnapshotRowInternal(symbol, new ScanMetrics { Price = 100m, Spread = spread, Natr24h = natr }, Incomplete: false);
         await scope.ServiceProvider.GetRequiredService<ISender>().Send(new ReplaceScanSnapshotCommand(new ScanSnapshotInternal(Venue, DateTimeOffset.UtcNow, [row])));
 
         return owner;

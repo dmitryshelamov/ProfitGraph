@@ -25,6 +25,12 @@ public sealed class ScanTradeOptions
     public decimal FeeRate { get; init; } = 0.001m;
 
     /// <summary>
+    ///     The fewest closed trades of the latest preset backtest's cards like a card that give it a chance and an expected result
+    ///     (ADR 0071, section 1).
+    /// </summary>
+    public int MinOddsTrades { get; init; } = 100;
+
+    /// <summary>
     ///     How long the venue's fee rates of a credential and a pair are reused before the cards read them again.
     /// </summary>
     public TimeSpan FeeRatesLifetime { get; init; } = TimeSpan.FromMinutes(15);
@@ -71,7 +77,7 @@ public sealed class ScanTradeOptions
     public bool IsValid()
     {
         return IsTimeframe(Timeframe) && LevelTimeframes.Length > 0 && LevelTimeframes.All(IsTimeframe) && FeeRate is >= 0m and < 0.1m &&
-            FeeRatesLifetime > TimeSpan.Zero &&
+            FeeRatesLifetime > TimeSpan.Zero && MinOddsTrades > 0 &&
             MaxEntryDeviation is > 0m and < 1m && EntryPriceMaxAge > TimeSpan.Zero && TrackInterval > TimeSpan.Zero && TrackBatchSize > 0 &&
             ListLimit > 0;
     }

@@ -129,6 +129,30 @@ acts on a minute's close beyond it and exits at that close, the fees are the lim
 the snapshot's median when the venue has no quote history. It stores per card the bands of section 1, so the page's chances come
 from the backtest. Earlier stored backtests keep their numbers.
 
+### 2a. How sections 1 and 2 are built (amended 2026-10-31)
+
+The owner asked to build the whole decision at once ("делай все сразу"); sections 1 and 2 came first, with these choices:
+
+- **The same cards.** `ScanTradeIdeas.Compose` (Engine) composes a pair's cards from the levels of each timeframe, the last hour and the
+  last four hours; the pair's page and the backtest both call it. At a signal the backtest takes the timeframes of
+  `ScanTrades:LevelTimeframes` the venue offers, their closed candles aggregated from the minutes on the timeframe's grid
+  (`ScanCandleFrames`), and the signal minute's close as the price. Early in the period a timeframe has fewer than the page's 168
+  candles (the history starts eight days before the period), so its levels may differ from the page's.
+- **The bot's rules** (`ScanCardFollow`). The entry rests at the card's price for the card's wait and fills at that price when a minute
+  trades through it; the target rests from the next minute and fills at its price when a minute trades through it, also in a minute
+  that closes beyond the stop; the stop leaves at a close beyond it. A trade still open after 72 hours leaves at that close by market,
+  since the analysis held trades at most that long. A result is in R of the card's sizing (ADR 0065): a stop exactly at its price is
+  −1 R.
+- **Costs.** The owner's fee rates of the venue read once per backtest with the universe's first pair, as a card reads them, and
+  `ScanTrades:FeeRate` without them; the spread is the pair's in the current snapshot, or the snapshot's median spread. Cards whose
+  stop is nearer than those costs are left out, as on the page.
+- **Odds.** Per timeframe, scenario, direction and the two bands the backtest stores the cards proposed, filled and closed, those that
+  reached the target and the stop, and the mean R of all and of those that missed the target (`ScanCardOdds`, column
+  `scan_backtests.card_odds`). The page reads the owner's latest completed backtest of the venue that has them, of whichever preset,
+  and names it. The expected result is `fill × (chance × the card's R at its target + (1 − chance) × the missed mean R)`: unfilled
+  entries make nothing, and the missed mean R counts trades held to the horizon with the stopped ones, so it is the measured loss of a
+  card that did not reach its target rather than −1. A band needs `ScanTrades:MinOddsTrades` (100) closed trades.
+
 ### 3. Trend, RSI and the market as scanner metrics
 
 Three metrics join the table, presets, alerts and replay, computed by the engine from the hours the scanner holds:

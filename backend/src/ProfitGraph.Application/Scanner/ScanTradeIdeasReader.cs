@@ -28,12 +28,12 @@ public sealed class ScanTradeIdeasReader(
     /// <summary>
     ///     The timeframe a pullback is shown and stored under: its range is the last hour.
     /// </summary>
-    public const string PullbackTimeframe = "1h";
+    public const string PullbackTimeframe = ScanTradeIdeas.PullbackTimeframe;
 
     /// <summary>
     ///     The timeframe a trade beyond the four hours' extreme is shown and stored under: its range is the last four hours.
     /// </summary>
-    public const string ExtremeTimeframe = "4h";
+    public const string ExtremeTimeframe = ScanTradeIdeas.ExtremeTimeframe;
 
     /// <summary>
     ///     The timeframe whose average range buffers a stop beyond the four hours' extreme, as the preset backtest's hours do.
@@ -51,7 +51,7 @@ public sealed class ScanTradeIdeasReader(
         bool shorts = venues.Find(venue) is { SupportsShort: true };
         decimal? price = null;
         decimal? hourRange = null;
-        List<(string Timeframe, ScanTradeIdea Idea)> ideas = [];
+        List<ScanTimeframeLevels> frames = [];
 
         foreach (string timeframe in options.LevelTimeframes.Where(offered.Contains))
         {
@@ -61,13 +61,19 @@ public sealed class ScanTradeIdeasReader(
 
             if (read.Price is { } current)
             {
-                ideas.AddRange(
-                    ScanTradeIdeas.Of(current, read.Support, read.Resistance, lastHourLow: null, lastHourHigh: null, shorts, read.AverageRange)
-                        .Select(idea => (timeframe, idea)));
+                frames.Add(new ScanTimeframeLevels(timeframe, current, read.Support, read.Resistance, read.AverageRange));
             }
         }
 
-        if (price is { } now && offered.Contains(PullbackTimeframe))
+        if (price is not { } now)
+        {
+            return (null, []);
+        }
+
+        (decimal Low, decimal High)? lastHour = null;
+        (decimal Low, decimal High)? lastFourHours = null;
+
+        if (offered.Contains(PullbackTimeframe))
         {
             bool extremes = offered.Contains(ExtremeTimeframe) && offered.Contains(RangeTimeframe);
 
@@ -81,30 +87,11 @@ public sealed class ScanTradeIdeasReader(
             using IDisposable reads = MarketDataAccess.Use(await access.Read(venue, cancellationToken));
             TimeSpan window = ScanTradeIdeas.ExtremeWindow;
             CandleChartPage page = await chart.Read(series, end - window, end, Math.Max((int)(window / series.Timeframe.Duration), val2: 1), cancellationToken);
-            Candle[] lastHour = [.. page.Candles.Where(candle => candle.OpenTime >= end - LastHour)];
-            decimal? low = lastHour.Length > 0 ? lastHour.Min(candle => candle.Low) : null;
-            decimal? high = lastHour.Length > 0 ? lastHour.Max(candle => candle.High) : null;
-            ideas.AddRange(
-                ScanTradeIdeas.Of(now, support: null, resistance: null, low, high, shorts)
-                    .Select(idea => (PullbackTimeframe, idea)));
-
-            if (extremes && page.Candles.Count > 0)
-            {
-                ideas.AddRange(
-                    ScanTradeIdeas.Of(
-                            now,
-                            support: null,
-                            resistance: null,
-                            lastHourLow: null,
-                            lastHourHigh: null,
-                            shorts,
-                            hourRange,
-                            page.Candles.Min(candle => candle.Low),
-                            page.Candles.Max(candle => candle.High))
-                        .Select(idea => (ExtremeTimeframe, idea)));
-            }
+            Candle[] hour = [.. page.Candles.Where(candle => candle.OpenTime >= end - LastHour)];
+            lastHour = hour.Length > 0 ? (hour.Min(candle => candle.Low), hour.Max(candle => candle.High)) : null;
+            lastFourHours = extremes && page.Candles.Count > 0 ? (page.Candles.Min(candle => candle.Low), page.Candles.Max(candle => candle.High)) : null;
         }
 
-        return (price, [.. ideas.DistinctBy(item => (item.Idea.Scenario, item.Idea.Direction, item.Idea.Entry, item.Idea.Stop, item.Idea.Target))]);
+        return (now, ScanTradeIdeas.Compose(now, frames, lastHour, lastFourHours, hourRange, shorts));
     }
 }

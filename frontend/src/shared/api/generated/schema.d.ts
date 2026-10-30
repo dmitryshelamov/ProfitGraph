@@ -5300,6 +5300,25 @@ export interface components {
             errorCode: null | string;
             candles: components["schemas"]["CandleResponse"][];
         };
+        ScanCardChanceResponse: {
+            chance: string;
+            fillShare: string;
+            missedR: string;
+            expectedR: string;
+            /** Format: int32 */
+            trades: number;
+        };
+        ScanCardOddsSourceResponse: {
+            /** Format: uuid */
+            backtestId: string;
+            presetName: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** Format: date-time */
+            completedAt: string;
+        };
         ScanConditionRequest: {
             metric: string;
             minimum: null | string;
@@ -5487,6 +5506,7 @@ export interface components {
             taken: boolean;
             direction: string;
             profit: null | string;
+            odds: null | components["schemas"]["ScanCardChanceResponse"];
         };
         ScanTradeIdeasResponse: {
             venue: string;
@@ -5497,6 +5517,7 @@ export interface components {
             costs: components["schemas"]["ScanTradeCostsResponse"];
             /** Format: int32 */
             tightStops: number;
+            oddsSource: null | components["schemas"]["ScanCardOddsSourceResponse"];
         };
         ScanTradeResponse: {
             scenario: string;

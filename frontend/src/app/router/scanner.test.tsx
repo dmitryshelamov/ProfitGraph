@@ -315,20 +315,14 @@ describe('scanner page', () => {
             spreadKnown: true,
           },
           tightStops: 2,
+          oddsSource: {
+            backtestId: 'backtest-1',
+            presetName: 'Импульс',
+            from: '2026-10-01T00:00:00Z',
+            to: '2026-10-31T00:00:00Z',
+            completedAt: '2026-10-31T00:20:00Z',
+          },
           ideas: [
-            {
-              timeframe: '15m',
-              scenario: 'Levels',
-              entry: '100',
-              stop: '95',
-              target: '112',
-              rewardRisk: '2.4',
-              entryValidityMinutes: 60,
-              amount: '96.153846153846',
-              risk: '5',
-              profit: '11.34615384',
-              taken: trades.length > 0,
-            },
             {
               timeframe: '4h',
               scenario: 'Target2R',
@@ -341,6 +335,33 @@ describe('scanner page', () => {
               risk: '5',
               profit: '9.70588235',
               taken: false,
+              odds: {
+                chance: '0.33',
+                fillShare: '0.97',
+                missedR: '-1.3',
+                expectedR: '-0.1234',
+                trades: 180,
+              },
+            },
+            {
+              timeframe: '15m',
+              scenario: 'Levels',
+              entry: '100',
+              stop: '95',
+              target: '112',
+              rewardRisk: '2.4',
+              entryValidityMinutes: 60,
+              amount: '96.153846153846',
+              risk: '5',
+              profit: '11.34615384',
+              taken: trades.length > 0,
+              odds: {
+                chance: '0.4123',
+                fillShare: '0.95',
+                missedR: '-1.25',
+                expectedR: '0.0821',
+                trades: 240,
+              },
             },
             {
               timeframe: '1h',
@@ -375,7 +396,20 @@ describe('scanner page', () => {
     expect(within(levels).getByText('-5.2%')).toBeInTheDocument();
     expect(within(levels).getByText('2.27')).toBeInTheDocument();
     expect(within(levels).getByText('без ком. 2.4')).toBeInTheDocument();
-    expect(screen.getByRole('row', { name: 'Идея: Лонг Цель 2R 4h' })).toBeInTheDocument();
+    expect(within(levels).getByText('41%')).toBeInTheDocument();
+    expect(within(levels).getByText('240 сд.')).toBeInTheDocument();
+    expect(within(levels).getByText('+0.08')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('row', { name: 'Идея: Лонг Цель 2R 4h' })).getByText('-0.12'),
+    ).toBeInTheDocument();
+    // Sorted by the expected result, the idea without odds last.
+    expect(
+      screen.getAllByRole('row', { name: /^Идея:/ }).map((row) => row.getAttribute('aria-label')),
+    ).toEqual(['Идея: Лонг Уровни 15m', 'Идея: Лонг Цель 2R 4h', 'Идея: Лонг Откат 1h']);
+    expect(screen.getByRole('link', { name: 'Импульс' })).toHaveAttribute(
+      'href',
+      '/scanner/backtests/backtest-1',
+    );
     expect(
       screen.getByText(
         'Комиссии бота: вход и цель лимиткой 0.1%, стоп по рынку 0.18%, спред 0.02%. Стоп теряет сверх движения цены 0.3%. Не показано 2 идеи со стопом ближе этих 0.3%.',

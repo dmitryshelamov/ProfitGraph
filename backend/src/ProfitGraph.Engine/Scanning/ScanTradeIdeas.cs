@@ -37,6 +37,16 @@ public static class ScanTradeIdeas
     private const int StopDigits = 8;
 
     /// <summary>
+    ///     The timeframe a pullback is shown and stored under: its range is the last hour.
+    /// </summary>
+    public const string PullbackTimeframe = "1h";
+
+    /// <summary>
+    ///     The timeframe a trade beyond the four hours' extreme is shown and stored under: its range is the last four hours.
+    /// </summary>
+    public const string ExtremeTimeframe = "4h";
+
+    /// <summary>
     ///     How long the pullback's limit waits, in the backtest and on a card.
     /// </summary>
     public static readonly TimeSpan PullbackWait = TimeSpan.FromHours(4);
@@ -50,6 +60,44 @@ public static class ScanTradeIdeas
     ///     The window whose lowest low or highest high guards an <see cref="ScanScenario.Extreme" /> trade (ADR 0072).
     /// </summary>
     public static readonly TimeSpan ExtremeWindow = TimeSpan.FromHours(4);
+
+    /// <summary>
+    ///     A pair's cards on every timeframe (ADR 0060): each timeframe's levels at their price give its own levels and 2R trades; at
+    ///     <paramref name="price" /> the pullback comes once, from the last hour's range, under <see cref="PullbackTimeframe" />, and the trades beyond the extreme of
+    ///     the last four hours once, under <see cref="ExtremeTimeframe" />, buffered by the hourly average range (ADR 0072). A trade that
+    ///     another timeframe already proposes with the same prices is listed once, under the first. The pair's page and the preset
+    ///     backtest compose the same cards (ADR 0071).
+    /// </summary>
+    public static IReadOnlyList<(string Timeframe, ScanTradeIdea Idea)> Compose(
+        decimal price,
+        IReadOnlyList<ScanTimeframeLevels> levels,
+        (decimal Low, decimal High)? lastHour,
+        (decimal Low, decimal High)? lastFourHours,
+        decimal? hourRange,
+        bool shorts)
+    {
+        ArgumentNullException.ThrowIfNull(levels);
+
+        List<(string Timeframe, ScanTradeIdea Idea)> ideas =
+        [
+            .. levels.SelectMany(level => Of(level.Price, level.Support, level.Resistance, lastHourLow: null, lastHourHigh: null, shorts, level.AverageRange)
+                .Select(idea => (level.Timeframe, idea)))
+        ];
+
+        if (lastHour is { } hour)
+        {
+            ideas.AddRange(Of(price, support: null, resistance: null, hour.Low, hour.High, shorts).Select(idea => (PullbackTimeframe, idea)));
+        }
+
+        if (lastFourHours is { } window)
+        {
+            ideas.AddRange(
+                Of(price, support: null, resistance: null, lastHourLow: null, lastHourHigh: null, shorts, hourRange, window.Low, window.High)
+                    .Select(idea => (ExtremeTimeframe, idea)));
+        }
+
+        return [.. ideas.DistinctBy(item => (item.Idea.Scenario, item.Idea.Direction, item.Idea.Entry, item.Idea.Stop, item.Idea.Target))];
+    }
 
     public static IReadOnlyList<ScanTradeIdea> Of(
         decimal price,
