@@ -17,4 +17,10 @@ public interface IBotFillRepository
     ///     At most <paramref name="limit" /> of the bot's fills made in the half-open UTC range [from, to), oldest first.
     /// </summary>
     Task<IReadOnlyList<BotFill>> ListFilled(BotId botId, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     The fees of the bot's fills in each range, in quote and in the ranges' order: a fee paid in base is valued at its fill's
+    ///     price, a fee paid in quote counts as it is.
+    /// </summary>
+    Task<IReadOnlyList<decimal>> QuoteFees(BotId botId, IReadOnlyList<BotFillRange> ranges, CancellationToken cancellationToken);
 }

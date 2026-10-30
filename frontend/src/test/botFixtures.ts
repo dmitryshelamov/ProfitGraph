@@ -48,13 +48,16 @@ export const flatPosition: Schemas['BotPositionResponse'] = {
   baseTotal: '0',
   quoteTotal: '100',
   costBasis: '0',
+  entryFees: '0',
   averageCost: null,
+  averageBuyPrice: null,
   realizedPnl: '0',
   openedAt: null,
   markPrice: null,
   markPriceObservedAt: null,
   markPriceSource: null,
   unrealizedPnl: null,
+  positionFees: null,
   cycles: [],
 };
 

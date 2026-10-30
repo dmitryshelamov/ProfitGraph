@@ -25,6 +25,13 @@ public sealed class Portfolio
     public decimal? LastBuyPrice { get; private set; }
 
     /// <summary>
+    ///     The entry fees the position's cost basis holds, in quote: a fee paid in base valued at its fill's price, a fee paid in
+    ///     quote as it is. It leaves with the cost basis in proportion to what is sold or covered. Strategies and the realized
+    ///     profit keep the fee in the cost; reports subtract it to show an entry fee as spent when it is paid (ADR 0063).
+    /// </summary>
+    public decimal FeesInCost { get; private set; }
+
+    /// <summary>
     ///     The notional of a margin run's position at its entry prices, without fees; zero in a spot run.
     /// </summary>
     public decimal EntryNotional { get; private set; }
@@ -65,6 +72,7 @@ public sealed class Portfolio
         FeesQuote = checkpoint.FeesQuote;
         LastBuyPrice = checkpoint.LastBuyPrice;
         EntryNotional = checkpoint.EntryNotional;
+        FeesInCost = checkpoint.FeesInCost;
         EnsureInvariants();
     }
 
@@ -142,6 +150,7 @@ public sealed class Portfolio
         QuoteTotal -= quoteSpent + fee;
         BaseTotal += grossBase;
         CostBasis += quoteSpent + fee;
+        FeesInCost += fee;
         FeesQuote += fee;
         LastBuyPrice = price;
         EnsureInvariants();
@@ -170,6 +179,7 @@ public sealed class Portfolio
         QuoteTotal += grossQuote - fee;
         BaseTotal -= grossBase;
         CostBasis += grossQuote - fee;
+        FeesInCost += fee;
         EntryNotional += grossQuote;
         FeesQuote += fee;
         LastBuyPrice = price;
@@ -184,6 +194,7 @@ public sealed class Portfolio
     {
         decimal owed = -BaseTotal;
         decimal allocated = grossBase == owed ? CostBasis : CostBasis * grossBase / owed;
+        FeesInCost -= grossBase == owed ? FeesInCost : FeesInCost * grossBase / owed;
         decimal realized = allocated - grossQuote - fee;
         EntryNotional -= grossBase == owed ? EntryNotional : EntryNotional * grossBase / owed;
         BaseTotal += grossBase;
@@ -201,6 +212,7 @@ public sealed class Portfolio
         QuoteTotal -= quoteSpent;
         BaseTotal += grossBase - fee;
         CostBasis += quoteSpent;
+        FeesInCost += fee == grossBase ? quoteSpent : quoteSpent * fee / grossBase;
         FeesBase += fee;
         LastBuyPrice = price;
         EnsureInvariants();
@@ -213,6 +225,7 @@ public sealed class Portfolio
     internal decimal Sell(decimal grossBase, decimal grossQuote, decimal fee)
     {
         decimal allocated = grossBase == BaseTotal ? CostBasis : CostBasis * grossBase / BaseTotal;
+        FeesInCost -= grossBase == BaseTotal ? FeesInCost : FeesInCost * grossBase / BaseTotal;
         decimal realized = grossQuote - fee - allocated;
 
         if (_leverage is not null)
@@ -240,6 +253,7 @@ public sealed class Portfolio
         QuoteTotal -= fee;
         FeesQuote += fee;
         CostBasis += retainedCost;
+        FeesInCost += retainedCost;
         RealizedPnl -= fee - retainedCost;
         EnsureInvariants();
     }
@@ -264,7 +278,7 @@ public sealed class Portfolio
         bool wrongSide = _direction == PositionDirection.Long ? BaseTotal < 0m : BaseTotal > 0m;
 
         if (QuoteReserved < 0m || BaseReserved < 0m || (!_externalQuoteShortfallAllowed && QuoteReserved > QuoteTotal) || BaseReserved > Math.Abs(BaseTotal) ||
-            CostBasis < 0m || wrongSide || EntryNotional < 0m || (_leverage is null && EntryNotional != 0m))
+            CostBasis < 0m || FeesInCost < 0m || wrongSide || EntryNotional < 0m || (_leverage is null && EntryNotional != 0m))
         {
             throw new TradingInvariantException(
                 $"Portfolio invariant violated: quote {QuoteTotal} (reserved {QuoteReserved}), base {BaseTotal} (reserved {BaseReserved}), cost basis {CostBasis}.");

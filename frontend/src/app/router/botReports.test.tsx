@@ -31,6 +31,7 @@ const openPosition = {
   quoteTotal: '40',
   costBasis: '60',
   averageCost: '60060.06',
+  averageBuyPrice: '60060.06',
   openedAt: '2026-10-24T09:00:00Z',
   markPrice: '61000',
   markPriceObservedAt: '2026-10-24T10:00:00Z',
@@ -290,6 +291,52 @@ describe('bot reports', () => {
     expect(screen.getByLabelText('Реализованная прибыль')).toHaveTextContent('+0.049353 USDT');
   });
 
+  it('reports a buy’s fee as spent and keeps it in the break-even price', async () => {
+    fakeApi(
+      routes({
+        [`GET ${botPath}/position?cycles=20`]: () =>
+          json({
+            ...openPosition,
+            baseTotal: '0.0999',
+            costBasis: '10',
+            entryFees: '0.01',
+            averageCost: '100.1001',
+            averageBuyPrice: '100',
+            realizedPnl: '-0.01',
+            markPrice: '104',
+            unrealizedPnl: '0.3996',
+            positionFees: '0.01',
+            cycles: [{ ...openPosition.cycles[0], fees: '0.01' }],
+          }),
+      }),
+    );
+    renderApp(`/bots/${bot.id}`);
+
+    expect(await screen.findByLabelText('Средняя цена покупки')).toHaveTextContent('100');
+    expect(screen.getByText('безубыток 100.1001')).toBeInTheDocument();
+    expect(screen.getByLabelText('Реализованная прибыль')).toHaveTextContent('−0.01');
+    expect(screen.getByText('с комиссиями покупок')).toBeInTheDocument();
+    expect(screen.getByLabelText('Комиссии позиции')).toHaveTextContent('0.01');
+    expect(screen.getByLabelText('Нереализованная прибыль')).toHaveTextContent('+0.3996');
+    await waitFor(() => expect(hub.subscriptions).toContain(bot.id));
+
+    hub.emit('LivePrice', {
+      venue: 'bybit',
+      symbol: 'BTCUSDT',
+      price: '105',
+      observedAt: '2026-10-24T10:00:30Z',
+    });
+
+    // 0.0999 × 105 − (10 − 0.01): the buy's fee is already in the realized profit.
+    await waitFor(() =>
+      expect(screen.getByLabelText('Нереализованная прибыль')).toHaveTextContent('+0.4995'),
+    );
+    await userEvent.click(screen.getByRole('tab', { name: 'Сделки' }));
+    const cycles = await screen.findByRole('table', { name: 'Циклы позиции' });
+    expect(within(cycles).getByRole('columnheader', { name: 'Комиссии' })).toBeInTheDocument();
+    expect(within(cycles).getByText('0.01')).toBeInTheDocument();
+  });
+
   it('keeps the stored price when a live ticker is older', async () => {
     fakeApi(routes({ [`GET ${botPath}/position?cycles=20`]: () => json(openPosition) }));
     renderApp(`/bots/${bot.id}`);
@@ -538,7 +585,13 @@ describe('bot reports', () => {
                 sequence: 2,
                 id: 'e2',
                 kind: 'Fill',
-                details: { side: 'Buy', grossBase: '0.001', grossQuote: '60' },
+                details: {
+                  side: 'Buy',
+                  grossBase: '0.001',
+                  grossQuote: '60',
+                  fee: '0.000001',
+                  feeAsset: 'Base',
+                },
                 occurredAt: '2026-10-24T09:00:00Z',
               },
               {
@@ -571,7 +624,9 @@ describe('bot reports', () => {
 
     const feed = await screen.findByRole('list', { name: 'Лента бота' });
     expect(within(feed).getByText('Запущен')).toBeInTheDocument();
-    expect(within(feed).getByText(/покупка 0.001 на 60/)).toBeInTheDocument();
+    expect(
+      within(feed).getByText(/покупка 0\.001 на 60 · комиссия 0\.06 .* \(0\.000001 /),
+    ).toBeInTheDocument();
     expect(within(feed).getByText(/на символе есть чужие заявки/)).toBeInTheDocument();
     expect(within(feed).getByText('Настройки изменены: общий символ включён')).toBeInTheDocument();
     expect(

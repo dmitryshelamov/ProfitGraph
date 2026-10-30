@@ -4632,12 +4632,15 @@ export interface components {
             /** Format: date-time */
             closedAt: null | string;
             realizedPnl: null | string;
+            fees: string;
         };
         BotPositionResponse: {
             baseTotal: string;
             quoteTotal: string;
             costBasis: string;
+            entryFees: string;
             averageCost: null | string;
+            averageBuyPrice: null | string;
             realizedPnl: string;
             /** Format: date-time */
             openedAt: null | string;
@@ -4646,6 +4649,7 @@ export interface components {
             markPriceObservedAt: null | string;
             markPriceSource: null | components["schemas"]["MarkPriceSource"];
             unrealizedPnl: null | string;
+            positionFees: null | string;
             cycles: components["schemas"]["BotPositionCycleResponse"][];
         };
         BotResponse: {

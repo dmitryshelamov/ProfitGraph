@@ -168,6 +168,14 @@ Corrections to [ADR 0017](adr/0017-bybit-spot-order-gateway.md) and [ADR 0023](a
 |---|---|---|---|
 | 1. Account card | `GET /api/bots/{id}/account` from stored data only; `IVenueAccountIdentityReader` for Bybit (`/v5/user/query-api`) and T-Invest (`GetAccounts`), cached daily in `account_identities` by the Worker; `BotAccountCard` first on the bot page with details behind a disclosure | Handler, endpoint and Worker tests pass against the test venue, the readers against the mock Bybit exchange and the mock Invest API, and the card in the app tests | Done on mocks; the real Bybit and T-Invest answers are not checked |
 
+## Fees in bot reports
+
+[ADR 0063](adr/0063-entry-fees-in-bot-reports.md): a buy's fee shows as spent when it is paid, and fees show in quote.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Entry fees reported | `Portfolio.FeesInCost` in the checkpoint; the position's `entryFees`, `averageBuyPrice`, reported realized and unrealized profit, `positionFees` and each cycle's `fees`; a fill's fee in the feed; the card, cycles and feed show fees in quote. Strategies, cycles and backtests trade and count as before | Engine tests follow a base fee through a partial and a full sale and a checkpoint, the scripted venue reports a buy's fee as spent, and the app tests show it | Done on the scripted venue |
+
 ## Runs, optimizations and the queue
 
 The runs page tells what the Worker is doing and finds finished work: what runs and waits in each lane, optimizations

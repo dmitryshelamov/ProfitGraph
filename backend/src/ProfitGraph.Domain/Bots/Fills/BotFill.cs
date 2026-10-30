@@ -74,7 +74,7 @@ public sealed class BotFill : AggregateRoot
         FeeAsset? feeAsset = null)
     {
         var fill = new BotFill(id, botId, engineOrderId, side, tag, grossBase, grossQuote, fee, cumulativeGrossBase, filledAt, feeAsset);
-        fill.AddDomainEvent(new BotFillRecorded(botId, id, engineOrderId, side, grossBase, grossQuote, filledAt));
+        fill.AddDomainEvent(new BotFillRecorded(botId, id, engineOrderId, side, grossBase, grossQuote, filledAt, fee, fill.FeeAsset));
 
         return fill;
     }

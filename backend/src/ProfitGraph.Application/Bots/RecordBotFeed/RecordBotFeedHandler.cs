@@ -107,7 +107,9 @@ internal sealed class RecordBotFeedHandler(IBotFeedRepository feed)
             ("engineOrderId", Number(notification.EngineOrderId)),
             ("side", notification.Side.ToString()),
             ("grossBase", Number(notification.GrossBase)),
-            ("grossQuote", Number(notification.GrossQuote)));
+            ("grossQuote", Number(notification.GrossQuote)),
+            ("fee", Number(notification.Fee)),
+            ("feeAsset", notification.FeeAsset.ToString()));
     }
 
     public Task Handle(BotForeignOrdersPolicyChanged notification, CancellationToken cancellationToken)

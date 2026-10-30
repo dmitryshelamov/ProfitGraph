@@ -269,18 +269,24 @@ public sealed class BotControlEndpointTests
         position.BaseTotal.ShouldBe("0");
         position.QuoteTotal.ShouldBe("100");
         position.CostBasis.ShouldBe("0");
+        position.EntryFees.ShouldBe("0");
         position.AverageCost.ShouldBeNull();
+        position.AverageBuyPrice.ShouldBeNull();
         position.RealizedPnl.ShouldBe("0");
         position.OpenedAt.ShouldBeNull();
         position.MarkPrice.ShouldBeNull();
         position.MarkPriceObservedAt.ShouldBeNull();
         position.MarkPriceSource.ShouldBeNull();
         position.UnrealizedPnl.ShouldBeNull();
+        position.PositionFees.ShouldBeNull();
         BotPositionCycleResponse cycle = position.Cycles.ShouldHaveSingleItem();
         cycle.Id.ShouldNotBe(Guid.Empty);
         cycle.OpenedAt.ShouldBe(at, TimeSpan.FromMilliseconds(1));
         cycle.ClosedAt.ShouldNotBeNull();
         cycle.RealizedPnl.ShouldBe("1");
+
+        // The buy's 0.0001 base at its price of 100 and the sell's 0.006 quote.
+        cycle.Fees.ShouldBe("0.016");
     }
 
     [Test]

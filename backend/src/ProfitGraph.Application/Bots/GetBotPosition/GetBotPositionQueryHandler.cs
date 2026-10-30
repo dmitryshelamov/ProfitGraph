@@ -3,16 +3,23 @@ using MediatR;
 using ProfitGraph.Application.Bots.Contracts;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Bots.Checkpoints;
+using ProfitGraph.Domain.Bots.Fills;
 using ProfitGraph.Domain.Bots.MarkPrices;
 using ProfitGraph.Domain.Bots.Positions;
 using ProfitGraph.Engine.Accounting;
 
 namespace ProfitGraph.Application.Bots.GetBotPosition;
 
+/// <summary>
+///     The bot's position from its checkpoint. The engine keeps entry fees in the cost basis for strategies; the reported profit
+///     takes them out at once (ADR 0063). A cycle's fees are its fills' fees from its opening through its closing; a cycle opens on
+///     its candle's grid, so its range starts after the previous cycle closed and a fill counts in one cycle only.
+/// </summary>
 internal sealed class GetBotPositionQueryHandler(
     IBotRepository bots,
     IBotCheckpointRepository checkpoints,
     IBotPositionCycleRepository cycles,
+    IBotFillRepository fills,
     ILiveMarkPriceRepository prices,
     TimeProvider clock)
     : IRequestHandler<GetBotPositionQuery, BotPositionInternal>
@@ -34,17 +41,34 @@ internal sealed class GetBotPositionQueryHandler(
                 : (checkpoint.Engine.LastClosedCandle.Close, checkpoint.Engine.LastCandleCloseTime, MarkPriceSource.Candle);
         }
 
+        decimal costBasis = account?.CostBasis ?? 0m;
+        decimal entryFees = account?.FeesInCost ?? 0m;
+        DateTimeOffset now = clock.GetUtcNow();
+        BotFillRange[] ranges = [.. recent.Select((cycle, index) => CycleRange(cycle, index + 1 < recent.Count ? recent[index + 1] : null, now))];
+        IReadOnlyList<decimal> cycleFees = await fills.QuoteFees(bot.Id, ranges, cancellationToken);
+        int open = checkpoint?.Engine.PositionOpenedAt is null ? -1 : recent.ToList().FindIndex(cycle => cycle.ClosedAt is null);
+
         return new BotPositionInternal(
             baseTotal,
             account?.QuoteTotal ?? bot.AllocationCap,
-            account?.CostBasis ?? 0m,
-            baseTotal > 0m ? account!.CostBasis / baseTotal : null,
-            account?.RealizedPnl ?? 0m,
+            costBasis,
+            entryFees,
+            baseTotal > 0m ? costBasis / baseTotal : null,
+            baseTotal > 0m ? (costBasis - entryFees) / baseTotal : null,
+            (account?.RealizedPnl ?? 0m) - entryFees,
             checkpoint?.Engine.PositionOpenedAt,
             mark?.Price,
             mark?.At,
             mark?.Source,
-            mark is { } valued ? baseTotal * valued.Price - (account?.CostBasis ?? 0m) : null,
-            [.. recent.Select(cycle => new BotPositionCycleInternal(cycle.Id.Value, cycle.OpenedAt, cycle.ClosedAt, cycle.RealizedPnl))]);
+            mark is { } valued ? (baseTotal >= 0m ? baseTotal * valued.Price - costBasis : baseTotal * valued.Price + costBasis) + entryFees : null,
+            open >= 0 ? cycleFees[open] : null,
+            [.. recent.Select((cycle, index) => new BotPositionCycleInternal(cycle.Id.Value, cycle.OpenedAt, cycle.ClosedAt, cycle.RealizedPnl, cycleFees[index]))]);
+    }
+
+    private static BotFillRange CycleRange(BotPositionCycle cycle, BotPositionCycle? previous, DateTimeOffset now)
+    {
+        DateTimeOffset from = previous?.ClosedAt is { } closed && closed >= cycle.OpenedAt ? closed.AddTicks(10) : cycle.OpenedAt;
+
+        return new BotFillRange(from, cycle.ClosedAt ?? now);
     }
 }

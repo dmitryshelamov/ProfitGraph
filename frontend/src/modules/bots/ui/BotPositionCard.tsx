@@ -78,7 +78,9 @@ function Metric({
  * The bot's position at its display price: a fresh ticker from /ws/live-prices when one arrived after the stored
  * value, otherwise what the server chose (a fresh ticker or the last candle's close). With a pushed ticker the
  * unrealized profit is recomputed here as the server does, base total × price − cost basis, in exact decimal strings.
- * Realized profit shows a dash until something was sold: neither a closed cycle nor a non-zero realized total. The metrics
+ * Entry fees count as spent when they were paid (ADR 0063): the realized profit includes them, while the unrealized profit and
+ * the average buy price leave them out and the break-even price keeps them. Realized profit shows a dash until there is any:
+ * neither a closed cycle nor a non-zero realized total. The metrics
  * take as many columns as the card's own width allows; the position's cycles are shown by {@link BotPositionCycles}.
  */
 export function BotPositionCard({ botId, display }: { botId: string; display: BotDisplay }) {
@@ -114,12 +116,15 @@ export function BotPositionCard({ botId, display }: { botId: string; display: Bo
   const observedAt = fromLive ? live.observedAt : data.markPriceObservedAt;
   const source =
     fromLive || data.markPriceSource === 'Ticker' ? 'тикер биржи' : 'закрытие последней свечи';
+  // What the held base cost without the entry fees, which the profit counts as spent when they were paid (ADR 0063).
+  const boughtFor = subtractDecimals(data.costBasis, data.entryFees) ?? data.costBasis;
   const unrealizedPnl = fromLive
-    ? subtractDecimals(multiplyDecimals(data.baseTotal, live.price) ?? '', data.costBasis)
+    ? subtractDecimals(multiplyDecimals(data.baseTotal, live.price) ?? '', boughtFor)
     : data.unrealizedPnl;
   const remainder = unsellableRemainder(data.baseTotal, display, price);
   const isOpen = sign(data.baseTotal) > 0 && remainder === null;
-  const hasSold = sign(data.realizedPnl) !== 0 || data.cycles.some((cycle) => cycle.closedAt);
+  const hasRealized = sign(data.realizedPnl) !== 0 || data.cycles.some((cycle) => cycle.closedAt);
+  const hasEntryFees = sign(data.entryFees) > 0;
   const { baseAsset, quoteAsset } = display;
   // A quantity is never rounded up: a remainder rounded to the step would look sellable.
   const base = (value: string) => withAsset(exactAmount(value), baseAsset);
@@ -127,7 +132,7 @@ export function BotPositionCard({ botId, display }: { botId: string; display: Bo
   const priceText = (value: string) => withAsset(atPlaces(value, display.pricePlaces), quoteAsset);
   const profit = (value: string) => signed(quote(value), value);
   const unrealizedPercent =
-    isOpen && unrealizedPnl !== null ? percentOfCost(unrealizedPnl, data.costBasis) : null;
+    isOpen && unrealizedPnl !== null ? percentOfCost(unrealizedPnl, boughtFor) : null;
 
   return (
     <div className="@container space-y-5">
@@ -158,11 +163,17 @@ export function BotPositionCard({ botId, display }: { botId: string; display: Bo
         <Metric
           label="Объём"
           value={base(data.baseTotal)}
-          caption={isOpen ? `себестоимость ${quote(data.costBasis)}` : undefined}
+          caption={isOpen ? `куплено на ${quote(boughtFor)}` : undefined}
         />
         <Metric
           label="Средняя цена покупки"
-          value={!isOpen || data.averageCost === null ? '—' : priceText(data.averageCost)}
+          valueLabel="Средняя цена покупки"
+          value={!isOpen || data.averageBuyPrice === null ? '—' : priceText(data.averageBuyPrice)}
+          caption={
+            isOpen && hasEntryFees && data.averageCost !== null
+              ? `безубыток ${priceText(data.averageCost)}`
+              : undefined
+          }
         />
         <Metric
           label="Текущая цена"
@@ -181,14 +192,26 @@ export function BotPositionCard({ botId, display }: { botId: string; display: Bo
           valueLabel="Нереализованная прибыль"
           value={!isOpen || unrealizedPnl === null ? '—' : profit(unrealizedPnl)}
           valueClass={!isOpen || unrealizedPnl === null ? '' : toneClass(unrealizedPnl)}
-          caption={unrealizedPercent ? `${unrealizedPercent} к себестоимости` : undefined}
+          caption={unrealizedPercent ? `${unrealizedPercent} к цене покупки` : undefined}
         />
         <Metric
           label="Реализованная прибыль"
           valueLabel="Реализованная прибыль"
-          value={hasSold ? profit(data.realizedPnl) : '—'}
-          valueClass={hasSold ? toneClass(data.realizedPnl) : ''}
-          caption={hasSold ? 'по проданному объёму' : 'продаж ещё не было'}
+          value={hasRealized ? profit(data.realizedPnl) : '—'}
+          valueClass={hasRealized ? toneClass(data.realizedPnl) : ''}
+          caption={
+            hasEntryFees
+              ? 'с комиссиями покупок'
+              : hasRealized
+                ? 'по проданному объёму'
+                : 'продаж ещё не было'
+          }
+        />
+        <Metric
+          label="Комиссии позиции"
+          valueLabel="Комиссии позиции"
+          value={isOpen && data.positionFees !== null ? quote(data.positionFees) : '—'}
+          caption={isOpen ? 'все сделки открытой позиции' : undefined}
         />
         <Metric
           label="Свободные средства"
@@ -200,7 +223,7 @@ export function BotPositionCard({ botId, display }: { botId: string; display: Bo
   );
 }
 
-/** The position's latest cycles, from buying in to selling out, with each closed cycle's realized profit. */
+/** The position's latest cycles, from buying in to selling out, with their fees in quote and each closed cycle's realized profit. */
 export function BotPositionCycles({ botId, display }: { botId: string; display: BotDisplay }) {
   const position = useQuery(botPositionQuery(botId));
   const data = position.data;
@@ -221,6 +244,7 @@ export function BotPositionCycles({ botId, display }: { botId: string; display: 
           <tr>
             <th className="py-2 font-normal">Открыт</th>
             <th className="py-2 font-normal">Закрыт</th>
+            <th className="py-2 font-normal">Комиссии</th>
             <th className="py-2 text-right font-normal">Прибыль</th>
           </tr>
         </thead>
@@ -237,6 +261,7 @@ export function BotPositionCycles({ botId, display }: { botId: string; display: 
                   <span className="text-up">открыт</span>
                 )}
               </td>
+              <td className="py-2 font-mono">{quote(cycle.fees)}</td>
               <td
                 className={`py-2 text-right font-mono ${cycle.realizedPnl === null ? 'text-muted' : toneClass(cycle.realizedPnl)}`}
               >
