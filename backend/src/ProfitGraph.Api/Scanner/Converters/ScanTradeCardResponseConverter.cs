@@ -6,6 +6,8 @@ namespace ProfitGraph.Api.Scanner.Converters;
 
 internal static class ScanTradeCardResponseConverter
 {
+    private const int OddsDecimals = 4;
+
     public static ScanTradeIdeasResponse ToResponse(this ScanTradeIdeasInternal ideas)
     {
         return new ScanTradeIdeasResponse(
@@ -26,7 +28,15 @@ internal static class ScanTradeCardResponseConverter
                     ScanSnapshotResponseConverter.Text(idea.Risk),
                     idea.Taken,
                     idea.Direction.ToString(),
-                    ScanSnapshotResponseConverter.Text(idea.Profit)))
+                    ScanSnapshotResponseConverter.Text(idea.Profit),
+                    idea.Odds is { } odds
+                        ? new ScanCardChanceResponse(
+                            Rounded(odds.Chance),
+                            Rounded(odds.FillShare),
+                            Rounded(odds.MissedR),
+                            Rounded(odds.ExpectedR),
+                            odds.Trades)
+                        : null))
             ],
             new ScanTradeCostsResponse(
                 ExactGraphNumberParser.Format(ideas.Costs.Costs.LimitFeeRate),
@@ -34,7 +44,15 @@ internal static class ScanTradeCardResponseConverter
                 ExactGraphNumberParser.Format(ideas.Costs.Costs.Spread),
                 ideas.Costs.FeesFromVenue,
                 ideas.Costs.SpreadKnown),
-            ideas.TightStops);
+            ideas.TightStops,
+            ideas.OddsSource is { } source
+                ? new ScanCardOddsSourceResponse(source.BacktestId, source.PresetName, source.From, source.To, source.CompletedAt)
+                : null);
+    }
+
+    private static string Rounded(decimal value)
+    {
+        return ExactGraphNumberParser.Format(Math.Round(value, OddsDecimals, MidpointRounding.AwayFromZero));
     }
 
     public static ScanTradeSettingsResponse ToResponse(this ScanTradeSettingsInternal settings)

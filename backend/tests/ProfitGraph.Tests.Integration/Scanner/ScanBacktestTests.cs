@@ -1,8 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
 
+using Dapper;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+
+using Npgsql;
 
 using ProfitGraph.Api.Scanner.Contracts;
 using ProfitGraph.Application.Scanner.Ports;
@@ -67,6 +71,12 @@ public sealed class ScanBacktestTests
             signal.Change24h.ShouldNotBeNull();
             done.Summary.Change24h.Count.ShouldBe(1);
             done.Summary.Scenarios.Select(scenario => scenario.Scenario).ShouldBe(["Levels", "LevelsRewardRisk2", "Target2R", "Pullback", "Extreme"]);
+
+            // The cards' odds are stored apart for the pair's page (ADR 0071, section 1).
+            await using (var connection = new NpgsqlConnection(TestDatabase.ConnectionString))
+            {
+                (await connection.ExecuteScalarAsync<bool>("SELECT card_odds IS NOT NULL FROM scan_backtests WHERE id = @Id", new { queued.Id })).ShouldBeTrue();
+            }
 
             var list = await client.GetFromJsonAsync<List<ScanBacktestListItemResponse>>($"/api/scanner/{TestHistoryVenue.WithHistory}/backtests");
             ScanBacktestListItemResponse item = list!.ShouldHaveSingleItem();

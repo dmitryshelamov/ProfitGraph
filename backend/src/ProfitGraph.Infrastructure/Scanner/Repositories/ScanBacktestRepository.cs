@@ -23,6 +23,14 @@ internal sealed class ScanBacktestRepository(NpgsqlConnection connection, Postgr
         return [.. rows.Select(row => row.ToInternal())];
     }
 
+    public async Task<ScanCardOddsSourceInternal?> LatestCardOdds(Guid ownerId, string venue, CancellationToken cancellationToken)
+    {
+        var row = await connection.QuerySingleOrDefaultAsync<ScanCardOddsSourceDb>(
+            Command(ScanBacktestQueries.LatestCardOdds, new { OwnerId = ownerId, Venue = venue }, cancellationToken));
+
+        return row?.ToInternal();
+    }
+
     public async Task<ScanBacktest?> Get(ScanBacktestId id, UserId ownerId, CancellationToken cancellationToken)
     {
         var row = await connection.QuerySingleOrDefaultAsync<ScanBacktestDb>(
@@ -62,7 +70,8 @@ internal sealed class ScanBacktestRepository(NpgsqlConnection connection, Postgr
             JobId = backtest.JobId.Value,
             backtest.CreatedAt,
             backtest.CompletedAt,
-            ResultJson = backtest.ToResultJson()
+            ResultJson = backtest.ToResultJson(),
+            CardOddsJson = backtest.ToCardOddsJson()
         };
     }
 
