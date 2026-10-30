@@ -50,6 +50,17 @@ public sealed class LevelTradeTemplateTests
     }
 
     [Test]
+    public void AnEntryFilledWithTheCloseAlreadyAtTheStopPlacesNoTargetAndTheStopStillSells()
+    {
+        Candle[] range = [Flat(index: 0, price: 94m), Bar(index: 1, open: 94m, high: 94m, low: 92m, close: 93m), Flat(index: 2, price: 92m), Flat(index: 3, price: 92m)];
+
+        BacktestResult result = Run(range);
+
+        result.Terminal.Outcome.ShouldBe(BacktestOutcome.Completed);
+        Fills(result).ShouldBe([(LevelTradeStrategyBlockFactory.EntryTag, OrderSide.Buy, 100m), (LevelTradeStrategyBlockFactory.StopTag, OrderSide.Sell, 94m)]);
+    }
+
+    [Test]
     public void ALowBelowTheStopWithACloseAboveItKeepsThePosition()
     {
         Candle[] range =

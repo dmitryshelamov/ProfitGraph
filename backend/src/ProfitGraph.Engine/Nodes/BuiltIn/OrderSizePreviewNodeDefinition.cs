@@ -33,7 +33,8 @@ public sealed class OrderSizePreviewNodeDefinition : INodeDefinition
             new PortSpec("normalizedQuantity", PortKind.Series, "normalizedQuantity", ValueType.BaseAmount),
             new PortSpec("requiredQuote", PortKind.Series, "requiredQuote", ValueType.QuoteAmount),
             new PortSpec("requiredBase", PortKind.Series, "requiredBase", ValueType.BaseAmount),
-            new PortSpec("reason", PortKind.Series, "reason", ValueType.RejectionReason)
+            new PortSpec("reason", PortKind.Series, "reason", ValueType.RejectionReason),
+            new PortSpec("dust", PortKind.Condition, "dust", ValueType.Boolean)
         });
 
     public IReadOnlyList<ParamSpec> Params { get; } = Array.AsReadOnly(
@@ -118,6 +119,10 @@ public sealed class OrderSizePreviewNodeDefinition : INodeDefinition
                 : MinimumOrderPolicy.Reject,
             quoteLimitAvailable ? quoteLimit.Number : null);
         context.Values["valid"] = EngineValue.FromBoolean(sizing.IsValid);
+
+        // Known whenever the preview is, unlike the reason a valid order has none of: a flat check reads it.
+        context.Values["dust"] = EngineValue.FromBoolean(
+            !sizing.IsValid && sizing.Reason is RejectionReason.ZeroQuantity or RejectionReason.BelowMinQuantity or RejectionReason.BelowMinNotional);
 
         if (sizing.Quantity.HasValue)
         {

@@ -287,7 +287,7 @@ public sealed class ReplayOutputRegressionTests
         };
         string hash = Hash(output);
         TestContext.Progress.WriteLine($"Projected LadderExhaustedCap: hash={hash}; batches={batches.Count}");
-        hash.ShouldBe("1D50B6359CCCECD5F4CE7A40E68526470F07A7AA4C15CF1EC00B34BA5D880195");
+        hash.ShouldBe("C8B8FE772A3ABC5C4589D0573CDBBF6295D0E29A1DC5107AAF92089977188642");
     }
 
     private static object? EngineValueProjection(EngineValue value)
