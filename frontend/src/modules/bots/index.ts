@@ -36,6 +36,7 @@ export { BotFeedList } from './ui/BotFeedList';
 export { BotFillsTable } from './ui/BotFillsTable';
 export { BotOpenOrders } from './ui/BotOpenOrders';
 export { BotPositionCard, BotPositionCycles } from './ui/BotPositionCard';
+export { BotPositionClose } from './ui/BotPositionClose';
 export { ForeignOrdersToggle, ParametersForm, RiskLimitsForm } from './ui/BotSettings';
 export { BotsTable } from './ui/BotsTable';
 export { BotStatusBadge } from './ui/BotStatusBadge';

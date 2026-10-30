@@ -18,6 +18,7 @@ using ProfitGraph.Domain.Bots.MarkPrices;
 using ProfitGraph.Domain.Bots.OrderCancels;
 using ProfitGraph.Domain.Bots.OrderIntents;
 using ProfitGraph.Domain.Bots.OrderWaiting;
+using ProfitGraph.Domain.Bots.PositionCloses;
 using ProfitGraph.Domain.Bots.Positions;
 using ProfitGraph.Domain.Trading;
 using ProfitGraph.Infrastructure.Bots.Repositories;
@@ -48,6 +49,7 @@ internal static class BotsRegistration
         services.AddScoped<ITradingHaltRepository, TradingHaltRepository>();
         services.AddScoped<IBotAlertRepository, BotAlertRepository>();
         services.AddScoped<IManualOrderRequestRepository, ManualOrderRequestRepository>();
+        services.AddScoped<IBotPositionCloseRepository, BotPositionCloseRepository>();
         services.AddScoped<IOrderCancelRequestRepository, OrderCancelRequestRepository>();
         services.AddScoped<IBotFillRepository, BotFillRepository>();
         services.AddScoped<IBotFeeCorrectionRepository, BotFeeCorrectionRepository>();

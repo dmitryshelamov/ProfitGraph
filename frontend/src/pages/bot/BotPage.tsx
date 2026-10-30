@@ -18,6 +18,7 @@ import {
   type BotPageTab,
   botPageTabs,
   BotPositionCard,
+  BotPositionClose,
   BotPositionCycles,
   botQuery,
   BotStatusBadge,
@@ -270,7 +271,10 @@ export function BotPage() {
             </div>
           </Card>
           <Card title="Позиция">
-            <BotPositionCard botId={current.id} display={display} />
+            <div className="space-y-4">
+              <BotPositionCard botId={current.id} display={display} />
+              <BotPositionClose bot={current} display={display} />
+            </div>
           </Card>
           <BotAccountCard botId={current.id} quoteAsset={display.quoteAsset} />
           <Card title="Ручная заявка">

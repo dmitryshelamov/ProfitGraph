@@ -16,6 +16,7 @@ using ProfitGraph.Application.Bots.GetBotFeed;
 using ProfitGraph.Application.Bots.GetBotFills;
 using ProfitGraph.Application.Bots.GetBotOpenOrders;
 using ProfitGraph.Application.Bots.GetBotPosition;
+using ProfitGraph.Application.Bots.GetBotPositionClose;
 using ProfitGraph.Application.Bots.GetBots;
 using ProfitGraph.Application.Bots.GetBotUnresolvedOrders;
 using ProfitGraph.Application.Bots.GetBotWaitingOrders;
@@ -23,6 +24,7 @@ using ProfitGraph.Application.Bots.GetManualOrder;
 using ProfitGraph.Application.Bots.GetOrderCancel;
 using ProfitGraph.Application.Bots.KillBot;
 using ProfitGraph.Application.Bots.RenameBot;
+using ProfitGraph.Application.Bots.RequestPositionClose;
 using ProfitGraph.Application.Bots.StartBot;
 using ProfitGraph.Application.Bots.StopBot;
 
@@ -90,6 +92,28 @@ public sealed class BotsController(ISender sender) : ControllerBase
         ManualOrderInternal order = await sender.Send(request.ToCommand(UserId(), id), cancellationToken);
 
         return AcceptedAtAction(nameof(GetManualOrder), new { id, orderId = order.Id }, order.ToResponse());
+    }
+
+    /// <summary>
+    ///     Closes a running bot's long position (ADR 0064): the bot's runner takes the request within a minute, cancels the bot's
+    ///     working orders, sells what the position holds at the market and stops the bot when asked or when the close fails. Follow it
+    ///     with the GET of the same path.
+    /// </summary>
+    [HttpPost("{id:guid}/position-close")]
+    public async Task<ActionResult<BotPositionCloseResponse>> RequestPositionClose(Guid id, RequestPositionCloseRequest request, CancellationToken cancellationToken)
+    {
+        BotPositionCloseInternal close = await sender.Send(new RequestPositionCloseCommand(UserId(), id, request.StopAfter), cancellationToken);
+
+        return AcceptedAtAction(nameof(GetPositionClose), new { id }, close.ToResponse());
+    }
+
+    /// <summary>
+    ///     The bot's newest position close, whatever its status.
+    /// </summary>
+    [HttpGet("{id:guid}/position-close")]
+    public async Task<ActionResult<BotPositionCloseResponse>> GetPositionClose(Guid id, CancellationToken cancellationToken)
+    {
+        return (await sender.Send(new GetBotPositionCloseQuery(UserId(), id), cancellationToken)).ToResponse();
     }
 
     [HttpGet("{id:guid}/manual-orders/{orderId:guid}")]

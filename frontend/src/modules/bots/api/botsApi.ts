@@ -3,9 +3,11 @@ import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 import { pageBefore } from '@/modules/market-chart';
 import { api, ApiError, unwrap } from '@/shared/api/client';
 
+import { isActiveClose } from '../model/positionClose';
 import type {
   Bot,
   BotCandlesPage,
+  BotPositionClose,
   ManualOrder,
   OrderCancel,
   OrderSide,
@@ -28,6 +30,7 @@ export const botKeys = {
   orderCancel: (id: string, cancelId: string) => ['bots', id, 'order-cancels', cancelId] as const,
   unresolved: (id: string) => ['bots', id, 'unresolved-orders'] as const,
   candles: (id: string, timeframe: string) => ['bots', id, 'candles', timeframe] as const,
+  positionClose: (id: string) => ['bots', id, 'position-close'] as const,
   newCandles: (id: string, timeframe: string, from: string) =>
     ['bots', id, 'new-candles', timeframe, from] as const,
 };
@@ -187,6 +190,41 @@ export function manualOrderQuery(botId: string, orderId: string) {
         }),
       ),
     refetchInterval: (query) => (query.state.data?.status === 'Pending' ? 1_000 : false),
+  });
+}
+
+/** Asks the bot's runner to close its position (ADR 0064): cancel the bot's orders, sell at the market, stop when asked. */
+export async function requestPositionClose(
+  botId: string,
+  stopAfter: boolean,
+): Promise<BotPositionClose> {
+  return unwrap(
+    await api.POST('/api/bots/{id}/position-close', {
+      params: { path: { id: botId } },
+      body: { stopAfter },
+    }),
+  );
+}
+
+/** The bot's newest position close, or null when it never had one; followed every second while it works. */
+export function botPositionCloseQuery(botId: string) {
+  return queryOptions({
+    queryKey: botKeys.positionClose(botId),
+    queryFn: async (): Promise<BotPositionClose | null> => {
+      try {
+        return unwrap(
+          await api.GET('/api/bots/{id}/position-close', { params: { path: { id: botId } } }),
+        );
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+    refetchInterval: (query) =>
+      query.state.data && isActiveClose(query.state.data) ? 1_000 : false,
   });
 }
 

@@ -17,4 +17,5 @@ public sealed class BotRuleException(string code, string message) : DomainExcept
     public const string NotLeasable = "bot_not_leasable";
     public const string ManualOrderResolved = "manual_order_resolved";
     public const string OrderCancelResolved = "order_cancel_resolved";
+    public const string PositionCloseResolved = "position_close_resolved";
 }

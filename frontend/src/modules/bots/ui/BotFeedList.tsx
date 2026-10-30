@@ -9,6 +9,7 @@ import { type BotDisplay, feeLabel, unknownBotDisplay } from '../model/botDispla
 import { feedLabel, feedReasonLabel } from '../model/botStatus';
 import { absenceProofText, autoCheckFailure } from '../model/orderAbsence';
 import { waitingReason } from '../model/orderWaiting';
+import { closeFailureLabel } from '../model/positionClose';
 import type { BotFeedEntry } from '../model/types';
 
 const settingLabels: Record<string, string> = {
@@ -34,6 +35,16 @@ function fillFee(entry: BotFeedEntry, display: BotDisplay): string {
 function details(entry: BotFeedEntry, display: BotDisplay): string {
   const { reason, side, grossBase, grossQuote, realizedPnl, engineOrderId, setting } =
     entry.details;
+
+  if (entry.kind === 'PositionCloseStarted') {
+    return `ордеров к отмене: ${entry.details.cancelledOrders ?? '0'}; ${entry.details.stopAfter === 'true' ? 'после закрытия бот остановится' : 'бот продолжит работу'}`;
+  }
+
+  if (entry.kind === 'PositionCloseEnded') {
+    return entry.details.outcome === 'Closed'
+      ? 'позиция закрыта'
+      : `не удалось: ${closeFailureLabel(entry.details.failure ?? null)}`;
+  }
 
   if (setting) {
     const label = settingLabels[setting] ?? setting;

@@ -13,6 +13,12 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
     private readonly Dictionary<long, ExternalOrderProgress> _progress = new Dictionary<long, ExternalOrderProgress>();
     private readonly Dictionary<long, ExternalFeeReceiptCheckpoint> _feeReceipts = new Dictionary<long, ExternalFeeReceiptCheckpoint>();
 
+    /// <summary>
+    ///     Whether the owner is closing the position (ADR 0064): only the close's own order is accepted. The dispatcher sets it
+    ///     from its close state, which the checkpoint keeps.
+    /// </summary>
+    internal bool ClosingPosition { get; set; }
+
     public ExecutionSettings Settings => _account.Settings;
     public InstrumentRules Rules => _account.Rules;
 
@@ -51,6 +57,13 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
 
     public OrderSubmission Submit(OrderRequest request)
     {
+        if (ClosingPosition && request.OriginNodeId != PositionCloseOrder.OriginNodeId)
+        {
+            return new OrderSubmission(
+                Order: null,
+                TradingAccount.Reject(RejectionReason.PositionClosing, request.Side, request.Type, request.Tag, request.OriginNodeId, orderId: null));
+        }
+
         OrderSubmission result = _account.Submit(request);
 
         if (result.Order is { } order)

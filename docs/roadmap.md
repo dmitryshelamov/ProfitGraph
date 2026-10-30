@@ -176,6 +176,15 @@ Corrections to [ADR 0017](adr/0017-bybit-spot-order-gateway.md) and [ADR 0023](a
 |---|---|---|---|
 | 1. Entry fees reported | `Portfolio.FeesInCost` in the checkpoint; the position's `entryFees`, `averageBuyPrice`, reported realized and unrealized profit, `positionFees` and each cycle's `fees`; a fill's fee in the feed; the card, cycles and feed show fees in quote. Strategies, cycles and backtests trade and count as before | Engine tests follow a base fee through a partial and a full sale and a checkpoint, the scripted venue reports a buy's fee as spent, and the app tests show it | Done on the scripted venue |
 
+## Position close
+
+[ADR 0064](adr/0064-owner-closes-the-position.md): the owner closes a running bot's position from the page.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Long close | `bot_position_closes`; the engine's close state and order gate in the checkpoint; the runner cancels the bot's orders, sells at the market, ends the close and stops the bot when asked or on failure; feed entries; the card's button, confirmation and steps | The scripted venue closes a ladder's position and stops the bot, the engine keeps the close through a checkpoint, and the app tests follow a close | Done on the scripted venue |
+| 2. Short close | Buy back a short by quantity | | Planned |
+
 ## Runs, optimizations and the queue
 
 The runs page tells what the Worker is doing and finds finished work: what runs and waits in each lane, optimizations

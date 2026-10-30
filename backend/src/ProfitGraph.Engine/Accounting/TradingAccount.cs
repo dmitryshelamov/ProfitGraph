@@ -357,6 +357,7 @@ public sealed class TradingAccount : IGraphAccount
             RejectionReason.InsufficientBase => "Available base balance is insufficient.",
             RejectionReason.RiskLimit => "Order principal exceeds the allocation limit.",
             RejectionReason.TagActive => $"Tag '{tag}' already has an active order.",
+            RejectionReason.PositionClosing => "The owner is closing the position; the strategy places no order until the close ends.",
             _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, message: null)
         };
 
