@@ -1,4 +1,5 @@
 using ProfitGraph.Engine.Accounting;
+using ProfitGraph.Engine.Market;
 
 namespace ProfitGraph.Engine.Scanning;
 
@@ -21,6 +22,14 @@ public static class ScanStudy
     private const int MinutesPerHour = 60;
     private const decimal FeeRate = 0.001m;
     private const decimal MinimumRewardRisk = 2m;
+    private const int ExtremeMinutes = 240;
+
+    /// <summary>
+    ///     The timeframe whose average range buffers a stop beyond the four hours' extreme, as on the pair's page.
+    /// </summary>
+    private static readonly Timeframe RangeTimeframe = Timeframe.Parse("1h");
+
+    private static readonly TimeSpan Minute = TimeSpan.FromMinutes(1);
 
     public static IReadOnlyList<ScanSignal> Signals(
         string symbol,
@@ -63,7 +72,127 @@ public static class ScanStudy
         return signals;
     }
 
-    public static ScanStudySummary Summarize(IReadOnlyList<ScanSignal> signals, bool shorts = false)
+    /// <summary>
+    ///     The cards the pair's page would have shown at each signal (ADR 0071, section 2), composed as the page composes them from the
+    ///     closed candles of each timeframe at the signal minute's close, without those whose stop is nearer than
+    ///     <paramref name="costs" /> (ADR 0065), each followed by the bot's rules (<see cref="ScanCardFollow" />). A card whose outcome
+    ///     the history does not reach is left out. Early in the history a timeframe has fewer than the page's
+    ///     <see cref="ScanLevels.MaximumCandles" /> candles, so its levels may differ from the page's.
+    /// </summary>
+    public static IReadOnlyList<ScanCardTrade> Cards(
+        string symbol,
+        ScanReplay replay,
+        IReadOnlyList<ScanSignal> signals,
+        ScanCardSetup setup,
+        ScanTradeCosts costs)
+    {
+        ArgumentNullException.ThrowIfNull(replay);
+        ArgumentNullException.ThrowIfNull(signals);
+        ArgumentNullException.ThrowIfNull(setup);
+        ArgumentNullException.ThrowIfNull(costs);
+
+        IReadOnlyList<ScanCandle> minutes = replay.Minutes;
+
+        if (signals.Count == 0 || minutes.Count == 0)
+        {
+            return [];
+        }
+
+        Dictionary<string, ScanCandleFrames> frames = setup.LevelTimeframes
+            .Append(RangeTimeframe)
+            .DistinctBy(timeframe => timeframe.Key)
+            .ToDictionary(timeframe => timeframe.Key, timeframe => new ScanCandleFrames(minutes, timeframe));
+        List<ScanCardTrade> cards = [];
+
+        foreach (ScanSignal signal in signals)
+        {
+            int index = (int)((signal.At - minutes[0].OpenTime) / Minute) - 1;
+
+            if (index < 0 || index >= minutes.Count)
+            {
+                continue;
+            }
+
+            decimal price = minutes[index].Close;
+            ScanTimeframeLevels[] levels = [.. setup.LevelTimeframes.Select(timeframe => Levels(frames[timeframe.Key], timeframe, signal.At, price))];
+            decimal? hourRange = setup.Extremes ? ScanLevels.AverageRange(frames[RangeTimeframe.Key].ClosedBy(signal.At, ScanLevels.MaximumCandles)) : null;
+            IReadOnlyList<(string Timeframe, ScanTradeIdea Idea)> ideas = ScanTradeIdeas.Compose(
+                price,
+                levels,
+                setup.Pullback ? Range(minutes, index, MinutesPerHour) : null,
+                setup.Extremes ? Range(minutes, index, ExtremeMinutes) : null,
+                hourRange,
+                setup.Shorts);
+
+            foreach ((string timeframe, ScanTradeIdea idea) in ideas)
+            {
+                if (costs.TooTight(idea.Entry, idea.Stop) || ScanCardFollow.Follow(minutes, index, idea, costs) is not { } outcome)
+                {
+                    continue;
+                }
+
+                cards.Add(
+                    new ScanCardTrade(
+                        symbol,
+                        signal.At,
+                        timeframe,
+                        idea.Scenario,
+                        idea.Direction,
+                        ScanCardBands.Chance(idea.RewardRisk),
+                        ScanCardBands.Stop(idea, signal.Metrics.Natr24h),
+                        outcome));
+            }
+        }
+
+        return cards;
+    }
+
+    /// <summary>
+    ///     How the cards ended by timeframe, scenario, direction and bands (ADR 0071, section 1); cards without a stop band are left out.
+    ///     The cards are taken in pair, signal and kind order, so the result does not depend on the order they come in.
+    /// </summary>
+    public static IReadOnlyList<ScanCardOdds> Odds(IEnumerable<ScanCardTrade> cards)
+    {
+        ArgumentNullException.ThrowIfNull(cards);
+
+        return
+        [
+            .. cards
+                .Where(card => card.StopBand is not null)
+                .OrderBy(card => card.Symbol, StringComparer.Ordinal)
+                .ThenBy(card => card.SignalAt)
+                .ThenBy(card => card.Timeframe, StringComparer.Ordinal)
+                .ThenBy(card => card.Scenario)
+                .ThenBy(card => card.Direction)
+                .GroupBy(card => (card.Timeframe, card.Scenario, card.Direction, card.ChanceBand, StopBand: card.StopBand!.Value))
+                .Select(group =>
+                {
+                    ScanCardOutcome[] closed = [.. group.Select(card => card.Outcome).Where(outcome => outcome.Filled)];
+                    decimal[] results = [.. closed.Select(outcome => outcome.ResultR ?? 0m)];
+                    decimal[] missed = [.. closed.Where(outcome => outcome.Exit != ScanTradeExit.Target).Select(outcome => outcome.ResultR ?? 0m)];
+
+                    return new ScanCardOdds(
+                        group.Key.Timeframe,
+                        group.Key.Scenario,
+                        group.Key.Direction,
+                        group.Key.ChanceBand,
+                        group.Key.StopBand,
+                        group.Count(),
+                        closed.Length,
+                        closed.Count(outcome => outcome.Exit == ScanTradeExit.Target),
+                        closed.Count(outcome => outcome.Exit == ScanTradeExit.Stop),
+                        results.Length == 0 ? null : results.Sum() / results.Length,
+                        missed.Length == 0 ? null : missed.Sum() / missed.Length);
+                })
+                .OrderBy(odds => odds.Timeframe, StringComparer.Ordinal)
+                .ThenBy(odds => odds.Scenario)
+                .ThenBy(odds => odds.Direction)
+                .ThenBy(odds => odds.ChanceBand)
+                .ThenBy(odds => odds.StopBand)
+        ];
+    }
+
+    public static ScanStudySummary Summarize(IReadOnlyList<ScanSignal> signals, bool shorts = false, IReadOnlyList<ScanCardOdds>? cards = null)
     {
         ArgumentNullException.ThrowIfNull(signals);
 
@@ -78,7 +207,34 @@ public static class ScanStudy
             [
                 .. Enum.GetValues<ScanScenario>().Select(scenario => Scenario(signals, scenario, PositionDirection.Long)),
                 .. shorts ? Enum.GetValues<ScanScenario>().Select(scenario => Scenario(signals, scenario, PositionDirection.Short)) : []
-            ]);
+            ],
+            cards);
+    }
+
+    private static ScanTimeframeLevels Levels(ScanCandleFrames frames, Timeframe timeframe, DateTimeOffset at, decimal price)
+    {
+        IReadOnlyList<ScanCandle> candles = frames.ClosedBy(at, ScanLevels.MaximumCandles);
+        ScanMetrics levels = ScanLevels.Apply(new ScanMetrics(), ScanLevels.Of(candles), price);
+
+        return new ScanTimeframeLevels(timeframe.Key, price, levels.Support, levels.Resistance, ScanLevels.AverageRange(candles));
+    }
+
+    /// <summary>
+    ///     The lowest low and the highest high of the last <paramref name="count" /> minutes ending with the one at
+    ///     <paramref name="index" />, or of those there are.
+    /// </summary>
+    private static (decimal Low, decimal High) Range(IReadOnlyList<ScanCandle> minutes, int index, int count)
+    {
+        decimal low = minutes[index].Low;
+        decimal high = minutes[index].High;
+
+        for (int i = Math.Max(val1: 0, index - count + 1); i < index; i++)
+        {
+            low = Math.Min(low, minutes[i].Low);
+            high = Math.Max(high, minutes[i].High);
+        }
+
+        return (low, high);
     }
 
     private static ScanSignal Signal(string symbol, ScanReplay replay, int index, ScanMetrics metrics, bool shorts)

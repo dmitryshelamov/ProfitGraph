@@ -14,6 +14,7 @@ const long: ScanTradeIdea = {
   taken: false,
   direction: 'Long',
   profit: '9.8',
+  odds: null,
 };
 
 describe('idea outcome', () => {

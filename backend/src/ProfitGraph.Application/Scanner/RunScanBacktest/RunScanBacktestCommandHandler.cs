@@ -10,6 +10,7 @@ using ProfitGraph.Application.Scanner.Contracts;
 using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Scanner;
+using ProfitGraph.Domain.Scanner.Trades;
 using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Scanning;
 
@@ -21,17 +22,25 @@ namespace ProfitGraph.Application.Scanner.RunScanBacktest;
 ///     pairs' signals, eight pairs at a time, since each request waits for the venue far longer than the budget asks. A pair whose
 ///     history cannot be read is listed as failed; a request pause after the venue's ban fails the job. The trend of the venue's
 ///     reference pair is replayed first and given to every pair's minutes, as a live snapshot gives it to every row (ADR 0071). Conditions on the spread are
-///     not checked, since history has no quotes. On a venue that allows shorts the short scenarios run too (ADR 0061).
+///     not checked, since history has no quotes. On a venue that allows shorts the short scenarios run too (ADR 0061). At every
+///     signal the cards of the pair's page are followed by the bot's rules and summed up by kind and band (ADR 0071, section 2): their
+///     fees are the owner's for the venue as the cards read them, once per backtest, and their spread the pair's in the current
+///     snapshot, or the snapshot's median spread without one.
 /// </summary>
 internal sealed class RunScanBacktestCommandHandler(
     IEnumerable<IMarketScanSource> sources,
     VenueRegistry venues,
     IScanBacktestRepository backtests,
+    IScanTradeSettingsRepository settings,
+    IScanSnapshotRepository snapshots,
+    ScanTradeCostsReader costs,
+    ScanTradeOptions options,
     ITransactionExecutor transactions,
     IBackgroundJobProgress progress,
     TimeProvider clock) : IRequestHandler<RunScanBacktestCommand, ScanBacktestCompletedInternal>
 {
     private const int ParallelPairs = 8;
+    private const decimal Percent = 100m;
     private static readonly TimeSpan Warmup = TimeSpan.FromDays(8);
     private static readonly Timeframe MinuteFrame = Timeframe.Parse("1m");
     private static readonly IReadOnlySet<ScanMetric> Unknown = new HashSet<ScanMetric> { ScanMetric.Spread };
@@ -50,8 +59,11 @@ internal sealed class RunScanBacktestCommandHandler(
         IMarketScanSource source = sources.Find(backtest.Venue.Value);
         bool shorts = venues.Find(backtest.Venue.Value) is { SupportsShort: true };
         IReadOnlyList<ScanInstrumentInternal> universe = await source.Universe(cancellationToken);
+        ScanCardSetup setup = Setup(backtest.Venue.Value, shorts);
+        Func<string, ScanTradeCosts> costsOf = await Costs(backtest, universe, cancellationToken);
         Func<DateTimeOffset, decimal?>? market = await MarketTrend(source, backtest, universe, cancellationToken);
         var signals = new ConcurrentBag<ScanSignal>();
+        var cards = new ConcurrentBag<ScanCardTrade>();
         var failed = new ConcurrentBag<string>();
         var completed = 0;
         await progress.Report(completed: 0, universe.Count, cancellationToken);
@@ -63,9 +75,17 @@ internal sealed class RunScanBacktestCommandHandler(
             {
                 try
                 {
-                    foreach (ScanSignal signal in await Replay(source, backtest, instrument, shorts, market, token))
+                    (IReadOnlyList<ScanSignal> found, IReadOnlyList<ScanCardTrade> followed) =
+                        await Replay(source, backtest, instrument, setup, costsOf(instrument.Symbol), market, token);
+
+                    foreach (ScanSignal signal in found)
                     {
                         signals.Add(signal);
+                    }
+
+                    foreach (ScanCardTrade card in followed)
+                    {
+                        cards.Add(card);
                     }
                 }
                 catch (Exception exception) when (exception is MarketScanException { Code: not MarketScanErrorCodes.RequestsPaused } or ScanInputException)
@@ -80,7 +100,7 @@ internal sealed class RunScanBacktestCommandHandler(
         var result = new ScanBacktestResult(
             universe.Count,
             [.. failed.Order(StringComparer.Ordinal)],
-            ScanStudy.Summarize(all, shorts),
+            ScanStudy.Summarize(all, shorts, ScanStudy.Odds(cards)),
             [.. all.Take(ScanBacktest.MaxStoredSignals)],
             all.Length > ScanBacktest.MaxStoredSignals);
 
@@ -100,6 +120,41 @@ internal sealed class RunScanBacktestCommandHandler(
             cancellationToken);
 
         return new ScanBacktestCompletedInternal(command.BacktestId, all.Length);
+    }
+
+    private ScanCardSetup Setup(string venue, bool shorts)
+    {
+        HashSet<string> offered = [.. venues.Find(venue)?.Timeframes.Select(timeframe => timeframe.Key) ?? []];
+
+        return new ScanCardSetup(
+            [.. options.LevelTimeframes.Where(offered.Contains).Select(Timeframe.Parse)],
+            offered.Contains(ScanTradeIdeas.PullbackTimeframe),
+            offered.Contains(ScanTradeIdeas.ExtremeTimeframe) && offered.Contains(ScanTradeIdeas.PullbackTimeframe),
+            shorts);
+    }
+
+    /// <summary>
+    ///     The costs of each pair's cards: the owner's fee rates read once with the universe's first pair, as a card reads them, and the
+    ///     pair's spread in the current snapshot or the snapshot's median spread.
+    /// </summary>
+    private async Task<Func<string, ScanTradeCosts>> Costs(
+        ScanBacktest backtest,
+        IReadOnlyList<ScanInstrumentInternal> universe,
+        CancellationToken cancellationToken)
+    {
+        ScanTradeSettings? sizing = await settings.Get(backtest.OwnerId, backtest.Venue, cancellationToken);
+        ScanTradeCosts fees = universe.Count == 0
+            ? ScanTradeCosts.Flat(options.FeeRate)
+            : (await costs.Read(sizing, backtest.Venue.Value, universe[0].Symbol, spreadPercent: null, cancellationToken)).Costs;
+        ScanSnapshotInternal? snapshot = await snapshots.Get(backtest.Venue.Value, cancellationToken);
+        Dictionary<string, decimal> spreads = snapshot?.Rows
+            .Where(row => row.Metrics.Spread is >= 0m)
+            .ToDictionary(row => row.Symbol, row => row.Metrics.Spread!.Value / Percent, StringComparer.Ordinal) ?? [];
+        decimal[] ordered = [.. spreads.Values.Order()];
+        decimal median = ordered.Length == 0 ? 0m :
+            ordered.Length % 2 == 1 ? ordered[ordered.Length / 2] : (ordered[ordered.Length / 2 - 1] + ordered[ordered.Length / 2]) / 2m;
+
+        return symbol => new ScanTradeCosts(fees.LimitFeeRate, fees.MarketFeeRate, Math.Min(spreads.GetValueOrDefault(symbol, median), val2: 0.5m));
     }
 
     /// <summary>
@@ -139,11 +194,12 @@ internal sealed class RunScanBacktestCommandHandler(
         return at => trends.GetValueOrDefault(at);
     }
 
-    private static async Task<IReadOnlyList<ScanSignal>> Replay(
+    private static async Task<(IReadOnlyList<ScanSignal> Signals, IReadOnlyList<ScanCardTrade> Cards)> Replay(
         IMarketScanSource source,
         ScanBacktest backtest,
         ScanInstrumentInternal instrument,
-        bool shorts,
+        ScanCardSetup setup,
+        ScanTradeCosts costs,
         Func<DateTimeOffset, decimal?>? market,
         CancellationToken cancellationToken)
     {
@@ -157,19 +213,20 @@ internal sealed class RunScanBacktestCommandHandler(
 
         if (minutes.Count == 0)
         {
-            return [];
+            return ([], []);
         }
 
         var replay = new ScanReplay(minutes, instrument.ListedAt);
-
-        return ScanStudy.Signals(
+        IReadOnlyList<ScanSignal> signals = ScanStudy.Signals(
             instrument.Symbol,
             replay,
             metrics => backtest.Filter.Keeps(metrics, Unknown),
             backtest.From,
             backtest.To,
             ScanAlertWatch.Cooldown,
-            shorts,
+            setup.Shorts,
             market);
+
+        return (signals, ScanStudy.Cards(instrument.Symbol, replay, signals, setup, costs));
     }
 }
