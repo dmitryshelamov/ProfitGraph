@@ -5,6 +5,7 @@ import { Input } from '@/shared/ui/Input';
 import type { ScanConditionDraft } from '../model/filter';
 import { type ScanMetric, scanMetrics } from '../model/metrics';
 import type { PresetDraft } from '../model/presetDraft';
+import type { ScanTradeDirection } from '../model/tradeSide';
 
 const selectClass =
   'w-full rounded-md border border-line-strong bg-panel px-3 py-2 text-text outline-none focus:border-link';
@@ -157,6 +158,19 @@ export function PresetEditor({
         />
         Скрывать пары без сделок
       </label>
+      <Field label="Карточки сделок">
+        <select
+          className={selectClass}
+          value={draft.tradeDirection}
+          onChange={(event) =>
+            onChange({ ...draft, tradeDirection: event.target.value as ScanTradeDirection })
+          }
+        >
+          <option value="Both">В обе стороны</option>
+          <option value="Long">Только лонг</option>
+          <option value="Short">Только шорт</option>
+        </select>
+      </Field>
       {problem && (
         <p role="alert" className="text-sm text-danger-text">
           {problem}

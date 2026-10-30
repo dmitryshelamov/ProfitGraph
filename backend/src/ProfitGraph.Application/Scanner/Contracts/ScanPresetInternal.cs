@@ -1,8 +1,10 @@
+using ProfitGraph.Domain.Scanner;
+
 namespace ProfitGraph.Application.Scanner.Contracts;
 
 /// <summary>
 ///     A scanner preset of a venue: the user's own, with its identifier, or one the venue module builds in, read-only and without
-///     an identifier (ADR 0059, section 4).
+///     an identifier (ADR 0059, section 4). Its trade direction says which trade cards its pairs offer (ADR 0069).
 /// </summary>
 public sealed record ScanPresetInternal(
     Guid? Id,
@@ -13,4 +15,5 @@ public sealed record ScanPresetInternal(
     bool SortDescending,
     bool HideStale,
     bool BuiltIn,
-    bool AlertsEnabled);
+    bool AlertsEnabled,
+    ScanTradeDirection TradeDirection);

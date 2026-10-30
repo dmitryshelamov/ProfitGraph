@@ -11,6 +11,7 @@ const builtIn: ScanPreset = {
   hideStale: true,
   builtIn: true,
   alertsEnabled: false,
+  tradeDirection: 'Long',
 };
 
 describe('preset drafts', () => {
@@ -22,6 +23,11 @@ describe('preset drafts', () => {
     expect(draftInput(draft).conditions).toEqual([
       { metric: 'Change1h', minimum: '3', maximum: null },
     ]);
+  });
+
+  it('keeps the trade direction of the preset and reads an unknown one as both ways', () => {
+    expect(draftInput(draftOf(builtIn)).tradeDirection).toBe('Long');
+    expect(draftOf({ ...builtIn, tradeDirection: 'Sideways' }).tradeDirection).toBe('Both');
   });
 
   it('refuses a condition without bounds and a bound that is not an exact decimal', () => {

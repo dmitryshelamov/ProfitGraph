@@ -2,6 +2,7 @@ using ProfitGraph.Api.Common.Parsing;
 using ProfitGraph.Api.Scanner.Contracts;
 using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Scanner.Contracts;
+using ProfitGraph.Domain.Scanner;
 
 namespace ProfitGraph.Api.Scanner.Converters;
 
@@ -20,12 +21,27 @@ internal static class ScanPresetRequestConverter
                 Bound(condition.Maximum, $"Conditions[{index}].Maximum", errors)))
         ];
 
+        ScanTradeDirection direction = request.TradeDirection switch
+        {
+            null or nameof(ScanTradeDirection.Both) => ScanTradeDirection.Both,
+            nameof(ScanTradeDirection.Long) => ScanTradeDirection.Long,
+            nameof(ScanTradeDirection.Short) => ScanTradeDirection.Short,
+            _ => InvalidDirection(errors)
+        };
+
         if (errors.Count > 0)
         {
             throw new ApplicationValidationException(errors);
         }
 
-        return new ScanPresetDefinitionInternal(request.Name, converted, request.SortMetric, request.SortDescending, request.HideStale);
+        return new ScanPresetDefinitionInternal(request.Name, converted, request.SortMetric, request.SortDescending, request.HideStale, direction);
+    }
+
+    private static ScanTradeDirection InvalidDirection(List<InputError> errors)
+    {
+        errors.Add(new InputError("invalid_value", nameof(ScanPresetRequest.TradeDirection), "Use Both, Long or Short."));
+
+        return ScanTradeDirection.Both;
     }
 
     private static decimal? Bound(string? value, string field, List<InputError> errors)

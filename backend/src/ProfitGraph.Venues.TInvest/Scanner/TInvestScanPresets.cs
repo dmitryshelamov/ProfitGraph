@@ -1,4 +1,5 @@
 using ProfitGraph.Application.Scanner.Contracts;
+using ProfitGraph.Domain.Scanner;
 
 namespace ProfitGraph.Venues.TInvest.Scanner;
 
@@ -13,7 +14,7 @@ namespace ProfitGraph.Venues.TInvest.Scanner;
 ///     were not backtested on shares. «Под лесенку» finds a range (efficiency ratio at
 ///     most 0.3) with hourly swings of at least 0.35% (a round trip costs 0.1% on the «Трейдер» tariff, 0.6% on «Инвестор»), 100
 ///     million roubles a day, at most 5% down in a day and 15% below the week's high. The thresholds are a starting point the
-///     owner tunes by copying a preset.
+///     owner tunes by copying a preset. The rises offer long trade cards, the falls short ones (ADR 0069).
 /// </summary>
 internal static class TInvestScanPresets
 {
@@ -31,7 +32,8 @@ internal static class TInvestScanPresets
             SortDescending: true,
             HideStale: true,
             BuiltIn: true,
-            AlertsEnabled: false),
+            AlertsEnabled: false,
+            ScanTradeDirection.Long),
         new ScanPresetInternal(
             Id: null,
             TInvestVenue.VenueId.Value,
@@ -46,7 +48,8 @@ internal static class TInvestScanPresets
             SortDescending: true,
             HideStale: true,
             BuiltIn: true,
-            AlertsEnabled: false),
+            AlertsEnabled: false,
+            ScanTradeDirection.Long),
         new ScanPresetInternal(
             Id: null,
             TInvestVenue.VenueId.Value,
@@ -59,7 +62,8 @@ internal static class TInvestScanPresets
             SortDescending: false,
             HideStale: true,
             BuiltIn: true,
-            AlertsEnabled: false),
+            AlertsEnabled: false,
+            ScanTradeDirection.Short),
         new ScanPresetInternal(
             Id: null,
             TInvestVenue.VenueId.Value,
@@ -74,7 +78,8 @@ internal static class TInvestScanPresets
             SortDescending: false,
             HideStale: true,
             BuiltIn: true,
-            AlertsEnabled: false),
+            AlertsEnabled: false,
+            ScanTradeDirection.Short),
         new ScanPresetInternal(
             Id: null,
             TInvestVenue.VenueId.Value,
@@ -88,6 +93,7 @@ internal static class TInvestScanPresets
             SortDescending: true,
             HideStale: true,
             BuiltIn: true,
-            AlertsEnabled: false)
+            AlertsEnabled: false,
+            ScanTradeDirection.Both)
     ];
 }

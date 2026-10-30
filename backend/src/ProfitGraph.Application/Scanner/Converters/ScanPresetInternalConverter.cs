@@ -16,7 +16,8 @@ internal static class ScanPresetInternalConverter
             preset.Sort.Descending,
             preset.HideStale,
             BuiltIn: false,
-            alertsEnabled);
+            alertsEnabled,
+            preset.TradeDirection);
     }
 
     /// <summary>
