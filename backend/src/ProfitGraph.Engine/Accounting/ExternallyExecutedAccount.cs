@@ -169,7 +169,8 @@ public sealed class ExternallyExecutedAccount : IExternallyExecutedAccount
             _account.Orders.Active.Select(OrderSnapshot.Capture).ToImmutableArray(),
             _account.Orders.Active.Select(order => _progress[order.Id].Capture(order.Id)).ToImmutableArray(),
             _feeReceipts.Count == 0 ? default : _feeReceipts.Values.OrderBy(receipt => receipt.OrderId).ToImmutableArray(),
-            portfolio.EntryNotional);
+            portfolio.EntryNotional,
+            portfolio.FeesInCost);
     }
 
     internal OrderRejection RejectSimulatedMarketOrder(long orderId, RejectionReason reason)

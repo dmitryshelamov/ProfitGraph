@@ -226,7 +226,7 @@ export function BotPage() {
                   <BotFillsTable botId={current.id} display={display} />
                 </div>
               )}
-              {tab === 'feed' && <BotFeedList botId={current.id} />}
+              {tab === 'feed' && <BotFeedList botId={current.id} display={display} />}
               {tab === 'alerts' && <AlertsList botId={current.id} />}
               {tab === 'settings' && (
                 <div className="space-y-8">

@@ -1,9 +1,11 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 
+import { divideDecimals } from '@/shared/lib/decimal';
 import { Button } from '@/shared/ui/Button';
 import { DateTime } from '@/shared/ui/DateTime';
 
 import { botFeedQuery } from '../api/botsApi';
+import { type BotDisplay, feeLabel, unknownBotDisplay } from '../model/botDisplay';
 import { feedLabel, feedReasonLabel } from '../model/botStatus';
 import { absenceProofText, autoCheckFailure } from '../model/orderAbsence';
 import { waitingReason } from '../model/orderWaiting';
@@ -16,7 +18,20 @@ const settingLabels: Record<string, string> = {
   foreignOrders: 'общий символ',
 };
 
-function details(entry: BotFeedEntry): string {
+/** A fill's fee after its amounts, in quote first; nothing for a fee not known yet, as a commission that has not arrived. */
+function fillFee(entry: BotFeedEntry, display: BotDisplay): string {
+  const { fee, feeAsset, grossBase, grossQuote } = entry.details;
+
+  if (!fee || Number(fee) === 0 || !grossBase || !grossQuote) {
+    return '';
+  }
+
+  const price = divideDecimals(grossQuote, grossBase, 12) ?? '0';
+
+  return ` · комиссия ${feeLabel(fee, feeAsset === 'Quote' ? 'Quote' : 'Base', price, display)}`;
+}
+
+function details(entry: BotFeedEntry, display: BotDisplay): string {
   const { reason, side, grossBase, grossQuote, realizedPnl, engineOrderId, setting } =
     entry.details;
 
@@ -64,7 +79,7 @@ function details(entry: BotFeedEntry): string {
   }
 
   if (grossBase && grossQuote) {
-    return `${side === 'Sell' ? 'продажа' : 'покупка'} ${grossBase} на ${grossQuote}`;
+    return `${side === 'Sell' ? 'продажа' : 'покупка'} ${grossBase} на ${grossQuote}${fillFee(entry, display)}`;
   }
 
   if (realizedPnl) {
@@ -75,7 +90,13 @@ function details(entry: BotFeedEntry): string {
 }
 
 /** What happened to the bot, newest first; entries are kept for 90 days. */
-export function BotFeedList({ botId }: { botId: string }) {
+export function BotFeedList({
+  botId,
+  display = unknownBotDisplay,
+}: {
+  botId: string;
+  display?: BotDisplay;
+}) {
   const feed = useInfiniteQuery(botFeedQuery(botId));
   const items = feed.data?.pages.flatMap((page) => page.items) ?? [];
 
@@ -95,7 +116,7 @@ export function BotFeedList({ botId }: { botId: string }) {
     <>
       <ul className="space-y-1 text-sm" aria-label="Лента бота">
         {items.map((entry) => {
-          const text = details(entry);
+          const text = details(entry, display);
 
           return (
             <li key={entry.id} className="flex gap-3 border-t border-line pt-1">

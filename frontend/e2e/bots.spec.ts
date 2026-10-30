@@ -57,7 +57,8 @@ test('a bot is created with a key, trades, is stopped and reported', async ({ pa
   await page.getByRole('button', { name: 'Запустить', exact: true }).click();
   await expect(page.getByText('Работает', { exact: true })).toBeVisible({ timeout: 20_000 });
 
-  // OnStart buys for 10 USDT at 100: 0.1 BTC less a 0.0001 BTC fee, valued at the ticker: 0.0999 × 104 − 10.
+  // OnStart buys for 10 USDT at 100: 0.1 BTC less a 0.0001 BTC fee. The fee, 0.01 USDT at the fill's price, is realized at
+  // once (ADR 0063), so the rest is valued at the ticker against what it cost without it: 0.0999 × 104 − 9.99.
   await page.getByRole('tab', { name: 'Сделки' }).click();
   const fills = page.getByRole('table', { name: 'Сделки бота' });
   await expect(fills.getByRole('cell', { name: '100', exact: true })).toBeVisible({
@@ -67,7 +68,9 @@ test('a bot is created with a key, trades, is stopped and reported', async ({ pa
   await expect(fills.getByRole('cell', { name: /^0\.01 USDT \(0\.0001 BTC\)$/ })).toBeVisible();
   await expect(page.getByLabel('Цена для отображения')).toHaveText('104 USDT', { timeout: 20_000 });
   await expect(page.getByText(/^тикер биржи/)).toBeVisible();
-  await expect(page.getByLabel('Нереализованная прибыль')).toHaveText('+0.3896 USDT');
+  await expect(page.getByLabel('Нереализованная прибыль')).toHaveText('+0.3996 USDT');
+  await expect(page.getByLabel('Реализованная прибыль', { exact: true })).toHaveText('−0.01 USDT');
+  await expect(page.getByLabel('Комиссии позиции')).toHaveText('0.01 USDT');
   await page.getByRole('tab', { name: 'Лента' }).click();
   const feed = page.getByRole('list', { name: 'Лента бота' });
   await expect(feed.getByText('Запущен', { exact: true })).toBeVisible({ timeout: 20_000 });
