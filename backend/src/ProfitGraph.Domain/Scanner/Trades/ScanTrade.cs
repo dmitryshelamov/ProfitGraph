@@ -235,6 +235,24 @@ public sealed class ScanTrade : AggregateRoot
     }
 
     /// <summary>
+    ///     Whether the entry may still go at <paramref name="price" /> (ADR 0067): the price lies strictly between the stop and the target.
+    ///     Beyond the stop the entry would fill at once into a position its stop sells; beyond the target the trade has nothing left to
+    ///     take.
+    /// </summary>
+    public bool AllowsEntryAt(decimal price)
+    {
+        return AllowsEntryAt(Direction, Stop, Target, price);
+    }
+
+    /// <summary>
+    ///     Whether a trade with these levels may enter at <paramref name="price" />, as <see cref="AllowsEntryAt(decimal)" />.
+    /// </summary>
+    public static bool AllowsEntryAt(PositionDirection direction, decimal stop, decimal target, decimal price)
+    {
+        return direction == PositionDirection.Long ? price > stop && price < target : price < stop && price > target;
+    }
+
+    /// <summary>
     ///     Whether the entry has waited too long: the trade still waits and <see cref="ExpiresAt" /> has passed.
     /// </summary>
     public bool IsOverdue(DateTimeOffset now)

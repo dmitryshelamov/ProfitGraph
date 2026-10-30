@@ -17,6 +17,9 @@ describe('trade cards', () => {
     expect(tradeStatus('StoppedOut')).toEqual({ label: 'Стоп', tone: 'danger' });
     expect(tradeStatus('Later')).toEqual({ label: 'Later', tone: 'neutral' });
     expect(tradeFailure('scan_trade_entry_ended')).toBe('биржа не приняла вход');
+    expect(tradeFailure('scan_trade_entry_beyond_levels')).toBe(
+      'цена ушла за стоп или цель до входа',
+    );
     expect(tradeFailure(null)).toBeNull();
   });
 

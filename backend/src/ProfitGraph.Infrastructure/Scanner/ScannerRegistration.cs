@@ -3,11 +3,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
+using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.Scanner;
 using ProfitGraph.Application.Scanner.Alerts;
 using ProfitGraph.Application.Scanner.Contracts;
 using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Application.Scanner.RunScanBacktest;
+using ProfitGraph.Application.Scanner.Trades;
 using ProfitGraph.Domain.Scanner;
 using ProfitGraph.Domain.Scanner.Trades;
 using ProfitGraph.Infrastructure.Common;
@@ -48,6 +50,7 @@ public static class ScannerRegistration
         services.AddScoped<ScanTimeframeLevelsReader>();
         services.AddScoped<ScanTradeIdeasReader>();
         services.AddScoped<ScanTradeCostsReader>();
+        services.AddScoped<IOrderSubmitGuard, ScanTradeEntryGuard>();
         services.AddSingleton<ScanTradeFeeRateCache>();
         services.AddSingleton<IScanSnapshotNotifications, ScanSnapshotNotifications>();
         services.AddHealthChecks().AddCheck<ScannerHealthCheck>(ScannerHealthCheck.Name, tags: [HealthTags.Ready]);

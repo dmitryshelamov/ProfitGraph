@@ -17,6 +17,7 @@ import { useScanQuote } from './useScanQuote';
 const createErrors: Record<string, string> = {
   scan_trade_live: 'Такая сделка уже живёт.',
   scan_trade_entry_moved: 'Цена ушла от входа — идеи обновятся.',
+  scan_trade_entry_beyond_levels: 'Цена уже за стопом или целью — идеи обновятся.',
   scan_trade_pair_not_scanned: 'Пары нет в последнем снимке сканера.',
   scan_trade_settings_missing: 'Сначала задайте риск и ключ.',
   scan_trade_short_unsupported: 'На этой бирже нет шорта.',

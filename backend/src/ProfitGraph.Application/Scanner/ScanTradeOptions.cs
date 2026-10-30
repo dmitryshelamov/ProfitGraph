@@ -35,6 +35,11 @@ public sealed class ScanTradeOptions
     public decimal MaxEntryDeviation { get; init; } = 0.05m;
 
     /// <summary>
+    ///     The oldest price a trade's entry is checked against before it is sent (ADR 0067); without a newer one the entry is refused.
+    /// </summary>
+    public TimeSpan EntryPriceMaxAge { get; init; } = TimeSpan.FromMinutes(3);
+
+    /// <summary>
     ///     How often the Worker cancels overdue entries and stops the bots of finished trades.
     /// </summary>
     public TimeSpan TrackInterval { get; init; } = TimeSpan.FromSeconds(15);
@@ -67,7 +72,7 @@ public sealed class ScanTradeOptions
     {
         return IsTimeframe(Timeframe) && LevelTimeframes.Length > 0 && LevelTimeframes.All(IsTimeframe) && FeeRate is >= 0m and < 0.1m &&
             FeeRatesLifetime > TimeSpan.Zero &&
-            MaxEntryDeviation is > 0m and < 1m && TrackInterval > TimeSpan.Zero && TrackBatchSize > 0 &&
+            MaxEntryDeviation is > 0m and < 1m && EntryPriceMaxAge > TimeSpan.Zero && TrackInterval > TimeSpan.Zero && TrackBatchSize > 0 &&
             ListLimit > 0;
     }
 }

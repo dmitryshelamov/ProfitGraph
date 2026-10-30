@@ -16,6 +16,7 @@ using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Application.Strategies.Templates;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.MarkPrices;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Scanner.Trades;
 using ProfitGraph.Domain.Strategies;
@@ -30,11 +31,12 @@ namespace ProfitGraph.Application.Scanner.CreateScanTrade;
 
 /// <summary>
 ///     Refuses a trade without settings, on a pair the snapshot does not show, with an entry further than <see cref="ScanTradeOptions.MaxEntryDeviation" /> from the
-///     current price, with a stop nearer the entry than what a stopped trade pays (ADR 0065), or while the owner has a live trade with the same scenario and prices on
-///     the pair. The trade is sized with the fee rates its bot will pay and the pair's spread, as the cards are. The bot's allocation, largest order and daily loss limit
-///     are the trade's amount, so it cannot spend more; it allows foreign orders, since the owner's other trades on the pair place theirs on the same symbol. A bot that
-///     does not start fails the trade and the error reaches the owner. On a margin venue (ADR 0061) the bot trades at the settings' leverage, so its allocation is the
-///     trade's margin and fees rather than its amount; a short trade runs the short strategy.
+///     current price or a current price no longer between its stop and target (ADR 0067), with a stop nearer the entry than what a stopped trade pays (ADR 0065), or
+///     while the owner has a live trade with the same scenario and prices on the pair. The trade is sized with the fee rates its bot will pay and the pair's spread, as
+///     the cards are. The bot's allocation, largest order and daily loss limit are the trade's amount, so it cannot spend more; it allows foreign orders, since the
+///     owner's other trades on the pair place theirs on the same symbol. A bot that does not start fails the trade and the error reaches the owner. On a margin venue
+///     (ADR 0061) the bot trades at the settings' leverage, so its allocation is the trade's margin and fees rather than its amount; a short trade runs the short
+///     strategy.
 /// </summary>
 internal sealed class CreateScanTradeCommandHandler(
     IEnumerable<IMarketScanSource> sources,
@@ -42,6 +44,7 @@ internal sealed class CreateScanTradeCommandHandler(
     IScanTradeSettingsRepository settings,
     IScanTradeRepository trades,
     IScanSnapshotRepository snapshots,
+    ILiveMarkPriceRepository prices,
     ScanTradeCostsReader costs,
     IStrategyRepository strategies,
     ITransactionExecutor transactions,
@@ -178,21 +181,32 @@ internal sealed class CreateScanTradeCommandHandler(
     }
 
     /// <summary>
-    ///     Refuses an entry away from the snapshot's price; returns the pair's spread there, in percent.
+    ///     Refuses an entry away from the current price and a current price beyond the stop or the target; returns the pair's spread in the
+    ///     snapshot, in percent. The current price is the venue's last trade when a bot follows the pair and it is newer than the snapshot,
+    ///     else the snapshot's.
     /// </summary>
     private async Task<decimal?> EnsureEntryNearPrice(CreateScanTradeCommand command, CancellationToken cancellationToken)
     {
         ScanSnapshotInternal? snapshot = await snapshots.Get(command.Venue, cancellationToken);
         ScanSnapshotRowInternal? row = snapshot?.Rows.FirstOrDefault(item => item.Symbol == command.Symbol);
 
-        if (row?.Metrics.Price is not { } price)
+        if (row?.Metrics.Price is not { } scanned)
         {
             throw new StateConflictException("The scanner does not show this pair now.", ScanTradeErrorCodes.PairNotScanned);
         }
 
+        CandleSeries series = venues.ResolveSeries(command.Venue, command.Symbol, options.Timeframe);
+        LiveMarkPrice? ticker = await prices.Get(series.Venue, series.Symbol, cancellationToken);
+        decimal price = ticker is not null && ticker.Displaces(snapshot!.ComputedAt, clock.GetUtcNow()) ? ticker.Price : scanned;
+
         if (Math.Abs(command.Entry - price) > price * options.MaxEntryDeviation)
         {
             throw new StateConflictException("The price has moved away from the entry; open the cards again.", ScanTradeErrorCodes.EntryMoved);
+        }
+
+        if (!ScanTrade.AllowsEntryAt(command.Direction, command.Stop, command.Target, price))
+        {
+            throw new StateConflictException("The price is no longer between the stop and the target; open the cards again.", ScanTradeErrorCodes.EntryBeyondLevels);
         }
 
         return row.Metrics.Spread;

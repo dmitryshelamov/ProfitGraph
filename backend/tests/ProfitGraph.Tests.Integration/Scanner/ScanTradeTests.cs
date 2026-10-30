@@ -13,13 +13,17 @@ using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
 using ProfitGraph.Api.Scanner.Contracts;
+using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Application.Scanner.Contracts;
 using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Application.Scanner.ReplaceScanSnapshot;
 using ProfitGraph.Application.Scanner.TrackScanTrade;
+using ProfitGraph.Application.Scanner.Trades;
 using ProfitGraph.Domain.Bots;
+using ProfitGraph.Domain.Bots.MarkPrices;
 using ProfitGraph.Domain.Bots.Positions;
+using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Scanning;
 using ProfitGraph.Engine.Templates;
@@ -193,6 +197,54 @@ public sealed class ScanTradeTests
     }
 
     [Test]
+    public async Task AnEntryGoesOnlyWhileThePriceIsBetweenItsStopAndTarget()
+    {
+        BotOwner owner = await SetUp("TRADEEUSDT");
+        ScanTradeIdeasResponse ideas = await Ideas(owner, "TRADEEUSDT");
+
+        // Hours: stop 89.66, target 110; days: stop 94.55, target 120 (stops a margin beyond the supports, ADR 0070). The pair then falls
+        // to 93, below the days' stop only.
+        var hours = (await (await Create(owner, "TRADEEUSDT", ideas.Ideas[0])).Content.ReadFromJsonAsync<ScanLiveTradeResponse>(WebJson))!;
+        var days = (await (await Create(owner, "TRADEEUSDT", ideas.Ideas[2])).Content.ReadFromJsonAsync<ScanLiveTradeResponse>(WebJson))!;
+        await Price("TRADEEUSDT", price: 93m);
+
+        (await Refusal(hours.BotId, LevelTradeStrategyBlockFactory.EntryTag)).ShouldBeNull();
+        (await Refusal(days.BotId, LevelTradeStrategyBlockFactory.TargetTag)).ShouldBeNull();
+        (await Refusal(days.BotId, LevelTradeStrategyBlockFactory.EntryTag)).ShouldBe("The price 93 is no longer between the trade's stop 94.552083 and target 120.");
+
+        IReadOnlyList<ScanLiveTradeResponse> trades = await Trades(owner, "TRADEEUSDT");
+        trades.Single(trade => trade.Id == hours.Id).Status.ShouldBe("Waiting");
+        ScanLiveTradeResponse failed = trades.Single(trade => trade.Id == days.Id);
+        (failed.Status, failed.FailureCode).ShouldBe(("Failed", "scan_trade_entry_beyond_levels"));
+
+        // The bots here have no checkpoint, so a display price four minutes old leaves the hours' entry without a price.
+        await using (var connection = new NpgsqlConnection(TestDatabase.ConnectionString))
+        {
+            await connection.ExecuteAsync("UPDATE live_mark_prices SET observed_at = now() - interval '4 minutes' WHERE symbol = 'TRADEEUSDT'");
+        }
+
+        (await Refusal(hours.BotId, LevelTradeStrategyBlockFactory.EntryTag)).ShouldBe("The pair's current price is unknown.");
+        (await Trades(owner, "TRADEEUSDT")).Single(trade => trade.Id == hours.Id).FailureCode.ShouldBe("scan_trade_entry_price_unknown");
+        (await Refusal(Guid.NewGuid(), LevelTradeStrategyBlockFactory.EntryTag)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task ATradeWhosePriceHasCrossedItsStopIsRefused()
+    {
+        BotOwner owner = await SetUp("TRADEFUSDT");
+
+        // Within 5 % of the entry, but below the stop: a bot on the pair saw 98.8 after the snapshot's 100.
+        await Price("TRADEFUSDT", price: 98.8m);
+        HttpResponseMessage crossed = await owner.Client.PostAsJsonAsync(
+            $"/api/scanner/{Venue}/trades",
+            new { symbol = "TRADEFUSDT", timeframe = "1h", scenario = "Levels", entry = "100", stop = "99", target = "103" });
+
+        crossed.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await BotApi.Code(crossed)).ShouldBe("scan_trade_entry_beyond_levels");
+        (await Trades(owner, "TRADEFUSDT")).ShouldBeEmpty();
+    }
+
+    [Test]
     public async Task AWaitingTradeWhoseBotTheOwnerStoppedIsCancelled()
     {
         BotOwner owner = await SetUp("TRADECUSDT");
@@ -280,6 +332,33 @@ public sealed class ScanTradeTests
                     return true;
                 },
                 CancellationToken.None);
+    }
+
+    private async Task Price(string symbol, decimal price)
+    {
+        using IServiceScope scope = _api.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<ILiveMarkPriceRepository>()
+            .Store(new LiveMarkPrice(new VenueId(Venue), new InstrumentSymbol(symbol), price, DateTimeOffset.UtcNow), CancellationToken.None);
+    }
+
+    private async Task<string?> Refusal(Guid botId, string tag)
+    {
+        using IServiceScope scope = _api.Services.CreateScope();
+        ScanTradeEntryGuard guard = scope.ServiceProvider.GetServices<IOrderSubmitGuard>().OfType<ScanTradeEntryGuard>().Single();
+        var order = new OrderSnapshot(
+            Id: 1,
+            tag,
+            OrderSide.Buy,
+            OrderType.Limit,
+            Quantity: null,
+            LimitPrice: 100m,
+            QuoteBudget: 50m,
+            Reservation: 50m,
+            "entry",
+            EligibleFromCandleIndex: 1,
+            OrderStatus.PendingSubmit);
+
+        return await guard.Refusal(new BotId(botId), order, CancellationToken.None);
     }
 
     private async Task<bool> Track(Guid tradeId)
