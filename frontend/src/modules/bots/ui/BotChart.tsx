@@ -16,6 +16,7 @@ import { botCandlesQuery, botKeys, botNewCandlesQuery, botOpenOrdersQuery } from
 import { mergeCandlePages } from '../model/botCandles';
 import { atPlaces, type BotDisplay } from '../model/botDisplay';
 import { formingNote } from '../model/formingCandle';
+import { levelTrade, levelTradeLevels, stopRule } from '../model/levelTrade';
 import { orderLevels } from '../model/orderLevels';
 import type { Bot, BotCandlesPage } from '../model/types';
 import { useFormingCandle } from '../model/useFormingCandle';
@@ -36,9 +37,11 @@ function unavailableText(code: string | null): string {
 
 /**
  * The bot's instrument's closed candles on a timeframe of its venue, the bot's own by default, its fills as markers on the
- * candles that contain them and its working limit orders as dashed levels. Scrolling left loads older candles; candles closed
- * since the page opened arrive every minute. The candle being formed follows the venue's live channel (ADR 0027) without being
- * stored; that channel carries the bot's own timeframe only, so another timeframe shows closed candles alone.
+ * candles that contain them and its working limit orders as dashed levels. A level trade's entry, target and stop are solid
+ * lines; the stop has one although no order stands there, since the bot exits at market on its own timeframe's close.
+ * Scrolling left loads older candles; candles closed since the page opened arrive every minute. The candle being formed
+ * follows the venue's live channel (ADR 0027) without being stored; that channel carries the bot's own timeframe only, so
+ * another timeframe shows closed candles alone.
  */
 export function BotChart({
   bot,
@@ -94,10 +97,12 @@ export function BotChart({
       })),
     [merged.fills, display.pricePlaces],
   );
-  const levels = useMemo<ChartLevel[]>(
-    () => orderLevels(orders.data ?? [], display.pricePlaces),
-    [orders.data, display.pricePlaces],
-  );
+  const trade = useMemo(() => levelTrade(bot), [bot]);
+  const levels = useMemo<ChartLevel[]>(() => {
+    const working = orderLevels(orders.data ?? [], display.pricePlaces);
+
+    return trade ? levelTradeLevels(trade, bot.timeframe, working, display.pricePlaces) : working;
+  }, [orders.data, display.pricePlaces, trade, bot.timeframe]);
   const loadEarlier = () => {
     if (history.hasNextPage && !history.isFetchingNextPage) {
       void history.fetchNextPage();
@@ -124,6 +129,12 @@ export function BotChart({
       {own && formingNote(forming.feed) && (
         <p role="status" data-forming={forming.feed} className="text-sm text-muted">
           {formingNote(forming.feed)}
+        </p>
+      )}
+      {trade && (
+        <p className="text-sm text-text-secondary">
+          Стоп {atPlaces(trade.stop, display.pricePlaces)} — не заявка на бирже:{' '}
+          {stopRule(trade, bot.timeframe).toLowerCase()}.
         </p>
       )}
       {!own && (

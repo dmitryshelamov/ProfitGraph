@@ -11,9 +11,11 @@ import { DateTime } from '@/shared/ui/DateTime';
 
 import { botPositionQuery } from '../api/botsApi';
 import { atPlaces, type BotDisplay, exactAmount, withAsset } from '../model/botDisplay';
+import type { LevelTrade } from '../model/levelTrade';
 import { remainderReason, unsellableRemainder } from '../model/positionRemainder';
 import type { LivePrice } from '../model/types';
 import { followLivePrice } from '../realtime/followLivePrice';
+import { BotLevelTradePlan } from './BotLevelTradePlan';
 
 function ageLabel(observedAt: string, now: number): string {
   const seconds = Math.max(0, Math.round((now - Date.parse(observedAt)) / 1000));
@@ -81,9 +83,20 @@ function Metric({
  * Entry fees count as spent when they were paid (ADR 0063): the realized profit includes them, while the unrealized profit and
  * the average buy price leave them out and the break-even price keeps them. Realized profit shows a dash until there is any:
  * neither a closed cycle nor a non-zero realized total. The metrics
- * take as many columns as the card's own width allows; the position's cycles are shown by {@link BotPositionCycles}.
+ * take as many columns as the card's own width allows; the position's cycles are shown by {@link BotPositionCycles}. A level
+ * trade's entry, target and stop follow at the same price, see {@link BotLevelTradePlan}.
  */
-export function BotPositionCard({ botId, display }: { botId: string; display: BotDisplay }) {
+export function BotPositionCard({
+  botId,
+  display,
+  trade = null,
+  timeframe = '',
+}: {
+  botId: string;
+  display: BotDisplay;
+  trade?: LevelTrade | null;
+  timeframe?: string;
+}) {
   const position = useQuery(botPositionQuery(botId));
   const [live, setLive] = useState<LivePrice | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -219,6 +232,15 @@ export function BotPositionCard({ botId, display }: { botId: string; display: Bo
           caption="не вложены в позицию"
         />
       </dl>
+      {trade && (
+        <BotLevelTradePlan
+          trade={trade}
+          timeframe={timeframe}
+          display={display}
+          price={price}
+          average={isOpen ? data.averageBuyPrice : null}
+        />
+      )}
     </div>
   );
 }
