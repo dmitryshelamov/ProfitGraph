@@ -368,7 +368,7 @@ describe('bots', () => {
         return json({ ...alert, acknowledgedAt: '2026-10-24T09:05:00Z' });
       },
     });
-    renderApp(`/bots/${bot.id}`);
+    renderApp(`/bots/${bot.id}?tab=alerts`);
 
     const alerts = await screen.findByRole('list', { name: 'Алерты бота' });
     expect(

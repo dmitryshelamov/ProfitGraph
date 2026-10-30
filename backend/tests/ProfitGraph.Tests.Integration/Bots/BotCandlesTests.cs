@@ -22,7 +22,8 @@ namespace ProfitGraph.Tests.Integration.Bots;
 /// <summary>
 ///     The bot's chart over HTTP (ADR 0026) on the test venue: pages of closed candles of the bot's own series, brought into
 ///     the cache from the venue once, the venue's candles of an incomplete history shown without being stored, the stored
-///     candles when the venue fails, and the bot's fills of the same range. Values are invented; no venue is contacted.
+///     candles when the venue fails, the same instrument on another timeframe of the venue, and the bot's fills of the same range.
+///     Values are invented; no venue is contacted.
 /// </summary>
 [NonParallelizable]
 public sealed class BotCandlesTests
@@ -130,6 +131,38 @@ public sealed class BotCandlesTests
     }
 
     [Test]
+    public async Task AnotherTimeframeOfTheVenueShowsTheSameInstrument_WithTheBotsFillsOfItsRange()
+    {
+        (BotOwner owner, Guid id, string symbol) = await NewBot();
+        await Record(
+            id,
+            Fill(id, engineOrderId: 1, OrderSide.Buy, First.AddHours(30), grossBase: 0.5m, grossQuote: 50m),
+            Fill(id, engineOrderId: 2, OrderSide.Sell, First.AddDays(3), grossBase: 0.5m, grossQuote: 60m));
+
+        BotCandlesResponse page = await Page(owner, id, First.AddHours(5), First.AddDays(2).AddHours(1), "1d");
+
+        page.Symbol.ShouldBe(symbol);
+        page.Timeframe.ShouldBe("1d");
+        page.From.ShouldBe(First);
+        page.To.ShouldBe(First.AddDays(3));
+        page.Candles.Select(candle => candle.OpenTime).ShouldBe([First, First.AddDays(1), First.AddDays(2)]);
+        page.Fills.Select(fill => fill.FilledAt).ShouldBe([First.AddHours(30)]);
+        _history.Requests.ShouldBe([(First, First.AddDays(3))]);
+    }
+
+    [Test]
+    public async Task ATimeframeTheVenueDoesNotOfferIsRefused()
+    {
+        (BotOwner owner, Guid id, _) = await NewBot();
+
+        HttpResponseMessage response = await owner.Client.GetAsync(Url(id, First, First.AddHours(8)) + "&timeframe=4h");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).ShouldContain("unsupported_timeframe");
+        _history.Requests.ShouldBeEmpty();
+    }
+
+    [Test]
     public async Task APageIsLimitedAndPrivateToTheBotsOwner()
     {
         (BotOwner owner, Guid id, _) = await NewBot();
@@ -165,9 +198,9 @@ public sealed class BotCandlesTests
         return $"{BotApi.Path}/{id}/candles?from={Uri.EscapeDataString(from.ToString("O"))}&to={Uri.EscapeDataString(to.ToString("O"))}";
     }
 
-    private static async Task<BotCandlesResponse> Page(BotOwner owner, Guid id, DateTimeOffset from, DateTimeOffset to)
+    private static async Task<BotCandlesResponse> Page(BotOwner owner, Guid id, DateTimeOffset from, DateTimeOffset to, string? timeframe = null)
     {
-        HttpResponseMessage response = await owner.Client.GetAsync(Url(id, from, to));
+        HttpResponseMessage response = await owner.Client.GetAsync(Url(id, from, to) + (timeframe is null ? string.Empty : $"&timeframe={timeframe}"));
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 
         return (await response.Content.ReadFromJsonAsync<BotCandlesResponse>(WebJson))!;

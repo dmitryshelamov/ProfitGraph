@@ -183,8 +183,9 @@ describe('bot reports', () => {
     expect(screen.getByText('60060.06')).toBeInTheDocument();
     expect(screen.getByLabelText('Реализованная прибыль')).toHaveTextContent('—');
     expect(screen.getByText('продаж ещё не было')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: 'Сделки' }));
     expect(
-      within(screen.getByRole('table', { name: 'Циклы позиции' })).getByText('открыт'),
+      within(await screen.findByRole('table', { name: 'Циклы позиции' })).getByText('открыт'),
     ).toBeInTheDocument();
     await waitFor(() => expect(hub.subscriptions).toContain(bot.id));
 
@@ -223,8 +224,9 @@ describe('bot reports', () => {
     renderApp(`/bots/${bot.id}`);
 
     expect(await screen.findByLabelText('Реализованная прибыль')).toHaveTextContent('−1.5');
+    await userEvent.click(screen.getByRole('tab', { name: 'Сделки' }));
     expect(
-      within(screen.getByRole('table', { name: 'Циклы позиции' })).getByText('−1.5'),
+      within(await screen.findByRole('table', { name: 'Циклы позиции' })).getByText('−1.5'),
     ).toBeInTheDocument();
   });
 
@@ -256,7 +258,7 @@ describe('bot reports', () => {
           }),
       }),
     );
-    renderApp(`/bots/${bot.id}`);
+    renderApp(`/bots/${bot.id}?tab=fills`);
 
     const fills = await screen.findByRole('table', { name: 'Сделки бота' });
     expect(within(fills).getByText('60000')).toBeInTheDocument();
@@ -286,7 +288,7 @@ describe('bot reports', () => {
           }),
       }),
     );
-    renderApp(`/bots/${bot.id}`);
+    renderApp(`/bots/${bot.id}?tab=fills`);
 
     const fills = await screen.findByRole('table', { name: 'Сделки бота' });
     expect(within(fills).getAllByText('комиссия ещё не пришла')).toHaveLength(1);
@@ -505,7 +507,7 @@ describe('bot reports', () => {
           }),
       }),
     );
-    renderApp(`/bots/${bot.id}`);
+    renderApp(`/bots/${bot.id}?tab=feed`);
 
     const feed = await screen.findByRole('list', { name: 'Лента бота' });
     expect(within(feed).getByText('Запущен')).toBeInTheDocument();

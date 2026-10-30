@@ -1,4 +1,9 @@
-import { fractionToPercent, percentToFraction, roundDecimal } from '@/shared/lib/decimal';
+import {
+  fractionToPercent,
+  multiplyDecimals,
+  percentToFraction,
+  roundDecimal,
+} from '@/shared/lib/decimal';
 
 import type { Bot } from './types';
 
@@ -38,6 +43,33 @@ export function atPlaces(value: string, places: number | null): string {
 /** An amount with its asset, when the asset is known: "832.758332 DNC". */
 export function withAsset(value: string, asset: string | null): string {
   return asset ? `${value} ${asset}` : value;
+}
+
+/** The most decimal places a fee's quote value is shown with when the venue's quote places are unknown. */
+const feeQuotePlaces = 8;
+
+/**
+ * A fill's fee in quote first, as profit is counted: a fee paid in quote as it is, "0.06 USDT"; a fee paid in base valued at the
+ * fill's price with the base amount after it, "6.3 USDT (0.0001 BTC)".
+ */
+export function feeLabel(
+  fee: string,
+  feeAsset: 'Base' | 'Quote',
+  price: string,
+  display: BotDisplay,
+): string {
+  const quoteAsset = display.quoteAsset ?? '(котировка)';
+
+  if (feeAsset === 'Quote') {
+    return withAsset(atPlaces(fee, display.quotePlaces), quoteAsset);
+  }
+
+  const base = withAsset(atPlaces(fee, display.basePlaces), display.baseAsset ?? '(база)');
+  const value = multiplyDecimals(fee, price);
+
+  return value === null
+    ? base
+    : `${withAsset(roundDecimal(value, display.quotePlaces ?? feeQuotePlaces) ?? value, quoteAsset)} (${base})`;
 }
 
 /** A stored fraction as percent: "0.0015" → "0.15%". */

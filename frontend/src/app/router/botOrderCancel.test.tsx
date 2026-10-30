@@ -105,9 +105,6 @@ describe('owner cancel of an open order', () => {
       `${botPath}/open-orders/2/cancel`,
     ]);
     expect(screen.queryByText('ladder.exit')).not.toBeInTheDocument();
-    expect(
-      requests.filter((request) => new URL(request.url).pathname === `${botPath}/feed`).length,
-    ).toBeGreaterThan(1);
   });
 
   it('shows the pending cancel on its row while the bot works on it', async () => {
@@ -270,7 +267,7 @@ describe('owner cancel of an open order', () => {
           next: null,
         }),
     });
-    renderApp(`/bots/${bot.id}`);
+    renderApp(`/bots/${bot.id}?tab=feed`);
 
     const feed = await screen.findByRole('list', { name: 'Лента бота' });
     expect(

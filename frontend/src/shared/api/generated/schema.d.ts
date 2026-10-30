@@ -2409,6 +2409,7 @@ export interface paths {
                 query?: {
                     from?: string;
                     to?: string;
+                    timeframe?: string;
                 };
                 header?: never;
                 path: {

@@ -4,14 +4,7 @@ import { Button } from '@/shared/ui/Button';
 import { DateTime } from '@/shared/ui/DateTime';
 
 import { botFillsQuery } from '../api/botsApi';
-import { atPlaces, type BotDisplay, withAsset } from '../model/botDisplay';
-
-function feeText(fee: string, inBase: boolean, display: BotDisplay): string {
-  const places = inBase ? display.basePlaces : display.quotePlaces;
-  const asset = inBase ? display.baseAsset : display.quoteAsset;
-
-  return withAsset(atPlaces(fee, places), asset ?? (inBase ? '(база)' : '(котировка)'));
-}
+import { atPlaces, type BotDisplay, feeLabel } from '../model/botDisplay';
 
 export function BotFillsTable({ botId, display }: { botId: string; display: BotDisplay }) {
   const fills = useInfiniteQuery(botFillsQuery(botId));
@@ -56,7 +49,7 @@ export function BotFillsTable({ botId, display }: { botId: string; display: BotD
                 {fill.commissionPending ? (
                   <span className="font-sans text-muted">комиссия ещё не пришла</span>
                 ) : (
-                  <>{feeText(fill.fee, fill.feeAsset === 'Base', display)}</>
+                  <>{feeLabel(fill.fee, fill.feeAsset, fill.price, display)}</>
                 )}
               </td>
             </tr>

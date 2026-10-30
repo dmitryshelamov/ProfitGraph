@@ -100,16 +100,18 @@ public sealed class BotsController(ISender sender) : ControllerBase
 
     /// <summary>
     ///     A page of the bot's chart: its closed candles of the half-open UTC range [from, to), at most 1000 of them, with its
-    ///     fills of the same range. The venue, symbol, timeframe and market data access are the bot's own (ADR 0026).
+    ///     fills of the same range. The venue, symbol and market data access are the bot's own (ADR 0026); the timeframe is the
+    ///     bot's own unless another one its venue offers is named.
     /// </summary>
     [HttpGet("{id:guid}/candles")]
     public async Task<ActionResult<BotCandlesResponse>> Candles(
         Guid id,
         [FromQuery] DateTimeOffset from,
         [FromQuery] DateTimeOffset to,
+        [FromQuery] string? timeframe,
         CancellationToken cancellationToken)
     {
-        return (await sender.Send(new GetBotCandlesQuery(UserId(), id, from, to), cancellationToken)).ToResponse();
+        return (await sender.Send(new GetBotCandlesQuery(UserId(), id, from, to, timeframe), cancellationToken)).ToResponse();
     }
 
     [HttpGet("{id:guid}/fills")]

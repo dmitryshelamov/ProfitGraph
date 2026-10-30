@@ -10,6 +10,7 @@ import {
 } from '@tanstack/react-router';
 
 import { currentUserQuery } from '@/modules/accounts';
+import { botPageSearch } from '@/modules/bots';
 import { scanChartTimeframe } from '@/modules/scanner';
 
 import { AppShell } from './AppShell';
@@ -214,6 +215,7 @@ const botsRoute = createRoute({
 const botRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/bots/$botId',
+  validateSearch: botPageSearch,
   component: lazyRouteComponent(() => import('@/pages/bot/BotPage'), 'BotPage'),
 });
 

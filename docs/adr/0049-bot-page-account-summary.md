@@ -39,7 +39,8 @@ for Bybit. The T-Invest account's name and kind are read when the credential is 
   venue that has a reader, after the balances: once a day after a success and an hour after a failure, which keeps the last
   details. The answer is the `AccountIdentity` aggregate in `account_identities` (migration `202610280040`), one row per
   credential, deleted with it.
-- **Card.** `BotAccountCard` (`modules/bots`) comes first on the bot page, under the title: the account's identifier, name,
+- **Card.** `BotAccountCard` (`modules/bots`) comes first on the bot page, under the title (since the ADR 0026 amendment of
+  2026-10-30 it sits in the right column under the position): the account's identifier, name,
   kind and access; the total and available value with the snapshot's age (warning color after fifteen minutes); the bot's
   capital and how many other bots of the key run; why the last read failed and whether the protection holds the account back.
   Coins, the key's permissions and expiry, the venue status, the other bots with their capital and the read schedule are

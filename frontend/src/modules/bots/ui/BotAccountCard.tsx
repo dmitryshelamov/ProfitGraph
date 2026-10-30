@@ -149,9 +149,9 @@ function Details({ account, now }: { account: BotAccount; now: number }) {
 }
 
 /**
- * The exchange account the bot trades on, first on the bot page (ADR 0049): which account and key, the account's value
- * and what is available with the snapshot's age, the bot's capital next to the other running bots of the key, and why the
- * last read failed or the venue holds the account back. Rarely needed details sit behind a disclosure. Everything comes
+ * The exchange account the bot trades on, in the bot page's right column (ADR 0049, ADR 0026 amendment): which account
+ * and key, the account's value and what is available with the snapshot's age, the bot's capital next to the other running
+ * bots of the key, and why the last read failed or the venue holds the account back. Rarely needed details sit behind a disclosure. Everything comes
  * from the server's stored data; nothing here reads the venue.
  */
 export function BotAccountCard({

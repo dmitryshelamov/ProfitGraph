@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   atPlaces,
+  feeLabel,
   fractionLabel,
   parameterInputText,
   parameterStoredValue,
@@ -35,5 +36,21 @@ describe('botDisplay', () => {
     expect(parameterInputText('50', false)).toBe('50');
     expect(parameterStoredValue('7.5', true)).toBe('0.075');
     expect(parameterStoredValue(' 50 ', false)).toBe('50');
+  });
+
+  it('shows a fee in quote first, a base fee valued at the fill price', () => {
+    const display = {
+      basePlaces: 6,
+      quotePlaces: 2,
+      pricePlaces: 2,
+      baseAsset: 'BTC',
+      quoteAsset: 'USDT',
+    };
+
+    expect(feeLabel('0.0001', 'Base', '62950', display)).toBe('6.3 USDT (0.0001 BTC)');
+    expect(feeLabel('0.06', 'Quote', '62950', display)).toBe('0.06 USDT');
+    expect(feeLabel('0.0001', 'Base', '62950', { ...display, quotePlaces: null })).toBe(
+      '6.295 USDT (0.0001 BTC)',
+    );
   });
 });

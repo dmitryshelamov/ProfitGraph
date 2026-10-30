@@ -77,7 +77,8 @@ function Metric({
  * The bot's position at its display price: a fresh ticker from /ws/live-prices when one arrived after the stored
  * value, otherwise what the server chose (a fresh ticker or the last candle's close). With a pushed ticker the
  * unrealized profit is recomputed here as the server does, base total × price − cost basis, in exact decimal strings.
- * Realized profit shows a dash until something was sold: neither a closed cycle nor a non-zero realized total.
+ * Realized profit shows a dash until something was sold: neither a closed cycle nor a non-zero realized total. The metrics
+ * take as many columns as the card's own width allows; the position's cycles are shown by {@link BotPositionCycles}.
  */
 export function BotPositionCard({ botId, display }: { botId: string; display: BotDisplay }) {
   const position = useQuery(botPositionQuery(botId));
@@ -126,7 +127,7 @@ export function BotPositionCard({ botId, display }: { botId: string; display: Bo
     isOpen && unrealizedPnl !== null ? percentOfCost(unrealizedPnl, data.costBasis) : null;
 
   return (
-    <div className="space-y-5">
+    <div className="@container space-y-5">
       <p className="flex flex-wrap items-center gap-2 text-sm">
         <span
           aria-hidden="true"
@@ -145,7 +146,7 @@ export function BotPositionCard({ botId, display }: { botId: string; display: Bo
           <span className="text-muted">Позиции нет</span>
         )}
       </p>
-      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <dl className="grid grid-cols-1 gap-3 @2xs:grid-cols-2 @xl:grid-cols-3">
         <Metric
           label="Объём"
           value={base(data.baseTotal)}
@@ -187,41 +188,56 @@ export function BotPositionCard({ botId, display }: { botId: string; display: Bo
           caption="не вложены в позицию"
         />
       </dl>
-      {data.cycles.length > 0 && (
-        <div>
-          <h3 className="mb-2 text-sm font-medium text-text-secondary">Циклы позиции</h3>
-          <table className="w-full text-left text-sm" aria-label="Циклы позиции">
-            <thead className="text-xs text-muted">
-              <tr>
-                <th className="py-2 font-normal">Открыт</th>
-                <th className="py-2 font-normal">Закрыт</th>
-                <th className="py-2 text-right font-normal">Прибыль</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.cycles.map((cycle) => (
-                <tr key={cycle.id} className="border-t border-line">
-                  <td className="py-2">
-                    <DateTime value={cycle.openedAt} />
-                  </td>
-                  <td className="py-2">
-                    {cycle.closedAt ? (
-                      <DateTime value={cycle.closedAt} />
-                    ) : (
-                      <span className="text-up">открыт</span>
-                    )}
-                  </td>
-                  <td
-                    className={`py-2 text-right font-mono ${cycle.realizedPnl === null ? 'text-muted' : toneClass(cycle.realizedPnl)}`}
-                  >
-                    {cycle.realizedPnl === null ? '—' : profit(cycle.realizedPnl)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+    </div>
+  );
+}
+
+/** The position's latest cycles, from buying in to selling out, with each closed cycle's realized profit. */
+export function BotPositionCycles({ botId, display }: { botId: string; display: BotDisplay }) {
+  const position = useQuery(botPositionQuery(botId));
+  const data = position.data;
+
+  if (!data || data.cycles.length === 0) {
+    return null;
+  }
+
+  const quote = (value: string) =>
+    withAsset(atPlaces(value, display.quotePlaces), display.quoteAsset);
+  const profit = (value: string) => signed(quote(value), value);
+
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-medium text-text-secondary">Циклы позиции</h3>
+      <table className="w-full text-left text-sm" aria-label="Циклы позиции">
+        <thead className="text-xs text-muted">
+          <tr>
+            <th className="py-2 font-normal">Открыт</th>
+            <th className="py-2 font-normal">Закрыт</th>
+            <th className="py-2 text-right font-normal">Прибыль</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.cycles.map((cycle) => (
+            <tr key={cycle.id} className="border-t border-line">
+              <td className="py-2">
+                <DateTime value={cycle.openedAt} />
+              </td>
+              <td className="py-2">
+                {cycle.closedAt ? (
+                  <DateTime value={cycle.closedAt} />
+                ) : (
+                  <span className="text-up">открыт</span>
+                )}
+              </td>
+              <td
+                className={`py-2 text-right font-mono ${cycle.realizedPnl === null ? 'text-muted' : toneClass(cycle.realizedPnl)}`}
+              >
+                {cycle.realizedPnl === null ? '—' : profit(cycle.realizedPnl)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
