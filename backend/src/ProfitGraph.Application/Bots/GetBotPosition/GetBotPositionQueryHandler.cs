@@ -12,8 +12,10 @@ namespace ProfitGraph.Application.Bots.GetBotPosition;
 
 /// <summary>
 ///     The bot's position from its checkpoint. The engine keeps entry fees in the cost basis for strategies; the reported profit
-///     takes them out at once (ADR 0063). A cycle's fees are its fills' fees from its opening through its closing; a cycle opens on
-///     its candle's grid, so its range starts after the previous cycle closed and a fill counts in one cycle only.
+///     takes them out at once (ADR 0063). A long's cost basis is what it paid with its fees, a short's is what it sold for less its
+///     fees (ADR 0061), so the average entry price adds the entry fees back for a short and takes them out for a long. A cycle's
+///     fees are its fills' fees from its opening through its closing; a cycle opens on its candle's grid, so its range starts after
+///     the previous cycle closed and a fill counts in one cycle only.
 /// </summary>
 internal sealed class GetBotPositionQueryHandler(
     IBotRepository bots,
@@ -43,6 +45,7 @@ internal sealed class GetBotPositionQueryHandler(
 
         decimal costBasis = account?.CostBasis ?? 0m;
         decimal entryFees = account?.FeesInCost ?? 0m;
+        decimal quantity = Math.Abs(baseTotal);
         DateTimeOffset now = clock.GetUtcNow();
         BotFillRange[] ranges = [.. recent.Select((cycle, index) => CycleRange(cycle, index + 1 < recent.Count ? recent[index + 1] : null, now))];
         IReadOnlyList<decimal> cycleFees = await fills.QuoteFees(bot.Id, ranges, cancellationToken);
@@ -53,8 +56,8 @@ internal sealed class GetBotPositionQueryHandler(
             account?.QuoteTotal ?? bot.AllocationCap,
             costBasis,
             entryFees,
-            baseTotal > 0m ? costBasis / baseTotal : null,
-            baseTotal > 0m ? (costBasis - entryFees) / baseTotal : null,
+            quantity > 0m ? costBasis / quantity : null,
+            quantity > 0m ? (baseTotal > 0m ? costBasis - entryFees : costBasis + entryFees) / quantity : null,
             (account?.RealizedPnl ?? 0m) - entryFees,
             checkpoint?.Engine.PositionOpenedAt,
             mark?.Price,

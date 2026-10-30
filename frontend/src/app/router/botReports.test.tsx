@@ -337,6 +337,55 @@ describe('bot reports', () => {
     expect(within(cycles).getByText('0.01')).toBeInTheDocument();
   });
 
+  it('shows a short with the price it sold at, its proceeds owed back and its profit as the price falls', async () => {
+    fakeApi(
+      routes({
+        [`GET ${botPath}/position?cycles=20`]: () =>
+          json({
+            ...openPosition,
+            baseTotal: '-10',
+            quoteTotal: '1999',
+            costBasis: '999',
+            entryFees: '1',
+            averageCost: '99.9',
+            averageBuyPrice: '100',
+            realizedPnl: '-1',
+            markPrice: '90',
+            unrealizedPnl: '100',
+            positionFees: '1',
+            cycles: [{ ...openPosition.cycles[0], fees: '1' }],
+          }),
+      }),
+    );
+    renderApp(`/bots/${bot.id}`);
+
+    expect(await screen.findByText('Шорт открыт')).toBeInTheDocument();
+    expect(screen.getByText('продано на 1000')).toBeInTheDocument();
+    expect(screen.getByLabelText('Средняя цена продажи')).toHaveTextContent('100');
+    expect(screen.getByText('безубыток 99.9')).toBeInTheDocument();
+    expect(screen.getByLabelText('Нереализованная прибыль')).toHaveTextContent('+100');
+    expect(screen.getByText('+10% к цене продажи')).toBeInTheDocument();
+    expect(screen.getByLabelText('Реализованная прибыль')).toHaveTextContent('−1');
+    expect(screen.getByText('с комиссиями продаж')).toBeInTheDocument();
+    expect(screen.getByLabelText('Комиссии позиции')).toHaveTextContent('1');
+    // 1999 − 1000: what the short sold for is owed back.
+    expect(screen.getByText('999')).toBeInTheDocument();
+    expect(screen.getByText('без выручки шорта')).toBeInTheDocument();
+    await waitFor(() => expect(hub.subscriptions).toContain(bot.id));
+
+    hub.emit('LivePrice', {
+      venue: 'bybit',
+      symbol: 'BTCUSDT',
+      price: '95',
+      observedAt: '2026-10-24T10:00:30Z',
+    });
+
+    // −10 × 95 + (999 + 1): the sell's fee is already in the realized profit.
+    await waitFor(() =>
+      expect(screen.getByLabelText('Нереализованная прибыль')).toHaveTextContent('+50'),
+    );
+  });
+
   it('keeps the stored price when a live ticker is older', async () => {
     fakeApi(routes({ [`GET ${botPath}/position?cycles=20`]: () => json(openPosition) }));
     renderApp(`/bots/${bot.id}`);
