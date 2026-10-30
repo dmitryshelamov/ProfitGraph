@@ -1,0 +1,224 @@
+# ADR 0071: Scanner Auto Trades by the Odds of a Card
+
+Status: Proposed, 2026-10-30. The owner asked how to create bots from the scanner's best ideas automatically ("как нам
+автоматизировать, чтобы мы автоматически создавали ботов с лучшими идеями"), asked for this decision ("Да, пиши ADR"), for an
+analysis of how to pick the ideas beyond reward-to-risk, trend and indicators included ("проведи аналитику", "смотри прод, даю
+апрув"), and of which ideas are most likely to work out ("какие идеи вероятнее всего исполнятся, как это определять"). The numbers
+below come from that analysis; every rule is the analyst's proposal, to be reviewed in the pull request. Builds on ADR 0011,
+ADR 0042, ADR 0059 (sections 5, 6 and 8), ADR 0060, ADR 0061, ADR 0065, ADR 0067, ADR 0069 and ADR 0070; it is the first version of
+the screener robot (roadmap, market scanner step 5).
+
+## Context
+
+The scanner finds pairs; the owner opens a pair, reads its trade cards and ticks the wanted ones, and «Создать выбранные» starts a
+one-trade bot for each (ADR 0060). Everything after the click is automatic. What a human still does is decide **which card, and
+whether to trade at all**, and the page helps with one number: the card's reward-to-risk.
+
+### What production showed (read on 2026-10-30 with the owner's permission)
+
+- The only stored preset backtest, «Импульс (копия)» on Bybit Spot (2026-10-08 to 2026-10-28, 388 pairs, 2,000 newest of 2,826
+  signals, stored before the trade scenarios existed), shows the price after a signal falling on average: −0.22 % after 4 hours,
+  −1.98 % after 24 hours. It splits by how far the pair had already gone, the same way in both halves of the period:
+  - not extended (7-day rise under 26 %, 24-hour change under 9 %, NATR under 3, volume spike under 6; 403 signals): +0.61 % after
+    4 hours and +0.70 % after 24 hours;
+  - extended (7-day rise over 50 % or 24-hour change over 20 %; 636 signals): −0.98 % and −4.79 %.
+- Of the 19 finished card trades, 6 reached the target and 13 the stop, −4.65 USDT together (mean −0.44 R). Stops under 1 % of the
+  entry lost −0.86 R on average; the close-based stop sold GROVEUSDT at −5.1 R and TRXUSDT at −2.6 R.
+
+### What the cards would have done (public Bybit Spot minutes, replayed off-line)
+
+Every card of `ScanTradeIdeas.Of` on the levels of `1m`…`1d` was replayed at 14,705 signals of three loose presets (an hour up 2 %
+on a volume spike of 2, 15 minutes up 1 % on a 15-minute spike of 2, an hour down 2 % on a spike of 2; turnover over 500,000) on the
+120 USDT pairs with the largest turnover today, over 2026-09-30 to 2026-10-30: about 285,000 closed cards, long and short. Each was
+followed by the bot's rules, not the backtest's: a limit entry filled when a minute traded through it within the card's wait, the
+target when a minute traded through it, the stop on a minute's close beyond it with a market exit at that close; fees 0.1 % limit
+and 0.1 % market, 0.05 % spread on a stop, at most 72 hours in a trade.
+
+1. **A card's chance is mostly its geometry.** A target `RR` risks away is reached first with a chance close to `1 / (1 + RR)`, the
+   chance of a random walk: 0.52 against 0.50 for «Уровни» on `1h`, 0.37 against 0.33 for «Цель 2R». A higher reward-to-risk is a
+   lower chance, not a better card. The market-price entries fill almost always; «Откат» fills 72–78 % of the time.
+2. **Costs and the close-based stop decide the result.** By the stop's distance in hourly NATR:
+
+   | Stop distance | Cards | Target first | 1 / (1 + RR) | R of a stopped trade | Mean R |
+   |---|---|---|---|---|---|
+   | ≤ 0.25 NATR | 106,000 | 0.41 | 0.35 | −3.54 | −1.67 |
+   | 0.25–0.5 | 69,000 | 0.45 | 0.42 | −1.68 | −0.43 |
+   | 0.5–1 | 53,000 | 0.46 | 0.44 | −1.39 | −0.24 |
+   | 1–1.5 | 20,000 | 0.48 | 0.46 | −1.24 | −0.12 |
+   | 1.5–3 | 22,000 | 0.47 | 0.49 | −1.16 | −0.11 |
+   | > 3 | 14,000 | 0.40 | 0.53 | −1.07 | −0.06 |
+
+   A tight stop is touched by noise and then exited at a minute's close well beyond it: the stopped trade loses several risks, not
+   one. ADR 0070 already drops stops within one average range; beyond that the cards lose about the round trip's costs.
+3. **Trend and indicators move the chance by a few points, against the move.** With stops of at least 1 NATR, the mean R in each
+   third of the month:
+
+   | Filter (in the card's direction) | Cards | Mean R | Thirds |
+   |---|---|---|---|
+   | none | 56,446 | −0.104 | −0.102, −0.092, −0.118 |
+   | price beyond the 50-hour EMA against the card (a dip for a long) | 25,480 | −0.014 | −0.027, +0.004, −0.022 |
+   | hourly RSI below 45 for a long, above 55 for a short | 20,615 | −0.011 | −0.024, +0.010, −0.021 |
+   | BTC below its 50-hour EMA for a long, above for a short | 26,267 | −0.003 | −0.031, +0.035, −0.019 |
+   | hourly RSI above 65 for a long, below 35 for a short | 14,594 | −0.211 | −0.135, −0.278, −0.215 |
+   | BTC with the card | 30,179 | −0.193 | −0.159, −0.207, −0.207 |
+   | 24-hour move over 15 % already in the card's direction | 4,697 | −0.180 | −0.159, −0.073, −0.307 |
+
+   Buying into strength right after an impulse is the worst choice; the best filters only bring the cards to break-even.
+4. **A model ranks the cards but does not make them pay.** A gradient-boosted model of 47 features (the geometry, the stop and target
+   in ranges and NATR, touches of the levels, the scanner's metrics, the 20/50/200-hour EMAs and their slope, hourly RSI, BTC's
+   change and trend, the hour) was trained on one half of the month and tested on the other. It is well calibrated (deciles of
+   0.14…0.82 predicted against 0.17…0.80 observed) and beats `1 / (1 + RR)` a little (AUC 0.66–0.68 against 0.65–0.66). The card of
+   highest expected R per signal made +0.01 to +0.07 R in one direction of the test and −0.07 to −0.15 R in the other.
+
+Limits of the analysis: one month and one market regime; spot prices stand in for futures shorts; the universe is today's liquid
+pairs (survivors); cards of one signal overlap; the stored production backtest predates the scenarios.
+
+So the best idea is not the card with the highest reward-to-risk, and today no card rule earns after costs. Automation must be
+**able to wait** for a rule that does, and must judge cards by their odds and costs.
+
+## Decision
+
+### 1. A card shows its odds and its expected result
+
+Next to its reward-to-risk a card shows:
+
+- **Chance of the target first:** the share of cards like it that reached their target before their stop in the venue's latest preset
+  backtest, where "like it" is the same scenario, direction and timeframe and the same band of `1 / (1 + RR)` (five bands) and of
+  the stop's distance in NATR (the bands of the table above). A band with fewer than 100 backtest cards shows no chance.
+- **Expected R after costs:** `chance × (reward − costs at the target) − (1 − chance) × (the band's mean R of a stopped trade)`,
+  with the costs of ADR 0065. A stopped trade's R is the band's measured one, not −1, because the stop exits on a close.
+
+Ideas are sorted by expected R, not by reward-to-risk. The page labels the chance as measured on history, not as a forecast.
+
+### 2. The preset backtest measures cards the way the bot trades them
+
+`ScanStudy` follows each card by the bot's rules: the limit entry and the target fill when a minute trades through them, the stop
+acts on a minute's close beyond it and exits at that close, the fees are the limit and market rates of ADR 0065 with the spread of
+the snapshot's median when the venue has no quote history. It stores per card the bands of section 1, so the page's chances come
+from the backtest. Earlier stored backtests keep their numbers.
+
+### 3. Trend, RSI and the market as scanner metrics
+
+Three metrics join the table, presets, alerts and replay, computed by the engine from the hours the scanner holds:
+
+- `TrendEma50`: (price − EMA of the last 50 hourly closes) / that EMA, %; and `EmaSpread20x50`: (EMA20 − EMA50) / EMA50, %.
+- `Rsi1h`: Wilder's RSI of 14 hourly closes (the engine's indicator, ADR 0056).
+- `MarketTrend`: the venue's reference pair (Bybit: `BTCUSDT`) as `TrendEma50`, the same value on every row.
+
+They let a preset say "a dip in a market that is not rising", which point 3 of the context found to be the least bad. They are
+filters for presets and auto trade rules to test, not advice.
+
+### 4. An auto trade rule on an own preset
+
+An owner may add **auto trades** («Автосделки») to a preset of their own; built-in presets are copied first, as for alerts. The rule
+(`ScanAutoTradeRule`, Domain, table `scan_auto_trade_rules`, one per preset):
+
+| Field | Meaning | Default |
+|---|---|---|
+| Direction, scenario, timeframe | which card of a signal to take; short only on a venue with shorts (ADR 0061), direction as the preset gives it (ADR 0069) | chosen from the backtest |
+| Minimum expected R | the card's expected R of section 1 | 0.1 |
+| Minimum chance | the card's chance of section 1 | none |
+| Mode | `Off`, `Paper` or `Live` | `Off` |
+| Open trades at most | of this rule at once | 3 |
+| Trades per UTC day at most | | 10 |
+| Daily loss limit | quote lost by this rule's closed trades in the UTC day; reaching it pauses the rule until the next day | 3 × the settings' risk |
+
+Sizing, the credential, the leverage and the strategy come from the owner's `scan_trade_settings`, as for a card. A pair has at most
+one live trade of a rule; trades the owner creates by hand do not count against a rule's limits.
+
+### 5. A rule trades only what its preset's backtest proved
+
+A rule switches to `Paper` or `Live` only with a completed preset backtest of the venue whose conditions equal the preset's, in which
+the rule's cards (its scenario, direction, timeframe and minimums) had:
+
+- at least `ScanAutoTrades:MinBacktestTrades` (100) closed trades, and
+- a mean R after costs (section 2) of at least `ScanAutoTrades:MinBacktestMeanR` (0.05 R) **in each third of the period**, so that
+  one good week does not carry it.
+
+The rule keeps the backtest's id and its numbers, and the page shows them beside it. Changing the preset's conditions switches the
+rule `Off`. The page lists the scenarios and timeframes of the latest backtest with their trades and mean R per third and marks those
+that qualify; by the analysis above none qualifies today, and the page says so instead of offering a switch.
+
+### 6. Signal, request and handling
+
+1. **Signal.** A pair that enters the preset's result, at most once per pair and rule per hour: the alerts' rule and the
+   backtest's. The rule keeps its remembered pairs, checked by `ReplaceScanSnapshot` in the snapshot's transaction next to the alert
+   watches; the first check after a switch only records the result.
+2. **Request.** An entering pair stores a `scan_auto_trade_requests` row (rule, pair, snapshot time, price). The `scanner` role does
+   nothing else: it reads no fees, starts no bots and calls no venue (ADR 0059, section 2).
+3. **Handling.** `ScanAutoTradeHost` in the Worker's `live` role claims requests (`FOR UPDATE SKIP LOCKED`) and, for each:
+   1. skips it as `expired` when its snapshot is older than `ScanAutoTrades:RequestLifetime` (2 minutes);
+   2. skips it as `paused`, `limit_open`, `limit_day` or `pair_busy` when the rule is not on or a limit holds;
+   3. reads the pair's cards with `ScanTradeIdeasReader`, as the page does, takes the rule's card and skips the request as
+      `no_idea` when there is none or it is below the rule's minimums;
+   4. in `Live`, sends `CreateScanTradeCommand` with the card's prices: every guard of ADR 0060, 0065, 0067 and 0070 applies, and a
+      refusal is stored with its error code;
+   5. in `Paper`, stores a paper trade (section 7).
+
+   A request ends as `created`, `paper` or a skip reason; requests are kept 30 days, so the page shows why a signal did not trade.
+
+### 7. Paper mode
+
+Real orders are switched per Worker (ADR 0017), so paper mode cannot be a bot. A paper trade (`scan_paper_trades`) is the card's
+entry, stop, target, amount and costs, followed in the `scanner` role on the closed minutes it holds by the rules of section 2. A
+rule switches to `Live` only from `Paper`, after at least `ScanAutoTrades:MinPaperTrades` (30) closed paper trades whose mean R is
+not below the backtest's by more than half; the page shows both side by side.
+
+### 8. Live mode and safety
+
+- `Live` is set only by the owner on the page, with a confirmation naming the limits and the risk. Nothing in the committed
+  configuration changes; without `Live:Trading:Enabled` the rule's bots trade simulated, as every bot does.
+- A rule pauses at its daily loss limit and resumes at the next UTC midnight. «Остановить все автосделки» switches every rule `Off`;
+  created trades keep running as ordinary bots with their stops and kill switch.
+- Each created trade and each pause sends one Telegram message through the queue of ADR 0042; fills and closes reach Telegram as for
+  every bot.
+- A trade created by a rule records it (`scan_trades.auto_rule_id`); the tracker of ADR 0060 follows it unchanged, and its realized
+  profit feeds the rule's daily loss.
+
+### 9. Domain
+
+`ScanAutoTradeRule` changes state only through its methods: `SwitchToPaper(backtest)` and `SwitchToLive(paperResult)` check
+sections 5 and 7 and the order `Off → Paper → Live`; `SwitchOff()`; `Pause(day)` and `Resume(day)`; `ConditionsChanged()` switches
+it off; `Admits(openTrades, todayTrades, todayLoss)` checks the limits. Each transition has a Domain unit test.
+
+### 10. Order of work
+
+1. This decision.
+2. Section 2: the backtest follows cards by the bot's rules and stores their bands; section 1: chance and expected R on the cards.
+3. Section 3: the trend, RSI and market metrics.
+4. Sections 4–7 in `Paper` mode.
+5. Section 8, only once a rule has qualified in the backtest and on paper.
+
+## Alternatives
+
+- **Rank by reward-to-risk** (today's page). The analysis shows a higher reward-to-risk is a proportionally lower chance; ranking by
+  it favours targets rarely reached.
+- **A trained model in production.** It ranks a little better than the bands but did not earn out of sample, and it would be a model
+  to retrain, version and explain. The bands of section 1 are counts the backtest can reproduce; a model can replace them once it
+  beats them out of sample in every third.
+- **Trade with the trend.** Filters that buy into strength right after an impulse were the worst in the analysis, and BTC rising
+  with a long did not help it.
+- **Stops on the exchange.** A stop order resting on the venue would exit near its price instead of at a minute's close beyond it,
+  which section 2's table puts at 0.1–2.5 R per stopped trade. It is a second order path (ADR 0060, Alternatives) and stays a
+  separate decision; this one measures the stop the bot has.
+- **Create bots in the `scanner` role**, **Telegram cards with «Создать»**, **paper as a bot on a simulated venue**, **running a saved
+  strategy on every found pair**: as in the first draft of this decision; the first two are cheaper, the last two larger, and none
+  needs a rule that earns less.
+
+## Consequences
+
+- Cards say how often cards like them worked and what they are expected to make after costs; a high reward-to-risk no longer looks
+  like a good card by itself.
+- The preset backtest's results change for every scenario, since stops exit on closes; old backtests keep their numbers.
+- No rule qualifies today, so the first visible result is the cards' honest odds and the backtest's numbers; automation switches on
+  only when a preset and scenario earn in every third of a backtest and on paper.
+- The analysis points at where an edge might be, for later decisions: the extended pairs after an impulse fell 4.8 % within a day on
+  production signals, but a short with a stop within the next hour's noise did not capture it; a trade held for hours with a wider
+  stop or a time exit would need its own scenario.
+
+## Open questions
+
+- The thresholds of section 5 (100 trades, 0.05 R in each third) and the defaults of section 4.
+- The bands of section 1, and whether to add the trend filters of section 3 as a band once they are metrics.
+- Whether a stop order on the venue (Alternatives) should come before the automation, since the close-based stop costs more than any
+  filter gains.
