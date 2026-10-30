@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useState } from 'react';
 
 import {
+  addDecimals,
   compareDecimals,
   divideDecimals,
   multiplyDecimals,
@@ -81,7 +82,9 @@ function Metric({
  * value, otherwise what the server chose (a fresh ticker or the last candle's close). With a pushed ticker the
  * unrealized profit is recomputed here as the server does, base total × price − cost basis, in exact decimal strings.
  * Entry fees count as spent when they were paid (ADR 0063): the realized profit includes them, while the unrealized profit and
- * the average buy price leave them out and the break-even price keeps them. Realized profit shows a dash until there is any:
+ * the average entry price leave them out and the break-even price keeps them. A short (ADR 0061) holds a negative base total and
+ * its cost basis is what it sold for less the fees, so it is valued as base total × price + what it sold for, and its free quote
+ * leaves out what it sold for. Realized profit shows a dash until there is any:
  * neither a closed cycle nor a non-zero realized total. The metrics
  * take as many columns as the card's own width allows; the position's cycles are shown by {@link BotPositionCycles}. A level
  * trade's entry, target and stop follow at the same price, see {@link BotLevelTradePlan}.
@@ -129,13 +132,27 @@ export function BotPositionCard({
   const observedAt = fromLive ? live.observedAt : data.markPriceObservedAt;
   const source =
     fromLive || data.markPriceSource === 'Ticker' ? 'тикер биржи' : 'закрытие последней свечи';
-  // What the held base cost without the entry fees, which the profit counts as spent when they were paid (ADR 0063).
-  const boughtFor = subtractDecimals(data.costBasis, data.entryFees) ?? data.costBasis;
+  const isShort = sign(data.baseTotal) < 0;
+  // A flat position takes the side of the level trade the bot runs, if any, to word what it has not done yet.
+  const shortSide = isShort || (sign(data.baseTotal) === 0 && trade?.direction === 'Short');
+  // What the held base cost, or what the short sold for, without the entry fees, which the profit counts as spent when they
+  // were paid (ADR 0063).
+  const entryValue =
+    (isShort
+      ? addDecimals(data.costBasis, data.entryFees)
+      : subtractDecimals(data.costBasis, data.entryFees)) ?? data.costBasis;
+  const worth = fromLive ? (multiplyDecimals(data.baseTotal, live.price) ?? '') : '';
   const unrealizedPnl = fromLive
-    ? subtractDecimals(multiplyDecimals(data.baseTotal, live.price) ?? '', boughtFor)
+    ? isShort
+      ? addDecimals(worth, entryValue)
+      : subtractDecimals(worth, entryValue)
     : data.unrealizedPnl;
   const remainder = unsellableRemainder(data.baseTotal, display, price);
-  const isOpen = sign(data.baseTotal) > 0 && remainder === null;
+  const isOpen = sign(data.baseTotal) !== 0 && remainder === null;
+  // A short's proceeds are in the quote total but owed back when it is covered.
+  const freeQuote = isShort
+    ? (subtractDecimals(data.quoteTotal, entryValue) ?? data.quoteTotal)
+    : data.quoteTotal;
   const hasRealized = sign(data.realizedPnl) !== 0 || data.cycles.some((cycle) => cycle.closedAt);
   const hasEntryFees = sign(data.entryFees) > 0;
   const { baseAsset, quoteAsset } = display;
@@ -145,7 +162,8 @@ export function BotPositionCard({
   const priceText = (value: string) => withAsset(atPlaces(value, display.pricePlaces), quoteAsset);
   const profit = (value: string) => signed(quote(value), value);
   const unrealizedPercent =
-    isOpen && unrealizedPnl !== null ? percentOfCost(unrealizedPnl, boughtFor) : null;
+    isOpen && unrealizedPnl !== null ? percentOfCost(unrealizedPnl, entryValue) : null;
+  const averageLabel = isShort ? 'Средняя цена продажи' : 'Средняя цена покупки';
 
   return (
     <div className="@container space-y-5">
@@ -156,7 +174,7 @@ export function BotPositionCard({
         />
         {isOpen ? (
           <>
-            <span className="font-medium">Позиция открыта</span>
+            <span className="font-medium">{isShort ? 'Шорт открыт' : 'Позиция открыта'}</span>
             {data.openedAt && (
               <span className="text-muted">
                 с <DateTime value={data.openedAt} />
@@ -176,11 +194,13 @@ export function BotPositionCard({
         <Metric
           label="Объём"
           value={base(data.baseTotal)}
-          caption={isOpen ? `куплено на ${quote(boughtFor)}` : undefined}
+          caption={
+            isOpen ? `${isShort ? 'продано' : 'куплено'} на ${quote(entryValue)}` : undefined
+          }
         />
         <Metric
-          label="Средняя цена покупки"
-          valueLabel="Средняя цена покупки"
+          label={averageLabel}
+          valueLabel={averageLabel}
           value={!isOpen || data.averageBuyPrice === null ? '—' : priceText(data.averageBuyPrice)}
           caption={
             isOpen && hasEntryFees && data.averageCost !== null
@@ -205,7 +225,11 @@ export function BotPositionCard({
           valueLabel="Нереализованная прибыль"
           value={!isOpen || unrealizedPnl === null ? '—' : profit(unrealizedPnl)}
           valueClass={!isOpen || unrealizedPnl === null ? '' : toneClass(unrealizedPnl)}
-          caption={unrealizedPercent ? `${unrealizedPercent} к цене покупки` : undefined}
+          caption={
+            unrealizedPercent
+              ? `${unrealizedPercent} к цене ${isShort ? 'продажи' : 'покупки'}`
+              : undefined
+          }
         />
         <Metric
           label="Реализованная прибыль"
@@ -214,10 +238,12 @@ export function BotPositionCard({
           valueClass={hasRealized ? toneClass(data.realizedPnl) : ''}
           caption={
             hasEntryFees
-              ? 'с комиссиями покупок'
+              ? `с комиссиями ${shortSide ? 'продаж' : 'покупок'}`
               : hasRealized
-                ? 'по проданному объёму'
-                : 'продаж ещё не было'
+                ? `по ${shortSide ? 'откупленному' : 'проданному'} объёму`
+                : shortSide
+                  ? 'откупов ещё не было'
+                  : 'продаж ещё не было'
           }
         />
         <Metric
@@ -228,8 +254,8 @@ export function BotPositionCard({
         />
         <Metric
           label="Свободные средства"
-          value={quote(data.quoteTotal)}
-          caption="не вложены в позицию"
+          value={quote(freeQuote)}
+          caption={isShort ? 'без выручки шорта' : 'не вложены в позицию'}
         />
       </dl>
       {trade && (
