@@ -247,4 +247,64 @@ describe('bot chart', () => {
       .map((request) => new URL(request.url).searchParams.get('timeframe'));
     expect(asked.every((timeframe) => timeframe === '1h')).toBe(true);
   });
+
+  it('draws a level trade’s entry, target and stop and explains that the stop exits at market on a candle close', async () => {
+    fakeApi(
+      routes({
+        [`GET ${botPath}`]: () =>
+          json({
+            ...bot,
+            parameters: {
+              buyAmount: '50',
+              entryPrice: '100',
+              stopPrice: '95',
+              targetPrice: '105',
+            },
+          }),
+        [`GET ${botPath}/position?cycles=20`]: () =>
+          json({
+            ...flatPosition,
+            baseTotal: '0.5',
+            quoteTotal: '50',
+            costBasis: '50',
+            averageCost: '100',
+            averageBuyPrice: '100',
+            openedAt: at(-2),
+            markPrice: '102',
+            markPriceObservedAt: new Date().toISOString(),
+            markPriceSource: 'Ticker',
+            unrealizedPnl: '1',
+          } satisfies Schemas['BotPositionResponse']),
+      }),
+    );
+    renderApp(`/bots/${bot.id}`);
+
+    const figure = await chart();
+    // The working sale at the target is folded into the target's line.
+    await waitFor(() => expect(figure).toHaveAttribute('data-levels', '3'));
+    expect(
+      screen.getByText(
+        'Стоп 95 — не заявка на бирже: продажа по рынку, когда свеча 1h закрылась на уровне стопа или ниже.',
+      ),
+    ).toBeInTheDocument();
+
+    const plan = await screen.findByRole('region', { name: /План сделки/ });
+    expect(within(plan).getByText(/лонг на 50/)).toBeInTheDocument();
+    expect(within(plan).getByLabelText('Стоп сделки')).toHaveTextContent('95');
+    expect(within(plan).getByText('−6.86% от текущей · −5% от средней')).toBeInTheDocument();
+    expect(within(plan).getByText('+2.94% от текущей · +5% от средней')).toBeInTheDocument();
+    expect(within(plan).getByText(/не заявка на бирже: продажа по рынку/)).toBeInTheDocument();
+    expect(plan).toHaveTextContent('На стопе ≈ −2.5');
+  });
+
+  it('shows no trade plan for a bot of another strategy', async () => {
+    fakeApi(routes());
+    renderApp(`/bots/${bot.id}`);
+
+    const figure = await chart();
+    await waitFor(() => expect(figure).toHaveAttribute('data-levels', '1'));
+    await screen.findByText('Позиции нет');
+    expect(screen.queryByRole('region', { name: /План сделки/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/не заявка на бирже/)).not.toBeInTheDocument();
+  });
 });

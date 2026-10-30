@@ -29,6 +29,7 @@ import {
   diagnosticLabel,
   ForeignOrdersToggle,
   fractionLabel,
+  levelTrade,
   ManualOrderForm,
   ParametersForm,
   renameBot,
@@ -272,7 +273,12 @@ export function BotPage() {
           </Card>
           <Card title="Позиция">
             <div className="space-y-4">
-              <BotPositionCard botId={current.id} display={display} />
+              <BotPositionCard
+                botId={current.id}
+                display={display}
+                trade={levelTrade(current)}
+                timeframe={current.timeframe}
+              />
               <BotPositionClose bot={current} display={display} />
             </div>
           </Card>
