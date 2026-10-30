@@ -28,7 +28,8 @@ following them would need a second order path beside the bots with its own recon
 `ScanTradeIdeas.Of` (Engine) proposes the scenarios the backtest simulates, with the price in place of the next minute's open. The
 levels come from each timeframe of `ScanTrades:LevelTimeframes` the venue offers (`15m`, `1h`, `4h` since ADR 0070): its last
 168 closed candles at the snapshot price, as the pair page's levels (`ScanTimeframeLevelsReader`). Each timeframe gives its own
-`Levels` and `Target2R`; the pullback comes once, from the last hour, shown under `1h`. A proposal that another timeframe already
+`Levels` and `Target2R`; the pullback comes once, from the last hour, shown under `1h`, and `Extreme` once, from the last four
+hours, shown under `4h` (ADR 0072). A proposal that another timeframe already
 gives with the same prices is listed once, under the shorter timeframe.
 
 | Scenario | Entry (limit) | Stop | Target | The entry waits |
@@ -36,6 +37,7 @@ gives with the same prices is listed once, under the shorter timeframe.
 | `Levels` | the price | the support | the resistance | 1 hour |
 | `Target2R` | the price | the support | two risks above the entry | 1 hour |
 | `Pullback` | halfway down from the price to the hour's lowest low | that low | two risks above the entry | 4 hours |
+| `Extreme` (ADR 0072) | the price | a quarter of the hours' range below the lowest low of four hours | two risks above the entry | 1 hour |
 
 `Levels` needs a support below and a resistance above the price, `Target2R` a support below, `Pullback` an hour that rose. The
 cards are grouped by timeframe; each shows its reward-to-risk (green from 2), the amount and the loss at the stop. The owner ticks

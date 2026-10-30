@@ -3,14 +3,15 @@ import { addDecimals } from '@/shared/lib/decimal';
 import type { ScanSignal } from './types';
 
 /**
- * The trade scenarios of the preset backtest, in the order the page shows them (ADR 0059, section 8); a venue with shorts adds their
- * mirrors (ADR 0061).
+ * The trade scenarios of the preset backtest, in the order the page shows them (ADR 0059, section 8, and ADR 0072 for the stop beyond
+ * the four hours' extreme); a venue with shorts adds their mirrors (ADR 0061).
  */
 export const scanScenarios = [
   { scenario: 'Levels', direction: 'Long', label: 'Уровни: стоп поддержка, цель сопротивление' },
   { scenario: 'LevelsRewardRisk2', direction: 'Long', label: 'Уровни, только R:R ≥ 2' },
   { scenario: 'Target2R', direction: 'Long', label: 'Стоп поддержка, цель 2R' },
   { scenario: 'Pullback', direction: 'Long', label: 'Откат 50% импульса, цель 2R' },
+  { scenario: 'Extreme', direction: 'Long', label: 'Стоп за минимумом 4 часов, цель 2R' },
   {
     scenario: 'Levels',
     direction: 'Short',
@@ -19,6 +20,7 @@ export const scanScenarios = [
   { scenario: 'LevelsRewardRisk2', direction: 'Short', label: 'Шорт, уровни, только R:R ≥ 2' },
   { scenario: 'Target2R', direction: 'Short', label: 'Шорт, стоп сопротивление, цель 2R' },
   { scenario: 'Pullback', direction: 'Short', label: 'Шорт, откат 50% падения, цель 2R' },
+  { scenario: 'Extreme', direction: 'Short', label: 'Шорт, стоп за максимумом 4 часов, цель 2R' },
 ] as const;
 
 export type ScanScenarioItem = (typeof scanScenarios)[number];

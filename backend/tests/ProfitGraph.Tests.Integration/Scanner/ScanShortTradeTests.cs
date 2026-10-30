@@ -20,6 +20,7 @@ using ProfitGraph.Domain.Bots.Positions;
 using ProfitGraph.Domain.Strategies;
 using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Graphs;
+using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Scanning;
 using ProfitGraph.Engine.Templates;
 using ProfitGraph.Tests.Integration.Bots;
@@ -31,7 +32,7 @@ namespace ProfitGraph.Tests.Integration.Scanner;
 /// <summary>
 ///     Short scanner trades (ADR 0061) over HTTP on the test venue made a margin venue: the leverage in the settings, short cards
 ///     beside the long ones, a created short trade's bot running the owner's short strategy at that leverage, and a buy at the target
-///     closing it. Values are invented; no venue is reached.
+///     closing it, and a short beyond the four hours' peak (ADR 0072). Values are invented; no venue is reached.
 /// </summary>
 [NonParallelizable]
 public sealed class ScanShortTradeTests
@@ -47,7 +48,7 @@ public sealed class ScanShortTradeTests
         Dictionary<string, string> settings = BotApi.Settings();
         settings["ScanTrades:Timeframe"] = "1h";
 
-        // The test venue offers hours and days only.
+        // The test venue offers hours, four hours (for the extremes' cards) and days; levels come from hours and days.
         settings["ScanTrades:LevelTimeframes:0"] = "1h";
         settings["ScanTrades:LevelTimeframes:1"] = "1d";
         _api = new ProfitGraphApiFactory(
@@ -65,7 +66,8 @@ public sealed class ScanShortTradeTests
                     services.Remove(venue);
                 }
 
-                services.AddSingleton<IVenueDescriptor>(new TestHistoryVenue(Venue) { SupportsShort = true });
+                services.AddSingleton<IVenueDescriptor>(
+                    new TestHistoryVenue(Venue) { SupportsShort = true, Timeframes = [Timeframe.Parse("1h"), Timeframe.Parse("4h"), Timeframe.Parse("1d")] });
             });
         _api.Services.GetRequiredService<FakeHistorySource>().Candles = ScanLevelsTests.Shaped;
     }
@@ -139,6 +141,53 @@ public sealed class ScanShortTradeTests
             .Single();
 
         (closed.Status, closed.RealizedPnl, closed.Direction).ShouldBe(("TookProfit", "4.8", "Short"));
+    }
+
+    [Test]
+    public async Task AShortBeyondTheFourHoursPeakStopsAboveItsHighestHigh()
+    {
+        BotOwner owner = await BotApi.NewOwner(_api);
+        (await owner.Client.PutAsJsonAsync($"/api/scanner/{Venue}/trade-settings", new { credentialId = owner.CredentialId, risk = "5", maxAmount = "1000" }))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+        var history = _api.Services.GetRequiredService<FakeHistorySource>();
+
+        // Two hours ago the pair peaked at 104; the hours' average range becomes 1.5 (36 / 24).
+        history.Candles = (timeframe, from, to) =>
+        [
+            .. ScanLevelsTests.Shaped(timeframe, from, to)
+                .Select(candle => timeframe.Key == "1h" && candle.OpenTime == timeframe.FloorToGrid(DateTimeOffset.UtcNow).AddHours(-2)
+                    ? candle with { High = 104m }
+                    : candle)
+        ];
+
+        try
+        {
+            await Scan("SHORTPUSDT");
+
+            var ideas = (await owner.Client.GetFromJsonAsync<ScanTradeIdeasResponse>($"/api/scanner/{Venue}/trade-ideas?symbol=SHORTPUSDT", WebJson))!;
+
+            // A quarter range above the peak is 104.375; two risks of 4.375 below the price of 100 is 91.25. The low of the four hours is the
+            // price, so no long is proposed beyond it.
+            ScanTradeIdeaResponse peak = ideas.Ideas.Single(idea => idea.Scenario == "Extreme");
+            (peak.Direction, peak.Timeframe, peak.Entry, peak.Stop, peak.Target).ShouldBe(("Short", "4h", "100", "104.375", "91.25"));
+
+            HttpResponseMessage created = await owner.Client.PostAsJsonAsync(
+                $"/api/scanner/{Venue}/trades",
+                new
+                {
+                    symbol = "SHORTPUSDT", timeframe = peak.Timeframe, scenario = peak.Scenario, entry = peak.Entry, stop = peak.Stop, target = peak.Target,
+                    direction = "Short"
+                });
+            created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
+            var trade = (await created.Content.ReadFromJsonAsync<ScanLiveTradeResponse>(WebJson))!;
+            var bot = await owner.Client.GetFromJsonAsync<JsonElement>($"{BotApi.Path}/{trade.BotId}");
+
+            bot.GetProperty("name").GetString().ShouldBe("SHORTPUSDT · шорт · стоп за пиком 4h");
+        }
+        finally
+        {
+            history.Candles = ScanLevelsTests.Shaped;
+        }
     }
 
     [Test]

@@ -66,7 +66,7 @@ public sealed class ScanBacktestTests
             signal.At.ShouldBeInRange(climb, climb.AddHours(1));
             signal.Change24h.ShouldNotBeNull();
             done.Summary.Change24h.Count.ShouldBe(1);
-            done.Summary.Scenarios.Select(scenario => scenario.Scenario).ShouldBe(["Levels", "LevelsRewardRisk2", "Target2R", "Pullback"]);
+            done.Summary.Scenarios.Select(scenario => scenario.Scenario).ShouldBe(["Levels", "LevelsRewardRisk2", "Target2R", "Pullback", "Extreme"]);
 
             var list = await client.GetFromJsonAsync<List<ScanBacktestListItemResponse>>($"/api/scanner/{TestHistoryVenue.WithHistory}/backtests");
             ScanBacktestListItemResponse item = list!.ShouldHaveSingleItem();

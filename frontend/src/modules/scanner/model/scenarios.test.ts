@@ -1,4 +1,4 @@
-import { scenarioTotals, tradeResult } from './scenarios';
+import { scenarioLabel, scenarioTotals, tradeResult } from './scenarios';
 import type { ScanSignal } from './types';
 
 const trade = (scenario: string, resultR: string, direction = 'Long') => ({
@@ -38,13 +38,22 @@ describe('scenario totals', () => {
     const signals = [signal([trade('Levels', '1.9'), trade('Levels', '-1', 'Short')])];
     const totals = scenarioTotals(signals);
 
-    expect(totals).toHaveLength(8);
+    expect(totals).toHaveLength(10);
     expect(
       totals.find((total) => total.scenario === 'Levels' && total.direction === 'Short')?.totalR,
     ).toBe('-1');
     expect(tradeResult(signals[0]!, 'Levels')).toBe('1.9');
     expect(tradeResult(signals[0]!, 'Levels', 'Short')).toBe('-1');
-    expect(scenarioTotals([signal([trade('Levels', '1.9')])])).toHaveLength(4);
+    expect(scenarioTotals([signal([trade('Levels', '1.9')])])).toHaveLength(5);
+  });
+
+  it('counts a short beyond the four hours peak under its own scenario', () => {
+    const totals = scenarioTotals([signal([trade('Extreme', '2', 'Short')])]);
+
+    expect(
+      totals.find((total) => total.scenario === 'Extreme' && total.direction === 'Short'),
+    ).toEqual({ scenario: 'Extreme', direction: 'Short', trades: 1, wins: 1, totalR: '2' });
+    expect(scenarioLabel('Extreme', 'Short')).toBe('Шорт, стоп за максимумом 4 часов, цель 2R');
   });
 
   it('reads a signal result per scenario', () => {

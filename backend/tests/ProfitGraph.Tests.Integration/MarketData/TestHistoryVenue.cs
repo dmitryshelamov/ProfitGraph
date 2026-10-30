@@ -7,7 +7,7 @@ using ProfitGraph.Engine.Market;
 namespace ProfitGraph.Tests.Integration.MarketData;
 
 /// <summary>
-///     A venue for history tests: upper-case letters and digits, hourly and daily candles.
+///     A venue for history tests: upper-case letters and digits, hourly and daily candles unless a test offers others.
 /// </summary>
 public sealed class TestHistoryVenue(string id) : IVenueDescriptor
 {
@@ -19,7 +19,7 @@ public sealed class TestHistoryVenue(string id) : IVenueDescriptor
 
     public string Name => "Test venue";
 
-    public IReadOnlyList<Timeframe> Timeframes { get; } = [Timeframe.Parse("1h"), Timeframe.Parse("1d")];
+    public IReadOnlyList<Timeframe> Timeframes { get; init; } = [Timeframe.Parse("1h"), Timeframe.Parse("1d")];
 
     public bool ConfirmsOrderAbsence => true;
 

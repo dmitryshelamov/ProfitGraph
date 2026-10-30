@@ -9,9 +9,12 @@ namespace ProfitGraph.Engine.Scanning;
 ///     hour; <see cref="ScanScenario.Pullback" /> a limit halfway down the last hour's rise, stopped at that hour's lowest low, targeting
 ///     two risks above and waiting four hours. Where shorts are allowed (ADR 0061) the mirrors join them: <c>Levels</c> from the
 ///     resistance down to the support, <c>Target2R</c> from the resistance to two risks below, and <c>Pullback</c> a limit halfway up
-///     the last hour's fall, stopped at its highest high. With the average range of the levels' timeframe (ADR 0070) a stop at a level
-///     lies a quarter of that range beyond it, and an entry at the price whose stop is nearer than one range is not proposed: a candle
-///     of the timeframe would reach it by its usual move. Deterministic for identical inputs.
+///     the last hour's fall, stopped at its highest high. <see cref="ScanScenario.Extreme" /> enters at the price with its stop beyond the
+///     extreme of the last four hours, the lowest low for a long and the highest high for a short, and targets two risks away (ADR 0072):
+///     a short after a pump puts its stop above the pump's peak rather than at the nearest resistance. With the average range of the
+///     levels' timeframe (ADR 0070) a stop at a level lies a quarter of that range beyond it, and an entry at the price whose stop is
+///     nearer than one range is not proposed: a candle of the timeframe would reach it by its usual move. Deterministic for identical
+///     inputs.
 /// </summary>
 public static class ScanTradeIdeas
 {
@@ -43,6 +46,11 @@ public static class ScanTradeIdeas
     /// </summary>
     public static readonly TimeSpan MarketEntryWait = TimeSpan.FromHours(1);
 
+    /// <summary>
+    ///     The window whose lowest low or highest high guards an <see cref="ScanScenario.Extreme" /> trade (ADR 0072).
+    /// </summary>
+    public static readonly TimeSpan ExtremeWindow = TimeSpan.FromHours(4);
+
     public static IReadOnlyList<ScanTradeIdea> Of(
         decimal price,
         decimal? support,
@@ -50,7 +58,9 @@ public static class ScanTradeIdeas
         decimal? lastHourLow,
         decimal? lastHourHigh = null,
         bool shorts = false,
-        decimal? averageRange = null)
+        decimal? averageRange = null,
+        decimal? extremeLow = null,
+        decimal? extremeHigh = null)
     {
         List<ScanTradeIdea> ideas = [];
 
@@ -75,9 +85,14 @@ public static class ScanTradeIdeas
             ideas.Add(Idea(ScanScenario.Pullback, limit, low, limit + TargetRisks * (limit - low), PullbackWait));
         }
 
+        if (extremeLow is { } bottom && bottom > 0m && bottom < price && LevelStop(price, bottom, averageRange) is { } belowBottom)
+        {
+            ideas.Add(Idea(ScanScenario.Extreme, price, belowBottom, price + TargetRisks * (price - belowBottom), MarketEntryWait));
+        }
+
         if (shorts)
         {
-            ideas.AddRange(Shorts(price, support, resistance, lastHourHigh, averageRange));
+            ideas.AddRange(Shorts(price, support, resistance, lastHourHigh, averageRange, extremeHigh));
         }
 
         return ideas;
@@ -131,7 +146,7 @@ public static class ScanTradeIdeas
     /// </summary>
     public static decimal LevelTarget(decimal entry, decimal level)
     {
-        return Significant(level, down: level > entry);
+        return Significant(level, level > entry);
     }
 
     /// <summary>
@@ -166,7 +181,13 @@ public static class ScanTradeIdeas
         return close + (high - close) / 2;
     }
 
-    private static IEnumerable<ScanTradeIdea> Shorts(decimal price, decimal? support, decimal? resistance, decimal? lastHourHigh, decimal? averageRange)
+    private static IEnumerable<ScanTradeIdea> Shorts(
+        decimal price,
+        decimal? support,
+        decimal? resistance,
+        decimal? lastHourHigh,
+        decimal? averageRange,
+        decimal? extremeHigh)
     {
         if (resistance is { } level && level > price && LevelStop(price, level, averageRange) is { } stop)
         {
@@ -191,6 +212,16 @@ public static class ScanTradeIdeas
             if (target > 0m)
             {
                 yield return Idea(ScanScenario.Pullback, limit, high, target, PullbackWait, PositionDirection.Short);
+            }
+        }
+
+        if (extremeHigh is { } peak && peak > price && LevelStop(price, peak, averageRange) is { } abovePeak)
+        {
+            decimal below = price - TargetRisks * (abovePeak - price);
+
+            if (below > 0m)
+            {
+                yield return Idea(ScanScenario.Extreme, price, abovePeak, below, MarketEntryWait, PositionDirection.Short);
             }
         }
     }

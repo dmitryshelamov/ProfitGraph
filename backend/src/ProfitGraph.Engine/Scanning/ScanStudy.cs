@@ -10,7 +10,8 @@ namespace ProfitGraph.Engine.Scanning;
 ///     minutes: a trade leaves at its stop, its target or 24 hours after its entry at that minute's close; a minute that touches both
 ///     stop and target counts as the stop, and a minute that opens beyond a level leaves at its open. Results are after an assumed
 ///     0.1 % fee on each side. Where shorts are allowed (ADR 0061) the mirror scenarios of <see cref="ScanTradeIdeas" /> run too: a
-///     short leaves at a high at its stop or a low at its target. Deterministic for identical inputs.
+///     short leaves at a high at its stop or a low at its target. The extreme of the four hours before an <see cref="ScanScenario.Extreme" />
+///     trade is that of the 240 minutes ending with the signal's (ADR 0072). Deterministic for identical inputs.
 /// </summary>
 public static class ScanStudy
 {
@@ -141,20 +142,35 @@ public static class ScanStudy
             trades.Add(pullback);
         }
 
+        (decimal Low, decimal High)? extreme = WindowExtremes(minutes, index);
+
+        if (extreme is { Low: var bottom } && bottom < open && ScanTradeIdeas.LevelStop(open, bottom, averageRange) is { } belowBottom &&
+            Run(minutes, index + 1, open, belowBottom, open + 2 * (open - belowBottom), ScanScenario.Extreme, fillMinute: false) is { } fromBottom)
+        {
+            trades.Add(fromBottom);
+        }
+
         if (shorts)
         {
-            trades.AddRange(ShortTrades(minutes, index, metrics, open, averageRange));
+            trades.AddRange(ShortTrades(minutes, index, metrics, open, averageRange, extreme?.High));
         }
 
         return trades;
     }
 
-    private static IEnumerable<ScanTrade> ShortTrades(IReadOnlyList<ScanCandle> minutes, int index, ScanMetrics metrics, decimal open, decimal? averageRange)
+    private static IEnumerable<ScanTrade> ShortTrades(
+        IReadOnlyList<ScanCandle> minutes,
+        int index,
+        ScanMetrics metrics,
+        decimal open,
+        decimal? averageRange,
+        decimal? extremeHigh)
     {
         if (metrics.Resistance is { } level && level > open && ScanTradeIdeas.LevelStop(open, level, averageRange) is { } resistance)
         {
             if (metrics.Support is { } support && support > 0m && support < open &&
-                Run(minutes, index + 1, open, resistance, ScanTradeIdeas.LevelTarget(open, support), ScanScenario.Levels, fillMinute: false, PositionDirection.Short) is { } levels)
+                Run(minutes, index + 1, open, resistance, ScanTradeIdeas.LevelTarget(open, support), ScanScenario.Levels, fillMinute: false, PositionDirection.Short) is
+                    { } levels)
             {
                 yield return levels;
 
@@ -176,6 +192,41 @@ public static class ScanStudy
         {
             yield return rally;
         }
+
+        if (extremeHigh is { } peak && peak > open && ScanTradeIdeas.LevelStop(open, peak, averageRange) is { } abovePeak)
+        {
+            decimal twoRisks = open - 2 * (abovePeak - open);
+
+            if (twoRisks > 0m && Run(minutes, index + 1, open, abovePeak, twoRisks, ScanScenario.Extreme, fillMinute: false, PositionDirection.Short) is { } fromPeak)
+            {
+                yield return fromPeak;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     The lowest low and the highest high of the <see cref="ScanTradeIdeas.ExtremeWindow" /> of minutes ending with the one at
+    ///     <paramref name="index" />; null before the window is full.
+    /// </summary>
+    private static (decimal Low, decimal High)? WindowExtremes(IReadOnlyList<ScanCandle> minutes, int index)
+    {
+        var window = (int)ScanTradeIdeas.ExtremeWindow.TotalMinutes;
+
+        if (index < window - 1)
+        {
+            return null;
+        }
+
+        decimal low = minutes[index].Low;
+        decimal high = minutes[index].High;
+
+        for (int i = index - window + 1; i < index; i++)
+        {
+            low = Math.Min(low, minutes[i].Low);
+            high = Math.Max(high, minutes[i].High);
+        }
+
+        return (low, high);
     }
 
     /// <summary>

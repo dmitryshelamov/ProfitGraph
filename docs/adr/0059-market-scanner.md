@@ -201,6 +201,8 @@ backtest, which replays the same levels without looking ahead.
    - **Target 2R:** entry at the next open, stop at the support, target two risks above the entry.
    - **Pullback:** a limit at half of the last hour's rise (from its lowest low to the signal's close), valid for 4 hours; stop at
      that lowest low, target 2R.
+   - **Extreme** (added by [ADR 0072](0072-scanner-stop-beyond-the-four-hours-extreme.md)): entry at the next open, stop beyond the
+     lowest low of the last four hours (the highest high for a short), target 2R.
 
    A trade without a support below its entry (or a resistance above, where it is the target) is not taken. A trade exits at the stop,
    the target or, 24 hours after its entry, at that minute's close; when one minute touches both, the stop counts. The result is in
