@@ -38,6 +38,10 @@ public static class ScanMetricValues
             ScanMetric.DistanceToResistance => metrics.DistanceToResistance,
             ScanMetric.DistanceToSupport => metrics.DistanceToSupport,
             ScanMetric.RewardRisk => metrics.RewardRisk,
+            ScanMetric.TrendEma50 => metrics.TrendEma50,
+            ScanMetric.EmaSpread20x50 => metrics.EmaSpread20x50,
+            ScanMetric.Rsi1h => metrics.Rsi1h,
+            ScanMetric.MarketTrend => metrics.MarketTrend,
             ScanMetric.Spread => metrics.Spread,
             ScanMetric.ListingAgeDays => metrics.ListingAgeDays,
             _ => throw new ArgumentOutOfRangeException(nameof(metric), metric, "Unknown scanner metric.")

@@ -58,6 +58,11 @@ internal sealed class BybitMarketScanSource(
 
     public string QuoteAsset => options.ScannerQuoteAsset;
 
+    /// <summary>
+    ///     Bitcoin against the scanner's quote stands for the market (ADR 0071, section 3).
+    /// </summary>
+    public string ReferenceSymbol => "BTC" + options.ScannerQuoteAsset;
+
     public void Dispose()
     {
         _klines.Bybit.Dispose();

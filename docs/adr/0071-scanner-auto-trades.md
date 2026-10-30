@@ -161,6 +161,10 @@ Three metrics join the table, presets, alerts and replay, computed by the engine
 - `Rsi1h`: Wilder's RSI of 14 hourly closes (the engine's indicator, ADR 0056).
 - `MarketTrend`: the venue's reference pair (Bybit: `BTCUSDT`) as `TrendEma50`, the same value on every row.
 
+Each average is seeded by the simple mean of its first closes among the up to 168 hours the scanner holds, so the live snapshot and
+the replay compute the same value; the reference pair is the venue scan source's (`IMarketScanSource.ReferenceSymbol`), and the
+preset backtest replays it first and gives its trend to every pair's minutes (amended 2026-10-31).
+
 They let a preset say "a dip in a market that is not rising", which point 3 of the context found to be the least bad. They are
 filters for presets and auto trade rules to test, not advice.
 

@@ -60,6 +60,26 @@ public sealed record ScanMetrics
     /// </summary>
     public decimal? RewardRisk { get; init; }
 
+    /// <summary>
+    ///     Цена к EMA последних 50 часовых закрытий, % (ADR 0071, раздел 3): выше нуля — цена над средней.
+    /// </summary>
+    public decimal? TrendEma50 { get; init; }
+
+    /// <summary>
+    ///     EMA 20 часов к EMA 50 часов, %: выше нуля — короткая средняя над длинной, тренд вверх.
+    /// </summary>
+    public decimal? EmaSpread20x50 { get; init; }
+
+    /// <summary>
+    ///     RSI Уайлдера по 14 часовым закрытиям, от 0 до 100.
+    /// </summary>
+    public decimal? Rsi1h { get; init; }
+
+    /// <summary>
+    ///     <see cref="TrendEma50" /> опорной пары биржи, одинаковый у всех строк снимка: куда идёт рынок.
+    /// </summary>
+    public decimal? MarketTrend { get; init; }
+
     public decimal? Spread { get; init; }
     public int? ListingAgeDays { get; init; }
     public bool Stale { get; init; }

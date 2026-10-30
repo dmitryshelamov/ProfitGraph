@@ -37,6 +37,10 @@ internal static class ScanSnapshotRowDbConverter
                 DistanceToResistance = row.DistanceToResistance,
                 DistanceToSupport = row.DistanceToSupport,
                 RewardRisk = row.RewardRisk,
+                TrendEma50 = row.TrendEma50,
+                EmaSpread20x50 = row.EmaSpread20x50,
+                Rsi1h = row.Rsi1h,
+                MarketTrend = row.MarketTrend,
                 Spread = row.Spread,
                 ListingAgeDays = row.ListingAgeDays,
                 Stale = row.Stale
