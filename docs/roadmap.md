@@ -116,7 +116,8 @@ A candle chart on the bot page ([ADR 0026](adr/0026-bot-chart.md)), for every ve
 |---|---|---|---|
 | 1. Closed candles | `/api/bots/{id}/candles` from the bot's own series and market data access, pages read through the cache, incomplete venue history shown without being cached, the bot's fills of the same range; the chart pages back, marks fills and working limit orders | The chart scrolls through Bybit, T-Invest and Steam history with the bot's fills against the test venue, the mock Invest API and the mock Steam | Done |
 | 2. Forming candle | A separate in-memory live channel per instrument with a closed or forming flag, throttled, never stored; history, then subscription, then reconciliation; Bybit, then T-Invest; none for Steam ([ADR 0027](adr/0027-forming-candle.md)) | The forming candle updates in its own style and becomes a closed candle without a gap | Done on mocks: Bybit and T-Invest against fake transports and the mock Invest API; no real venue stream checked |
-| 3. Indicators and conditions | The strategy's indicators and node conditions in a tooltip or a panel under the chart | | Planned |
+| 3. Timeframe switch | An optional `timeframe` on `/api/bots/{id}/candles`; 1m to 1d as the venue offers them on the chart, kept in `?timeframe=`, fills and order levels on any timeframe, the forming candle on the bot's own; the bot page in two columns with tabs ([ADR 0026 amendment](adr/0026-bot-chart.md#amendment-2026-10-30-timeframe-switch-and-the-terminal-layout)) | Endpoint tests pass against the test venue and the app tests switch the chart | Done on the test venue |
+| 4. Indicators and conditions | The strategy's indicators and node conditions in a tooltip or a panel under the chart | | Planned |
 
 ## Strategy changes on live bots
 
@@ -161,7 +162,7 @@ Corrections to [ADR 0017](adr/0017-bybit-spot-order-gateway.md) and [ADR 0023](a
 
 ## Bot page account summary
 
-[ADR 0049](adr/0049-bot-page-account-summary.md): the bot page begins with the exchange account the bot trades on.
+[ADR 0049](adr/0049-bot-page-account-summary.md): the bot page shows the exchange account the bot trades on (in the right column since the [ADR 0026 amendment](adr/0026-bot-chart.md#amendment-2026-10-30-timeframe-switch-and-the-terminal-layout)).
 
 | Step | Scope | Done when | Status |
 |---|---|---|---|

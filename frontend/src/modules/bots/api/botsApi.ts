@@ -27,8 +27,9 @@ export const botKeys = {
   openOrders: (id: string) => ['bots', id, 'open-orders'] as const,
   orderCancel: (id: string, cancelId: string) => ['bots', id, 'order-cancels', cancelId] as const,
   unresolved: (id: string) => ['bots', id, 'unresolved-orders'] as const,
-  candles: (id: string) => ['bots', id, 'candles'] as const,
-  newCandles: (id: string, from: string) => ['bots', id, 'new-candles', from] as const,
+  candles: (id: string, timeframe: string) => ['bots', id, 'candles', timeframe] as const,
+  newCandles: (id: string, timeframe: string, from: string) =>
+    ['bots', id, 'new-candles', timeframe, from] as const,
 };
 
 /** A missing bot and a bot of another user are both 404; retrying cannot change that. */
@@ -346,24 +347,31 @@ export async function renameBot(id: string, name: string): Promise<Bot> {
   return unwrap(await api.PUT('/api/bots/{id}/name', { params: { path: { id } }, body: { name } }));
 }
 
-async function botCandles(id: string, from: string, to: string): Promise<BotCandlesPage> {
+async function botCandles(
+  id: string,
+  timeframe: string,
+  from: string,
+  to: string,
+): Promise<BotCandlesPage> {
   return unwrap(
-    await api.GET('/api/bots/{id}/candles', { params: { path: { id }, query: { from, to } } }),
+    await api.GET('/api/bots/{id}/candles', {
+      params: { path: { id }, query: { from, to, timeframe } },
+    }),
   );
 }
 
 /**
- * The bot's closed candles with its fills, a page of `chartPageCandles` candles at a time going back from now; the
- * server cuts each page at the latest closed candle. Paging stops at a page without candles: the venue's history begins
+ * The bot's instrument's closed candles on a timeframe of its venue with the bot's fills, a page of `chartPageCandles`
+ * candles at a time going back from now; the server cuts each page at the latest closed candle. Paging stops at a page without candles: the venue's history begins
  * there or cannot be read. Pages are kept as loaded; {@link botNewCandlesQuery} brings the candles closed since.
  */
 export function botCandlesQuery(id: string, timeframe: string) {
   return infiniteQueryOptions({
-    queryKey: botKeys.candles(id),
+    queryKey: botKeys.candles(id, timeframe),
     queryFn: async ({ pageParam }) => {
       const window = pageBefore(pageParam ?? new Date().toISOString(), timeframe);
 
-      return botCandles(id, window.from, window.to);
+      return botCandles(id, timeframe, window.from, window.to);
     },
     initialPageParam: null as string | null,
     getNextPageParam: (page) => (page.candles.length === 0 ? undefined : page.from),
@@ -373,10 +381,10 @@ export function botCandlesQuery(id: string, timeframe: string) {
 }
 
 /** Candles closed since `from`, the end of the newest loaded page, read again every minute. */
-export function botNewCandlesQuery(id: string, from: string) {
+export function botNewCandlesQuery(id: string, timeframe: string, from: string) {
   return queryOptions({
-    queryKey: botKeys.newCandles(id, from),
-    queryFn: async () => botCandles(id, from, new Date().toISOString()),
+    queryKey: botKeys.newCandles(id, timeframe, from),
+    queryFn: async () => botCandles(id, timeframe, from, new Date().toISOString()),
     refetchInterval: 60_000,
   });
 }

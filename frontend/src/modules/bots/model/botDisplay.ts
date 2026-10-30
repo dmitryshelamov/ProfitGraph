@@ -1,14 +1,25 @@
-import { fractionToPercent, percentToFraction, roundDecimal } from '@/shared/lib/decimal';
+import {
+  fractionToPercent,
+  multiplyDecimals,
+  percentToFraction,
+  roundDecimal,
+} from '@/shared/lib/decimal';
 
 import type { Bot } from './types';
 
-/** How a bot's amounts are shown: the venue's own decimal places and the traded assets' names. */
+/**
+ * How a bot's amounts are shown: the venue's own decimal places, the traded assets' names and the instrument's order
+ * minimums, which tell a position from a remainder that cannot be sold.
+ */
 export interface BotDisplay {
   readonly basePlaces: number | null;
   readonly quotePlaces: number | null;
   readonly pricePlaces: number | null;
   readonly baseAsset: string | null;
   readonly quoteAsset: string | null;
+  readonly quantityStep?: string | null;
+  readonly minQuantity?: string | null;
+  readonly minNotional?: string | null;
 }
 
 export const unknownBotDisplay: BotDisplay = {
@@ -17,7 +28,15 @@ export const unknownBotDisplay: BotDisplay = {
   pricePlaces: null,
   baseAsset: null,
   quoteAsset: null,
+  quantityStep: null,
+  minQuantity: null,
+  minNotional: null,
 };
+
+/** An amount exactly as the server holds it, without trailing zeros: "0.00574000" → "0.00574". */
+export function exactAmount(value: string): string {
+  return /^-?\d+\.\d+$/.test(value) ? value.replace(/\.?0+$/, '') : value;
+}
 
 /** Decimal places of a step or tick: "0.01" → 2, "1" → 0, "0.00010" → 4. */
 export function stepPlaces(step: string): number | null {
@@ -38,6 +57,33 @@ export function atPlaces(value: string, places: number | null): string {
 /** An amount with its asset, when the asset is known: "832.758332 DNC". */
 export function withAsset(value: string, asset: string | null): string {
   return asset ? `${value} ${asset}` : value;
+}
+
+/** The most decimal places a fee's quote value is shown with when the venue's quote places are unknown. */
+const feeQuotePlaces = 8;
+
+/**
+ * A fill's fee in quote first, as profit is counted: a fee paid in quote as it is, "0.06 USDT"; a fee paid in base valued at the
+ * fill's price with the base amount after it, "6.3 USDT (0.0001 BTC)".
+ */
+export function feeLabel(
+  fee: string,
+  feeAsset: 'Base' | 'Quote',
+  price: string,
+  display: BotDisplay,
+): string {
+  const quoteAsset = display.quoteAsset ?? '(котировка)';
+
+  if (feeAsset === 'Quote') {
+    return withAsset(atPlaces(fee, display.quotePlaces), quoteAsset);
+  }
+
+  const base = withAsset(atPlaces(fee, display.basePlaces), display.baseAsset ?? '(база)');
+  const value = multiplyDecimals(fee, price);
+
+  return value === null
+    ? base
+    : `${withAsset(roundDecimal(value, display.quotePlaces ?? feeQuotePlaces) ?? value, quoteAsset)} (${base})`;
 }
 
 /** A stored fraction as percent: "0.0015" → "0.15%". */

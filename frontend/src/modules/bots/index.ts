@@ -19,7 +19,10 @@ export {
   tradingHaltQuery,
 } from './api/botsApi';
 export { botTitle, fractionLabel } from './model/botDisplay';
+export type { BotPageSearch, BotPageTab } from './model/botPageSearch';
+export { botPageSearch, botPageTabs } from './model/botPageSearch';
 export { botStatusLabel, diagnosticLabel, feedLabel } from './model/botStatus';
+export { chartTimeframesFor, shownTimeframe } from './model/chartTimeframes';
 export type { DraftParameter } from './model/liveImpact';
 export { parameterFitText } from './model/liveImpact';
 export type { Bot, BotAccount, BotAlert, LiveImpactBot } from './model/types';
@@ -32,7 +35,7 @@ export { BotControls } from './ui/BotControls';
 export { BotFeedList } from './ui/BotFeedList';
 export { BotFillsTable } from './ui/BotFillsTable';
 export { BotOpenOrders } from './ui/BotOpenOrders';
-export { BotPositionCard } from './ui/BotPositionCard';
+export { BotPositionCard, BotPositionCycles } from './ui/BotPositionCard';
 export { ForeignOrdersToggle, ParametersForm, RiskLimitsForm } from './ui/BotSettings';
 export { BotsTable } from './ui/BotsTable';
 export { BotStatusBadge } from './ui/BotStatusBadge';

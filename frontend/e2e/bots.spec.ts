@@ -58,14 +58,17 @@ test('a bot is created with a key, trades, is stopped and reported', async ({ pa
   await expect(page.getByText('Работает', { exact: true })).toBeVisible({ timeout: 20_000 });
 
   // OnStart buys for 10 USDT at 100: 0.1 BTC less a 0.0001 BTC fee, valued at the ticker: 0.0999 × 104 − 10.
+  await page.getByRole('tab', { name: 'Сделки' }).click();
   const fills = page.getByRole('table', { name: 'Сделки бота' });
   await expect(fills.getByRole('cell', { name: '100', exact: true })).toBeVisible({
     timeout: 30_000,
   });
-  await expect(fills.getByRole('cell', { name: '0.0001 BTC', exact: true })).toBeVisible();
+  // The base fee is shown in quote at the fill's price first.
+  await expect(fills.getByRole('cell', { name: /^0\.01 USDT \(0\.0001 BTC\)$/ })).toBeVisible();
   await expect(page.getByLabel('Цена для отображения')).toHaveText('104 USDT', { timeout: 20_000 });
   await expect(page.getByText(/^тикер биржи/)).toBeVisible();
   await expect(page.getByLabel('Нереализованная прибыль')).toHaveText('+0.3896 USDT');
+  await page.getByRole('tab', { name: 'Лента' }).click();
   const feed = page.getByRole('list', { name: 'Лента бота' });
   await expect(feed.getByText('Запущен', { exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(feed.getByText(/^Исполнение: покупка 0\.1 на 10/)).toBeVisible({ timeout: 20_000 });

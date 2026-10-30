@@ -31,7 +31,8 @@ candle. What the code had before this decision:
 1. **One endpoint, everything from the bot.** `GET /api/bots/{id}/candles?from&to` (`GetBotCandlesQuery`) takes only a
    half-open UTC range. The venue, symbol, timeframe and market data access come from the owner's bot; another user's bot
    is reported as missing. The range is widened to the bot's timeframe grid (from down, to up), cut at the latest closed
-   candle, and may cover at most 1000 candles. The chart shows the bot's timeframe only; there is no switch.
+   candle, and may cover at most 1000 candles. The chart shows the bot's timeframe only; there is no switch (amended below:
+   the chart now switches timeframes).
 2. **Read-through of one page.** Before reading, the handler asks `CandleDownloadService.Ensure` for the page's range with
    the bot's market data access (`BotMarketDataAccess`: the bot's credential for a venue with `IVenueMarketDataAccess`,
    none otherwise). A cached page calls no venue; a missing part is fetched once and stored like a download chunk, so the
@@ -90,3 +91,24 @@ Not part of this decision's first pull request:
    style labelled «не закрыта»; signal markers appear only after the close. Bybit first, T-Invest second (one shared feed
    per instrument; request limits are shared with bots), Steam without a forming candle.
 2. **Indicators and node conditions** in a tooltip or a panel under the chart.
+
+## Amendment 2026-10-30: Timeframe Switch and the Terminal Layout
+
+The owner asked for timeframes on the bot's chart and chose a two-column bot page.
+
+- **Endpoint.** `GET /api/bots/{id}/candles` takes an optional `timeframe`. Without it the page is the bot's own series, as
+  before; with it the same venue, symbol and market data access are read on that timeframe through `CandleChartReader` and
+  the shared cache, and the bot's fills of the range come with it. A timeframe the venue does not offer is a 400
+  `unsupported_timeframe`; the grid, the 1000-candle limit and the cut at the latest closed candle follow the asked timeframe.
+- **Switch.** The chart offers 1m, 5m, 15m, 1h, 4h and 1d as the venue lists them, plus the bot's own timeframe, marked
+  «· бот». The choice is `?timeframe=` in the address; the bot's own timeframe stays out of it, and one the venue does not offer
+  opens the bot's own. Fills are placed on the candle of the asked timeframe that contains them and working limit orders stay
+  price levels, so both hold on any timeframe.
+- **Forming candle.** The live channel (ADR 0027) carries the bot's own series only, so another timeframe shows closed candles
+  with the minute refresh and says so under the chart.
+- **Layout.** Warnings (trading halt, unresolved orders, diagnostics) sit above two columns. The left one holds the chart and
+  tabs for orders, fills with the position's cycles, the feed, alerts and settings (risk limits, parameters, foreign orders); the
+  open tab is `?tab=`. The right one holds the state and controls, the position, the exchange account (ADR 0049), the manual
+  order and the asset; on a narrow screen it follows the left one.
+- **Fees.** A fill's fee is shown in quote first; a fee paid in base is valued at the fill's price with the base amount after
+  it, «6.3 USDT (0.0001 BTC)».

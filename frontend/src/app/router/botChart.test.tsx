@@ -107,7 +107,10 @@ describe('bot chart', () => {
     expect(figure).toHaveAttribute('data-markers', '1');
     await waitFor(() => expect(figure).toHaveAttribute('data-levels', '1'));
     const card = figure.closest('section') as HTMLElement;
-    expect(within(card).getByText('1h · закрытые свечи · UTC')).toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: '1h · бот' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
 
     const first = requests.find((request) => new URL(request.url).pathname.endsWith('/candles'));
     const query = new URL(first!.url).searchParams;
@@ -161,5 +164,87 @@ describe('bot chart', () => {
     expect(
       await screen.findByText('Показаны только сохранённые свечи: площадка сейчас не отвечает.'),
     ).toBeInTheDocument();
+  });
+
+  it('switches to another timeframe of the venue with the fills on its candles and no forming candle', async () => {
+    const fourHours = 4 * hour;
+    const latestFour = Math.floor(latest / fourHours) * fourHours;
+    const requests = fakeApi(
+      routes({
+        'GET /api/market-data/venues': () =>
+          json([
+            {
+              id: bot.venue,
+              name: 'Bybit',
+              timeframes: ['1m', '1h', '4h', '1d'],
+              executionDefaults: null,
+              botSettings: null,
+              backtestLimits: [],
+            },
+          ]),
+        [`GET ${botPath}/candles`]: (request) => {
+          const timeframe = new URL(request.url).searchParams.get('timeframe');
+
+          if (timeframe !== '4h') {
+            return candles()(request);
+          }
+
+          return json({
+            venue: bot.venue,
+            symbol: bot.symbol,
+            timeframe: '4h',
+            from: new Date(latestFour - 500 * fourHours).toISOString(),
+            to: new Date(latestFour).toISOString(),
+            latestClosed: new Date(latestFour).toISOString(),
+            status: 'Complete',
+            errorCode: null,
+            candles: [-3, -2, -1].map((offset) => ({
+              openTime: new Date(latestFour + offset * fourHours).toISOString(),
+              open: '100',
+              high: '103',
+              low: '99',
+              close: '101',
+              volume: '1',
+            })),
+            fills: [{ ...fill, filledAt: new Date(latestFour - fourHours + 60_000).toISOString() }],
+            fillsTruncated: false,
+          } satisfies Schemas['BotCandlesResponse']);
+        },
+      }),
+    );
+    const { history: address } = renderApp(`/bots/${bot.id}`);
+    await chart();
+    const group = await screen.findByRole('group', { name: 'Таймфрейм' });
+    await waitFor(() =>
+      expect(
+        within(group)
+          .getAllByRole('link')
+          .map((link) => link.textContent),
+      ).toEqual(['1m', '1h · бот', '4h', '1d']),
+    );
+
+    await userEvent.click(within(group).getByRole('link', { name: '4h' }));
+
+    expect(address.location.search).toContain('timeframe=4h');
+    const figure = await screen.findByRole('figure', { name: 'Свечи бота' });
+    await waitFor(() => expect(figure).toHaveAttribute('data-candles', '3'));
+    expect(figure).toHaveAttribute('data-markers', '1');
+    expect(figure).toHaveAttribute('data-live', '0');
+    expect(within(group).getByRole('link', { name: '4h' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByText(/На 4h показаны только закрытые свечи/)).toBeInTheDocument();
+    expect(
+      requests.some((request) => new URL(request.url).searchParams.get('timeframe') === '4h'),
+    ).toBe(true);
+  });
+
+  it('opens on the bot’s own timeframe when the address names one the venue does not offer', async () => {
+    const requests = fakeApi(routes());
+    renderApp(`/bots/${bot.id}?timeframe=3m`);
+
+    await chart();
+    const asked = requests
+      .filter((request) => new URL(request.url).pathname.endsWith('/candles'))
+      .map((request) => new URL(request.url).searchParams.get('timeframe'));
+    expect(asked.every((timeframe) => timeframe === '1h')).toBe(true);
   });
 });

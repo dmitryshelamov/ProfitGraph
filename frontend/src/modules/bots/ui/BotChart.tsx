@@ -35,20 +35,30 @@ function unavailableText(code: string | null): string {
 }
 
 /**
- * The bot's closed candles on its own timeframe, its fills as markers at their prices and its working limit orders as
- * dashed levels. Scrolling left loads older candles; candles closed since the page opened arrive every minute, and the
- * candle being formed follows the venue's live channel (ADR 0027) without being stored.
+ * The bot's instrument's closed candles on a timeframe of its venue, the bot's own by default, its fills as markers on the
+ * candles that contain them and its working limit orders as dashed levels. Scrolling left loads older candles; candles closed
+ * since the page opened arrive every minute. The candle being formed follows the venue's live channel (ADR 0027) without being
+ * stored; that channel carries the bot's own timeframe only, so another timeframe shows closed candles alone.
  */
-export function BotChart({ bot, display }: { bot: Bot; display: BotDisplay }) {
+export function BotChart({
+  bot,
+  display,
+  timeframe = bot.timeframe,
+}: {
+  bot: Bot;
+  display: BotDisplay;
+  timeframe?: string;
+}) {
   const queryClient = useQueryClient();
-  const history = useInfiniteQuery(botCandlesQuery(bot.id, bot.timeframe));
+  const history = useInfiniteQuery(botCandlesQuery(bot.id, timeframe));
   const newestTo = history.data?.pages[0]?.to;
   const fresh = useQuery({
-    ...botNewCandlesQuery(bot.id, newestTo ?? ''),
+    ...botNewCandlesQuery(bot.id, timeframe, newestTo ?? ''),
     enabled: newestTo !== undefined,
   });
   const orders = useQuery(botOpenOrdersQuery(bot.id));
   const forming = useFormingCandle(bot.id);
+  const own = timeframe === bot.timeframe;
 
   // Candles closed since the newest page are read in one request; once they no longer fit, the chart starts over.
   useEffect(() => {
@@ -57,13 +67,16 @@ export function BotChart({ bot, display }: { bot: Bot; display: BotDisplay }) {
     }
 
     const timer = setInterval(() => {
-      if (tooFarBehind(newestTo, new Date(), bot.timeframe)) {
-        void queryClient.resetQueries({ queryKey: botKeys.candles(bot.id), exact: true });
+      if (tooFarBehind(newestTo, new Date(), timeframe)) {
+        void queryClient.resetQueries({
+          queryKey: botKeys.candles(bot.id, timeframe),
+          exact: true,
+        });
       }
     }, 60_000);
 
     return () => clearInterval(timer);
-  }, [bot.id, bot.timeframe, newestTo, queryClient]);
+  }, [bot.id, timeframe, newestTo, queryClient]);
 
   const pages = useMemo<BotCandlesPage[]>(
     () => [...(history.data?.pages ?? []), ...(fresh.data ? [fresh.data] : [])],
@@ -98,18 +111,25 @@ export function BotChart({ bot, display }: { bot: Bot; display: BotDisplay }) {
   return (
     <div className="space-y-3">
       <CandleHistoryChart
+        key={timeframe}
         candles={merged.candles}
         trades={trades}
         levels={levels}
-        live={forming.live}
-        candleSeconds={timeframeSeconds[bot.timeframe] ?? 3600}
+        live={own ? forming.live : []}
+        candleSeconds={timeframeSeconds[timeframe] ?? 3600}
         pricePlaces={display.pricePlaces}
         label="Свечи бота"
         onReachStart={loadEarlier}
       />
-      {formingNote(forming.feed) && (
+      {own && formingNote(forming.feed) && (
         <p role="status" data-forming={forming.feed} className="text-sm text-muted">
           {formingNote(forming.feed)}
+        </p>
+      )}
+      {!own && (
+        <p className="text-sm text-muted">
+          На {timeframe} показаны только закрытые свечи: формирующаяся свеча идёт по таймфрейму бота
+          ({bot.timeframe}).
         </p>
       )}
       {history.isError && (

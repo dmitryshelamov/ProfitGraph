@@ -8,29 +8,35 @@ using ProfitGraph.Application.MarketData.Charts;
 using ProfitGraph.Application.MarketData.Converters;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Bots.Fills;
+using ProfitGraph.Domain.MarketData;
 
 namespace ProfitGraph.Application.Bots.GetBotCandles;
 
 /// <summary>
-///     Reads a page of the bot's chart (ADR 0026) through <see cref="CandleChartReader" /> with the bot's market data access.
-///     Fills come from the bot's record for the same range.
+///     Reads a page of the bot's chart (ADR 0026) through <see cref="CandleChartReader" /> with the bot's market data access, on
+///     the bot's own series or the same instrument on another timeframe of its venue. Fills come from the bot's record for the same
+///     range.
 /// </summary>
 internal sealed class GetBotCandlesQueryHandler(
     IBotRepository bots,
     IBotFillRepository fills,
     BotMarketDataAccess access,
     CandleChartReader chart,
+    VenueRegistry venues,
     QueryLimitOptions limits) : IRequestHandler<GetBotCandlesQuery, BotCandlesInternal>
 {
     public async Task<BotCandlesInternal> Handle(GetBotCandlesQuery query, CancellationToken cancellationToken)
     {
         Bot bot = await bots.GetOwned(query.BotId, query.OwnerId, cancellationToken);
+        CandleSeries series = string.IsNullOrWhiteSpace(query.Timeframe)
+            ? bot.Series
+            : venues.ResolveSeries(bot.Series.Venue.Value, bot.Series.Symbol.Value, query.Timeframe);
         CandleChartPage page;
 
         // A venue without anonymous market data is read with the bot's own credential (ADR 0023, TC6).
         using (MarketDataAccess.Use(await access.Read(bot, cancellationToken)))
         {
-            page = await chart.Read(bot.Series, query.From, query.To, limits.BotChartCandles, cancellationToken);
+            page = await chart.Read(series, query.From, query.To, limits.BotChartCandles, cancellationToken);
         }
 
         IReadOnlyList<BotFill> made = page.To > page.From
@@ -43,9 +49,9 @@ internal sealed class GetBotCandlesQueryHandler(
         ];
 
         return new BotCandlesInternal(
-            bot.Series.Venue.Value,
-            bot.Series.Symbol.Value,
-            bot.Series.Timeframe.Key,
+            series.Venue.Value,
+            series.Symbol.Value,
+            series.Timeframe.Key,
             page.From,
             page.To,
             page.LatestClosed,
