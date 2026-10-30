@@ -42,6 +42,7 @@ internal sealed class ScanSnapshotRepository(NpgsqlConnection connection, Postgr
             DistanceToHigh7d = Metric(rows, metrics => metrics.DistanceToHigh7d),
             DistanceToLow7d = Metric(rows, metrics => metrics.DistanceToLow7d),
             Breakout4h = Metric(rows, metrics => metrics.Breakout4h),
+            Breakdown4h = Metric(rows, metrics => metrics.Breakdown4h),
             Range4h = Metric(rows, metrics => metrics.Range4h),
             Resistance = Metric(rows, metrics => metrics.Resistance),
             Support = Metric(rows, metrics => metrics.Support),

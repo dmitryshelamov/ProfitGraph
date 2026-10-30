@@ -30,6 +30,7 @@ internal static class ScanSnapshotRowDbConverter
                 DistanceToHigh7d = row.DistanceToHigh7d,
                 DistanceToLow7d = row.DistanceToLow7d,
                 Breakout4h = row.Breakout4h,
+                Breakdown4h = row.Breakdown4h,
                 Range4h = row.Range4h,
                 Resistance = row.Resistance,
                 Support = row.Support,

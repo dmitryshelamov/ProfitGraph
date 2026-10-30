@@ -20,6 +20,7 @@ export type ScanMetric =
   | 'DistanceToHigh7d'
   | 'DistanceToLow7d'
   | 'Breakout4h'
+  | 'Breakdown4h'
   | 'Range4h'
   | 'Support'
   | 'DistanceToSupport'
@@ -117,6 +118,12 @@ export const scanMetrics: readonly MetricDefinition[] = [
     hint: 'Цена к максимуму 4 часов до последних 15 минут: выше нуля — вышла из диапазона',
   },
   {
+    metric: 'Breakdown4h',
+    label: 'Пробой вниз 4 ч, %',
+    places: 2,
+    hint: 'Цена к минимуму 4 часов до последних 15 минут: ниже нуля — вышла из диапазона вниз',
+  },
+  {
     metric: 'Range4h',
     label: 'Диапазон 4 ч, %',
     places: 2,
@@ -180,6 +187,7 @@ const fields: Record<ScanMetric, keyof ScanRow> = {
   DistanceToHigh7d: 'distanceToHigh7d',
   DistanceToLow7d: 'distanceToLow7d',
   Breakout4h: 'breakout4h',
+  Breakdown4h: 'breakdown4h',
   Range4h: 'range4h',
   Support: 'support',
   DistanceToSupport: 'distanceToSupport',

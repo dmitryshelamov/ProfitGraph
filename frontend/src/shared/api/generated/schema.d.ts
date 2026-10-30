@@ -5440,6 +5440,7 @@ export interface components {
             distanceToHigh7d: null | string;
             distanceToLow7d: null | string;
             breakout4h: null | string;
+            breakdown4h: null | string;
             range4h: null | string;
             resistance: null | string;
             support: null | string;

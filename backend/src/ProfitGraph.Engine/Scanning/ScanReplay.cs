@@ -28,6 +28,7 @@ public sealed class ScanReplay
     private readonly decimal[] _dayLows;
     private readonly decimal[] _rangeHighs;
     private readonly decimal[] _rangeLows;
+    private readonly int[] _tradedBefore;
     private readonly decimal[] _hourHighsSoFar;
     private readonly decimal[] _hourLowsSoFar;
     private readonly int[] _lastTraded;
@@ -68,8 +69,17 @@ public sealed class ScanReplay
         decimal[] lows = [.. _minutes.Select(minute => minute.Low)];
         _dayHighs = SlidingExtreme(highs, MinutesPerDay, highest: true);
         _dayLows = SlidingExtreme(lows, MinutesPerDay, highest: false);
-        _rangeHighs = SlidingExtreme(highs, RangeMinutes, highest: true);
-        _rangeLows = SlidingExtreme(lows, RangeMinutes, highest: false);
+        int[] traded = [.. Enumerable.Range(start: 0, count).Where(i => _minutes[i].Volume > 0)];
+        _tradedBefore = new int[count + 1];
+
+        for (var i = 0; i < count; i++)
+        {
+            _tradedBefore[i + 1] = _tradedBefore[i] + (_minutes[i].Volume > 0 ? 1 : 0);
+        }
+
+        // The range runs over the minutes with trades only, indexed by their position among them.
+        _rangeHighs = SlidingExtreme([.. traded.Select(i => highs[i])], RangeMinutes, highest: true);
+        _rangeLows = SlidingExtreme([.. traded.Select(i => lows[i])], RangeMinutes, highest: false);
         _firstHourMinute = Array.FindIndex(_minutes, minute => minute.OpenTime.UtcTicks % TimeSpan.TicksPerHour == 0);
         _hourHighsSoFar = new decimal[count];
         _hourLowsSoFar = new decimal[count];
@@ -124,6 +134,7 @@ public sealed class ScanReplay
         decimal close = _minutes[index].Close;
         int lastHour = LastClosedHour(index);
         int hourCount = lastHour < 0 ? 0 : Math.Min(HoursPerWeek, lastHour + 1);
+        int? range = RangeEnd(index, window);
 
         var metrics = new ScanMetrics
         {
@@ -144,10 +155,9 @@ public sealed class ScanReplay
             DistanceToLow24h = window >= MinutesPerDay ? (close - _dayLows[index]) / _dayLows[index] * Percent : null,
             DistanceToHigh7d = hourCount >= HoursPerWeek ? (close - WeekHigh(index, lastHour)) / WeekHigh(index, lastHour) * Percent : null,
             DistanceToLow7d = hourCount >= HoursPerWeek ? (close - WeekLow(index, lastHour)) / WeekLow(index, lastHour) * Percent : null,
-            Breakout4h = RangeBefore(window) ? (close - _rangeHighs[index - ImpulseMinutes]) / _rangeHighs[index - ImpulseMinutes] * Percent : null,
-            Range4h = RangeBefore(window)
-                ? (_rangeHighs[index - ImpulseMinutes] - _rangeLows[index - ImpulseMinutes]) / _rangeLows[index - ImpulseMinutes] * Percent
-                : null,
+            Breakout4h = range is { } high ? (close - _rangeHighs[high]) / _rangeHighs[high] * Percent : null,
+            Breakdown4h = range is { } low ? (close - _rangeLows[low]) / _rangeLows[low] * Percent : null,
+            Range4h = range is { } end ? (_rangeHighs[end] - _rangeLows[end]) / _rangeLows[end] * Percent : null,
             Spread = null,
             ListingAgeDays = _listedAt is { } listedAt ? (int)Math.Max(val1: 0, (now - listedAt).Ticks / TimeSpan.TicksPerDay) : null,
             Stale = IsStale(index, window, now)
@@ -331,11 +341,20 @@ public sealed class ScanReplay
     }
 
     /// <summary>
-    ///     Whether the window holds the four hours of minutes before the last fifteen.
+    ///     The position, among the minutes with trades, of the last one before the window's last fifteen minutes, when the window holds
+    ///     240 such minutes before them; null otherwise.
     /// </summary>
-    private static bool RangeBefore(int window)
+    private int? RangeEnd(int index, int window)
     {
-        return window >= RangeMinutes + ImpulseMinutes;
+        int end = index - ImpulseMinutes;
+        int start = index - window + 1;
+
+        if (end < start || _tradedBefore[end + 1] - _tradedBefore[start] < RangeMinutes)
+        {
+            return null;
+        }
+
+        return _tradedBefore[end + 1] - 1;
     }
 
     private decimal WeekHigh(int index, int lastHour)

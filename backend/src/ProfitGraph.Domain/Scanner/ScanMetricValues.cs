@@ -31,6 +31,7 @@ public static class ScanMetricValues
             ScanMetric.DistanceToHigh7d => metrics.DistanceToHigh7d,
             ScanMetric.DistanceToLow7d => metrics.DistanceToLow7d,
             ScanMetric.Breakout4h => metrics.Breakout4h,
+            ScanMetric.Breakdown4h => metrics.Breakdown4h,
             ScanMetric.Range4h => metrics.Range4h,
             ScanMetric.Resistance => metrics.Resistance,
             ScanMetric.Support => metrics.Support,

@@ -23,6 +23,7 @@ public sealed record ScanSnapshotRowResponse(
     string? DistanceToHigh7d,
     string? DistanceToLow7d,
     string? Breakout4h,
+    string? Breakdown4h,
     string? Range4h,
     string? Resistance,
     string? Support,
