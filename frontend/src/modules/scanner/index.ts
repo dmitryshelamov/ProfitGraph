@@ -23,6 +23,8 @@ export { ideaLevels, timeframeLevels } from './model/levels';
 export type { ScanMetric } from './model/metrics';
 export type { PresetDraft } from './model/presetDraft';
 export { draftInput, draftOf, draftProblem, emptyDraft } from './model/presetDraft';
+export type { ScanTradeDirection, ScanTradeSide } from './model/tradeSide';
+export { presetTradeSide, scanTradeSide } from './model/tradeSide';
 export type {
   ScanBacktest,
   ScanCandlesPage,

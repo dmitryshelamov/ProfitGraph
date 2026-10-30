@@ -31,8 +31,8 @@ public sealed class ScanPresetTests
         ScanCondition[] conditions = [new ScanCondition(ScanMetric.Turnover24h, minimum: 1_000_000, maximum: null)];
         var sort = new ScanSort(ScanMetric.Turnover24h, Descending: true);
 
-        preset.Change(new ScanPresetName("Ликвидные"), conditions, sort, hideStale: false, Now.AddHours(1)).ShouldBeTrue();
-        preset.Change(new ScanPresetName("Ликвидные"), conditions, sort, hideStale: false, Now.AddHours(2)).ShouldBeFalse();
+        preset.Change(new ScanPresetName("Ликвидные"), conditions, sort, hideStale: false, ScanTradeDirection.Both, Now.AddHours(1)).ShouldBeTrue();
+        preset.Change(new ScanPresetName("Ликвидные"), conditions, sort, hideStale: false, ScanTradeDirection.Both, Now.AddHours(2)).ShouldBeFalse();
 
         preset.Name.Value.ShouldBe("Ликвидные");
         preset.Conditions.ShouldBe(conditions);
@@ -50,12 +50,24 @@ public sealed class ScanPresetTests
     }
 
     [Test]
+    public void ANewPresetTradesBothWaysAndChangeSetsItsDirection()
+    {
+        ScanPreset preset = Preset();
+
+        preset.TradeDirection.ShouldBe(ScanTradeDirection.Both);
+        preset.Change(preset.Name, preset.Conditions, preset.Sort, preset.HideStale, ScanTradeDirection.Short, Now.AddHours(1)).ShouldBeTrue();
+        preset.TradeDirection.ShouldBe(ScanTradeDirection.Short);
+        preset.UpdatedAt.ShouldBe(Now.AddHours(1));
+        Should.Throw<ScanPresetRuleException>(() => preset.Change(preset.Name, preset.Conditions, preset.Sort, preset.HideStale, (ScanTradeDirection)7, Now));
+    }
+
+    [Test]
     public void APresetHasOneConditionPerMetricAndAtMostTwenty()
     {
         ScanPreset preset = Preset();
         ScanCondition[] twice = [new ScanCondition(ScanMetric.Spread, minimum: null, maximum: 1), new ScanCondition(ScanMetric.Spread, minimum: 0, maximum: null)];
 
-        Should.Throw<ScanPresetRuleException>(() => preset.Change(preset.Name, twice, ByChange, hideStale: true, Now));
+        Should.Throw<ScanPresetRuleException>(() => preset.Change(preset.Name, twice, ByChange, hideStale: true, ScanTradeDirection.Both, Now));
         Should.Throw<ScanPresetRuleException>(() => new ScanPresetName(" "));
         Should.Throw<ScanPresetRuleException>(() => new ScanPresetName(new string(c: 'a', count: 101)));
     }

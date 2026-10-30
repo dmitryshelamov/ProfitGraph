@@ -13,6 +13,7 @@ import {
   PresetAlerts,
   type PresetDraft,
   PresetEditor,
+  presetTradeSide,
   ScanBacktestList,
   scannerKeys,
   ScannerTable,
@@ -184,6 +185,7 @@ export function ScannerPage() {
               rows={rows}
               sortMetric={view.sortMetric}
               sortDescending={view.sortDescending}
+              trades={presetTradeSide(view.tradeDirection)}
               onSort={(metric) =>
                 setDraft({
                   ...view,

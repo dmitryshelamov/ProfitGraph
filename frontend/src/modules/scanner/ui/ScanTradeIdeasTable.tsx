@@ -10,6 +10,7 @@ import { createScanTrade, scannerKeys } from '../api/scannerApi';
 import { formatMetric, withQuote } from '../model/format';
 import { type IdeaOutcome, ideaOutcome } from '../model/ideaOutcome';
 import { tradeDirectionLabel, tradeScenarioHint, tradeScenarioLabels } from '../model/trades';
+import type { ScanTradeSide } from '../model/tradeSide';
 import type { ScanTradeIdea, ScanTradeIdeas } from '../model/types';
 import { useScanQuote } from './useScanQuote';
 
@@ -46,11 +47,14 @@ const filterButton =
 export function ScanTradeIdeasTable({
   venue,
   ideas,
+  side,
   scanned = true,
   onPreview,
 }: {
   venue: string;
   ideas: ScanTradeIdeas;
+  /** The side the preset that found the pair trades (ADR 0069); the table opens on it, and every card stays one click away. */
+  side?: ScanTradeSide;
   /** Whether the latest snapshot has the pair: without it the entries come from old closes and the API refuses new trades. */
   scanned?: boolean;
   onPreview?: (ideas: readonly ScanTradeIdea[]) => void;
@@ -62,7 +66,7 @@ export function ScanTradeIdeasTable({
   const [outcomes, setOutcomes] = useState<Readonly<Record<string, Outcome>>>({});
   const [creating, setCreating] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
-  const [direction, setDirection] = useState<Direction>('All');
+  const [direction, setDirection] = useState<Direction>(side ?? 'All');
   const [sort, setSort] = useState<Sort>('none');
   const blocked = !ideas.hasSettings || !scanned;
   const rows = useMemo<Row[]>(

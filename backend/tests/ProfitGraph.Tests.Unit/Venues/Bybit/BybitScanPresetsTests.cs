@@ -1,4 +1,5 @@
 using ProfitGraph.Application.Scanner.Contracts;
+using ProfitGraph.Domain.Scanner;
 using ProfitGraph.Venues.Bybit;
 using ProfitGraph.Venues.Bybit.Scanner;
 
@@ -26,6 +27,14 @@ public sealed class BybitScanPresetsTests
             linear.Conditions.Where(condition => condition.Metric != "Turnover24h").ShouldBe(spot.Conditions.Where(condition => condition.Metric != "Turnover24h"));
             (linear.SortMetric, linear.SortDescending).ShouldBe((spot.SortMetric, spot.SortDescending));
         }
+    }
+
+    [Test]
+    public void TheRisesTradeLongAndTheFallsShort()
+    {
+        BybitScanPresets.For(BybitMarket.Linear)
+            .Select(preset => preset.TradeDirection)
+            .ShouldBe([ScanTradeDirection.Long, ScanTradeDirection.Long, ScanTradeDirection.Short, ScanTradeDirection.Short, ScanTradeDirection.Both]);
     }
 
     [Test]

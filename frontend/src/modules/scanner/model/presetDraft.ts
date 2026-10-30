@@ -2,6 +2,7 @@ import { isDecimalString } from '@/shared/lib/decimal';
 
 import type { ScanConditionDraft, ScanView } from './filter';
 import type { ScanMetric } from './metrics';
+import type { ScanTradeDirection } from './tradeSide';
 import type { ScanPreset, ScanPresetInput } from './types';
 
 /** A preset being edited on the page: its view, its name and which saved preset it came from. */
@@ -9,6 +10,8 @@ export interface PresetDraft extends ScanView {
   readonly name: string;
   /** The user's own preset it edits; null for a new one or a copy of a built-in preset. */
   readonly presetId: string | null;
+  /** Which trade cards the preset's pairs offer (ADR 0069). */
+  readonly tradeDirection: ScanTradeDirection;
 }
 
 export function draftOf(preset: ScanPreset): PresetDraft {
@@ -23,7 +26,12 @@ export function draftOf(preset: ScanPreset): PresetDraft {
     sortMetric: preset.sortMetric as ScanMetric,
     sortDescending: preset.sortDescending,
     hideStale: preset.hideStale,
+    tradeDirection: tradeDirectionOf(preset.tradeDirection),
   };
+}
+
+function tradeDirectionOf(value: string): ScanTradeDirection {
+  return value === 'Long' || value === 'Short' ? value : 'Both';
 }
 
 export const emptyDraft: PresetDraft = {
@@ -33,6 +41,7 @@ export const emptyDraft: PresetDraft = {
   sortMetric: 'Turnover24h',
   sortDescending: true,
   hideStale: true,
+  tradeDirection: 'Both',
 };
 
 /** Why the draft cannot be saved, or null; a condition needs a bound, and every bound is an exact decimal. */
@@ -71,5 +80,6 @@ export function draftInput(draft: PresetDraft): ScanPresetInput {
     sortMetric: draft.sortMetric,
     sortDescending: draft.sortDescending,
     hideStale: draft.hideStale,
+    tradeDirection: draft.tradeDirection,
   };
 }
