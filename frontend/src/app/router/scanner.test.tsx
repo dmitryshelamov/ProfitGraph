@@ -293,6 +293,14 @@ describe('scanner page', () => {
           symbol: 'SOLUSDT',
           price: '100',
           hasSettings: true,
+          costs: {
+            limitFeeRate: '0.001',
+            marketFeeRate: '0.0018',
+            spread: '0.0002',
+            feesFromVenue: true,
+            spreadKnown: true,
+          },
+          tightStops: 2,
           ideas: [
             {
               timeframe: '15m',
@@ -304,6 +312,7 @@ describe('scanner page', () => {
               entryValidityMinutes: 60,
               amount: '96.153846153846',
               risk: '5',
+              profit: '11.34615384',
               taken: trades.length > 0,
             },
             {
@@ -316,6 +325,7 @@ describe('scanner page', () => {
               entryValidityMinutes: 60,
               amount: '49.019607843137',
               risk: '5',
+              profit: '9.70588235',
               taken: false,
             },
             {
@@ -328,6 +338,7 @@ describe('scanner page', () => {
               entryValidityMinutes: 240,
               amount: '187.5',
               risk: '5',
+              profit: '9.42307692',
               taken: false,
             },
           ],
@@ -351,6 +362,11 @@ describe('scanner page', () => {
     expect(within(levels).getByText('2.27')).toBeInTheDocument();
     expect(within(levels).getByText('без ком. 2.4')).toBeInTheDocument();
     expect(screen.getByRole('row', { name: 'Идея: Лонг Цель 2R 4h' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Комиссии бота: вход и цель лимиткой 0.1%, стоп по рынку 0.18%, спред 0.02%. Стоп теряет сверх движения цены 0.3%. Не показано 2 идеи со стопом ближе этих 0.3%.',
+      ),
+    ).toBeInTheDocument();
     expect(
       within(await screen.findByLabelText('Настройки сделок')).getByText('Основной'),
     ).toBeInTheDocument();
@@ -422,6 +438,14 @@ describe('scanner page', () => {
           symbol: 'SOLUSDT',
           price: '100',
           hasSettings: true,
+          costs: {
+            limitFeeRate: '0.001',
+            marketFeeRate: '0.001',
+            spread: '0',
+            feesFromVenue: true,
+            spreadKnown: true,
+          },
+          tightStops: 0,
           ideas: [
             {
               timeframe: '1d',
@@ -433,6 +457,7 @@ describe('scanner page', () => {
               entryValidityMinutes: 60,
               amount: '96.15',
               risk: '5',
+              profit: '8.11136363',
               taken: false,
             },
           ],
@@ -492,6 +517,14 @@ describe('scanner page', () => {
           symbol: 'SOLUSDT',
           price: '100',
           hasSettings: true,
+          costs: {
+            limitFeeRate: '0.001',
+            marketFeeRate: '0.001',
+            spread: '0',
+            feesFromVenue: true,
+            spreadKnown: true,
+          },
+          tightStops: 0,
           ideas: [
             {
               timeframe: '15m',
@@ -503,6 +536,7 @@ describe('scanner page', () => {
               entryValidityMinutes: 60,
               amount: '96.15',
               risk: '5',
+              profit: '11.3455',
               taken: false,
               direction: 'Short',
             },
@@ -628,6 +662,14 @@ describe('scanner page', () => {
           symbol: 'SOLUSDT',
           price: '100',
           hasSettings: false,
+          costs: {
+            limitFeeRate: '0.001',
+            marketFeeRate: '0.001',
+            spread: '0',
+            feesFromVenue: true,
+            spreadKnown: true,
+          },
+          tightStops: 0,
           ideas: [],
         }),
       'GET /api/scanner/bybit-linear/trades': () => json([]),

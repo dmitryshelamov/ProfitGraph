@@ -37,7 +37,9 @@ public static class ScannerRegistration
         services.AddBackgroundJob<RunScanBacktestCommand, ScanBacktestCompletedInternal>();
         services.AddOptions<ScanTradeOptions>()
             .Bind(configuration.GetSection(ScanTradeOptions.SectionName))
-            .Validate(options => options.IsValid(), "ScanTrades needs a fee rate under 10 %, an entry deviation under 1, a positive interval and limits.")
+            .Validate(
+                options => options.IsValid(),
+                "ScanTrades needs a fee rate under 10 %, a positive fee rate lifetime, an entry deviation under 1, a positive interval and limits.")
             .ValidateOnStart();
         services.AddScoped(provider => provider.GetRequiredService<IOptionsMonitor<ScanTradeOptions>>().CurrentValue);
         services.AddScoped<IScanTradeRepository, ScanTradeRepository>();
@@ -45,6 +47,8 @@ public static class ScannerRegistration
         services.AddScoped<ScanMarketDataAccess>();
         services.AddScoped<ScanTimeframeLevelsReader>();
         services.AddScoped<ScanTradeIdeasReader>();
+        services.AddScoped<ScanTradeCostsReader>();
+        services.AddSingleton<ScanTradeFeeRateCache>();
         services.AddSingleton<IScanSnapshotNotifications, ScanSnapshotNotifications>();
         services.AddHealthChecks().AddCheck<ScannerHealthCheck>(ScannerHealthCheck.Name, tags: [HealthTags.Ready]);
 

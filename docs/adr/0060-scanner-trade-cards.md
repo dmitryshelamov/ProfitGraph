@@ -73,6 +73,9 @@ trade. The amount is `risk / ((entry − stop) / entry + 2 × fee)` with the `Sc
 the largest amount, which then lowers the risk shown; it is rounded down to cents. The settings take only the owner's credential
 of the scanner's venue.
 
+Since [ADR 0065](0065-scanner-trade-costs.md) the amount is sized with the bot's own limit and market fee rates and the pair's
+spread, and ideas whose stop is nearer than those costs are left out.
+
 ### 4. Guards when a trade is created
 
 - No settings: 409 `scan_trade_settings_missing`.

@@ -29,12 +29,12 @@ using ScanTrade = ProfitGraph.Domain.Scanner.Trades.ScanTrade;
 namespace ProfitGraph.Application.Scanner.CreateScanTrade;
 
 /// <summary>
-///     Refuses a trade without settings, on a pair the snapshot does not show, with an entry further than
-///     <see cref="ScanTradeOptions.MaxEntryDeviation" /> from the current price, or while the owner has a live trade with the same
-///     scenario and prices on the pair. The bot's allocation, largest order and daily loss limit are the trade's amount, so it cannot
-///     spend more; it allows foreign orders, since the owner's other trades on the pair place theirs on the same symbol. A bot that
-///     does not start fails the trade and the error reaches the owner. On a margin venue (ADR 0061) the bot trades at the settings'
-///     leverage, so its allocation is the trade's margin and fees rather than its amount; a short trade runs the short strategy.
+///     Refuses a trade without settings, on a pair the snapshot does not show, with an entry further than <see cref="ScanTradeOptions.MaxEntryDeviation" /> from the
+///     current price, with a stop nearer the entry than what a stopped trade pays (ADR 0065), or while the owner has a live trade with the same scenario and prices on
+///     the pair. The trade is sized with the fee rates its bot will pay and the pair's spread, as the cards are. The bot's allocation, largest order and daily loss limit
+///     are the trade's amount, so it cannot spend more; it allows foreign orders, since the owner's other trades on the pair place theirs on the same symbol. A bot that
+///     does not start fails the trade and the error reaches the owner. On a margin venue (ADR 0061) the bot trades at the settings' leverage, so its allocation is the
+///     trade's margin and fees rather than its amount; a short trade runs the short strategy.
 /// </summary>
 internal sealed class CreateScanTradeCommandHandler(
     IEnumerable<IMarketScanSource> sources,
@@ -42,6 +42,7 @@ internal sealed class CreateScanTradeCommandHandler(
     IScanTradeSettingsRepository settings,
     IScanTradeRepository trades,
     IScanSnapshotRepository snapshots,
+    ScanTradeCostsReader costs,
     IStrategyRepository strategies,
     ITransactionExecutor transactions,
     ISender sender,
@@ -66,7 +67,13 @@ internal sealed class CreateScanTradeCommandHandler(
             throw new StateConflictException("This venue has no short trades.", ScanTradeErrorCodes.ShortUnsupported);
         }
 
-        await EnsureEntryNearPrice(command, cancellationToken);
+        decimal? spread = await EnsureEntryNearPrice(command, cancellationToken);
+        ScanTradeCosts paid = (await costs.Read(sizing, command.Venue, command.Symbol, spread, cancellationToken)).Costs;
+
+        if (paid.TooTight(command.Entry, command.Stop))
+        {
+            throw new StateConflictException("The stop is nearer the entry than the trade's fees and spread.", ScanTradeErrorCodes.StopTooTight);
+        }
 
         IReadOnlyList<ScanTrade> pairTrades = await trades.List(owner, venue, command.Symbol, options.ListLimit, cancellationToken);
 
@@ -75,11 +82,11 @@ internal sealed class CreateScanTradeCommandHandler(
             throw new StateConflictException("A live trade already has this scenario and these prices.", ScanTradeErrorCodes.LiveTradeExists);
         }
 
-        (decimal amount, decimal risk) = sizing.Size(command.Entry, command.Stop, options.FeeRate);
+        (decimal amount, decimal risk) = sizing.Size(command.Entry, command.Stop, paid);
         amount = decimal.Round(amount, AmountDecimals, MidpointRounding.ToZero);
         StrategyId strategy = await LevelTradeStrategy(sizing, @short, cancellationToken);
         decimal allocation = sizing.Leverage is { } leverage
-            ? decimal.Round(amount / leverage + 2 * amount * options.FeeRate, AmountDecimals, MidpointRounding.AwayFromZero)
+            ? decimal.Round(amount / leverage + amount * (paid.LimitFeeRate + paid.MarketFeeRate), AmountDecimals, MidpointRounding.AwayFromZero)
             : amount;
         BotInternal bot = await sender.Send(
             new CreateBotCommand(
@@ -170,11 +177,15 @@ internal sealed class CreateScanTradeCommandHandler(
             : string.Create(CultureInfo.InvariantCulture, $"{command.Symbol} · {scenario}");
     }
 
-    private async Task EnsureEntryNearPrice(CreateScanTradeCommand command, CancellationToken cancellationToken)
+    /// <summary>
+    ///     Refuses an entry away from the snapshot's price; returns the pair's spread there, in percent.
+    /// </summary>
+    private async Task<decimal?> EnsureEntryNearPrice(CreateScanTradeCommand command, CancellationToken cancellationToken)
     {
         ScanSnapshotInternal? snapshot = await snapshots.Get(command.Venue, cancellationToken);
+        ScanSnapshotRowInternal? row = snapshot?.Rows.FirstOrDefault(item => item.Symbol == command.Symbol);
 
-        if (snapshot?.Rows.FirstOrDefault(row => row.Symbol == command.Symbol)?.Metrics.Price is not { } price)
+        if (row?.Metrics.Price is not { } price)
         {
             throw new StateConflictException("The scanner does not show this pair now.", ScanTradeErrorCodes.PairNotScanned);
         }
@@ -183,6 +194,8 @@ internal sealed class CreateScanTradeCommandHandler(
         {
             throw new StateConflictException("The price has moved away from the entry; open the cards again.", ScanTradeErrorCodes.EntryMoved);
         }
+
+        return row.Metrics.Spread;
     }
 
     /// <summary>

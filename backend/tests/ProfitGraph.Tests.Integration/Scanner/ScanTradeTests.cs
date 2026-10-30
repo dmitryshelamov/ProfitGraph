@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -106,19 +107,27 @@ public sealed class ScanTradeTests
         ScanTradeIdeaResponse levels = ideas.Ideas[2];
         (levels.Entry, levels.RewardRisk, levels.EntryValidityMinutes).ShouldBe(("100", "4", 60));
 
+        // The test venue's rates for the owner's credential; the snapshot row has no spread.
+        ideas.Costs.ShouldBe(new ScanTradeCostsResponse("0.0008", "0.001", "0", FeesFromVenue: true, SpreadKnown: false));
+        ideas.TightStops.ShouldBe(0);
+
+        // 96.525 reach 120 from 100 and pay a limit fee of 0.08 % twice: 96.525 × 0.1984.
+        decimal.Parse(levels.Profit!, CultureInfo.InvariantCulture).ShouldBe(expected: 19.1506m, tolerance: 0.0001m);
+
         HttpResponseMessage created = await Create(owner, "TRADEAUSDT", levels);
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
         var trade = (await created.Content.ReadFromJsonAsync<ScanLiveTradeResponse>(WebJson))!;
         var bot = await owner.Client.GetFromJsonAsync<JsonElement>($"{BotApi.Path}/{trade.BotId}");
 
-        // A 5 % stop and 0.1 % on each side lose 5.2 % of the amount: 5 / 0.052 = 96.15 after rounding down to cents.
-        (trade.Status, trade.Amount, trade.Scenario).ShouldBe(("Waiting", "96.15", nameof(ScanScenario.Levels)));
+        // A 5 % stop, a limit entry at 0.08 % and a market stop at 0.1 % lose 5.18 % of the amount: 5 / 0.0518 = 96.52 after rounding down
+        // to cents.
+        (trade.Status, trade.Amount, trade.Scenario).ShouldBe(("Waiting", "96.52", nameof(ScanScenario.Levels)));
         bot.GetProperty("name").GetString().ShouldBe("TRADEAUSDT · уровни 1d");
         bot.GetProperty("allowForeignOrders").GetBoolean().ShouldBeTrue();
         bot.GetProperty("desiredState").GetString().ShouldBe("Running");
         bot.GetProperty("timeframe").GetString().ShouldBe("1h");
         bot.GetProperty("parameters").GetProperty("entryPrice").GetString().ShouldBe("100");
-        bot.GetProperty("allocationCap").GetString().ShouldBe("96.15");
+        bot.GetProperty("allocationCap").GetString().ShouldBe("96.52");
 
         HttpResponseMessage twice = await Create(owner, "TRADEAUSDT", levels);
         twice.StatusCode.ShouldBe(HttpStatusCode.Conflict);
@@ -139,6 +148,23 @@ public sealed class ScanTradeTests
         bot = await owner.Client.GetFromJsonAsync<JsonElement>($"{BotApi.Path}/{trade.BotId}");
         bot.GetProperty("desiredState").GetString().ShouldBe("Stopped");
         (await Track(trade.Id)).ShouldBeFalse();
+    }
+
+    [Test]
+    public async Task IdeasWhoseStopIsNearerThanFeesAndSpreadAreLeftOutAndRefused()
+    {
+        // A 5 % spread and 0.18 % of fees exceed the 5 % stops of days, but not the 10 % stops of hours.
+        BotOwner owner = await SetUp("TRADEDUSDT", spread: 5m);
+
+        ScanTradeIdeasResponse ideas = await Ideas(owner, "TRADEDUSDT");
+        HttpResponseMessage tight = await owner.Client.PostAsJsonAsync(
+            $"/api/scanner/{Venue}/trades",
+            new { symbol = "TRADEDUSDT", timeframe = "1d", scenario = "Levels", entry = "100", stop = "95", target = "120" });
+
+        ideas.Ideas.Select(idea => (idea.Timeframe, idea.Scenario)).ShouldBe([("1h", "Levels"), ("1h", "Target2R")]);
+        (ideas.TightStops, ideas.Costs.Spread, ideas.Costs.SpreadKnown).ShouldBe((2, "0.05", true));
+        tight.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await BotApi.Code(tight)).ShouldBe("scan_trade_stop_too_tight");
     }
 
     [Test]
@@ -223,13 +249,13 @@ public sealed class ScanTradeTests
         return (await owner.Client.GetFromJsonAsync<List<ScanLiveTradeResponse>>($"/api/scanner/{Venue}/trades?symbol={symbol}", WebJson))!;
     }
 
-    private async Task<BotOwner> SetUp(string symbol)
+    private async Task<BotOwner> SetUp(string symbol, decimal? spread = null)
     {
         BotOwner owner = await BotApi.NewOwner(_api);
         (await owner.Client.PutAsJsonAsync($"/api/scanner/{Venue}/trade-settings", new { credentialId = owner.CredentialId, risk = "5", maxAmount = "1000" }))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
         using IServiceScope scope = _api.Services.CreateScope();
-        var row = new ScanSnapshotRowInternal(symbol, new ScanMetrics { Price = 100m }, Incomplete: false);
+        var row = new ScanSnapshotRowInternal(symbol, new ScanMetrics { Price = 100m, Spread = spread }, Incomplete: false);
         await scope.ServiceProvider.GetRequiredService<ISender>().Send(new ReplaceScanSnapshotCommand(new ScanSnapshotInternal(Venue, DateTimeOffset.UtcNow, [row])));
 
         return owner;

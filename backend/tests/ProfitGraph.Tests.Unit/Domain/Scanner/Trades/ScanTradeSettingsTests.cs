@@ -3,6 +3,7 @@ using ProfitGraph.Domain.Accounts.Credentials;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Scanner.Trades;
 using ProfitGraph.Domain.Strategies;
+using ProfitGraph.Engine.Scanning;
 
 namespace ProfitGraph.Tests.Unit.Domain.Scanner.Trades;
 
@@ -20,7 +21,7 @@ public sealed class ScanTradeSettingsTests
         ScanTradeSettings settings = Settings(risk: 10m, maxAmount: 1000m);
 
         // A 5 % stop and 0.1 % on each side lose 5.2 % of the amount: 10 / 0.052.
-        (decimal amount, decimal risk) = settings.Size(entry: 100m, stop: 95m, feeRate: 0.001m);
+        (decimal amount, decimal risk) = settings.Size(entry: 100m, stop: 95m, ScanTradeCosts.Flat(feeRate: 0.001m));
 
         amount.ShouldBe(10m / 0.052m);
         risk.ShouldBe(10m);
@@ -31,7 +32,18 @@ public sealed class ScanTradeSettingsTests
     {
         ScanTradeSettings settings = Settings(risk: 10m, maxAmount: 100m);
 
-        settings.Size(entry: 100m, stop: 95m, feeRate: 0.001m).ShouldBe((100m, 5.2m));
+        settings.Size(entry: 100m, stop: 95m, ScanTradeCosts.Flat(feeRate: 0.001m)).ShouldBe((100m, 5.2m));
+    }
+
+    [Test]
+    public void SizesWithTheLimitAndMarketFeesAndTheSpreadOfAStop()
+    {
+        ScanTradeSettings settings = Settings(risk: 10m, maxAmount: 100m);
+        var costs = new ScanTradeCosts(limitFeeRate: 0.001m, marketFeeRate: 0.0018m, spread: 0.0002m);
+
+        // A 5 % stop, a limit entry at 0.1 %, a market stop at 0.18 % and a 0.02 % spread lose 5.3 % of the amount; capped at 100.
+        settings.Size(entry: 100m, stop: 95m, costs).ShouldBe((100m, 5.3m));
+        Settings(risk: 10m, maxAmount: 1000m).Size(entry: 100m, stop: 95m, costs).Amount.ShouldBe(10m / 0.053m);
     }
 
     [Test]
@@ -59,7 +71,7 @@ public sealed class ScanTradeSettingsTests
         (settings.ShortStrategyId, settings.StrategyId, settings.Leverage).ShouldBe(((StrategyId?)strategy, (StrategyId?)null, (decimal?)3m));
 
         // A short's stop above its entry sizes like a long's below it.
-        settings.Size(entry: 100m, stop: 105m, feeRate: 0.001m).Amount.ShouldBe(10m / 0.052m);
+        settings.Size(entry: 100m, stop: 105m, ScanTradeCosts.Flat(feeRate: 0.001m)).Amount.ShouldBe(10m / 0.052m);
         Should.Throw<ScanTradeRuleException>(() => settings.Change(settings.CredentialId, risk: 10m, maxAmount: 1000m, Now, leverage: 0.5m));
     }
 
