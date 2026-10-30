@@ -27,6 +27,7 @@ const emptyMetrics = {
   distanceToHigh7d: null,
   distanceToLow7d: null,
   breakout4h: null,
+  breakdown4h: null,
   range4h: null,
   resistance: null,
   support: null,
@@ -49,6 +50,7 @@ const impulse = {
   hideStale: true,
   builtIn: true,
   alertsEnabled: false,
+  tradeDirection: 'Long',
 };
 
 function snapshot(rows: object[]) {
@@ -154,6 +156,7 @@ describe('scanner page', () => {
       sortMetric: 'Change1h',
       sortDescending: true,
       hideStale: true,
+      tradeDirection: 'Long',
     });
     expect(await screen.findByRole('button', { name: 'Сохранить как новый' })).toBeInTheDocument();
   });
@@ -211,7 +214,10 @@ describe('scanner page', () => {
 
     renderApp('/scanner');
 
-    await userEvent.click(await screen.findByRole('link', { name: 'SOLUSDT' }));
+    // «Импульс» trades long, so the pair's page opens its trade cards on the long side (ADR 0069).
+    const pair = await screen.findByRole('link', { name: 'SOLUSDT' });
+    expect(pair).toHaveAttribute('href', '/scanner/bybit/SOLUSDT?trades=Long');
+    await userEvent.click(pair);
 
     expect(await screen.findByRole('heading', { name: 'SOLUSDT' })).toBeInTheDocument();
     expect(
@@ -234,6 +240,10 @@ describe('scanner page', () => {
     expect(await within(levels1h).findByText('1.67')).toBeInTheDocument();
     expect(within(levels1h).getByText('200')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '1h' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '1h' })).toHaveAttribute(
+      'href',
+      '/scanner/bybit/SOLUSDT?timeframe=1h&trades=Long',
+    );
   });
 
   it('creates the ticked ideas of every timeframe with the profit and loss they show', async () => {
@@ -574,12 +584,17 @@ describe('scanner page', () => {
         ),
     });
 
-    renderApp('/scanner/bybit-linear/SOLUSDT');
+    // Opened from «Падение», which trades short (ADR 0069).
+    renderApp('/scanner/bybit-linear/SOLUSDT?trades=Short');
 
     const card = await screen.findByRole('row', { name: 'Идея: Шорт Уровни 15m' });
     expect(within(card).getByText('Продажа лимиткой, ждёт 1 ч')).toBeInTheDocument();
     expect(within(card).getByText('-12%')).toBeInTheDocument();
-    expect(screen.getByRole('group', { name: 'Направление' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('group', { name: 'Направление' })).getByRole('button', {
+        name: 'Шорт',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
     expect(
       within(await screen.findByLabelText('Настройки сделок')).getByText('3×'),
     ).toBeInTheDocument();

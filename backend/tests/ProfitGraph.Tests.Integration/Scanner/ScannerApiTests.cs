@@ -87,18 +87,25 @@ public sealed class ScannerApiTests
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
         preset.Conditions.Single().ShouldBe(new ScanConditionResponse("Change1h", "2.5", Maximum: null));
+        preset.TradeDirection.ShouldBe("Both");
         duplicate.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-        ownList!.Select(item => (item.Name, item.BuiltIn)).ShouldBe([("Импульс", true), ("Ранний импульс", true), ("Под лесенку", true), ("Мой", false)]);
+        ownList!.Select(item => (item.Name, item.BuiltIn)).ShouldBe(
+            [("Импульс", true), ("Ранний импульс", true), ("Падение", true), ("Раннее падение", true), ("Под лесенку", true), ("Мой", false)]);
         strangerList!.ShouldAllBe(item => item.BuiltIn);
+        ownList!.Where(item => item.BuiltIn).Select(item => item.TradeDirection).ShouldBe(["Long", "Long", "Short", "Short", "Both"]);
         strangerChange.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         HttpResponseMessage changed = await owner.PutAsJsonAsync(
             $"/api/scanner/presets/{preset.Id}",
-            request with { Name = "Мой узкий", Conditions = [new ScanConditionRequest("Spread", Minimum: null, "0.05")] });
+            request with { Name = "Мой узкий", Conditions = [new ScanConditionRequest("Spread", Minimum: null, "0.05")], TradeDirection = "Short" });
+        HttpResponseMessage wrongDirection = await owner.PutAsJsonAsync($"/api/scanner/presets/{preset.Id}", request with { TradeDirection = "Up" });
+        var stored = await owner.GetFromJsonAsync<List<ScanPresetResponse>>("/api/scanner/bybit/presets");
         HttpResponseMessage deleted = await owner.DeleteAsync($"/api/scanner/presets/{preset.Id}");
         HttpResponseMessage deletedAgain = await owner.DeleteAsync($"/api/scanner/presets/{preset.Id}");
 
         (await changed.Content.ReadFromJsonAsync<ScanPresetResponse>())!.Conditions.Single().ShouldBe(new ScanConditionResponse("Spread", Minimum: null, "0.05"));
+        wrongDirection.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        stored!.Single(item => !item.BuiltIn).TradeDirection.ShouldBe("Short");
         deleted.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         deletedAgain.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }

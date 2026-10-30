@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router';
 
 import { formatMetric } from '../model/format';
 import { metricValue, type ScanMetric, scanMetrics } from '../model/metrics';
+import type { ScanTradeSide } from '../model/tradeSide';
 import type { ScanRow } from '../model/types';
 
 /**
@@ -13,12 +14,15 @@ export function ScannerTable({
   sortMetric,
   sortDescending,
   onSort,
+  trades,
 }: {
   venue: string;
   rows: readonly ScanRow[];
   sortMetric: ScanMetric;
   sortDescending: boolean;
   onSort: (metric: ScanMetric) => void;
+  /** The side a pair's trade cards open on, from the preset that shows the table. */
+  trades?: ScanTradeSide;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -58,6 +62,7 @@ export function ScannerTable({
                 <Link
                   to="/scanner/$venue/$symbol"
                   params={{ venue, symbol: row.symbol }}
+                  search={trades ? { trades } : {}}
                   className="font-medium hover:underline"
                 >
                   {row.symbol}

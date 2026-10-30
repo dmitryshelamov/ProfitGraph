@@ -10,13 +10,15 @@ internal static class ScanSnapshotQueries
                                     INSERT INTO scan_snapshot_rows (
                                         venue, symbol, computed_at, price, change_5m, change_15m, change_1h, change_4h, change_24h, turnover_1h,
                                         turnover_24h, volume_spike, volume_spike_5m, volume_spike_15m, natr_24h, efficiency_ratio_24h, distance_to_high_24h,
-                                        distance_to_low_24h, distance_to_high_7d, distance_to_low_7d, breakout_4h, range_4h, resistance, support, distance_to_resistance, distance_to_support, reward_risk, spread,
+                                        distance_to_low_24h, distance_to_high_7d, distance_to_low_7d, breakout_4h, breakdown_4h, range_4h, resistance, support, distance_to_resistance,
+                                        distance_to_support, reward_risk, spread,
                                         listing_age_days, stale, incomplete)
                                     SELECT @Venue, row.*
                                     FROM unnest(
                                         @Symbols, @ComputedAts, @Prices, @Change5m, @Change15m, @Change1h, @Change4h, @Change24h, @Turnover1h,
                                         @Turnover24h, @VolumeSpike, @VolumeSpike5m, @VolumeSpike15m, @Natr24h, @EfficiencyRatio24h, @DistanceToHigh24h,
-                                        @DistanceToLow24h, @DistanceToHigh7d, @DistanceToLow7d, @Breakout4h, @Range4h, @Resistance, @Support, @DistanceToResistance, @DistanceToSupport, @RewardRisk, @Spread,
+                                        @DistanceToLow24h, @DistanceToHigh7d, @DistanceToLow7d, @Breakout4h, @Breakdown4h, @Range4h, @Resistance, @Support, @DistanceToResistance,
+                                        @DistanceToSupport, @RewardRisk, @Spread,
                                         @ListingAgeDays, @Stale, @Incomplete) AS row;
                                     SELECT pg_notify('scan_snapshot', @Signal::text);
                                     """;
@@ -29,7 +31,7 @@ internal static class ScanSnapshotQueries
                                     turnover_24h AS Turnover24h, volume_spike AS VolumeSpike, volume_spike_5m AS VolumeSpike5m,
                                     volume_spike_15m AS VolumeSpike15m, natr_24h AS Natr24h, efficiency_ratio_24h AS EfficiencyRatio24h,
                                     distance_to_high_24h AS DistanceToHigh24h, distance_to_low_24h AS DistanceToLow24h, distance_to_high_7d AS DistanceToHigh7d,
-                                    distance_to_low_7d AS DistanceToLow7d, breakout_4h AS Breakout4h, range_4h AS Range4h, resistance AS Resistance, support AS Support,
+                                    distance_to_low_7d AS DistanceToLow7d, breakout_4h AS Breakout4h, breakdown_4h AS Breakdown4h, range_4h AS Range4h, resistance AS Resistance, support AS Support,
                                     distance_to_resistance AS DistanceToResistance, distance_to_support AS DistanceToSupport, reward_risk AS RewardRisk, spread AS Spread, listing_age_days AS ListingAgeDays, stale AS Stale,
                                     incomplete AS Incomplete
                                 FROM scan_snapshot_rows

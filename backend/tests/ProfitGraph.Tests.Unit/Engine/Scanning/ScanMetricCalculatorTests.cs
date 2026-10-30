@@ -110,8 +110,35 @@ public sealed class ScanMetricCalculatorTests
         // The last 15 minutes rose to 110 with highs of 120 and lows of 90; they are not part of the range.
         metrics.Breakout4h.ShouldBe((110m - 104m) / 104m * 100m);
         metrics.Range4h.ShouldBe((104m - 98m) / 98m * 100m);
+        metrics.Breakdown4h.ShouldBe((110m - 98m) / 98m * 100m);
         Calculate(minutes[1..]).Breakout4h.ShouldBeNull();
+        Calculate(minutes[1..]).Breakdown4h.ShouldBeNull();
         Calculate(minutes[1..]).Range4h.ShouldBeNull();
+    }
+
+    [Test]
+    public void TheRangeSkipsMinutesWithoutTrades()
+    {
+        // A night of 300 flat minutes without trades lies between the evening's 240 minutes and the morning's first 15.
+        List<ScanCandle> minutes = Series(
+            Start,
+            Minute,
+            count: 555,
+            index => index switch
+            {
+                10 => Bar(Start, open: 100, close: 100, high: 104, low: 100),
+                20 => Bar(Start, open: 100, close: 100, high: 100, low: 98),
+                < 240 => Flat(Start, price: 100, turnover: 1),
+                < 540 => Flat(Start, price: 100, turnover: 0),
+                _ => Bar(Start, open: 100, close: 95, high: 101, low: 94)
+            });
+
+        ScanMetrics metrics = Calculate(minutes);
+
+        metrics.Breakout4h.ShouldBe((95m - 104m) / 104m * 100m);
+        metrics.Breakdown4h.ShouldBe((95m - 98m) / 98m * 100m);
+        metrics.Range4h.ShouldBe((104m - 98m) / 98m * 100m);
+        Calculate(minutes[1..]).Breakdown4h.ShouldBeNull();
     }
 
     [Test]

@@ -23,6 +23,7 @@ public enum ScanMetric
     DistanceToHigh7d,
     DistanceToLow7d,
     Breakout4h,
+    Breakdown4h,
     Range4h,
     Resistance,
     Support,

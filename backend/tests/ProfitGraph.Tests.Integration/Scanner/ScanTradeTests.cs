@@ -51,6 +51,10 @@ public sealed class ScanTradeTests
         // The test venue has no minutes, so trades run on hours here.
         Dictionary<string, string> settings = BotApi.Settings();
         settings["ScanTrades:Timeframe"] = "1h";
+
+        // The test venue offers hours and days only.
+        settings["ScanTrades:LevelTimeframes:0"] = "1h";
+        settings["ScanTrades:LevelTimeframes:1"] = "1d";
         _api = new ProfitGraphApiFactory(settings, services: services => services.AddSingleton<IMarketScanSource, TestScanSource>());
         _history = _api.Services.GetRequiredService<FakeHistorySource>();
     }
@@ -96,38 +100,41 @@ public sealed class ScanTradeTests
 
         ScanTradeIdeasResponse ideas = await Ideas(owner, "TRADEAUSDT");
 
-        // Hours: support 90, resistance 110; days: support 95, resistance 120; the last hour did not rise, so no pullback.
+        // Hours: support 90, resistance 110, an average range of 1.375; days: support 95, resistance 120, a range of 1.7916…; each stop lies
+        // a quarter range below its support (ADR 0070). The last hour did not rise, so no pullback.
         (ideas.Price, ideas.HasSettings).ShouldBe(("100", true));
         ideas.Ideas.Select(idea => (idea.Timeframe, idea.Scenario, idea.Stop, idea.Target, idea.Taken))
             .ShouldBe(
             [
-                ("1h", "Levels", "90", "110", false), ("1h", "Target2R", "90", "120", false), ("1d", "Levels", "95", "120", false),
-                ("1d", "Target2R", "95", "110", false)
+                ("1h", "Levels", "89.65625", "110", false), ("1h", "Target2R", "89.65625", "120.6875", false),
+                ("1d", "Levels", "94.552083", "120", false),
+                ("1d", "Target2R", "94.552083", "110.895834", false)
             ]);
         ScanTradeIdeaResponse levels = ideas.Ideas[2];
-        (levels.Entry, levels.RewardRisk, levels.EntryValidityMinutes).ShouldBe(("100", "4", 60));
+        (levels.Entry, levels.EntryValidityMinutes).ShouldBe(("100", 60));
+        decimal.Parse(levels.RewardRisk, CultureInfo.InvariantCulture).ShouldBe(expected: 20m / 5.4479m, tolerance: 0.0001m);
 
         // The test venue's rates for the owner's credential; the snapshot row has no spread.
         ideas.Costs.ShouldBe(new ScanTradeCostsResponse("0.0008", "0.001", "0", FeesFromVenue: true, SpreadKnown: false));
         ideas.TightStops.ShouldBe(0);
 
-        // 96.525 reach 120 from 100 and pay a limit fee of 0.08 % twice: 96.525 × 0.1984.
-        decimal.Parse(levels.Profit!, CultureInfo.InvariantCulture).ShouldBe(expected: 19.1506m, tolerance: 0.0001m);
+        // 88.843 reach 120 from 100 and pay a limit fee of 0.08 % twice: 88.843 × 0.1984.
+        decimal.Parse(levels.Profit!, CultureInfo.InvariantCulture).ShouldBe(expected: 17.6264m, tolerance: 0.0001m);
 
         HttpResponseMessage created = await Create(owner, "TRADEAUSDT", levels);
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
         var trade = (await created.Content.ReadFromJsonAsync<ScanLiveTradeResponse>(WebJson))!;
         var bot = await owner.Client.GetFromJsonAsync<JsonElement>($"{BotApi.Path}/{trade.BotId}");
 
-        // A 5 % stop, a limit entry at 0.08 % and a market stop at 0.1 % lose 5.18 % of the amount: 5 / 0.0518 = 96.52 after rounding down
-        // to cents.
-        (trade.Status, trade.Amount, trade.Scenario).ShouldBe(("Waiting", "96.52", nameof(ScanScenario.Levels)));
+        // A 5.448 % stop, a limit entry at 0.08 % and a market stop at 0.1 % lose 5.628 % of the amount: 5 / 0.05628 = 88.84 after
+        // rounding down to cents.
+        (trade.Status, trade.Amount, trade.Scenario).ShouldBe(("Waiting", "88.84", nameof(ScanScenario.Levels)));
         bot.GetProperty("name").GetString().ShouldBe("TRADEAUSDT · уровни 1d");
         bot.GetProperty("allowForeignOrders").GetBoolean().ShouldBeTrue();
         bot.GetProperty("desiredState").GetString().ShouldBe("Running");
         bot.GetProperty("timeframe").GetString().ShouldBe("1h");
         bot.GetProperty("parameters").GetProperty("entryPrice").GetString().ShouldBe("100");
-        bot.GetProperty("allocationCap").GetString().ShouldBe("96.52");
+        bot.GetProperty("allocationCap").GetString().ShouldBe("88.84");
 
         HttpResponseMessage twice = await Create(owner, "TRADEAUSDT", levels);
         twice.StatusCode.ShouldBe(HttpStatusCode.Conflict);
@@ -153,8 +160,8 @@ public sealed class ScanTradeTests
     [Test]
     public async Task IdeasWhoseStopIsNearerThanFeesAndSpreadAreLeftOutAndRefused()
     {
-        // A 5 % spread and 0.18 % of fees exceed the 5 % stops of days, but not the 10 % stops of hours.
-        BotOwner owner = await SetUp("TRADEDUSDT", spread: 5m);
+        // A 6 % spread and 0.18 % of fees exceed the 5.45 % stops of days, but not the 10.34 % stops of hours.
+        BotOwner owner = await SetUp("TRADEDUSDT", spread: 6m);
 
         ScanTradeIdeasResponse ideas = await Ideas(owner, "TRADEDUSDT");
         HttpResponseMessage tight = await owner.Client.PostAsJsonAsync(
@@ -162,7 +169,7 @@ public sealed class ScanTradeTests
             new { symbol = "TRADEDUSDT", timeframe = "1d", scenario = "Levels", entry = "100", stop = "95", target = "120" });
 
         ideas.Ideas.Select(idea => (idea.Timeframe, idea.Scenario)).ShouldBe([("1h", "Levels"), ("1h", "Target2R")]);
-        (ideas.TightStops, ideas.Costs.Spread, ideas.Costs.SpreadKnown).ShouldBe((2, "0.05", true));
+        (ideas.TightStops, ideas.Costs.Spread, ideas.Costs.SpreadKnown).ShouldBe((2, "0.06", true));
         tight.StatusCode.ShouldBe(HttpStatusCode.Conflict);
         (await BotApi.Code(tight)).ShouldBe("scan_trade_stop_too_tight");
     }

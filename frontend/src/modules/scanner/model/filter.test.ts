@@ -22,6 +22,7 @@ function row(symbol: string, fields: Partial<ScanRow> = {}): ScanRow {
     distanceToHigh7d: null,
     distanceToLow7d: null,
     breakout4h: null,
+    breakdown4h: null,
     range4h: null,
     resistance: null,
     support: null,

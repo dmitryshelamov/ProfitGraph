@@ -12,4 +12,5 @@ public sealed record ScanPresetResponse(
     bool SortDescending,
     bool HideStale,
     bool BuiltIn,
-    bool AlertsEnabled);
+    bool AlertsEnabled,
+    string TradeDirection);

@@ -30,7 +30,13 @@ internal sealed class UpdateScanPresetCommandHandler(IScanPresetRepository prese
 
         ScanAlertWatch? watch = await watches.GetForUpdate(id, cancellationToken);
 
-        if (preset.Change(name, command.Definition.ToDomainConditions(), command.Definition.ToDomainSort(), command.Definition.HideStale, clock.GetUtcNow()))
+        if (preset.Change(
+                name,
+                command.Definition.ToDomainConditions(),
+                command.Definition.ToDomainSort(),
+                command.Definition.HideStale,
+                command.Definition.TradeDirection,
+                clock.GetUtcNow()))
         {
             await presets.Update(preset, cancellationToken);
 

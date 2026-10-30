@@ -11,7 +11,7 @@ import {
 
 import { currentUserQuery } from '@/modules/accounts';
 import { botPageSearch } from '@/modules/bots';
-import { scanChartTimeframe } from '@/modules/scanner';
+import { scanChartTimeframe, type ScanTradeSide, scanTradeSide } from '@/modules/scanner';
 
 import { AppShell } from './AppShell';
 import { NotFoundPage } from './NotFoundPage';
@@ -237,10 +237,13 @@ const scannerRoute = createRoute({
 const scanPairRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/scanner/$venue/$symbol',
-  validateSearch: (search: Record<string, unknown>): { timeframe?: string } => {
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { timeframe?: string; trades?: ScanTradeSide } => {
     const timeframe = scanChartTimeframe(search.timeframe);
+    const trades = scanTradeSide(search.trades);
 
-    return timeframe ? { timeframe } : {};
+    return { ...(timeframe ? { timeframe } : {}), ...(trades ? { trades } : {}) };
   },
   component: lazyRouteComponent(() => import('@/pages/scanner/ScanPairPage'), 'ScanPairPage'),
 });

@@ -111,7 +111,7 @@ as the engine's indicators are (ADR 0056); they live in the engine's `Scanning/`
 | Volatility (NATR 24h) | Simple mean of true range / close over the last 24 closed hourly candles, %. |
 | Efficiency ratio 24h | \|C_t − C_{t−24}\| / Σ\|ΔC\| over hourly closes: 0 is a range, 1 a trend. |
 | Distance to high and low, 24h and 7d | (C − High_N) / High_N and (C − Low_N) / Low_N, %. |
-| Breakout and range 4h | (C − High) / High and (High − Low) / Low of the 240 minutes before the last 15, %; the last 15 minutes are the move, not the range (added by ADR 0066). |
+| Breakout, breakdown and range 4h | (C − High) / High, (C − Low) / Low and (High − Low) / Low of the 240 minutes with trades before the last 15, %; the last 15 minutes are the move, not the range (added by ADR 0066; breakdown and minutes with trades by ADR 0068). |
 | Spread | (ask − bid) / mid from the minute's quote snapshot, %. |
 | Listing age | Days since the pair's listing: the venue's listing time, or the first candle when the 7-day history starts later than asked; empty for older pairs when the venue publishes no listing time (Bybit Spot). |
 | Stale | The last minute with volume ended more than 15 minutes ago, or there is none. |
@@ -121,14 +121,16 @@ to BTC and cross-venue gaps are out of scope.
 
 ### 4. Presets
 
-1. **Both scenarios are equal** (owner): catching a move now and picking pairs for a Ladder. The page offers two built-in presets:
+1. **Both scenarios are equal** (owner): catching a move now and picking pairs for a Ladder. The page offers the same built-in presets on every venue (ADR 0068):
    - **«Импульс»**: short-window change, volume spike, a turnover floor.
    - **«Ранний импульс»** (added by ADR 0066): a 15-minute change and volume spike, a breakout of the four hours before, an hour not
      yet far up, a turnover floor.
+   - **«Падение»** and **«Раннее падение»** (added by ADR 0068): the mirrors of the two rises, for falling pairs.
    - **«Под лесенку»**: low efficiency ratio, volatility above the round-trip fee, a turnover floor, a spread ceiling, and no
      pairs falling over 24 hours and 7 days.
 2. A preset is a set of conditions (metric, minimum, maximum) and a sort. Every column filters and sorts. A user saves their own
    presets under a name; built-in presets are read-only and can be copied. Presets belong to the user; the snapshot is shared.
+   A preset also sets which trade cards its pairs offer: long, short or both ways (ADR 0069).
 3. A row opens the pair's candle chart (`/scanner/{venue}/{symbol}`, timeframes 1m, 5m, 15m, 1h, 4h and 1d, 15m first) next to
    its metrics from the latest snapshot. The chart reads the venue's public history through the shared candle cache, as a bot's
    chart does (ADR 0026): `GET /api/scanner/{venue}/candles`, at most 1,000 candles a page, only for a venue with a scanner.

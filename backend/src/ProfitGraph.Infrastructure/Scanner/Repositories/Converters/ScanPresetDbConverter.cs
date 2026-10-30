@@ -23,7 +23,8 @@ internal static class ScanPresetDbConverter
             [.. preset.Conditions.Select(condition => new ScanPresetConditionDb(condition.Metric.ToString(), condition.Minimum, condition.Maximum))],
             preset.Sort.Metric.ToString(),
             preset.Sort.Descending,
-            preset.HideStale);
+            preset.HideStale,
+            preset.TradeDirection.ToString());
 
         return JsonSerializer.Serialize(definition, Options);
     }
@@ -47,6 +48,7 @@ internal static class ScanPresetDbConverter
             new ScanSort(Enum.Parse<ScanMetric>(definition.SortMetric), definition.SortDescending),
             definition.HideStale,
             row.CreatedAt,
-            row.UpdatedAt);
+            row.UpdatedAt,
+            definition.TradeDirection is { } direction ? Enum.Parse<ScanTradeDirection>(direction) : ScanTradeDirection.Both);
     }
 }

@@ -1,4 +1,5 @@
 using ProfitGraph.Application.Scanner.Contracts;
+using ProfitGraph.Domain.Scanner;
 
 namespace ProfitGraph.Venues.TInvest.Scanner;
 
@@ -6,10 +7,14 @@ namespace ProfitGraph.Venues.TInvest.Scanner;
 ///     The built-in scanner presets of T-Invest MOEX shares (ADR 0062), with turnover in roubles. Bybit's thresholds do not fit:
 ///     its turnover is in USDT, shares move less than coins, the scanner's 24-hour windows span the night and the weekend without
 ///     trades, so a share's NATR is lower than on a market that never closes, and T-Invest gives no spread. «Импульс» finds an hour
-///     up at least 2% on volume three times its usual with 30 million roubles a day. «Под лесенку» finds a range (efficiency ratio at
+///     up at least 2% on volume three times its usual with 30 million roubles a day; «Падение» is its mirror, an hour down at least
+///     2%. «Ранний импульс» (ADR 0066, ADR 0068) is 15 minutes up at least 1.5% on a 15-minute volume spike of at least 3, above the
+///     high of the range before (its minutes with trades, so the night before the morning session does not count), an hour at most 4%
+///     up; «Раннее падение» is its mirror, below the range's low. Their thresholds scale Bybit's by the two thirds «Импульс» does and
+///     were not backtested on shares. «Под лесенку» finds a range (efficiency ratio at
 ///     most 0.3) with hourly swings of at least 0.35% (a round trip costs 0.1% on the «Трейдер» tariff, 0.6% on «Инвестор»), 100
 ///     million roubles a day, at most 5% down in a day and 15% below the week's high. The thresholds are a starting point the
-///     owner tunes by copying a preset.
+///     owner tunes by copying a preset. The rises offer long trade cards, the falls short ones (ADR 0069).
 /// </summary>
 internal static class TInvestScanPresets
 {
@@ -27,7 +32,54 @@ internal static class TInvestScanPresets
             SortDescending: true,
             HideStale: true,
             BuiltIn: true,
-            AlertsEnabled: false),
+            AlertsEnabled: false,
+            ScanTradeDirection.Long),
+        new ScanPresetInternal(
+            Id: null,
+            TInvestVenue.VenueId.Value,
+            "Ранний импульс",
+            [
+                new ScanConditionInternal("Change15m", Minimum: 1.5m, Maximum: null),
+                new ScanConditionInternal("VolumeSpike15m", Minimum: 3m, Maximum: null),
+                new ScanConditionInternal("Breakout4h", Minimum: 0m, Maximum: null), new ScanConditionInternal("Change1h", Minimum: null, Maximum: 4m),
+                new ScanConditionInternal("Turnover24h", Minimum: 30_000_000m, Maximum: null)
+            ],
+            "Change15m",
+            SortDescending: true,
+            HideStale: true,
+            BuiltIn: true,
+            AlertsEnabled: false,
+            ScanTradeDirection.Long),
+        new ScanPresetInternal(
+            Id: null,
+            TInvestVenue.VenueId.Value,
+            "Падение",
+            [
+                new ScanConditionInternal("Change1h", Minimum: null, Maximum: -2m), new ScanConditionInternal("VolumeSpike", Minimum: 3m, Maximum: null),
+                new ScanConditionInternal("Turnover24h", Minimum: 30_000_000m, Maximum: null)
+            ],
+            "Change1h",
+            SortDescending: false,
+            HideStale: true,
+            BuiltIn: true,
+            AlertsEnabled: false,
+            ScanTradeDirection.Short),
+        new ScanPresetInternal(
+            Id: null,
+            TInvestVenue.VenueId.Value,
+            "Раннее падение",
+            [
+                new ScanConditionInternal("Change15m", Minimum: null, Maximum: -1.5m),
+                new ScanConditionInternal("VolumeSpike15m", Minimum: 3m, Maximum: null),
+                new ScanConditionInternal("Breakdown4h", Minimum: null, Maximum: 0m), new ScanConditionInternal("Change1h", Minimum: -4m, Maximum: null),
+                new ScanConditionInternal("Turnover24h", Minimum: 30_000_000m, Maximum: null)
+            ],
+            "Change15m",
+            SortDescending: false,
+            HideStale: true,
+            BuiltIn: true,
+            AlertsEnabled: false,
+            ScanTradeDirection.Short),
         new ScanPresetInternal(
             Id: null,
             TInvestVenue.VenueId.Value,
@@ -41,6 +93,7 @@ internal static class TInvestScanPresets
             SortDescending: true,
             HideStale: true,
             BuiltIn: true,
-            AlertsEnabled: false)
+            AlertsEnabled: false,
+            ScanTradeDirection.Both)
     ];
 }

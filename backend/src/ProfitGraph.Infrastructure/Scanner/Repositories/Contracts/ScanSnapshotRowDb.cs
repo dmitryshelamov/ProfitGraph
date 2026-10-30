@@ -23,6 +23,7 @@ internal sealed class ScanSnapshotRowDb
     public decimal? DistanceToHigh7d { get; init; }
     public decimal? DistanceToLow7d { get; init; }
     public decimal? Breakout4h { get; init; }
+    public decimal? Breakdown4h { get; init; }
     public decimal? Range4h { get; init; }
     public decimal? Resistance { get; init; }
     public decimal? Support { get; init; }

@@ -5373,6 +5373,7 @@ export interface components {
             sortMetric: string;
             sortDescending: boolean;
             hideStale: boolean;
+            tradeDirection?: null | string;
         };
         ScanPresetResponse: {
             /** Format: uuid */
@@ -5385,6 +5386,7 @@ export interface components {
             hideStale: boolean;
             builtIn: boolean;
             alertsEnabled: boolean;
+            tradeDirection: string;
         };
         ScanScenarioSummaryResponse: {
             scenario: string;
@@ -5440,6 +5442,7 @@ export interface components {
             distanceToHigh7d: null | string;
             distanceToLow7d: null | string;
             breakout4h: null | string;
+            breakdown4h: null | string;
             range4h: null | string;
             resistance: null | string;
             support: null | string;

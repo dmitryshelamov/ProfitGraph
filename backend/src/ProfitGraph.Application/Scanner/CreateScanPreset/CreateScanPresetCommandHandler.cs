@@ -30,7 +30,8 @@ internal sealed class CreateScanPresetCommandHandler(IEnumerable<IMarketScanSour
             command.Definition.ToDomainConditions(),
             command.Definition.ToDomainSort(),
             command.Definition.HideStale,
-            clock.GetUtcNow());
+            clock.GetUtcNow(),
+            command.Definition.TradeDirection);
         await presets.Add(preset, cancellationToken);
 
         return preset.ToInternal(alertsEnabled: false);
