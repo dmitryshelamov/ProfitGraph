@@ -88,7 +88,7 @@ public sealed class ScannerApiTests
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
         preset.Conditions.Single().ShouldBe(new ScanConditionResponse("Change1h", "2.5", Maximum: null));
         duplicate.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-        ownList!.Select(item => (item.Name, item.BuiltIn)).ShouldBe([("Импульс", true), ("Под лесенку", true), ("Мой", false)]);
+        ownList!.Select(item => (item.Name, item.BuiltIn)).ShouldBe([("Импульс", true), ("Ранний импульс", true), ("Под лесенку", true), ("Мой", false)]);
         strangerList!.ShouldAllBe(item => item.BuiltIn);
         strangerChange.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 

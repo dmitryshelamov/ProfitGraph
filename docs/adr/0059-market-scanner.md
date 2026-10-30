@@ -107,9 +107,11 @@ as the engine's indicators are (ADR 0056); they live in the engine's `Scanning/`
 | Change 5m, 15m, 1h, 4h, 24h | (Close of the last minute − Open of the first) / Open of the first, over the last N closed minutes, %. |
 | Turnover 1h, 24h | Sum of quote turnover of the last 60 and 1,440 minutes, USDT. |
 | Volume spike | Turnover of the last hour / median hourly turnover of the hours with trades among the previous 167 hours; empty below 72 such hours (amended by ADR 0062: nights and weekends of a market that closes must not pull the median to zero). |
+| Volume spike 5m, 15m | Turnover of the last 5 and 15 minutes / the volume spike's median scaled to 5 and 15 minutes (added by ADR 0066). |
 | Volatility (NATR 24h) | Simple mean of true range / close over the last 24 closed hourly candles, %. |
 | Efficiency ratio 24h | \|C_t − C_{t−24}\| / Σ\|ΔC\| over hourly closes: 0 is a range, 1 a trend. |
 | Distance to high and low, 24h and 7d | (C − High_N) / High_N and (C − Low_N) / Low_N, %. |
+| Breakout and range 4h | (C − High) / High and (High − Low) / Low of the 240 minutes before the last 15, %; the last 15 minutes are the move, not the range (added by ADR 0066). |
 | Spread | (ask − bid) / mid from the minute's quote snapshot, %. |
 | Listing age | Days since the pair's listing: the venue's listing time, or the first candle when the 7-day history starts later than asked; empty for older pairs when the venue publishes no listing time (Bybit Spot). |
 | Stale | The last minute with volume ended more than 15 minutes ago, or there is none. |
@@ -121,6 +123,8 @@ to BTC and cross-venue gaps are out of scope.
 
 1. **Both scenarios are equal** (owner): catching a move now and picking pairs for a Ladder. The page offers two built-in presets:
    - **«Импульс»**: short-window change, volume spike, a turnover floor.
+   - **«Ранний импульс»** (added by ADR 0066): a 15-minute change and volume spike, a breakout of the four hours before, an hour not
+     yet far up, a turnover floor.
    - **«Под лесенку»**: low efficiency ratio, volatility above the round-trip fee, a turnover floor, a spread ceiling, and no
      pairs falling over 24 hours and 7 days.
 2. A preset is a set of conditions (metric, minimum, maximum) and a sort. Every column filters and sorts. A user saves their own

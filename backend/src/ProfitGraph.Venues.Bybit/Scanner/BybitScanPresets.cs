@@ -3,13 +3,15 @@ using ProfitGraph.Application.Scanner.Contracts;
 namespace ProfitGraph.Venues.Bybit.Scanner;
 
 /// <summary>
-///     The two built-in scanner presets of Bybit Spot (ADR 0059, section 4), with turnover in USDT. «Импульс» finds a move now:
+///     The built-in scanner presets of Bybit Spot (ADR 0059, section 4), with turnover in USDT. «Импульс» finds a move now:
 ///     an hour up at least 3% on volume three times its usual. «Под лесенку» finds pairs for a Ladder: a range rather than a
 ///     trend (efficiency ratio at most 0.3), hourly swings of at least 0.5% against a round trip of taker fees near 0.2%, liquid,
 ///     a tight spread, and not falling (at most 5% down in a day, at most 25% below the week's high). The thresholds are a
 ///     starting point the owner tunes by copying a preset. USDT perpetuals (ADR 0061) have «Импульс» and its mirror «Падение», an
-///     hour down at least 3% on volume three times its usual, for short ideas. Every preset asks for a spread of at most 0.1%, which a
-///     stopped trade crosses on top of its fees (ADR 0065).
+///     hour down at least 3% on volume three times its usual, for short ideas. «Ранний импульс» (ADR 0066) finds the start of a move:
+///     15 minutes up at least 2% on a 15-minute volume spike of at least 3, above the high of the four hours before, an hour at most
+///     6% up and liquid. It is on spot only: the preset backtest that chose it ran on spot. Every preset asks for a spread of at most
+///     0.1%, which a stopped trade crosses on top of its fees (ADR 0065).
 /// </summary>
 internal static class BybitScanPresets
 {
@@ -24,6 +26,21 @@ internal static class BybitScanPresets
                 new ScanConditionInternal("Turnover24h", Minimum: 500_000m, Maximum: null), new ScanConditionInternal("Spread", Minimum: null, Maximum: 0.1m)
             ],
             "Change1h",
+            SortDescending: true,
+            HideStale: true,
+            BuiltIn: true,
+            AlertsEnabled: false),
+        new ScanPresetInternal(
+            Id: null,
+            BybitVenue.VenueId.Value,
+            "Ранний импульс",
+            [
+                new ScanConditionInternal("Change15m", Minimum: 2m, Maximum: null),
+                new ScanConditionInternal("VolumeSpike15m", Minimum: 3m, Maximum: null),
+                new ScanConditionInternal("Breakout4h", Minimum: 0m, Maximum: null), new ScanConditionInternal("Change1h", Minimum: null, Maximum: 6m),
+                new ScanConditionInternal("Turnover24h", Minimum: 500_000m, Maximum: null), new ScanConditionInternal("Spread", Minimum: null, Maximum: 0.1m)
+            ],
+            "Change15m",
             SortDescending: true,
             HideStale: true,
             BuiltIn: true,

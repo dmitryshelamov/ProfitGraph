@@ -5431,12 +5431,16 @@ export interface components {
             turnover1h: null | string;
             turnover24h: null | string;
             volumeSpike: null | string;
+            volumeSpike5m: null | string;
+            volumeSpike15m: null | string;
             natr24h: null | string;
             efficiencyRatio24h: null | string;
             distanceToHigh24h: null | string;
             distanceToLow24h: null | string;
             distanceToHigh7d: null | string;
             distanceToLow7d: null | string;
+            breakout4h: null | string;
+            range4h: null | string;
             resistance: null | string;
             support: null | string;
             distanceToResistance: null | string;

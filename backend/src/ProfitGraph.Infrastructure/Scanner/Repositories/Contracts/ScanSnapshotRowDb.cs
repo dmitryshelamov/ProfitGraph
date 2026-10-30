@@ -14,12 +14,16 @@ internal sealed class ScanSnapshotRowDb
     public decimal? Turnover1h { get; init; }
     public decimal? Turnover24h { get; init; }
     public decimal? VolumeSpike { get; init; }
+    public decimal? VolumeSpike5m { get; init; }
+    public decimal? VolumeSpike15m { get; init; }
     public decimal? Natr24h { get; init; }
     public decimal? EfficiencyRatio24h { get; init; }
     public decimal? DistanceToHigh24h { get; init; }
     public decimal? DistanceToLow24h { get; init; }
     public decimal? DistanceToHigh7d { get; init; }
     public decimal? DistanceToLow7d { get; init; }
+    public decimal? Breakout4h { get; init; }
+    public decimal? Range4h { get; init; }
     public decimal? Resistance { get; init; }
     public decimal? Support { get; init; }
     public decimal? DistanceToResistance { get; init; }

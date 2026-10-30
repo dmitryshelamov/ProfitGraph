@@ -15,6 +15,8 @@ public static class ScanMetricCalculator
     private const int HoursPerWeek = 168;
     private const int SpikeBaselineHours = 167;
     private const int SpikeMinimumHours = 72;
+    private const int ImpulseMinutes = 15;
+    private const int RangeMinutes = 4 * MinutesPerHour;
     private const decimal Percent = 100m;
     private static readonly Timeframe MinuteFrame = Timeframe.Parse("1m");
     private static readonly Timeframe HourFrame = Timeframe.Parse("1h");
@@ -39,13 +41,17 @@ public static class ScanMetricCalculator
             Change24h = Change(minutes, MinutesPerDay),
             Turnover1h = Turnover(minutes, MinutesPerHour),
             Turnover24h = Turnover(minutes, MinutesPerDay),
-            VolumeSpike = VolumeSpike(minutes, hours),
+            VolumeSpike = VolumeSpike(minutes, hours, MinutesPerHour),
+            VolumeSpike5m = VolumeSpike(minutes, hours, count: 5),
+            VolumeSpike15m = VolumeSpike(minutes, hours, ImpulseMinutes),
             Natr24h = Natr(hours),
             EfficiencyRatio24h = EfficiencyRatio(hours),
             DistanceToHigh24h = close is { } c1 ? DistanceToHigh(c1, Last(minutes, MinutesPerDay)) : null,
             DistanceToLow24h = close is { } c2 ? DistanceToLow(c2, Last(minutes, MinutesPerDay)) : null,
             DistanceToHigh7d = close is { } c3 ? DistanceToHigh(c3, Week(minutes, hours)) : null,
             DistanceToLow7d = close is { } c4 ? DistanceToLow(c4, Week(minutes, hours)) : null,
+            Breakout4h = close is { } c5 ? DistanceToHigh(c5, Last(minutes, RangeMinutes, ImpulseMinutes)) : null,
+            Range4h = Width(Last(minutes, RangeMinutes, ImpulseMinutes)),
             Spread = Spread(input.BestBid, input.BestAsk),
             ListingAgeDays = input.ListedAt is { } listedAt ? ListingAgeDays(listedAt, input.Now) : null,
             Stale = IsStale(minutes, input.Now)
@@ -75,18 +81,19 @@ public static class ScanMetricCalculator
     }
 
     /// <summary>
-    ///     Оборот последних 60 минут к медиане часового оборота тех из 167 часов, закрытых до начала этих минут, в которые были
-    ///     сделки (ADR 0062): ночь и выходные биржи не тянут медиану к нулю. Пусто, пока таких часов меньше 72 или их медиана
+    ///     Оборот последних <paramref name="count" /> минут (делитель часа) к медиане часового оборота тех из 167 часов, закрытых до
+    ///     начала этих минут, в которые были сделки (ADR 0062): ночь и выходные биржи не тянут медиану к нулю. Медиана
+    ///     пересчитывается на окно делением часа на равные части (ADR 0065). Пусто, пока таких часов меньше 72 или их медиана
     ///     нулевая.
     /// </summary>
-    private static decimal? VolumeSpike(IReadOnlyList<ScanCandle> minutes, IReadOnlyList<ScanCandle> hours)
+    private static decimal? VolumeSpike(IReadOnlyList<ScanCandle> minutes, IReadOnlyList<ScanCandle> hours, int count)
     {
-        if (minutes.Count < MinutesPerHour)
+        if (minutes.Count < count)
         {
             return null;
         }
 
-        DateTimeOffset windowStart = minutes[^MinutesPerHour].OpenTime;
+        DateTimeOffset windowStart = minutes[^count].OpenTime;
 
         List<decimal> baseline = hours
             .Where(hour => hour.OpenTime + HourFrame.Duration <= windowStart)
@@ -104,7 +111,7 @@ public static class ScanMetricCalculator
         int middle = baseline.Count / 2;
         decimal median = baseline.Count % 2 == 1 ? baseline[middle] : (baseline[middle - 1] + baseline[middle]) / 2m;
 
-        return median == 0 ? null : Turnover(minutes, MinutesPerHour) / median;
+        return median == 0 ? null : Turnover(minutes, count) * (MinutesPerHour / count) / median;
     }
 
     /// <summary>
@@ -176,6 +183,18 @@ public static class ScanMetricCalculator
         return (close - low) / low * Percent;
     }
 
+    private static decimal? Width(IReadOnlyList<ScanCandle>? window)
+    {
+        if (window is null)
+        {
+            return null;
+        }
+
+        decimal low = window.Min(candle => candle.Low);
+
+        return (window.Max(candle => candle.High) - low) / low * Percent;
+    }
+
     /// <summary>
     ///     Окно семи дней: 168 закрытых часов и минуты, закрытые после последнего из них; пусто, пока часов меньше 168.
     /// </summary>
@@ -222,9 +241,12 @@ public static class ScanMetricCalculator
         return true;
     }
 
-    private static IReadOnlyList<ScanCandle>? Last(IReadOnlyList<ScanCandle> candles, int count)
+    /// <summary>
+    ///     Последние <paramref name="count" /> свечей перед <paramref name="skip" /> последними; пусто, пока свечей не хватает.
+    /// </summary>
+    private static IReadOnlyList<ScanCandle>? Last(IReadOnlyList<ScanCandle> candles, int count, int skip = 0)
     {
-        if (candles.Count < count)
+        if (candles.Count < count + skip)
         {
             return null;
         }
@@ -233,7 +255,7 @@ public static class ScanMetricCalculator
 
         for (var i = 0; i < count; i++)
         {
-            window[i] = candles[candles.Count - count + i];
+            window[i] = candles[candles.Count - skip - count + i];
         }
 
         return window;

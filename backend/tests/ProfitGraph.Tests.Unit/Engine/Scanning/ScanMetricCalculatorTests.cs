@@ -73,6 +73,48 @@ public sealed class ScanMetricCalculatorTests
     }
 
     [Test]
+    public void ShortVolumeSpikesScaleTheHourlyMedianToTheirWindow()
+    {
+        // The minutes fall in an hour that has not closed, so the baseline is the median of the 100 closed hours.
+        DateTimeOffset hourStart = Start + 100 * Hour;
+        List<ScanCandle> hours = Series(Start, Hour, count: 100, _ => Flat(Start, price: 100, turnover: 60));
+        List<ScanCandle> minutes = Series(hourStart, Minute, count: 35, index => Flat(hourStart, price: 100, index < 30 ? 1 : 10));
+
+        ScanMetrics metrics = Calculate(minutes, hours);
+
+        // The median hour turns over 60, so 5 minutes usually turn over 5 and 15 minutes 15.
+        metrics.VolumeSpike5m.ShouldBe(50m / 5m);
+        metrics.VolumeSpike15m.ShouldBe((10m + 50m) / 15m);
+        metrics.VolumeSpike.ShouldBeNull();
+        Calculate(minutes[^4..], hours).VolumeSpike5m.ShouldBeNull();
+        Calculate(minutes, hours[^71..]).VolumeSpike15m.ShouldBeNull();
+    }
+
+    [Test]
+    public void BreakoutAndRangeMeasureTheFourHoursBeforeTheLastFifteenMinutes()
+    {
+        List<ScanCandle> minutes = Series(
+            Start,
+            Minute,
+            count: 255,
+            index => index switch
+            {
+                10 => Bar(Start, open: 100, close: 100, high: 104, low: 100),
+                20 => Bar(Start, open: 100, close: 100, high: 100, low: 98),
+                >= 240 => Bar(Start, open: 100, close: 110, high: 120, low: 90),
+                _ => Flat(Start, price: 100, turnover: 1)
+            });
+
+        ScanMetrics metrics = Calculate(minutes);
+
+        // The last 15 minutes rose to 110 with highs of 120 and lows of 90; they are not part of the range.
+        metrics.Breakout4h.ShouldBe((110m - 104m) / 104m * 100m);
+        metrics.Range4h.ShouldBe((104m - 98m) / 98m * 100m);
+        Calculate(minutes[1..]).Breakout4h.ShouldBeNull();
+        Calculate(minutes[1..]).Range4h.ShouldBeNull();
+    }
+
+    [Test]
     public void NatrAveragesTrueRangeOverCloseAndCountsTheGapFromThePreviousClose()
     {
         List<ScanCandle> hours = Series(Start, Hour, count: 25, index => Flat(Start, index == 24 ? 120 : 100, turnover: 1));

@@ -9,6 +9,8 @@ const headline: readonly ScanMetric[] = [
   'Change1h',
   'Change24h',
   'VolumeSpike',
+  'VolumeSpike15m',
+  'Breakout4h',
   'Natr24h',
   'Turnover24h',
   'Spread',

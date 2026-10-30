@@ -11,12 +11,16 @@ export type ScanMetric =
   | 'Turnover1h'
   | 'Turnover24h'
   | 'VolumeSpike'
+  | 'VolumeSpike5m'
+  | 'VolumeSpike15m'
   | 'Natr24h'
   | 'EfficiencyRatio24h'
   | 'DistanceToHigh24h'
   | 'DistanceToLow24h'
   | 'DistanceToHigh7d'
   | 'DistanceToLow7d'
+  | 'Breakout4h'
+  | 'Range4h'
   | 'Support'
   | 'DistanceToSupport'
   | 'Resistance'
@@ -59,6 +63,18 @@ export const scanMetrics: readonly MetricDefinition[] = [
     hint: 'Оборот последнего часа к медиане часового оборота за неделю',
   },
   {
+    metric: 'VolumeSpike5m',
+    label: 'Всплеск 5 мин, ×',
+    places: 2,
+    hint: 'Оборот последних 5 минут к медиане часового оборота за неделю, пересчитанной на 5 минут',
+  },
+  {
+    metric: 'VolumeSpike15m',
+    label: 'Всплеск 15 мин, ×',
+    places: 2,
+    hint: 'Оборот последних 15 минут к медиане часового оборота за неделю, пересчитанной на 15 минут',
+  },
+  {
     metric: 'Natr24h',
     label: 'Волатильность, %',
     places: 2,
@@ -93,6 +109,18 @@ export const scanMetrics: readonly MetricDefinition[] = [
     label: 'От min 7 д, %',
     places: 2,
     hint: 'Расстояние от минимума недели',
+  },
+  {
+    metric: 'Breakout4h',
+    label: 'Пробой 4 ч, %',
+    places: 2,
+    hint: 'Цена к максимуму 4 часов до последних 15 минут: выше нуля — вышла из диапазона',
+  },
+  {
+    metric: 'Range4h',
+    label: 'Диапазон 4 ч, %',
+    places: 2,
+    hint: 'Ширина диапазона 4 часов до последних 15 минут: узкий — сжатие перед пробоем',
   },
   {
     metric: 'Support',
@@ -143,12 +171,16 @@ const fields: Record<ScanMetric, keyof ScanRow> = {
   Turnover1h: 'turnover1h',
   Turnover24h: 'turnover24h',
   VolumeSpike: 'volumeSpike',
+  VolumeSpike5m: 'volumeSpike5m',
+  VolumeSpike15m: 'volumeSpike15m',
   Natr24h: 'natr24h',
   EfficiencyRatio24h: 'efficiencyRatio24h',
   DistanceToHigh24h: 'distanceToHigh24h',
   DistanceToLow24h: 'distanceToLow24h',
   DistanceToHigh7d: 'distanceToHigh7d',
   DistanceToLow7d: 'distanceToLow7d',
+  Breakout4h: 'breakout4h',
+  Range4h: 'range4h',
   Support: 'support',
   DistanceToSupport: 'distanceToSupport',
   Resistance: 'resistance',

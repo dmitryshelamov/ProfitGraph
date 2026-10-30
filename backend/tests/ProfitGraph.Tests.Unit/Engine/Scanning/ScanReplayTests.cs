@@ -57,6 +57,11 @@ public sealed class ScanReplayTests
         replay.At(index: 1439).Change24h.ShouldNotBeNull();
         replay.At(index: 13_699).DistanceToHigh7d.ShouldNotBeNull();
         replay.At(index: 13_699).VolumeSpike.ShouldNotBeNull();
+        replay.At(index: 13_699).VolumeSpike5m.ShouldNotBeNull();
+        replay.At(index: 13_699).VolumeSpike15m.ShouldNotBeNull();
+        replay.At(index: 253).Breakout4h.ShouldBeNull();
+        replay.At(index: 254).Breakout4h.ShouldNotBeNull();
+        replay.At(index: 254).Range4h.ShouldNotBeNull();
         replay.At(index: 13_699).Spread.ShouldBeNull();
         (replay.At(index: 13_699).Support ?? replay.At(index: 13_699).Resistance).ShouldNotBeNull();
     }
