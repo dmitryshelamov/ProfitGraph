@@ -20,8 +20,8 @@ public sealed class GraphCompilationFingerprintTests
     /// <summary>
     ///     Pinned so that a change of the fingerprint, which invalidates queued runs, is always deliberate.
     /// </summary>
-    [TestCase("Sma", "3979974992E29A430768DEDA98B6CB7941D49B6A669991999642F431534F3A12")]
-    [TestCase("Ladder", "88E1BC2500DD647EBAACA05817AA7E17C06BBB0400B8AB2BBB0187FE7FAE596A")]
+    [TestCase("Sma", "5B7464AFB036D6F4F1843FF8E6D7C7AF081EBD3B72ABA1CE3C3005E45AAA0247")]
+    [TestCase("Ladder", "4F9C7C139FC0DBE3B0982F879F81B837B97730D2E1F88CDB624410C64F29B1A5")]
     public void FingerprintOfAFixedGraphIsStable(string workload, string expected)
     {
         StrategyGraph graph = workload == "Sma" ? SmaStrategyGraphGenerator.Generate() : LadderStrategyGraphGenerator.Generate();

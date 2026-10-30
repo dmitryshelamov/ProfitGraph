@@ -1,4 +1,3 @@
-using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Nodes;
 
 using static ProfitGraph.Engine.Graphs.Composites.CompositeGraphBuilder;
@@ -19,19 +18,12 @@ internal static class PositionFlatCompositeDefinition
         graph.Node("zeroBase", "Constant", Params(("value", Number(0m))), ValueType.BaseAmount, schemaVersion: 2);
         graph.Compare("zeroPosition", "position.quantity", "zeroBase");
 
-        foreach (RejectionReason reason in new[] { RejectionReason.ZeroQuantity, RejectionReason.BelowMinQuantity, RejectionReason.BelowMinNotional })
-        {
-            graph.Reason(reason.ToString(), reason);
-            graph.Compare("is" + reason, "sellPreview.reason", reason.ToString());
-        }
-
-        graph.Binary("dustFirst", "Or", "isZeroQuantity", "isBelowMinQuantity");
-        graph.Binary("dust", "Or", "dustFirst", "isBelowMinNotional");
-        graph.Binary("flat", "Or", "zeroPosition", "dust");
+        // The preview's dust flag is known for a sellable balance too, so the check never goes unavailable while holding.
+        graph.Binary("flat", "Or", "zeroPosition", "sellPreview.dust");
 
         return new CompositeNodeDefinition(
             "PositionFlat",
-            schemaVersion: 1,
+            schemaVersion: 2,
             graph.Build(),
             [],
             [new PortSpec("out", PortKind.Condition, "Условие", ValueType.Boolean)],

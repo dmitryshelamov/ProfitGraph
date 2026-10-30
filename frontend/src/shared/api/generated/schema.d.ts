@@ -5463,6 +5463,13 @@ export interface components {
             maxDrop24h: components["schemas"]["ScanOutcomeSummaryResponse"];
             scenarios: components["schemas"]["ScanScenarioSummaryResponse"][];
         };
+        ScanTradeCostsResponse: {
+            limitFeeRate: string;
+            marketFeeRate: string;
+            spread: string;
+            feesFromVenue: boolean;
+            spreadKnown: boolean;
+        };
         ScanTradeIdeaResponse: {
             timeframe: string;
             scenario: string;
@@ -5476,6 +5483,7 @@ export interface components {
             risk: null | string;
             taken: boolean;
             direction: string;
+            profit: null | string;
         };
         ScanTradeIdeasResponse: {
             venue: string;
@@ -5483,6 +5491,9 @@ export interface components {
             price: null | string;
             hasSettings: boolean;
             ideas: components["schemas"]["ScanTradeIdeaResponse"][];
+            costs: components["schemas"]["ScanTradeCostsResponse"];
+            /** Format: int32 */
+            tightStops: number;
         };
         ScanTradeResponse: {
             scenario: string;

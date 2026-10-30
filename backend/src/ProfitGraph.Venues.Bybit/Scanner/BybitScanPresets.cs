@@ -10,7 +10,8 @@ namespace ProfitGraph.Venues.Bybit.Scanner;
 ///     starting point the owner tunes by copying a preset. USDT perpetuals (ADR 0061) have «Импульс» and its mirror «Падение», an
 ///     hour down at least 3% on volume three times its usual, for short ideas. «Ранний импульс» (ADR 0066) finds the start of a move:
 ///     15 minutes up at least 2% on a 15-minute volume spike of at least 3, above the high of the four hours before, an hour at most
-///     6% up, liquid and a tight spread. It is on spot only: the preset backtest that chose it ran on spot.
+///     6% up and liquid. It is on spot only: the preset backtest that chose it ran on spot. Every preset asks for a spread of at most
+///     0.1%, which a stopped trade crosses on top of its fees (ADR 0065).
 /// </summary>
 internal static class BybitScanPresets
 {
@@ -22,7 +23,7 @@ internal static class BybitScanPresets
             "Импульс",
             [
                 new ScanConditionInternal("Change1h", Minimum: 3m, Maximum: null), new ScanConditionInternal("VolumeSpike", Minimum: 3m, Maximum: null),
-                new ScanConditionInternal("Turnover24h", Minimum: 500_000m, Maximum: null)
+                new ScanConditionInternal("Turnover24h", Minimum: 500_000m, Maximum: null), new ScanConditionInternal("Spread", Minimum: null, Maximum: 0.1m)
             ],
             "Change1h",
             SortDescending: true,
@@ -69,7 +70,7 @@ internal static class BybitScanPresets
             "Падение",
             [
                 new ScanConditionInternal("Change1h", Minimum: null, Maximum: -3m), new ScanConditionInternal("VolumeSpike", Minimum: 3m, Maximum: null),
-                new ScanConditionInternal("Turnover24h", Minimum: 1_000_000m, Maximum: null)
+                new ScanConditionInternal("Turnover24h", Minimum: 1_000_000m, Maximum: null), new ScanConditionInternal("Spread", Minimum: null, Maximum: 0.1m)
             ],
             "Change1h",
             SortDescending: false,

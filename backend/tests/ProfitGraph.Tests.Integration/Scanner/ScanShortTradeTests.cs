@@ -112,12 +112,13 @@ public sealed class ScanShortTradeTests
         var trade = (await created.Content.ReadFromJsonAsync<ScanLiveTradeResponse>(WebJson))!;
         var bot = await owner.Client.GetFromJsonAsync<JsonElement>($"{BotApi.Path}/{trade.BotId}");
 
-        // A 10 % stop and 0.1 % on each side lose 10.2 % of the amount: 5 / 0.102 = 49.01; at 4× its margin and fees are 12.35.
-        (trade.Direction, trade.Amount).ShouldBe(("Short", "49.01"));
+        // A 10 % stop, a limit entry at 0.08 % and a market stop at 0.1 % lose 10.18 % of the amount: 5 / 0.1018 = 49.11; at 4× its margin
+        // and both fees are 12.28 + 0.09 = 12.37.
+        (trade.Direction, trade.Amount).ShouldBe(("Short", "49.11"));
         bot.GetProperty("name").GetString().ShouldBe("SHORTAUSDT · шорт · уровни 1h");
-        bot.GetProperty("parameters").GetProperty("sellAmount").GetString().ShouldBe("49.01");
-        bot.GetProperty("allocationCap").GetString().ShouldBe("12.35");
-        bot.GetProperty("maxOrderQuote").GetString().ShouldBe("49.01");
+        bot.GetProperty("parameters").GetProperty("sellAmount").GetString().ShouldBe("49.11");
+        bot.GetProperty("allocationCap").GetString().ShouldBe("12.37");
+        bot.GetProperty("maxOrderQuote").GetString().ShouldBe("49.11");
 
         using (IServiceScope scope = _api.Services.CreateScope())
         {

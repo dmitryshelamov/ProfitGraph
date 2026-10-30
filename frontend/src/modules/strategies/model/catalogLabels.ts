@@ -46,6 +46,7 @@ const fields: Record<string, string> = {
   completed: 'Завершено',
   valid: 'Допустима',
   reason: 'Причина отказа',
+  dust: 'Слишком мало для заявки',
   exists: 'Существует',
   order: 'Ордер',
   normalizedQuantity: 'Количество после округления',

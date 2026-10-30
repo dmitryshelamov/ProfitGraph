@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 
 import { ApiError } from '@/shared/api/client';
-import { addDecimals, compareDecimals } from '@/shared/lib/decimal';
+import { addDecimals, compareDecimals, multiplyDecimals } from '@/shared/lib/decimal';
 import { Button } from '@/shared/ui/Button';
 
 import { createScanTrade, scannerKeys } from '../api/scannerApi';
@@ -19,6 +19,7 @@ const createErrors: Record<string, string> = {
   scan_trade_pair_not_scanned: 'Пары нет в последнем снимке сканера.',
   scan_trade_settings_missing: 'Сначала задайте риск и ключ.',
   scan_trade_short_unsupported: 'На этой бирже нет шорта.',
+  scan_trade_stop_too_tight: 'Стоп ближе, чем комиссии и спред.',
 };
 
 type Outcome = { readonly botId: string } | { readonly error: string };
@@ -38,7 +39,8 @@ const filterButton =
  * The trade ideas of a pair on every timeframe (ADR 0060) as one table to compare them: each with its entry, target and stop, and
  * what it makes at the target and loses at the stop after fees, in the venue's currency and in percent of the trade. The owner
  * ticks the wanted ones and «Создать выбранные» creates a bot with real orders for each; on futures short ideas (ADR 0061) sell at
- * the entry. Hovering a row, or ticking it, shows the idea on the chart through `onPreview`. «Скрыть» hides an idea until the
+ * the entry. The fees are the bot's and the spread the snapshot's (ADR 0065); ideas whose stop is nearer than those costs never
+ * reach the table, and a note counts them. Hovering a row, or ticking it, shows the idea on the chart through `onPreview`. «Скрыть» hides an idea until the
  * ideas change; an idea a live trade already took cannot be ticked.
  */
 export function ScanTradeIdeasTable({
@@ -90,9 +92,14 @@ export function ScanTradeIdeasTable({
 
   if (rows.length === 0) {
     return (
-      <p className="text-sm text-muted">
-        Идей нет: ни на одном таймфрейме нет уровней вокруг цены, а последний час стоял на месте.
-      </p>
+      <div className="space-y-2">
+        <p className="text-sm text-muted">
+          {ideas.tightStops > 0
+            ? 'Идей нет: у всех стоп ближе, чем комиссии и спред.'
+            : 'Идей нет: ни на одном таймфрейме нет уровней вокруг цены, а последний час стоял на месте.'}
+        </p>
+        <TradeCosts ideas={ideas} />
+      </div>
     );
   }
 
@@ -227,6 +234,7 @@ export function ScanTradeIdeasTable({
           Все идеи скрыты фильтром; они вернутся с новыми ценами.
         </p>
       )}
+      <TradeCosts ideas={ideas} />
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
         <Button
           variant="primary"
@@ -272,6 +280,41 @@ export function ScanTradeIdeasTable({
       </div>
     </div>
   );
+}
+
+/** The fees and spread the ideas are sized with, and how many ideas they rule out. */
+function TradeCosts({ ideas }: { ideas: ScanTradeIdeas }) {
+  const { costs, tightStops } = ideas;
+  const stop = addDecimals(
+    addDecimals(costs.limitFeeRate, costs.marketFeeRate) ?? '0',
+    costs.spread,
+  );
+
+  return (
+    <p className="text-xs text-muted">
+      {costs.feesFromVenue ? 'Комиссии бота' : 'Комиссии по умолчанию (биржа не ответила)'}: вход и
+      цель лимиткой {rate(costs.limitFeeRate)}, стоп по рынку {rate(costs.marketFeeRate)}
+      {costs.spreadKnown ? `, спред ${rate(costs.spread)}` : ', спред неизвестен'}. Стоп теряет
+      сверх движения цены {rate(stop)}.
+      {tightStops > 0 &&
+        ` Не показано ${tightStops} ${ideasWord(tightStops)} со стопом ближе этих ${rate(stop)}.`}
+    </p>
+  );
+}
+
+function rate(fraction: string | null): string {
+  return fraction === null ? '—' : `${formatMetric(multiplyDecimals(fraction, '100'), 3)}%`;
+}
+
+function ideasWord(count: number): string {
+  const tens = count % 100;
+  const ones = count % 10;
+
+  if (tens >= 11 && tens <= 14) {
+    return 'идей';
+  }
+
+  return ones === 1 ? 'идея' : ones >= 2 && ones <= 4 ? 'идеи' : 'идей';
 }
 
 function SortHeader({

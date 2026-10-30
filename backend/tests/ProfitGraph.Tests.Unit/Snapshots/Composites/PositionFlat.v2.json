@@ -1,0 +1,116 @@
+{
+  "typeKey": "PositionFlat",
+  "schemaVersion": 2,
+  "inputs": [],
+  "outputs": [
+    {
+      "Key": "out",
+      "kind": "Condition",
+      "valueType": "Boolean",
+      "Label": "Условие"
+    }
+  ],
+  "parameters": [],
+  "engineInputs": [],
+  "graph": {
+    "nodes": [
+      {
+        "Id": "balance",
+        "TypeKey": "Balance",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "flat",
+        "TypeKey": "Or",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "position",
+        "TypeKey": "Position",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "sellPreview",
+        "TypeKey": "OrderSizePreview",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "side",
+            "value": "text:Sell"
+          },
+          {
+            "key": "type",
+            "value": "text:Market"
+          }
+        ]
+      },
+      {
+        "Id": "zeroBase",
+        "TypeKey": "Constant",
+        "SchemaVersion": 2,
+        "declaredValueType": "BaseAmount",
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "value",
+            "value": "decimal:0"
+          }
+        ]
+      },
+      {
+        "Id": "zeroPosition",
+        "TypeKey": "Compare",
+        "SchemaVersion": 2,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "op",
+            "value": "text:="
+          }
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "source": "balance.baseAvailable",
+        "target": "sellPreview.quantity"
+      },
+      {
+        "source": "position.quantity",
+        "target": "zeroPosition.a"
+      },
+      {
+        "source": "sellPreview.dust",
+        "target": "flat.b"
+      },
+      {
+        "source": "zeroBase.out",
+        "target": "zeroPosition.b"
+      },
+      {
+        "source": "zeroPosition.out",
+        "target": "flat.a"
+      }
+    ]
+  },
+  "inputMappings": [],
+  "outputMappings": [
+    {
+      "key": "out",
+      "source": "flat.out"
+    }
+  ],
+  "parameterMappings": []
+}

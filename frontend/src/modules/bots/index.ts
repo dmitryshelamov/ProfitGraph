@@ -23,6 +23,7 @@ export type { BotPageSearch, BotPageTab } from './model/botPageSearch';
 export { botPageSearch, botPageTabs } from './model/botPageSearch';
 export { botStatusLabel, diagnosticLabel, feedLabel } from './model/botStatus';
 export { chartTimeframesFor, shownTimeframe } from './model/chartTimeframes';
+export { levelTrade } from './model/levelTrade';
 export type { DraftParameter } from './model/liveImpact';
 export { parameterFitText } from './model/liveImpact';
 export type { Bot, BotAccount, BotAlert, LiveImpactBot } from './model/types';

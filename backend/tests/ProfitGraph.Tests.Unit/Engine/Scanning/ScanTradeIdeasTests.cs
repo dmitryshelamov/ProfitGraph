@@ -33,8 +33,8 @@ public sealed class ScanTradeIdeasTests
     [Test]
     public void SizesTheAmountSoTheStopLosesTheRisk()
     {
-        ScanTradeIdeas.Amount(risk: 10m, entry: 100m, stop: 90m, feeRate: 0m).ShouldBe(100m);
-        Should.Throw<ArgumentException>(() => ScanTradeIdeas.Amount(risk: 10m, entry: 100m, stop: 100m, feeRate: 0m));
+        ScanTradeIdeas.Amount(risk: 10m, entry: 100m, stop: 90m, ScanTradeCosts.Flat(feeRate: 0m)).ShouldBe(100m);
+        Should.Throw<ArgumentException>(() => ScanTradeIdeas.Amount(risk: 10m, entry: 100m, stop: 100m, ScanTradeCosts.Flat(feeRate: 0m)));
     }
 
     [Test]
@@ -68,6 +68,6 @@ public sealed class ScanTradeIdeasTests
     [Test]
     public void SizesAShortSoItsStopAboveLosesTheRisk()
     {
-        ScanTradeIdeas.Amount(risk: 10m, entry: 100m, stop: 110m, feeRate: 0m).ShouldBe(100m);
+        ScanTradeIdeas.Amount(risk: 10m, entry: 100m, stop: 110m, ScanTradeCosts.Flat(feeRate: 0m)).ShouldBe(100m);
     }
 }

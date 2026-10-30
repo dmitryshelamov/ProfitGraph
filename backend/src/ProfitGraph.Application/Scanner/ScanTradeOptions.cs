@@ -18,9 +18,15 @@ public sealed class ScanTradeOptions
     public string[] LevelTimeframes { get; init; } = ["1m", "5m", "15m", "1h", "4h", "1d"];
 
     /// <summary>
-    ///     The fee on each side a card's amount is sized with; the preset backtest assumes the same.
+    ///     The fee on every order a card assumes when the venue's fee rates for the owner's credential cannot be read (ADR 0065); the
+    ///     preset backtest assumes the same.
     /// </summary>
     public decimal FeeRate { get; init; } = 0.001m;
+
+    /// <summary>
+    ///     How long the venue's fee rates of a credential and a pair are reused before the cards read them again.
+    /// </summary>
+    public TimeSpan FeeRatesLifetime { get; init; } = TimeSpan.FromMinutes(15);
 
     /// <summary>
     ///     How far, as a fraction of the current price, a created trade's entry may be from it.
@@ -59,6 +65,7 @@ public sealed class ScanTradeOptions
     public bool IsValid()
     {
         return IsTimeframe(Timeframe) && LevelTimeframes.Length > 0 && LevelTimeframes.All(IsTimeframe) && FeeRate is >= 0m and < 0.1m &&
+            FeeRatesLifetime > TimeSpan.Zero &&
             MaxEntryDeviation is > 0m and < 1m && TrackInterval > TimeSpan.Zero && TrackBatchSize > 0 &&
             ListLimit > 0;
     }

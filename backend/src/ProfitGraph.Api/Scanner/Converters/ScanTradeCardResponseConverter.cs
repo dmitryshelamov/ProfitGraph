@@ -25,8 +25,16 @@ internal static class ScanTradeCardResponseConverter
                     ScanSnapshotResponseConverter.Text(idea.Amount),
                     ScanSnapshotResponseConverter.Text(idea.Risk),
                     idea.Taken,
-                    idea.Direction.ToString()))
-            ]);
+                    idea.Direction.ToString(),
+                    ScanSnapshotResponseConverter.Text(idea.Profit)))
+            ],
+            new ScanTradeCostsResponse(
+                ExactGraphNumberParser.Format(ideas.Costs.Costs.LimitFeeRate),
+                ExactGraphNumberParser.Format(ideas.Costs.Costs.MarketFeeRate),
+                ExactGraphNumberParser.Format(ideas.Costs.Costs.Spread),
+                ideas.Costs.FeesFromVenue,
+                ideas.Costs.SpreadKnown),
+            ideas.TightStops);
     }
 
     public static ScanTradeSettingsResponse ToResponse(this ScanTradeSettingsInternal settings)
