@@ -75,5 +75,5 @@ busiest 15 minutes of the four hours). Results in mean R of the short scenarios,
 - Futures pairs show one more short card and every pair one more long card, under `4h`; the stops are wide, so a card risks the
   owner's amount with a small position.
 - The backtest's summaries gain a row per direction; earlier stored backtests keep their numbers and have no trades of it.
-- The long card loses in the month measured; it stays for symmetry with the other scenarios and for the backtest to keep measuring
-  it.
+- The long card loses in the month measured; the owner kept it ("Оставить лонг") for symmetry with the other scenarios and for the
+  backtest to keep measuring it.
