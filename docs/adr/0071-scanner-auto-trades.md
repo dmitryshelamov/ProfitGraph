@@ -8,6 +8,9 @@ below come from that analysis; every rule is the analyst's proposal, to be revie
 ADR 0042, ADR 0059 (sections 5, 6 and 8), ADR 0060, ADR 0061, ADR 0065, ADR 0067, ADR 0069 and ADR 0070; it is the first version of
 the screener robot (roadmap, market scanner step 5).
 
+Amended 2026-10-31: the owner asked to check the analysis on another period and on futures ("Да, проверь") and to add the result
+here ("Да, в PR #240"). The check is "Out-of-sample check" below; it adds the second period to section 5.
+
 ## Context
 
 The scanner finds pairs; the owner opens a pair, reads its trade cards and ticks the wanted ones, and «Создать выбранные» starts a
@@ -73,6 +76,35 @@ and 0.1 % market, 0.05 % spread on a stop, at most 72 hours in a trade.
 Limits of the analysis: one month and one market regime; spot prices stand in for futures shorts; the universe is today's liquid
 pairs (survivors); cards of one signal overlap; the stored production backtest predates the scenarios.
 
+### Out-of-sample check (2026-10-31)
+
+The best rule a narrower search had found on the same month was replayed on three more sets: Bybit Spot over 2026-08-31 to
+2026-09-30 (the same 120 pairs), and Bybit USDT perpetuals over both months (the 120 perpetuals with the largest turnover on
+2026-10-30). The rule: the rise preset, a long «Цель 2R» on hourly levels, a stop at least 1 % from the entry, the day down
+(`Change24h < 0`) and the price more than 10 % below the 7-day high (`DistanceToHigh7d < −10`). Trades were followed by the bot's
+rules as above (24 hours at most), with two engines: the code before ADR 0070 (stop at the level) and `main` with ADR 0070 (a stop a
+quarter range beyond the level, none within one range).
+
+The two months were opposite markets: in September BTC rose 7 % and the median pair 25 % (88 % of the pairs rose); in October BTC
+fell 7 % and the median pair 19 % (15 % rose).
+
+| Mean R, bot's rules | Spot Oct (searched) | Spot Sep | Perpetuals Oct | Perpetuals Sep |
+|---|---|---|---|---|
+| The rule, stop at the level | +0.23 (385) | −0.24 (199) | +0.10 (665) | −0.27 (325) |
+| The rule, ADR 0070 stops | +0.33 (267) | −0.03 (120) | +0.19 (416) | −0.13 (168) |
+| Target 2R, ADR 0070 stops, stop ≥ 1 %, no other filter | −0.02 (970) | +0.08 (1,527) | +0.08 (1,311) | +0.12 (1,691) |
+| The same above a rising 50-hour EMA (with the trend) | −0.14 (559) | +0.09 (1,287) | +0.03 (742) | +0.16 (1,355) |
+| The same below the 50-hour EMA (a dip) | +0.32 (284) | +0.05 (139) | +0.18 (450) | −0.17 (188) |
+
+1. **The rule does not hold.** It earned in October on both markets, which moved together, and lost in September on both. It
+   buys dips, and dips paid only in a falling market.
+2. **Trend filters change sign with the market.** Point 3 above (against the move is least bad) is October's; in September buying
+   with the trend was the better half. A filter chosen on one month of one regime is not evidence.
+3. **ADR 0070's stops are the one robust gain.** Without them «Цель 2R» after a rise with a stop of at least 1 % made −0.04 to
+   +0.01 R; with them +0.08 to +0.12 R in three sets of four, though not in each third, so it does not pass section 5.
+4. **A hypothesis, not a finding:** taking the trend when BTC rose over the last 7 days and the dip when it fell made +0.09 to
+   +0.16 R in all four sets. It was formed after seeing September, so it needs a period neither month covers (or paper mode).
+
 So the best idea is not the card with the highest reward-to-risk, and today no card rule earns after costs. Automation must be
 **able to wait** for a rule that does, and must judge cards by their odds and costs.
 
@@ -133,7 +165,9 @@ the rule's cards (its scenario, direction, timeframe and minimums) had:
 
 - at least `ScanAutoTrades:MinBacktestTrades` (100) closed trades, and
 - a mean R after costs (section 2) of at least `ScanAutoTrades:MinBacktestMeanR` (0.05 R) **in each third of the period**, so that
-  one good week does not carry it.
+  one good week does not carry it, and
+- the same in a second completed backtest of another 30 days in which the venue's reference pair (Bybit: `BTCUSDT`) moved the
+  other way, so that one market regime does not carry it (amended 2026-10-31, "Out-of-sample check").
 
 The rule keeps the backtest's id and its numbers, and the page shows them beside it. Changing the preset's conditions switches the
 rule `Off`. The page lists the scenarios and timeframes of the latest backtest with their trades and mean R per third and marks those
