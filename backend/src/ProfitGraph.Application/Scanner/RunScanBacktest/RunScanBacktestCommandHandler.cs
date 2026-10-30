@@ -11,6 +11,7 @@ using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Scanner;
 using ProfitGraph.Domain.Scanner.Trades;
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Scanning;
 
@@ -61,7 +62,7 @@ internal sealed class RunScanBacktestCommandHandler(
         IReadOnlyList<ScanInstrumentInternal> universe = await source.Universe(cancellationToken);
         ScanCardSetup setup = Setup(backtest.Venue.Value, shorts);
         Func<string, ScanTradeCosts> costsOf = await Costs(backtest, universe, cancellationToken);
-        Func<DateTimeOffset, decimal?>? market = await MarketTrend(source, backtest, universe, cancellationToken);
+        (Func<DateTimeOffset, decimal?>? market, decimal? marketChange) = await MarketTrend(source, backtest, universe, cancellationToken);
         var signals = new ConcurrentBag<ScanSignal>();
         var cards = new ConcurrentBag<ScanCardTrade>();
         var failed = new ConcurrentBag<string>();
@@ -97,12 +98,15 @@ internal sealed class RunScanBacktestCommandHandler(
             });
 
         ScanSignal[] all = [.. signals.OrderByDescending(signal => signal.At).ThenBy(signal => signal.Symbol, StringComparer.Ordinal)];
+        IReadOnlyList<ScanCardOdds> odds = ScanStudy.Odds(cards);
         var result = new ScanBacktestResult(
             universe.Count,
             [.. failed.Order(StringComparer.Ordinal)],
-            ScanStudy.Summarize(all, shorts, ScanStudy.Odds(cards)),
+            ScanStudy.Summarize(all, shorts, odds),
             [.. all.Take(ScanBacktest.MaxStoredSignals)],
-            all.Length > ScanBacktest.MaxStoredSignals);
+            all.Length > ScanBacktest.MaxStoredSignals,
+            marketChange);
+        IReadOnlyList<ScanBacktestCard> closed = Closed(backtest, cards, odds);
 
         await transactions.ExecuteAsync(
             async () =>
@@ -113,6 +117,7 @@ internal sealed class RunScanBacktestCommandHandler(
                 if (current.Complete(result, clock.GetUtcNow()))
                 {
                     await backtests.Update(current, cancellationToken);
+                    await backtests.AddCards(id, closed, cancellationToken);
                 }
 
                 return true;
@@ -120,6 +125,43 @@ internal sealed class RunScanBacktestCommandHandler(
             cancellationToken);
 
         return new ScanBacktestCompletedInternal(command.BacktestId, all.Length);
+    }
+
+    /// <summary>
+    ///     The cards' closed trades with the chance and expected R their kind and bands give them in this backtest (ADR 0071, section 5),
+    ///     each in its third of the period.
+    /// </summary>
+    private IReadOnlyList<ScanBacktestCard> Closed(ScanBacktest backtest, IEnumerable<ScanCardTrade> cards, IReadOnlyList<ScanCardOdds> odds)
+    {
+        Dictionary<(string, ScanScenario, PositionDirection, int, int), ScanCardOdds> bands = odds.ToDictionary(item =>
+            (item.Timeframe, item.Scenario, item.Direction, item.ChanceBand, item.StopBand));
+        long period = (backtest.To - backtest.From).Ticks;
+
+        return
+        [
+            .. cards
+                .Where(card => card.Outcome is { Filled: true, ResultR: not null })
+                .OrderBy(card => card.SignalAt)
+                .ThenBy(card => card.Symbol, StringComparer.Ordinal)
+                .Select(card =>
+                {
+                    ScanCardOdds? like = card.StopBand is { } stop
+                        ? bands.GetValueOrDefault((card.Timeframe, card.Scenario, card.Direction, card.ChanceBand, stop))
+                        : null;
+                    ScanCardChance? chance = like is { } band && band.Filled >= options.MinOddsTrades ? ScanCardChance.From(band, card.TargetR) : null;
+                    var third = (int)Math.Clamp(3 * (card.SignalAt - backtest.From).Ticks / period, min: 0, max: 2);
+
+                    return new ScanBacktestCard(
+                        card.Timeframe,
+                        card.Scenario,
+                        card.Direction,
+                        card.SignalAt,
+                        third,
+                        card.Outcome.ResultR!.Value,
+                        chance?.Chance,
+                        chance?.ExpectedR);
+                })
+        ];
     }
 
     private ScanCardSetup Setup(string venue, bool shorts)
@@ -159,9 +201,10 @@ internal sealed class RunScanBacktestCommandHandler(
 
     /// <summary>
     ///     The trend of the venue's reference pair at the end of each minute of its history (ADR 0071, section 3), as every row of a live
-    ///     snapshot carries it; null when the venue has no reference pair in its universe or its history cannot be read.
+    ///     snapshot carries it, and how far the pair moved over the period in percent (section 5); both null when the venue has no
+    ///     reference pair in its universe or its history cannot be read.
     /// </summary>
-    private static async Task<Func<DateTimeOffset, decimal?>?> MarketTrend(
+    private static async Task<(Func<DateTimeOffset, decimal?>? Trend, decimal? Change)> MarketTrend(
         IMarketScanSource source,
         ScanBacktest backtest,
         IReadOnlyList<ScanInstrumentInternal> universe,
@@ -169,7 +212,7 @@ internal sealed class RunScanBacktestCommandHandler(
     {
         if (source.ReferenceSymbol is not { } reference || universe.FirstOrDefault(instrument => instrument.Symbol == reference) is not { } instrument)
         {
-            return null;
+            return (null, null);
         }
 
         List<ScanCandle> minutes;
@@ -180,18 +223,21 @@ internal sealed class RunScanBacktestCommandHandler(
         }
         catch (MarketScanException exception) when (exception.Code != MarketScanErrorCodes.RequestsPaused)
         {
-            return null;
+            return (null, null);
         }
 
         if (minutes.Count == 0)
         {
-            return null;
+            return (null, null);
         }
 
         var replay = new ScanReplay(minutes, instrument.ListedAt);
         Dictionary<DateTimeOffset, decimal?> trends = Enumerable.Range(start: 0, replay.Count).ToDictionary(replay.EndOf, index => replay.At(index).TrendEma50);
 
-        return at => trends.GetValueOrDefault(at);
+        ScanCandle[] period = [.. minutes.Where(minute => minute.OpenTime >= backtest.From && minute.OpenTime < backtest.To)];
+        decimal? change = period.Length == 0 ? null : (period[^1].Close - period[0].Open) / period[0].Open * Percent;
+
+        return (at => trends.GetValueOrDefault(at), change);
     }
 
     private static async Task<(IReadOnlyList<ScanSignal> Signals, IReadOnlyList<ScanCardTrade> Cards)> Replay(

@@ -5,6 +5,7 @@ using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Jobs;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Scanner;
+using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Scanning;
 using ProfitGraph.Infrastructure.Scanner.Repositories.Contracts;
 
@@ -56,7 +57,39 @@ internal static class ScanBacktestDbConverter
 
     public static ScanBacktest ToDomain(this ScanBacktestDb row)
     {
-        ScanFilterDb filter = JsonSerializer.Deserialize<ScanFilterDb>(row.FilterJson, Options) ??
+        return ScanBacktest.Restore(
+            new ScanBacktestId(row.Id),
+            new UserId(row.OwnerId),
+            new VenueId(row.Venue),
+            new ScanPresetName(row.PresetName),
+            Filter(row.FilterJson),
+            row.PeriodFrom,
+            row.PeriodTo,
+            new BackgroundJobId(row.JobId),
+            row.CreatedAt,
+            row.CompletedAt,
+            row.ResultJson is null ? null : JsonSerializer.Deserialize<ScanBacktestResult>(row.ResultJson, Options));
+    }
+
+    public static ScanBacktestEvidenceInternal ToInternal(this ScanBacktestEvidenceDb row)
+    {
+        return new ScanBacktestEvidenceInternal(row.Id, row.PresetName, Filter(row.FilterJson), row.PeriodFrom, row.PeriodTo, row.CompletedAt, row.MarketChange);
+    }
+
+    public static ScanCardGroupInternal ToInternal(this ScanCardGroupDb row)
+    {
+        return new ScanCardGroupInternal(
+            row.Timeframe,
+            Enum.Parse<ScanScenario>(row.Scenario),
+            Enum.Parse<PositionDirection>(row.Direction),
+            row.Third,
+            row.Trades,
+            row.MeanR);
+    }
+
+    private static ScanFilter Filter(string json)
+    {
+        ScanFilterDb filter = JsonSerializer.Deserialize<ScanFilterDb>(json, Options) ??
             throw new InvalidOperationException("A stored scanner backtest has no filter.");
 
         if (filter.FormatVersion != FormatVersion)
@@ -64,20 +97,9 @@ internal static class ScanBacktestDbConverter
             throw new InvalidOperationException($"A stored scanner backtest has format {filter.FormatVersion}, not {FormatVersion}.");
         }
 
-        return ScanBacktest.Restore(
-            new ScanBacktestId(row.Id),
-            new UserId(row.OwnerId),
-            new VenueId(row.Venue),
-            new ScanPresetName(row.PresetName),
-            new ScanFilter(
-                [.. filter.Conditions.Select(condition => new ScanCondition(Enum.Parse<ScanMetric>(condition.Metric), condition.Minimum, condition.Maximum))],
-                filter.HideStale),
-            row.PeriodFrom,
-            row.PeriodTo,
-            new BackgroundJobId(row.JobId),
-            row.CreatedAt,
-            row.CompletedAt,
-            row.ResultJson is null ? null : JsonSerializer.Deserialize<ScanBacktestResult>(row.ResultJson, Options));
+        return new ScanFilter(
+            [.. filter.Conditions.Select(condition => new ScanCondition(Enum.Parse<ScanMetric>(condition.Metric), condition.Minimum, condition.Maximum))],
+            filter.HideStale);
     }
 
     public static ScanBacktestListItemInternal ToInternal(this ScanBacktestListItemDb row)

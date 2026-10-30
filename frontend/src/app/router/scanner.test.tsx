@@ -793,6 +793,102 @@ describe('scanner page', () => {
     expect(await screen.findByText(/Чат Telegram не привязан/)).toBeInTheDocument();
   });
 
+  it('shows the auto trades of an own preset and refuses paper without a second market', async () => {
+    const own = { ...impulse, id: 'p1', name: 'Мой', builtIn: false };
+    const rule = {
+      id: 'r1',
+      presetId: 'p1',
+      venue: 'bybit',
+      direction: 'Long',
+      scenario: 'Target2R',
+      timeframe: '1h',
+      minExpectedR: '0.1',
+      minChance: null,
+      maxOpenTrades: 3,
+      maxTradesPerDay: 10,
+      dailyLossLimit: '15',
+      mode: 'Off',
+      modeSince: '2026-10-31T00:00:00Z',
+      pausedOn: null,
+      backtest: null,
+      otherRegime: null,
+    };
+    fakeApi({
+      'GET /api/auth/me': () => json(user),
+      'GET /api/scanner/venues': () =>
+        json([{ venue: 'bybit', name: 'Bybit', quoteAsset: 'USDT', supportsShort: false }]),
+      'GET /api/scanner/bybit/presets': () => json([own]),
+      'GET /api/scanner/bybit/snapshot': () => json(snapshot([])),
+      'GET /api/profile/telegram': () =>
+        json({
+          enabled: true,
+          linked: true,
+          linkedAt: null,
+          blocked: false,
+          botUsername: 'pg_bot',
+        }),
+      'GET /api/scanner/presets/p1/auto-trades': () =>
+        json({
+          presetId: 'p1',
+          venue: 'bybit',
+          rule,
+          openTrades: 0,
+          todayTrades: 0,
+          todayLoss: '0',
+          minExpectedR: '0.1',
+          minChance: null,
+          latest: {
+            backtestId: 'b1',
+            presetName: 'Мой',
+            from: '2026-10-01T00:00:00Z',
+            to: '2026-10-31T00:00:00Z',
+            completedAt: '2026-10-31T00:10:00Z',
+            marketChange: '-7.1',
+            candidates: [
+              {
+                timeframe: '1h',
+                scenario: 'Target2R',
+                direction: 'Long',
+                thirds: [
+                  { trades: 40, meanR: '0.1' },
+                  { trades: 60, meanR: '0.2' },
+                  { trades: 0, meanR: null },
+                ],
+                qualifies: false,
+              },
+            ],
+          },
+          otherRegime: null,
+          requests: [],
+          paperTrades: [],
+          paperClosed: 0,
+          paperMeanR: null,
+        }),
+      'PUT /api/scanner/presets/p1/auto-trades/mode': () =>
+        json(
+          {
+            title: 'Domain rule violation',
+            status: 422,
+            detail: 'Not proven.',
+            code: 'scan_auto_trade_not_proven',
+          },
+          422,
+        ),
+    });
+
+    renderApp('/scanner');
+
+    const panel = await screen.findByRole('region', { name: 'Автосделки' });
+    expect(await within(panel).findByText('Выключено')).toBeInTheDocument();
+    expect(within(panel).getByText('+0.16 R · 100')).toBeInTheDocument();
+    expect(within(panel).getByText(/Нужна вторая проверка/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Ни одна карточка не заработала/)).toBeInTheDocument();
+
+    await userEvent.click(within(panel).getByRole('button', { name: 'Включить на бумаге' }));
+
+    expect(await within(panel).findByText(/Правило не доказано/)).toBeInTheDocument();
+  });
+
   it('starts a backtest of the preset being edited and shows its result', async () => {
     const outcome = (count: number, share: string | null, mean: string | null) => ({
       count,

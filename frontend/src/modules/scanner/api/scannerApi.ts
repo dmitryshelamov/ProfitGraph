@@ -4,6 +4,8 @@ import { pageBefore } from '@/modules/market-chart';
 import { api, unwrap } from '@/shared/api/client';
 
 import type {
+  ScanAutoTradeRule,
+  ScanAutoTradeRuleInput,
   ScanBacktest,
   ScanCandlesPage,
   ScanLevels,
@@ -31,6 +33,7 @@ export const scannerKeys = {
   tradeSettings: (venue: string) => ['scanner', venue, 'trade-settings'] as const,
   trades: (venue: string) => ['scanner', venue, 'trades'] as const,
   pairTrades: (venue: string, symbol: string) => ['scanner', venue, 'trades', symbol] as const,
+  autoTrade: (presetId: string) => ['scanner', 'presets', presetId, 'auto-trades'] as const,
 };
 
 export function scanVenuesQuery() {
@@ -82,6 +85,46 @@ export async function setScanPresetAlerts(presetId: string, enabled: boolean): P
     await api.PUT('/api/scanner/presets/{presetId}/alerts', {
       params: { path: { presetId } },
       body: { enabled },
+    }),
+  );
+}
+
+/** The auto trades of the user's own preset (ADR 0071): its rule, the backtests that would prove it, signals and paper trades. */
+export function scanAutoTradeQuery(presetId: string) {
+  return queryOptions({
+    queryKey: scannerKeys.autoTrade(presetId),
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/api/scanner/presets/{presetId}/auto-trades', {
+          params: { path: { presetId } },
+        }),
+      ),
+    refetchInterval: 30_000,
+  });
+}
+
+/** Creates or changes the preset's rule; a changed rule is off. */
+export async function saveScanAutoTradeRule(
+  presetId: string,
+  rule: ScanAutoTradeRuleInput,
+): Promise<ScanAutoTradeRule> {
+  return unwrap(
+    await api.PUT('/api/scanner/presets/{presetId}/auto-trades', {
+      params: { path: { presetId } },
+      body: rule,
+    }),
+  );
+}
+
+/** Switches the preset's rule off or to paper; paper needs two backtests that prove it. */
+export async function setScanAutoTradeMode(
+  presetId: string,
+  mode: 'Off' | 'Paper',
+): Promise<ScanAutoTradeRule> {
+  return unwrap(
+    await api.PUT('/api/scanner/presets/{presetId}/auto-trades/mode', {
+      params: { path: { presetId } },
+      body: { mode },
     }),
   );
 }

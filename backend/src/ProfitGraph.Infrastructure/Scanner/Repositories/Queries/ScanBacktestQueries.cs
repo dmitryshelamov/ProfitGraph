@@ -32,15 +32,40 @@ internal static class ScanBacktestQueries
                                            LIMIT 1
                                            """;
 
+    internal const string Evidence = """
+                                     SELECT id AS Id, preset_name AS PresetName, filter::text AS FilterJson, period_from AS PeriodFrom, period_to AS PeriodTo,
+                                         completed_at AS CompletedAt, market_change AS MarketChange
+                                     FROM scan_backtests
+                                     WHERE owner_id = @OwnerId AND venue = @Venue AND completed_at IS NOT NULL AND card_odds IS NOT NULL
+                                     ORDER BY completed_at DESC, id
+                                     LIMIT @Limit
+                                     """;
+
+    internal const string CardGroups = """
+                                       SELECT timeframe AS Timeframe, scenario AS Scenario, direction AS Direction, third AS Third, count(*)::int AS Trades,
+                                           avg(result_r) AS MeanR
+                                       FROM scan_backtest_cards
+                                       WHERE backtest_id = @BacktestId AND expected_r >= @MinExpectedR AND (@MinChance::numeric IS NULL OR chance >= @MinChance)
+                                       GROUP BY timeframe, scenario, direction, third
+                                       ORDER BY timeframe, scenario, direction, third
+                                       """;
+
+    internal const string AddCards = """
+                                     INSERT INTO scan_backtest_cards (backtest_id, timeframe, scenario, direction, signal_at, third, result_r, chance, expected_r)
+                                     SELECT @BacktestId, card.*
+                                     FROM unnest(@Timeframes, @Scenarios, @Directions, @SignalAts, @Thirds, @Results, @Chances, @ExpectedRs) AS card
+                                     """;
+
     internal const string Add = """
                                 INSERT INTO scan_backtests (id, owner_id, venue, preset_name, filter, period_from, period_to, job_id, created_at, completed_at, result,
-                                    card_odds)
+                                    card_odds, market_change)
                                 VALUES (@Id, @OwnerId, @Venue, @PresetName, CAST(@FilterJson AS jsonb), @PeriodFrom, @PeriodTo, @JobId, @CreatedAt, @CompletedAt,
-                                    CAST(@ResultJson AS jsonb), CAST(@CardOddsJson AS jsonb))
+                                    CAST(@ResultJson AS jsonb), CAST(@CardOddsJson AS jsonb), @MarketChange)
                                 """;
 
     internal const string Update = """
-                                   UPDATE scan_backtests SET completed_at = @CompletedAt, result = CAST(@ResultJson AS jsonb), card_odds = CAST(@CardOddsJson AS jsonb)
+                                   UPDATE scan_backtests SET completed_at = @CompletedAt, result = CAST(@ResultJson AS jsonb), card_odds = CAST(@CardOddsJson AS jsonb),
+                                       market_change = @MarketChange
                                    WHERE id = @Id
                                    """;
 }

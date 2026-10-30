@@ -140,6 +140,7 @@ public static class ScanStudy
                         idea.Direction,
                         ScanCardBands.Chance(idea.RewardRisk),
                         ScanCardBands.Stop(idea, signal.Metrics.Natr24h),
+                        ScanCardFollow.ResultR(idea, idea.Target, ScanTradeExit.Target, costs),
                         outcome));
             }
         }
