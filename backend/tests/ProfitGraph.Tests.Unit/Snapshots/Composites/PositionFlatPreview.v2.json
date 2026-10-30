@@ -1,0 +1,117 @@
+{
+  "typeKey": "PositionFlatPreview",
+  "schemaVersion": 2,
+  "inputs": [
+    {
+      "Key": "quantity",
+      "kind": "Series",
+      "valueType": "BaseAmount",
+      "Label": "Количество актива"
+    }
+  ],
+  "outputs": [
+    {
+      "Key": "out",
+      "kind": "Condition",
+      "valueType": "Boolean",
+      "Label": "Условие"
+    },
+    {
+      "Key": "valid",
+      "kind": "Condition",
+      "valueType": "Boolean",
+      "Label": "Продажа возможна"
+    }
+  ],
+  "parameters": [],
+  "engineInputs": [],
+  "graph": {
+    "nodes": [
+      {
+        "Id": "flat",
+        "TypeKey": "Or",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": []
+      },
+      {
+        "Id": "flatZero",
+        "TypeKey": "Compare",
+        "SchemaVersion": 2,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "op",
+            "value": "text:="
+          }
+        ]
+      },
+      {
+        "Id": "wholePreview",
+        "TypeKey": "OrderSizePreview",
+        "SchemaVersion": 1,
+        "declaredValueType": null,
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "side",
+            "value": "text:Sell"
+          },
+          {
+            "key": "type",
+            "value": "text:Market"
+          }
+        ]
+      },
+      {
+        "Id": "zeroBase",
+        "TypeKey": "Constant",
+        "SchemaVersion": 2,
+        "declaredValueType": "BaseAmount",
+        "evaluationMode": null,
+        "parameters": [
+          {
+            "key": "value",
+            "value": "decimal:0"
+          }
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "source": "flatZero.out",
+        "target": "flat.a"
+      },
+      {
+        "source": "wholePreview.dust",
+        "target": "flat.b"
+      },
+      {
+        "source": "zeroBase.out",
+        "target": "flatZero.b"
+      }
+    ]
+  },
+  "inputMappings": [
+    {
+      "key": "quantity",
+      "targets": [
+        "flatZero.a",
+        "wholePreview.quantity"
+      ]
+    }
+  ],
+  "outputMappings": [
+    {
+      "key": "out",
+      "source": "flat.out"
+    },
+    {
+      "key": "valid",
+      "source": "wholePreview.valid"
+    }
+  ],
+  "parameterMappings": []
+}
