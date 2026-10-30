@@ -108,6 +108,27 @@ public sealed class ScanTradeTests
         trade.Takes(ScanScenario.Levels, entry: 100m, stop: 95m, target: 112m).ShouldBeFalse();
     }
 
+    [TestCase(arg1: 94.99, arg2: false)]
+    [TestCase(arg1: 95, arg2: false)]
+    [TestCase(arg1: 95.01, arg2: true)]
+    [TestCase(arg1: 102, arg2: true)]
+    [TestCase(arg1: 110, arg2: false)]
+    public void ALongEntersOnlyBetweenItsStopAndTarget(decimal price, bool allowed)
+    {
+        Trade().AllowsEntryAt(price).ShouldBe(allowed);
+    }
+
+    [TestCase(arg1: 105.01, arg2: false)]
+    [TestCase(arg1: 105, arg2: false)]
+    [TestCase(arg1: 104.99, arg2: true)]
+    [TestCase(arg1: 90.01, arg2: true)]
+    [TestCase(arg1: 90, arg2: false)]
+    public void AShortEntersOnlyBetweenItsStopAndTarget(decimal price, bool allowed)
+    {
+        // MAGMA sold at 0.337 with its stops below that: a short whose market rose past its stop.
+        Trade(entry: 100m, stop: 105m, target: 90m, PositionDirection.Short).AllowsEntryAt(price).ShouldBe(allowed);
+    }
+
     [TestCase(arg1: 100, arg2: 100, arg3: 110)]
     [TestCase(arg1: 100, arg2: 95, arg3: 100)]
     [TestCase(arg1: 100, arg2: 0, arg3: 110)]

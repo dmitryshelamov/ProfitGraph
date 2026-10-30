@@ -24,7 +24,8 @@ namespace ProfitGraph.Application.Bots.DispatchOrderIntent;
 ///     failure retries with backoff, and the tenth fails the intent and degrades the bot. A safety reason from the venue
 ///     degrades the bot at once and returns the intent for a later lookup. A first buy above the bot's per-order limit
 ///     (a sell is bounded by the position the engine reserved, not by the limit) is rejected with <c>RiskLimit</c> before
-///     it is sent, as is a limit sell below half of the last close (<see cref="SellPriceFloor" />). Then the venue's
+///     it is sent, as is a limit sell below half of the last close (<see cref="SellPriceFloor" />) and a submit an
+///     <see cref="IOrderSubmitGuard" /> refuses (ADR 0067). Then the venue's
 ///     readiness is asked (ADR 0024): a submit that cannot go yet is deferred, claimed again at its next check, and
 ///     cancelled locally if the strategy cancels it. A rejection for an insufficient balance degrades the bot with
 ///     <c>InsufficientBalance</c>. Stopped bots hold their submits.
@@ -38,6 +39,7 @@ internal sealed class DispatchOrderIntentCommandHandler(
     VenuePorts<IOrderGateway> gateways,
     VenuePorts<IOrderReadiness> readiness,
     IBotOrderWaitingRepository waiting,
+    IEnumerable<IOrderSubmitGuard> guards,
     BotUpdateBus updates,
     ITransactionExecutor transactions,
     OrderDispatchOptions options,
@@ -238,8 +240,8 @@ internal sealed class DispatchOrderIntentCommandHandler(
     }
 
     /// <summary>
-    ///     Why a submit breaks the bot's risk limits (ADR 0018), or null: a buy above the per-order limit, or a limit sell below
-    ///     the price floor.
+    ///     Why a submit breaks the bot's risk limits (ADR 0018), or null: a buy above the per-order limit, a limit sell below
+    ///     the price floor, or a guard's refusal.
     /// </summary>
     private async Task<string?> RiskRejection(OrderIntent intent, decimal maxOrderQuote, CancellationToken cancellationToken)
     {
@@ -250,10 +252,21 @@ internal sealed class DispatchOrderIntentCommandHandler(
             return "The order exceeds the bot's per-order limit.";
         }
 
-        return order.Side == OrderSide.Sell && order.LimitPrice is not null &&
-            (await checkpoints.Get(intent.BotId, cancellationToken))?.Engine.LastClosedCandle.Close is { } close && SellPriceFloor.IsBelow(order, close)
-                ? "The sell's limit price is below half of the last close."
-                : null;
+        if (order.Side == OrderSide.Sell && order.LimitPrice is not null &&
+            (await checkpoints.Get(intent.BotId, cancellationToken))?.Engine.LastClosedCandle.Close is { } close && SellPriceFloor.IsBelow(order, close))
+        {
+            return "The sell's limit price is below half of the last close.";
+        }
+
+        foreach (IOrderSubmitGuard guard in guards)
+        {
+            if (await guard.Refusal(intent.BotId, order, cancellationToken) is { } refusal)
+            {
+                return refusal;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

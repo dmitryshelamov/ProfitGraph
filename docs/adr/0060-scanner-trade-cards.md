@@ -88,6 +88,9 @@ spread, and ideas whose stop is nearer than those costs are left out.
 - A live trade with the same scenario and prices on the pair already exists: 409 `scan_trade_live`; a partial unique index
   enforces it. Several trades on one pair (other timeframes or scenarios) are allowed.
 
+Since [ADR 0067](0067-scanner-entry-guard.md) a trade enters only while the price lies between its stop and target: at creation
+(409 `scan_trade_entry_beyond_levels`) and again by the Worker right before the entry is sent, which fails the trade otherwise.
+
 ### 5. Following the trade
 
 `ScanTrade` (Domain) is `Waiting` while the entry rests, `Open` while the position is held, and ends as `TookProfit`,

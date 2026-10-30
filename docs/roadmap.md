@@ -193,6 +193,14 @@ Corrections to [ADR 0017](adr/0017-bybit-spot-order-gateway.md) and [ADR 0023](a
 | 1. Real costs | `ScanTradeCosts`; the venue's maker and taker rates for the owner's credential, cached for 15 minutes; the snapshot's spread on the stop; ideas with a stop nearer than the costs left out and refused; each idea's profit and the costs in the response and under the table; a spread ceiling in every Bybit preset | Engine and domain tests size with limit and market fees and a spread, the test venue's rates size a created trade, a tight stop is left out and refused, and the app tests show the costs | Done on the test venue; the real Bybit rates are read the way bots read them |
 | 2. Short close | Buy back a short by quantity | | Planned |
 
+## Scanner entry guard
+
+[ADR 0067](adr/0067-scanner-entry-guard.md): a scanner trade enters only while the price lies between its stop and target.
+
+| Step | Scope | Done when | Status |
+|---|---|---|---|
+| 1. Entry guard | `ScanTrade.AllowsEntryAt`; `IOrderSubmitGuard` in the dispatcher; `ScanTradeEntryGuard` on the display price or the last close, at most `ScanTrades:EntryPriceMaxAge` old; the creation guard on the freshest price; the failure codes on the pair page | Domain tests cover both directions, the scripted Worker rejects an entry beyond the stop before it is sent and fails the trade, and creation refuses a price beyond the levels | In review |
+
 ## Runs, optimizations and the queue
 
 The runs page tells what the Worker is doing and finds finished work: what runs and waits in each lane, optimizations
