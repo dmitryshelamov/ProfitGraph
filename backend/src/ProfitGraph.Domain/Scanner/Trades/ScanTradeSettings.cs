@@ -101,13 +101,13 @@ public sealed class ScanTradeSettings : AggregateRoot
 
     /// <summary>
     ///     The quote a trade from <paramref name="entry" /> to <paramref name="stop" /> spends: what loses <see cref="Risk" /> at the stop
-    ///     after a fee of <paramref name="feeRate" /> on each side, at most <see cref="MaxAmount" />; and the quote it then risks.
+    ///     with the trade's <paramref name="costs" /> (ADR 0065), at most <see cref="MaxAmount" />; and the quote it then risks.
     /// </summary>
-    public (decimal Amount, decimal Risk) Size(decimal entry, decimal stop, decimal feeRate)
+    public (decimal Amount, decimal Risk) Size(decimal entry, decimal stop, ScanTradeCosts costs)
     {
-        decimal amount = ScanTradeIdeas.Amount(Risk, entry, stop, feeRate);
+        decimal amount = ScanTradeIdeas.Amount(Risk, entry, stop, costs);
 
-        return amount <= MaxAmount ? (amount, Risk) : (MaxAmount, MaxAmount * (Math.Abs(entry - stop) / entry + 2 * feeRate));
+        return amount <= MaxAmount ? (amount, Risk) : (MaxAmount, costs.Loss(MaxAmount, entry, stop));
     }
 
     private static void Ensure(decimal risk, decimal maxAmount, decimal? leverage)

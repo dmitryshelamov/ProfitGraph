@@ -8,7 +8,8 @@ namespace ProfitGraph.Venues.Bybit.Scanner;
 ///     trend (efficiency ratio at most 0.3), hourly swings of at least 0.5% against a round trip of taker fees near 0.2%, liquid,
 ///     a tight spread, and not falling (at most 5% down in a day, at most 25% below the week's high). The thresholds are a
 ///     starting point the owner tunes by copying a preset. USDT perpetuals (ADR 0061) have «Импульс» and its mirror «Падение», an
-///     hour down at least 3% on volume three times its usual, for short ideas.
+///     hour down at least 3% on volume three times its usual, for short ideas. Every preset asks for a spread of at most 0.1%, which a
+///     stopped trade crosses on top of its fees (ADR 0065).
 /// </summary>
 internal static class BybitScanPresets
 {
@@ -20,7 +21,7 @@ internal static class BybitScanPresets
             "Импульс",
             [
                 new ScanConditionInternal("Change1h", Minimum: 3m, Maximum: null), new ScanConditionInternal("VolumeSpike", Minimum: 3m, Maximum: null),
-                new ScanConditionInternal("Turnover24h", Minimum: 500_000m, Maximum: null)
+                new ScanConditionInternal("Turnover24h", Minimum: 500_000m, Maximum: null), new ScanConditionInternal("Spread", Minimum: null, Maximum: 0.1m)
             ],
             "Change1h",
             SortDescending: true,
@@ -52,7 +53,7 @@ internal static class BybitScanPresets
             "Падение",
             [
                 new ScanConditionInternal("Change1h", Minimum: null, Maximum: -3m), new ScanConditionInternal("VolumeSpike", Minimum: 3m, Maximum: null),
-                new ScanConditionInternal("Turnover24h", Minimum: 1_000_000m, Maximum: null)
+                new ScanConditionInternal("Turnover24h", Minimum: 1_000_000m, Maximum: null), new ScanConditionInternal("Spread", Minimum: null, Maximum: 0.1m)
             ],
             "Change1h",
             SortDescending: false,

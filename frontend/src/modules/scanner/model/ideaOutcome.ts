@@ -9,7 +9,7 @@ import type { ScanTradeIdea } from './types';
 
 const places = 8;
 
-/** What a trade card's idea makes at its target and loses at its stop, after the fees its sizing assumed (ADR 0060). */
+/** What a trade card's idea makes at its target and loses at its stop, after the fees and spread it is sized with (ADR 0065). */
 export interface IdeaOutcome {
   /** The quote made at the target after fees; null until the idea is sized. */
   readonly profit: string | null;
@@ -28,17 +28,13 @@ export interface IdeaOutcome {
 }
 
 /**
- * The idea's outcome from its amount and risk. The backend sizes a trade so that the stop loses the risk with a fee on both sides
- * (`risk = amount × (|entry − stop| / entry + 2 × fee)`), so the profit at the target after the same fees is
- * `amount × |target − stop| / entry − risk`, with no fee rate needed here.
+ * The idea's outcome from the backend's sizing (ADR 0065): the risk is what the stop loses with the entry's limit fee, the stop's
+ * market fee and the spread, and the profit what the target makes after a limit fee on each side.
  */
 export function ideaOutcome(idea: ScanTradeIdea): IdeaOutcome {
   const targetMove = move(idea.entry, idea.target);
   const stopMove = move(idea.entry, idea.stop);
-  const span = distance(idea.target, idea.stop);
-  const reach = span && idea.amount ? multiplyDecimals(idea.amount, span) : null;
-  const gross = reach ? divideDecimals(reach, idea.entry, places) : null;
-  const profit = gross && idea.risk ? subtractDecimals(gross, idea.risk) : null;
+  const profit = idea.profit ?? null;
 
   return {
     profit,
@@ -59,16 +55,6 @@ function move(from: string, to: string): string | null {
 
 function percentOf(value: string | null, base: string | null): string | null {
   return value && base ? signedDivide(multiplyDecimals(value, '100') ?? value, base) : null;
-}
-
-function distance(left: string, right: string): string | null {
-  const order = compareDecimals(left, right);
-
-  return order === null
-    ? null
-    : order >= 0
-      ? subtractDecimals(left, right)
-      : subtractDecimals(right, left);
 }
 
 function signedDivide(value: string, by: string): string | null {

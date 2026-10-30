@@ -65,17 +65,19 @@ public static class ScanTradeIdeas
     }
 
     /// <summary>
-    ///     The quote to spend so that a stop at <paramref name="stop" /> loses <paramref name="risk" /> after a fee of
-    ///     <paramref name="feeRate" /> on the entry and on the exit.
+    ///     The quote to spend so that a stop at <paramref name="stop" /> loses <paramref name="risk" /> with the trade's
+    ///     <paramref name="costs" /> (ADR 0065).
     /// </summary>
-    public static decimal Amount(decimal risk, decimal entry, decimal stop, decimal feeRate)
+    public static decimal Amount(decimal risk, decimal entry, decimal stop, ScanTradeCosts costs)
     {
-        if (risk <= 0m || stop <= 0m || entry <= 0m || stop == entry || feeRate < 0m)
+        ArgumentNullException.ThrowIfNull(costs);
+
+        if (risk <= 0m || stop <= 0m || entry <= 0m || stop == entry)
         {
             throw new ArgumentException("A trade risks a positive amount with its stop away from its entry.");
         }
 
-        return risk / (Math.Abs(entry - stop) / entry + 2 * feeRate);
+        return risk / (Math.Abs(entry - stop) / entry + costs.AtStop);
     }
 
     /// <summary>
