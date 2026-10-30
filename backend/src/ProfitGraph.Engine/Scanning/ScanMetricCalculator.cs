@@ -59,7 +59,7 @@ public static class ScanMetricCalculator
             Stale = IsStale(minutes, input.Now)
         };
 
-        return ScanLevels.Apply(metrics, ScanLevels.Of(hours), metrics.Price);
+        return ScanTrend.Apply(ScanLevels.Apply(metrics, ScanLevels.Of(hours), metrics.Price), hours, metrics.Price);
     }
 
     /// <summary>

@@ -29,6 +29,11 @@ public interface IMarketScanSource : IVenuePort
     /// </summary>
     string? QuoteAsset => null;
 
+    /// <summary>
+    ///     The pair whose trend stands for the venue's market (ADR 0071, section 3), or null when the venue has none.
+    /// </summary>
+    string? ReferenceSymbol => null;
+
     Task<IReadOnlyList<ScanInstrumentInternal>> Universe(CancellationToken cancellationToken);
 
     /// <summary>

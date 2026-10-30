@@ -11,7 +11,8 @@ namespace ProfitGraph.Engine.Scanning;
 ///     stop and target counts as the stop, and a minute that opens beyond a level leaves at its open. Results are after an assumed
 ///     0.1 % fee on each side. Where shorts are allowed (ADR 0061) the mirror scenarios of <see cref="ScanTradeIdeas" /> run too: a
 ///     short leaves at a high at its stop or a low at its target. The extreme of the four hours before an <see cref="ScanScenario.Extreme" />
-///     trade is that of the 240 minutes ending with the signal's (ADR 0072). Deterministic for identical inputs.
+///     trade is that of the 240 minutes ending with the signal's (ADR 0072). The market's trend at each minute, the venue's reference
+///     pair's, comes from <c>marketTrend</c> (ADR 0071, section 3). Deterministic for identical inputs.
 /// </summary>
 public static class ScanStudy
 {
@@ -28,7 +29,8 @@ public static class ScanStudy
         DateTimeOffset from,
         DateTimeOffset to,
         TimeSpan cooldown,
-        bool shorts = false)
+        bool shorts = false,
+        Func<DateTimeOffset, decimal?>? marketTrend = null)
     {
         ArgumentNullException.ThrowIfNull(replay);
         ArgumentNullException.ThrowIfNull(keeps);
@@ -46,7 +48,7 @@ public static class ScanStudy
                 continue;
             }
 
-            ScanMetrics metrics = replay.At(index);
+            ScanMetrics metrics = marketTrend is null ? replay.At(index) : replay.At(index) with { MarketTrend = marketTrend(at) };
             bool kept = keeps(metrics);
 
             if (kept && previous == false && (lastSignal is not { } last || at - last >= cooldown))

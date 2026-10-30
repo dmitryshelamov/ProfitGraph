@@ -30,6 +30,10 @@ internal sealed class ScanSnapshotRowDb
     public decimal? DistanceToResistance { get; init; }
     public decimal? DistanceToSupport { get; init; }
     public decimal? RewardRisk { get; init; }
+    public decimal? TrendEma50 { get; init; }
+    public decimal? EmaSpread20x50 { get; init; }
+    public decimal? Rsi1h { get; init; }
+    public decimal? MarketTrend { get; init; }
     public decimal? Spread { get; init; }
     public int? ListingAgeDays { get; init; }
     public bool Stale { get; init; }

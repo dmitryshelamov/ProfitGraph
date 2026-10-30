@@ -19,7 +19,8 @@ namespace ProfitGraph.Infrastructure.Scanner;
 /// <summary>
 ///     Scans one venue (ADR 0059, section 2): its universe in streams of <see cref="IMarketScanSource.MaxSymbolsPerStream" /> pairs,
 ///     each stream subscribed before its pairs read their history, a REST backfill after every reconnect, and after each minute a
-///     snapshot of every shown pair. No snapshot is written before the first pass over every stream, so a restart keeps showing the
+///     snapshot of every shown pair, each row with the trend of the venue's reference pair (ADR 0071, section 3). No snapshot is written before the first pass over every stream, so a
+///     restart keeps showing the
 ///     last stored one while it warms up.
 /// </summary>
 internal sealed class VenueScanRunner(
@@ -374,10 +375,12 @@ internal sealed class VenueScanRunner(
             }
         }
 
+        decimal? market = source.ReferenceSymbol is { } reference ? rows.FirstOrDefault(row => row.Symbol == reference)?.Metrics.TrendEma50 : null;
+        IEnumerable<ScanSnapshotRowInternal> marked = rows.Select(row => row with { Metrics = row.Metrics with { MarketTrend = market } });
         using IServiceScope scope = scopes.CreateScope();
         var sender = scope.ServiceProvider.GetRequiredService<ISender>();
         await sender.Send(
-            new ReplaceScanSnapshotCommand(new ScanSnapshotInternal(Venue, now, [.. rows.OrderBy(row => row.Symbol, StringComparer.Ordinal)])),
+            new ReplaceScanSnapshotCommand(new ScanSnapshotInternal(Venue, now, [.. marked.OrderBy(row => row.Symbol, StringComparer.Ordinal)])),
             cancellationToken);
     }
 

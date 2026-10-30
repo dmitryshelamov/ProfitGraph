@@ -30,6 +30,10 @@ public enum ScanMetric
     DistanceToResistance,
     DistanceToSupport,
     RewardRisk,
+    TrendEma50,
+    EmaSpread20x50,
+    Rsi1h,
+    MarketTrend,
     Spread,
     ListingAgeDays
 }

@@ -27,6 +27,10 @@ export type ScanMetric =
   | 'Resistance'
   | 'DistanceToResistance'
   | 'RewardRisk'
+  | 'TrendEma50'
+  | 'EmaSpread20x50'
+  | 'Rsi1h'
+  | 'MarketTrend'
   | 'Spread'
   | 'ListingAgeDays';
 
@@ -159,6 +163,30 @@ export const scanMetrics: readonly MetricDefinition[] = [
     places: 2,
     hint: 'Расстояние до сопротивления к расстоянию до поддержки: прибыль к риску лонга от цены',
   },
+  {
+    metric: 'TrendEma50',
+    label: 'К EMA 50 ч, %',
+    places: 2,
+    hint: 'Цена к EMA 50 часовых закрытий: ниже нуля — цена под средней, откат',
+  },
+  {
+    metric: 'EmaSpread20x50',
+    label: 'EMA 20/50 ч, %',
+    places: 2,
+    hint: 'EMA 20 часов к EMA 50 часов: выше нуля — тренд вверх',
+  },
+  {
+    metric: 'Rsi1h',
+    label: 'RSI 1 ч',
+    places: 1,
+    hint: 'RSI Уайлдера по 14 часовым закрытиям, от 0 до 100',
+  },
+  {
+    metric: 'MarketTrend',
+    label: 'Рынок к EMA 50 ч, %',
+    places: 2,
+    hint: 'Опорная пара биржи (BTC) к своей EMA 50 часов: куда идёт рынок',
+  },
   { metric: 'Spread', label: 'Спред, %', places: 3, hint: 'Разница лучших цен к середине' },
   {
     metric: 'ListingAgeDays',
@@ -194,6 +222,10 @@ const fields: Record<ScanMetric, keyof ScanRow> = {
   Resistance: 'resistance',
   DistanceToResistance: 'distanceToResistance',
   RewardRisk: 'rewardRisk',
+  TrendEma50: 'trendEma50',
+  EmaSpread20x50: 'emaSpread20x50',
+  Rsi1h: 'rsi1h',
+  MarketTrend: 'marketTrend',
   Spread: 'spread',
   ListingAgeDays: 'listingAgeDays',
 };

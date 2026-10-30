@@ -19,7 +19,8 @@ namespace ProfitGraph.Application.Scanner.RunScanBacktest;
 ///     Runs a scanner backtest (ADR 0059, section 6): for every pair of the venue's universe it reads the minutes of the period and
 ///     of the eight days before it (the longest metric window) through the scanner's request budget, replays them and collects the
 ///     pairs' signals, eight pairs at a time, since each request waits for the venue far longer than the budget asks. A pair whose
-///     history cannot be read is listed as failed; a request pause after the venue's ban fails the job. Conditions on the spread are
+///     history cannot be read is listed as failed; a request pause after the venue's ban fails the job. The trend of the venue's
+///     reference pair is replayed first and given to every pair's minutes, as a live snapshot gives it to every row (ADR 0071). Conditions on the spread are
 ///     not checked, since history has no quotes. On a venue that allows shorts the short scenarios run too (ADR 0061).
 /// </summary>
 internal sealed class RunScanBacktestCommandHandler(
@@ -49,6 +50,7 @@ internal sealed class RunScanBacktestCommandHandler(
         IMarketScanSource source = sources.Find(backtest.Venue.Value);
         bool shorts = venues.Find(backtest.Venue.Value) is { SupportsShort: true };
         IReadOnlyList<ScanInstrumentInternal> universe = await source.Universe(cancellationToken);
+        Func<DateTimeOffset, decimal?>? market = await MarketTrend(source, backtest, universe, cancellationToken);
         var signals = new ConcurrentBag<ScanSignal>();
         var failed = new ConcurrentBag<string>();
         var completed = 0;
@@ -61,7 +63,7 @@ internal sealed class RunScanBacktestCommandHandler(
             {
                 try
                 {
-                    foreach (ScanSignal signal in await Replay(source, backtest, instrument, shorts, token))
+                    foreach (ScanSignal signal in await Replay(source, backtest, instrument, shorts, market, token))
                     {
                         signals.Add(signal);
                     }
@@ -100,11 +102,49 @@ internal sealed class RunScanBacktestCommandHandler(
         return new ScanBacktestCompletedInternal(command.BacktestId, all.Length);
     }
 
+    /// <summary>
+    ///     The trend of the venue's reference pair at the end of each minute of its history (ADR 0071, section 3), as every row of a live
+    ///     snapshot carries it; null when the venue has no reference pair in its universe or its history cannot be read.
+    /// </summary>
+    private static async Task<Func<DateTimeOffset, decimal?>?> MarketTrend(
+        IMarketScanSource source,
+        ScanBacktest backtest,
+        IReadOnlyList<ScanInstrumentInternal> universe,
+        CancellationToken cancellationToken)
+    {
+        if (source.ReferenceSymbol is not { } reference || universe.FirstOrDefault(instrument => instrument.Symbol == reference) is not { } instrument)
+        {
+            return null;
+        }
+
+        List<ScanCandle> minutes;
+
+        try
+        {
+            minutes = ScanHistory.Contiguous(await source.Candles(new InstrumentSymbol(reference), MinuteFrame, backtest.From - Warmup, backtest.To, cancellationToken));
+        }
+        catch (MarketScanException exception) when (exception.Code != MarketScanErrorCodes.RequestsPaused)
+        {
+            return null;
+        }
+
+        if (minutes.Count == 0)
+        {
+            return null;
+        }
+
+        var replay = new ScanReplay(minutes, instrument.ListedAt);
+        Dictionary<DateTimeOffset, decimal?> trends = Enumerable.Range(start: 0, replay.Count).ToDictionary(replay.EndOf, index => replay.At(index).TrendEma50);
+
+        return at => trends.GetValueOrDefault(at);
+    }
+
     private static async Task<IReadOnlyList<ScanSignal>> Replay(
         IMarketScanSource source,
         ScanBacktest backtest,
         ScanInstrumentInternal instrument,
         bool shorts,
+        Func<DateTimeOffset, decimal?>? market,
         CancellationToken cancellationToken)
     {
         IReadOnlyList<ScanCandle> candles = await source.Candles(
@@ -129,6 +169,7 @@ internal sealed class RunScanBacktestCommandHandler(
             backtest.From,
             backtest.To,
             ScanAlertWatch.Cooldown,
-            shorts);
+            shorts,
+            market);
     }
 }

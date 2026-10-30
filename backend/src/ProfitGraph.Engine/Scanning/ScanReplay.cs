@@ -41,6 +41,7 @@ public sealed class ScanReplay
     private readonly decimal?[] _spikeMedians;
     private readonly DateTimeOffset? _listedAt;
     private readonly IReadOnlyList<decimal>?[] _levels;
+    private readonly (decimal? Fast, decimal? Slow, decimal? Rsi)?[] _trends;
 
     public int Count => _minutes.Length;
 
@@ -111,6 +112,7 @@ public sealed class ScanReplay
         }
 
         _levels = new IReadOnlyList<decimal>?[_hours.Length];
+        _trends = new (decimal? Fast, decimal? Slow, decimal? Rsi)?[_hours.Length];
     }
 
     /// <summary>
@@ -163,7 +165,27 @@ public sealed class ScanReplay
             Stale = IsStale(index, window, now)
         };
 
-        return lastHour < 0 ? metrics : ScanLevels.Apply(metrics, Levels(lastHour), close);
+        if (lastHour < 0)
+        {
+            return metrics;
+        }
+
+        (decimal? fast, decimal? slow, decimal? rsi) = Trend(lastHour);
+
+        return ScanTrend.With(ScanLevels.Apply(metrics, Levels(lastHour), close), fast, slow, rsi, close);
+    }
+
+    /// <summary>
+    ///     The averages and RSI of the 168 hours up to <paramref name="lastHour" />, computed once per hour (ADR 0071, section 3).
+    /// </summary>
+    private (decimal? Fast, decimal? Slow, decimal? Rsi) Trend(int lastHour)
+    {
+        return _trends[lastHour] ??= ScanTrend.Of(Window(lastHour));
+    }
+
+    private ArraySegment<ScanCandle> Window(int lastHour)
+    {
+        return new ArraySegment<ScanCandle>(_hours, Math.Max(val1: 0, lastHour - HoursPerWeek + 1), Math.Min(HoursPerWeek, lastHour + 1));
     }
 
     /// <summary>
@@ -171,8 +193,7 @@ public sealed class ScanReplay
     /// </summary>
     private IReadOnlyList<decimal> Levels(int lastHour)
     {
-        return _levels[lastHour] ??=
-            ScanLevels.Of(new ArraySegment<ScanCandle>(_hours, Math.Max(val1: 0, lastHour - HoursPerWeek + 1), Math.Min(HoursPerWeek, lastHour + 1)));
+        return _levels[lastHour] ??= ScanLevels.Of(Window(lastHour));
     }
 
     /// <summary>

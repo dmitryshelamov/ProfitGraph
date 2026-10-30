@@ -65,6 +65,10 @@ public static class TelegramMessages
         [ScanMetric.DistanceToResistance] = ("До сопротивления", 2, "%"),
         [ScanMetric.DistanceToSupport] = ("До поддержки", 2, "%"),
         [ScanMetric.RewardRisk] = ("R:R", 2, string.Empty),
+        [ScanMetric.TrendEma50] = ("К EMA 50 ч", 2, "%"),
+        [ScanMetric.EmaSpread20x50] = ("EMA 20/50 ч", 2, "%"),
+        [ScanMetric.Rsi1h] = ("RSI 1 ч", 1, string.Empty),
+        [ScanMetric.MarketTrend] = ("Рынок к EMA 50 ч", 2, "%"),
         [ScanMetric.Spread] = ("Спред", 3, "%"),
         [ScanMetric.ListingAgeDays] = ("Возраст", 0, " дн")
     };

@@ -27,6 +27,11 @@ public sealed class ScanReplayTests
 
             replay.At(index).ShouldBe(ScanMetricCalculator.Calculate(input), $"minute {index}");
         }
+
+        // The trend metrics (ADR 0071, section 3) are compared too once the hours reach 50.
+        (replay.At(index: 13_699).TrendEma50, replay.At(index: 13_699).Rsi1h).ShouldSatisfyAllConditions(
+            values => values.TrendEma50.ShouldNotBeNull(),
+            values => values.Rsi1h.ShouldNotBeNull());
     }
 
     [Test]

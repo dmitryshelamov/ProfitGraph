@@ -5449,6 +5449,10 @@ export interface components {
             distanceToResistance: null | string;
             distanceToSupport: null | string;
             rewardRisk: null | string;
+            trendEma50: null | string;
+            emaSpread20x50: null | string;
+            rsi1h: null | string;
+            marketTrend: null | string;
             spread: null | string;
             /** Format: int32 */
             listingAgeDays: null | number;
