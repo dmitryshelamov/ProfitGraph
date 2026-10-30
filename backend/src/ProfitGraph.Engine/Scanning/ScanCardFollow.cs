@@ -26,26 +26,50 @@ public static class ScanCardFollow
     public static ScanCardOutcome? Follow(IReadOnlyList<ScanCandle> minutes, int index, ScanTradeIdea idea, ScanTradeCosts costs)
     {
         ArgumentNullException.ThrowIfNull(minutes);
-        ArgumentNullException.ThrowIfNull(idea);
-        ArgumentNullException.ThrowIfNull(costs);
 
-        bool @short = idea.Direction == PositionDirection.Short;
-        var wait = (int)(idea.EntryValidity / Minute);
+        ScanCardProgress progress = ScanCardProgress.Start;
 
-        for (int i = index + 1; i <= index + wait; i++)
+        for (int i = index + 1; i < minutes.Count && !progress.Done; i++)
         {
-            if (i >= minutes.Count)
-            {
-                return null;
-            }
-
-            if (@short ? minutes[i].High > idea.Entry : minutes[i].Low < idea.Entry)
-            {
-                return Trade(minutes, i, idea, costs, @short);
-            }
+            progress = Next(progress, idea, costs, minutes[i]);
         }
 
-        return ScanCardOutcome.Unfilled;
+        return progress.Outcome;
+    }
+
+    /// <summary>
+    ///     The card after one more closed <paramref name="minute" />: a paper trade (section 7) and the backtest step through the same
+    ///     rules. A card with an outcome stays as it is.
+    /// </summary>
+    public static ScanCardProgress Next(ScanCardProgress progress, ScanTradeIdea idea, ScanTradeCosts costs, ScanCandle minute)
+    {
+        ArgumentNullException.ThrowIfNull(progress);
+        ArgumentNullException.ThrowIfNull(idea);
+        ArgumentNullException.ThrowIfNull(costs);
+        ArgumentNullException.ThrowIfNull(minute);
+
+        if (progress.Done)
+        {
+            return progress;
+        }
+
+        bool @short = idea.Direction == PositionDirection.Short;
+
+        if (progress.EnteredAt is null)
+        {
+            int waited = progress.Waited + 1;
+
+            if (@short ? minute.High > idea.Entry : minute.Low < idea.Entry)
+            {
+                return Held(new ScanCardProgress(waited, minute.OpenTime, Held: 1, Outcome: null), idea, costs, minute, filling: true);
+            }
+
+            return waited >= (int)(idea.EntryValidity / Minute)
+                ? progress with { Waited = waited, Outcome = ScanCardOutcome.Unfilled }
+                : progress with { Waited = waited };
+        }
+
+        return Held(progress with { Held = progress.Held + 1 }, idea, costs, minute, filling: false);
     }
 
     /// <summary>
@@ -62,34 +86,22 @@ public static class ScanCardFollow
         return (moved - paid) / (Math.Abs(idea.Entry - idea.Stop) / idea.Entry + costs.AtStop);
     }
 
-    private static ScanCardOutcome? Trade(IReadOnlyList<ScanCandle> minutes, int filled, ScanTradeIdea idea, ScanTradeCosts costs, bool @short)
+    private static ScanCardProgress Held(ScanCardProgress progress, ScanTradeIdea idea, ScanTradeCosts costs, ScanCandle minute, bool filling)
     {
-        DateTimeOffset entered = minutes[filled].OpenTime;
-        var held = (int)(Horizon / Minute);
+        bool @short = idea.Direction == PositionDirection.Short;
+        DateTimeOffset entered = progress.EnteredAt!.Value;
 
-        for (int i = filled; i < filled + held; i++)
+        if (!filling && (@short ? minute.Low < idea.Target : minute.High > idea.Target))
         {
-            if (i >= minutes.Count)
-            {
-                return null;
-            }
-
-            ScanCandle minute = minutes[i];
-
-            if (i > filled && (@short ? minute.Low < idea.Target : minute.High > idea.Target))
-            {
-                return Outcome(idea, entered, minute, idea.Target, ScanTradeExit.Target, costs);
-            }
-
-            if (@short ? minute.Close > idea.Stop : minute.Close < idea.Stop)
-            {
-                return Outcome(idea, entered, minute, minute.Close, ScanTradeExit.Stop, costs);
-            }
+            return progress with { Outcome = Outcome(idea, entered, minute, idea.Target, ScanTradeExit.Target, costs) };
         }
 
-        ScanCandle last = minutes[filled + held - 1];
+        if (@short ? minute.Close > idea.Stop : minute.Close < idea.Stop)
+        {
+            return progress with { Outcome = Outcome(idea, entered, minute, minute.Close, ScanTradeExit.Stop, costs) };
+        }
 
-        return Outcome(idea, entered, last, last.Close, ScanTradeExit.Time, costs);
+        return progress.Held >= (int)(Horizon / Minute) ? progress with { Outcome = Outcome(idea, entered, minute, minute.Close, ScanTradeExit.Time, costs) } : progress;
     }
 
     private static ScanCardOutcome Outcome(ScanTradeIdea idea, DateTimeOffset entered, ScanCandle minute, decimal exit, ScanTradeExit reason, ScanTradeCosts costs)

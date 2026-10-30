@@ -531,6 +531,141 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scanner/presets/{presetId}/auto-trades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    minExpectedR?: string;
+                    minChance?: string;
+                };
+                header?: never;
+                path: {
+                    presetId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanAutoTradeResponse"];
+                        "application/json": components["schemas"]["ScanAutoTradeResponse"];
+                        "text/json": components["schemas"]["ScanAutoTradeResponse"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    presetId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ScanAutoTradeRuleRequest"];
+                    "text/json": components["schemas"]["ScanAutoTradeRuleRequest"];
+                    "application/*+json": components["schemas"]["ScanAutoTradeRuleRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanAutoTradeRuleResponse"];
+                        "application/json": components["schemas"]["ScanAutoTradeRuleResponse"];
+                        "text/json": components["schemas"]["ScanAutoTradeRuleResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    presetId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scanner/presets/{presetId}/auto-trades/mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    presetId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ScanAutoTradeModeRequest"];
+                    "text/json": components["schemas"]["ScanAutoTradeModeRequest"];
+                    "application/*+json": components["schemas"]["ScanAutoTradeModeRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ScanAutoTradeRuleResponse"];
+                        "application/json": components["schemas"]["ScanAutoTradeRuleResponse"];
+                        "text/json": components["schemas"]["ScanAutoTradeRuleResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scanner/venues": {
         parameters: {
             query?: never;
@@ -2314,6 +2449,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bots/{id}/manual-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SubmitManualOrderRequest"];
+                    "text/json": components["schemas"]["SubmitManualOrderRequest"];
+                    "application/*+json": components["schemas"]["SubmitManualOrderRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ManualOrderResponse"];
+                        "application/json": components["schemas"]["ManualOrderResponse"];
+                        "text/json": components["schemas"]["ManualOrderResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bots/{id}/position-close": {
         parameters: {
             query?: never;
@@ -2372,51 +2552,6 @@ export interface paths {
                         "text/plain": components["schemas"]["BotPositionCloseResponse"];
                         "application/json": components["schemas"]["BotPositionCloseResponse"];
                         "text/json": components["schemas"]["BotPositionCloseResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/bots/{id}/manual-orders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["SubmitManualOrderRequest"];
-                    "text/json": components["schemas"]["SubmitManualOrderRequest"];
-                    "application/*+json": components["schemas"]["SubmitManualOrderRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["ManualOrderResponse"];
-                        "application/json": components["schemas"]["ManualOrderResponse"];
-                        "text/json": components["schemas"]["ManualOrderResponse"];
                     };
                 };
             };
@@ -4711,7 +4846,7 @@ export interface components {
             /** Format: date-time */
             resolvedAt: null | string;
         };
-        /** @enum {string} */
+        /** @enum {unknown} */
         BotPositionCloseStatus: "Pending" | "Cancelling" | "Selling" | "Closed" | "Failed";
         BotPositionCycleResponse: {
             /** Format: uuid */
@@ -5205,11 +5340,11 @@ export interface components {
         RenameExchangeCredentialRequest: {
             label: string;
         };
-        RequestPositionCloseRequest: {
-            stopAfter: boolean;
-        };
         RenameStrategyRequest: {
             name: string;
+        };
+        RequestPositionCloseRequest: {
+            stopAfter: boolean;
         };
         SampleMetricsResponse: {
             /** Format: int32 */
@@ -5245,6 +5380,110 @@ export interface components {
             layout: components["schemas"]["GraphLayoutRequest"];
             /** @default false */
             confirmLiveImpact: boolean;
+        };
+        ScanAutoTradeBacktestResponse: {
+            /** Format: uuid */
+            backtestId: string;
+            presetName: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** Format: date-time */
+            completedAt: string;
+            marketChange: null | string;
+            candidates: components["schemas"]["ScanAutoTradeCandidateResponse"][];
+        };
+        ScanAutoTradeCandidateResponse: {
+            timeframe: string;
+            scenario: string;
+            direction: string;
+            thirds: components["schemas"]["ScanAutoTradeThirdResponse"][];
+            qualifies: boolean;
+        };
+        ScanAutoTradeModeRequest: {
+            mode: string;
+        };
+        ScanAutoTradeProofResponse: {
+            /** Format: uuid */
+            backtestId: string;
+            thirds: components["schemas"]["ScanAutoTradeThirdResponse"][];
+            marketChange: null | string;
+        };
+        ScanAutoTradeRequestResponse: {
+            /** Format: uuid */
+            id: string;
+            symbol: string;
+            /** Format: date-time */
+            snapshotAt: string;
+            price: null | string;
+            status: string;
+            errorCode: null | string;
+            /** Format: uuid */
+            tradeId: null | string;
+            /** Format: date-time */
+            handledAt: null | string;
+        };
+        ScanAutoTradeResponse: {
+            /** Format: uuid */
+            presetId: string;
+            venue: string;
+            rule: null | components["schemas"]["ScanAutoTradeRuleResponse"];
+            /** Format: int32 */
+            openTrades: number;
+            /** Format: int32 */
+            todayTrades: number;
+            todayLoss: string;
+            minExpectedR: string;
+            minChance: null | string;
+            latest: null | components["schemas"]["ScanAutoTradeBacktestResponse"];
+            otherRegime: null | components["schemas"]["ScanAutoTradeBacktestResponse"];
+            requests: components["schemas"]["ScanAutoTradeRequestResponse"][];
+            paperTrades: components["schemas"]["ScanPaperTradeResponse"][];
+            /** Format: int32 */
+            paperClosed: number;
+            paperMeanR: null | string;
+        };
+        ScanAutoTradeRuleRequest: {
+            direction: string;
+            scenario: string;
+            timeframe: string;
+            minExpectedR: string;
+            minChance?: null | string;
+            /** Format: int32 */
+            maxOpenTrades?: null | number;
+            /** Format: int32 */
+            maxTradesPerDay?: null | number;
+            dailyLossLimit?: null | string;
+        };
+        ScanAutoTradeRuleResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            presetId: string;
+            venue: string;
+            direction: string;
+            scenario: string;
+            timeframe: string;
+            minExpectedR: string;
+            minChance: null | string;
+            /** Format: int32 */
+            maxOpenTrades: number;
+            /** Format: int32 */
+            maxTradesPerDay: number;
+            dailyLossLimit: string;
+            mode: string;
+            /** Format: date-time */
+            modeSince: string;
+            /** Format: date */
+            pausedOn: null | string;
+            backtest: null | components["schemas"]["ScanAutoTradeProofResponse"];
+            otherRegime: null | components["schemas"]["ScanAutoTradeProofResponse"];
+        };
+        ScanAutoTradeThirdResponse: {
+            /** Format: int32 */
+            trades: number;
+            meanR: null | string;
         };
         ScanBacktestListItemResponse: {
             /** Format: uuid */
@@ -5384,6 +5623,29 @@ export interface components {
             risingShare: null | string;
             mean: null | string;
             median: null | string;
+        };
+        ScanPaperTradeResponse: {
+            /** Format: uuid */
+            id: string;
+            symbol: string;
+            timeframe: string;
+            scenario: string;
+            direction: string;
+            entry: string;
+            stop: string;
+            target: string;
+            amount: string;
+            risk: string;
+            expectedR: string;
+            /** Format: date-time */
+            createdAt: string;
+            status: string;
+            /** Format: date-time */
+            enteredAt: null | string;
+            /** Format: date-time */
+            exitedAt: null | string;
+            resultR: null | string;
+            pnl: null | string;
         };
         ScanPresetAlertsRequest: {
             enabled: boolean;

@@ -231,6 +231,25 @@ entry, stop, target, amount and costs, followed in the `scanner` role on the clo
 rule switches to `Live` only from `Paper`, after at least `ScanAutoTrades:MinPaperTrades` (30) closed paper trades whose mean R is
 not below the backtest's by more than half; the page shows both side by side.
 
+### 7a. How sections 4–7 are built (amended 2026-10-31)
+
+- **Proof.** A backtest stores each closed card trade with its third of the period and the chance and expected R its kind and bands
+  give it in that backtest (`scan_backtest_cards`), and the move of the reference pair over its period (`market_change`). A rule's
+  cards in a backtest are those of its kind whose expected R and chance reach its minimums. The proof is the owner's latest completed
+  backtest whose conditions equal the preset's (in any order) and the latest one that ended before it began with the reference pair
+  moving the other way; the rule keeps both ids and their numbers per third. A missing or failing proof answers 422
+  `scan_auto_trade_not_proven`.
+- **Handling in three steps.** Reading a pair's cards reads the venue, which may not happen inside a transaction, so the Worker claims a
+  request in one transaction (it becomes `Handling` after the gate of section 6 passes), reads the cards as the page does, and takes
+  the card in a second transaction after checking the gate again. A request left claimed for longer than the request lifetime is taken
+  up again and expires.
+- **Paper steps.** After each snapshot the scanner steps the venue's open paper trades through the last 60 closed minutes of their
+  pairs, each minute once, by `ScanCardFollow.Next`, the same step the backtest follows cards with. A paper trade's result is in R of
+  its sizing and in quote (R times the risk). The rule's paper result counts its paper trades since it entered its mode.
+- **Limits.** Open trades are those waiting for their entry or open; the day's loss is the net loss of the trades closed that UTC day.
+  A rule at its loss limit pauses when a trade closes or a request is handled.
+- **Not here yet.** Section 8: the mode request accepts `Off` and `Paper`; `Live` answers 409 `scan_auto_trade_live_unavailable`.
+
 ### 8. Live mode and safety
 
 - `Live` is set only by the owner on the page, with a confirmation naming the limits and the risk. Nothing in the committed

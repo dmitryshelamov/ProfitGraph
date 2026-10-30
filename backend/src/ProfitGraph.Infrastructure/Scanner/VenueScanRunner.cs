@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 
 using ProfitGraph.Application.Scanner;
 using ProfitGraph.Application.Scanner.Contracts;
+using ProfitGraph.Application.Scanner.FollowScanPaperTrades;
 using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Application.Scanner.ReplaceScanSnapshot;
 using ProfitGraph.Application.Scanner.Runtime;
@@ -19,7 +20,8 @@ namespace ProfitGraph.Infrastructure.Scanner;
 /// <summary>
 ///     Scans one venue (ADR 0059, section 2): its universe in streams of <see cref="IMarketScanSource.MaxSymbolsPerStream" /> pairs,
 ///     each stream subscribed before its pairs read their history, a REST backfill after every reconnect, and after each minute a
-///     snapshot of every shown pair, each row with the trend of the venue's reference pair (ADR 0071, section 3). No snapshot is written before the first pass over every stream, so a
+///     snapshot of every shown pair, each row with the trend of the venue's reference pair (ADR 0071, section 3), after which the
+///     venue's paper trades step through the pairs' last closed minutes (section 7). No snapshot is written before the first pass over every stream, so a
 ///     restart keeps showing the
 ///     last stored one while it warms up.
 /// </summary>
@@ -30,6 +32,11 @@ internal sealed class VenueScanRunner(
     TimeProvider clock,
     ILogger logger)
 {
+    /// <summary>
+    ///     How many of a pair's last closed minutes the paper trades step through after a snapshot: enough to catch up after missed ones.
+    /// </summary>
+    private const int PaperMinutes = 60;
+
     private static readonly Timeframe MinuteFrame = Timeframe.Parse("1m");
     private static readonly Timeframe HourFrame = Timeframe.Parse("1h");
     private static readonly TimeSpan MinuteHistory = TimeSpan.FromMinutes(ScanSeries.MinuteCapacity);
@@ -355,6 +362,7 @@ internal sealed class VenueScanRunner(
         DateTimeOffset upToMinute = Floor(now, MinuteFrame);
         Dictionary<string, ScanQuoteInternal> quotes = await Quotes(cancellationToken);
         var rows = new List<ScanSnapshotRowInternal>();
+        var recent = new Dictionary<string, IReadOnlyList<ScanCandle>>(StringComparer.Ordinal);
 
         foreach (ScanSeries series in _series.Values)
         {
@@ -364,6 +372,8 @@ internal sealed class VenueScanRunner(
             {
                 continue;
             }
+
+            recent[series.Symbol] = input.Minutes.Count <= PaperMinutes ? input.Minutes : [.. input.Minutes.Skip(input.Minutes.Count - PaperMinutes)];
 
             try
             {
@@ -382,6 +392,7 @@ internal sealed class VenueScanRunner(
         await sender.Send(
             new ReplaceScanSnapshotCommand(new ScanSnapshotInternal(Venue, now, [.. marked.OrderBy(row => row.Symbol, StringComparer.Ordinal)])),
             cancellationToken);
+        await sender.Send(new FollowScanPaperTradesCommand(Venue, recent), cancellationToken);
     }
 
     private async Task<Dictionary<string, ScanQuoteInternal>> Quotes(CancellationToken cancellationToken)
