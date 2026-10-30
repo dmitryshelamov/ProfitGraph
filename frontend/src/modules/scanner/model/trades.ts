@@ -62,6 +62,8 @@ export function tradeStatus(status: string): { label: string; tone: StatusTone }
 const failures: Record<string, string> = {
   scan_trade_start_failed: 'бот не запустился',
   scan_trade_entry_ended: 'биржа не приняла вход',
+  scan_trade_entry_beyond_levels: 'цена ушла за стоп или цель до входа',
+  scan_trade_entry_price_unknown: 'нет свежей цены перед входом',
 };
 
 export function tradeFailure(code: string | null | undefined): string | null {

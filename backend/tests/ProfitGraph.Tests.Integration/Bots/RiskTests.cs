@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Npgsql;
 
 using ProfitGraph.Application.Bots.KillBot;
+using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Domain.Bots;
 using ProfitGraph.Domain.Bots.OrderIntents;
@@ -18,8 +19,8 @@ namespace ProfitGraph.Tests.Integration.Bots;
 
 /// <summary>
 ///     Risk controls of live bots with the scripted venue (stage 5.9, Profit Fox Designer ADR 0056): a kill rejects the
-///     unsent submit and cancels the sent order without selling, the per-order limit rejects before sending and an
-///     insufficient balance degrades the bot.
+///     unsent submit and cancels the sent order without selling, the per-order limit and a submit guard (ADR 0067) reject
+///     before sending and an insufficient balance degrades the bot.
 /// </summary>
 [NonParallelizable]
 public sealed class RiskTests
@@ -109,6 +110,25 @@ public sealed class RiskTests
         await worker.StopAsync();
 
         (await RuntimeScenario.Intents(worker, bot.Id)).First().Rejection!.Reason.ShouldBe(RejectionReason.RiskLimit);
+        scenario.Gateway.Places.ShouldBe(0);
+    }
+
+    [Test]
+    public async Task SubmitAGuardRefusesIsRejectedBeforeItIsSent()
+    {
+        var scenario = new RuntimeScenario();
+        var guard = new RefusingSubmitGuard();
+        using IHost worker = scenario.Worker(configure: services => services.AddSingleton<IOrderSubmitGuard>(guard));
+        Bot bot = await RuntimeScenario.RunningLadder(worker);
+
+        await worker.StartAsync();
+        await RuntimeScenario.Until(
+            async () => (await RuntimeScenario.Intents(worker, bot.Id)).Any(intent => intent.Status == OrderIntentStatus.Rejected),
+            "the submit is rejected");
+        await worker.StopAsync();
+
+        (await RuntimeScenario.Intents(worker, bot.Id)).First().Rejection.ShouldBe(new OrderIntentRejection(RejectionReason.RiskLimit, RefusingSubmitGuard.Reason));
+        guard.Asked.ShouldBeGreaterThan(0);
         scenario.Gateway.Places.ShouldBe(0);
     }
 
