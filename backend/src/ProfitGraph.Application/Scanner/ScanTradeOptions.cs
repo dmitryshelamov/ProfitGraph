@@ -13,9 +13,10 @@ public sealed class ScanTradeOptions
     public string Timeframe { get; init; } = "1m";
 
     /// <summary>
-    ///     The timeframes whose levels give the cards' proposals, shortest first; those the venue does not offer are skipped.
+    ///     The timeframes whose levels give the cards' proposals, shortest first; those the venue does not offer are skipped. Minutes'
+    ///     levels lie within a candle's noise and days' targets beyond a trade's day (ADR 0070), so the cards read 15 minutes to 4 hours.
     /// </summary>
-    public string[] LevelTimeframes { get; init; } = ["1m", "5m", "15m", "1h", "4h", "1d"];
+    public string[] LevelTimeframes { get; init; } = ["15m", "1h", "4h"];
 
     /// <summary>
     ///     The fee on every order a card assumes when the venue's fee rates for the owner's credential cannot be read (ADR 0065); the

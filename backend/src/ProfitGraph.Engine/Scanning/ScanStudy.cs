@@ -94,10 +94,19 @@ public static class ScanStudy
             Change(minutes, index, entry, MinutesPerDay),
             Extreme(minutes, index, entry, highest: true),
             Extreme(minutes, index, entry, highest: false),
-            Trades(minutes, index, metrics, shorts));
+            Trades(minutes, index, metrics, shorts, ScanLevels.AverageRange(replay.HoursAt(index))));
     }
 
-    internal static List<ScanTrade> Trades(IReadOnlyList<ScanCandle> minutes, int index, ScanMetrics metrics, bool shorts = false)
+    /// <summary>
+    ///     The scenarios of a signal at the minute at <paramref name="index" />; a stop at a level lies beyond it by the hours' average
+    ///     range, as on a card (ADR 0070).
+    /// </summary>
+    internal static List<ScanTrade> Trades(
+        IReadOnlyList<ScanCandle> minutes,
+        int index,
+        ScanMetrics metrics,
+        bool shorts = false,
+        decimal? averageRange = null)
     {
         List<ScanTrade> trades = [];
 
@@ -108,10 +117,10 @@ public static class ScanStudy
 
         decimal open = minutes[index + 1].Open;
 
-        if (metrics.Support is { } support && support < open)
+        if (metrics.Support is { } level && level < open && ScanTradeIdeas.LevelStop(open, level, averageRange) is { } support)
         {
             if (metrics.Resistance is { } resistance && resistance > open &&
-                Run(minutes, index + 1, open, support, resistance, ScanScenario.Levels, fillMinute: false) is { } levels)
+                Run(minutes, index + 1, open, support, ScanTradeIdeas.LevelTarget(open, resistance), ScanScenario.Levels, fillMinute: false) is { } levels)
             {
                 trades.Add(levels);
 
@@ -134,18 +143,18 @@ public static class ScanStudy
 
         if (shorts)
         {
-            trades.AddRange(ShortTrades(minutes, index, metrics, open));
+            trades.AddRange(ShortTrades(minutes, index, metrics, open, averageRange));
         }
 
         return trades;
     }
 
-    private static IEnumerable<ScanTrade> ShortTrades(IReadOnlyList<ScanCandle> minutes, int index, ScanMetrics metrics, decimal open)
+    private static IEnumerable<ScanTrade> ShortTrades(IReadOnlyList<ScanCandle> minutes, int index, ScanMetrics metrics, decimal open, decimal? averageRange)
     {
-        if (metrics.Resistance is { } resistance && resistance > open)
+        if (metrics.Resistance is { } level && level > open && ScanTradeIdeas.LevelStop(open, level, averageRange) is { } resistance)
         {
             if (metrics.Support is { } support && support > 0m && support < open &&
-                Run(minutes, index + 1, open, resistance, support, ScanScenario.Levels, fillMinute: false, PositionDirection.Short) is { } levels)
+                Run(minutes, index + 1, open, resistance, ScanTradeIdeas.LevelTarget(open, support), ScanScenario.Levels, fillMinute: false, PositionDirection.Short) is { } levels)
             {
                 yield return levels;
 

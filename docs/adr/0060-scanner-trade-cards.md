@@ -26,7 +26,7 @@ following them would need a second order path beside the bots with its own recon
 ### 1. A card is a scenario of the preset backtest for the pair now, on every timeframe
 
 `ScanTradeIdeas.Of` (Engine) proposes the scenarios the backtest simulates, with the price in place of the next minute's open. The
-levels come from each timeframe of `ScanTrades:LevelTimeframes` the venue offers (`1m`, `5m`, `15m`, `1h`, `4h`, `1d`): its last
+levels come from each timeframe of `ScanTrades:LevelTimeframes` the venue offers (`15m`, `1h`, `4h` since ADR 0070): its last
 168 closed candles at the snapshot price, as the pair page's levels (`ScanTimeframeLevelsReader`). Each timeframe gives its own
 `Levels` and `Target2R`; the pullback comes once, from the last hour, shown under `1h`. A proposal that another timeframe already
 gives with the same prices is listed once, under the shorter timeframe.
@@ -72,6 +72,9 @@ Per owner and venue, `scan_trade_settings` keeps the credential, the risk (quote
 trade. The amount is `risk / ((entry − stop) / entry + 2 × fee)` with the `ScanTrades:FeeRate` of 0.1 % on each side, capped at
 the largest amount, which then lowers the risk shown; it is rounded down to cents. The settings take only the owner's credential
 of the scanner's venue.
+
+Since [ADR 0070](0070-scanner-card-stops-and-timeframes.md) a stop at a level lies a quarter of the timeframe's average range
+beyond it, and an entry at the price with a stop nearer than one range is not proposed.
 
 Since [ADR 0065](0065-scanner-trade-costs.md) the amount is sized with the bot's own limit and market fee rates and the pair's
 spread, and ideas whose stop is nearer than those costs are left out.

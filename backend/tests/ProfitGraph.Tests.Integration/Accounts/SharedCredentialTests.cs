@@ -48,6 +48,10 @@ public sealed class SharedCredentialTests
     {
         Dictionary<string, string> settings = BotApi.Settings();
         settings["ScanTrades:Timeframe"] = "1h";
+
+        // The test venue offers hours and days only.
+        settings["ScanTrades:LevelTimeframes:0"] = "1h";
+        settings["ScanTrades:LevelTimeframes:1"] = "1d";
         _api = new ProfitGraphApiFactory(
             settings,
             services: services =>

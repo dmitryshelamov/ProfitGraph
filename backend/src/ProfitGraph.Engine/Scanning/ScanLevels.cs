@@ -18,6 +18,11 @@ public static class ScanLevels
     /// </summary>
     public const int MaximumCandles = 168;
 
+    /// <summary>
+    ///     How many closed candles the average range of a timeframe spans (ADR 0070).
+    /// </summary>
+    public const int RangeCandles = 24;
+
     private const int SwingSide = 2;
     private const decimal MergeWithin = 0.005m;
     private const decimal Clearance = 0.001m;
@@ -76,6 +81,30 @@ public static class ScanLevels
         levels.Add(clusterSum / clusterCount);
 
         return levels;
+    }
+
+    /// <summary>
+    ///     The mean true range of the last <see cref="RangeCandles" /> closed candles, each from the previous close (ADR 0070): how far
+    ///     one candle of the timeframe usually moves. Empty until one candle more than that exists.
+    /// </summary>
+    public static decimal? AverageRange(IReadOnlyList<ScanCandle> candles)
+    {
+        ArgumentNullException.ThrowIfNull(candles);
+
+        if (candles.Count < RangeCandles + 1)
+        {
+            return null;
+        }
+
+        decimal sum = 0;
+
+        for (int i = candles.Count - RangeCandles; i < candles.Count; i++)
+        {
+            decimal previousClose = candles[i - 1].Close;
+            sum += Math.Max(candles[i].High, previousClose) - Math.Min(candles[i].Low, previousClose);
+        }
+
+        return sum / RangeCandles;
     }
 
     /// <summary>

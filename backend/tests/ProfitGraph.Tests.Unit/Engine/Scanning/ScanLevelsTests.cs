@@ -55,6 +55,16 @@ public sealed class ScanLevelsTests
         (metrics.Support, metrics.Resistance, metrics.RewardRisk).ShouldBe(((decimal?)95m, (decimal?)null, (decimal?)null));
     }
 
+    [Test]
+    public void TheAverageRangeIsTheMeanTrueRangeOfTheLast24Candles()
+    {
+        // Every hour spans 100–101 and closes at 100; the last spans 100–110.
+        List<ScanCandle> hours = Hours(count: 26, index => index == 25 ? (110m, 100m) : (101m, 100m));
+
+        ScanLevels.AverageRange(hours).ShouldBe((23m * 1m + 10m) / 24m);
+        ScanLevels.AverageRange(hours[2..]).ShouldBeNull();
+    }
+
     private static List<ScanCandle> Hours(int count, Func<int, (decimal High, decimal Low)> range)
     {
         return
