@@ -16,6 +16,8 @@ public sealed class ScanReplay
     private const int HoursPerWeek = 168;
     private const int SpikeBaselineHours = 167;
     private const int SpikeMinimumHours = 72;
+    private const int ImpulseMinutes = 15;
+    private const int RangeMinutes = 4 * MinutesPerHour;
     private const decimal Percent = 100m;
     private static readonly Timeframe MinuteFrame = Timeframe.Parse("1m");
     private static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(15);
@@ -24,6 +26,8 @@ public sealed class ScanReplay
     private readonly decimal[] _turnoverSums;
     private readonly decimal[] _dayHighs;
     private readonly decimal[] _dayLows;
+    private readonly decimal[] _rangeHighs;
+    private readonly decimal[] _rangeLows;
     private readonly decimal[] _hourHighsSoFar;
     private readonly decimal[] _hourLowsSoFar;
     private readonly int[] _lastTraded;
@@ -60,8 +64,12 @@ public sealed class ScanReplay
             _lastTraded[i] = lastTraded;
         }
 
-        _dayHighs = SlidingExtreme(_minutes.Select(minute => minute.High).ToArray(), MinutesPerDay, highest: true);
-        _dayLows = SlidingExtreme(_minutes.Select(minute => minute.Low).ToArray(), MinutesPerDay, highest: false);
+        decimal[] highs = [.. _minutes.Select(minute => minute.High)];
+        decimal[] lows = [.. _minutes.Select(minute => minute.Low)];
+        _dayHighs = SlidingExtreme(highs, MinutesPerDay, highest: true);
+        _dayLows = SlidingExtreme(lows, MinutesPerDay, highest: false);
+        _rangeHighs = SlidingExtreme(highs, RangeMinutes, highest: true);
+        _rangeLows = SlidingExtreme(lows, RangeMinutes, highest: false);
         _firstHourMinute = Array.FindIndex(_minutes, minute => minute.OpenTime.UtcTicks % TimeSpan.TicksPerHour == 0);
         _hourHighsSoFar = new decimal[count];
         _hourLowsSoFar = new decimal[count];
@@ -127,13 +135,19 @@ public sealed class ScanReplay
             Change24h = Change(index, window, MinutesPerDay),
             Turnover1h = Turnover(index, window, MinutesPerHour),
             Turnover24h = Turnover(index, window, MinutesPerDay),
-            VolumeSpike = VolumeSpike(index, window),
+            VolumeSpike = VolumeSpike(index, window, MinutesPerHour),
+            VolumeSpike5m = VolumeSpike(index, window, count: 5),
+            VolumeSpike15m = VolumeSpike(index, window, ImpulseMinutes),
             Natr24h = hourCount >= HoursPerDay + 1 ? _natr[lastHour] : null,
             EfficiencyRatio24h = hourCount >= HoursPerDay + 1 ? _efficiency[lastHour] : null,
             DistanceToHigh24h = window >= MinutesPerDay ? (close - _dayHighs[index]) / _dayHighs[index] * Percent : null,
             DistanceToLow24h = window >= MinutesPerDay ? (close - _dayLows[index]) / _dayLows[index] * Percent : null,
             DistanceToHigh7d = hourCount >= HoursPerWeek ? (close - WeekHigh(index, lastHour)) / WeekHigh(index, lastHour) * Percent : null,
             DistanceToLow7d = hourCount >= HoursPerWeek ? (close - WeekLow(index, lastHour)) / WeekLow(index, lastHour) * Percent : null,
+            Breakout4h = RangeBefore(window) ? (close - _rangeHighs[index - ImpulseMinutes]) / _rangeHighs[index - ImpulseMinutes] * Percent : null,
+            Range4h = RangeBefore(window)
+                ? (_rangeHighs[index - ImpulseMinutes] - _rangeLows[index - ImpulseMinutes]) / _rangeLows[index - ImpulseMinutes] * Percent
+                : null,
             Spread = null,
             ListingAgeDays = _listedAt is { } listedAt ? (int)Math.Max(val1: 0, (now - listedAt).Ticks / TimeSpan.TicksPerDay) : null,
             Stale = IsStale(index, window, now)
@@ -298,22 +312,30 @@ public sealed class ScanReplay
         return window < count ? null : _turnoverSums[index + 1] - _turnoverSums[index + 1 - count];
     }
 
-    private decimal? VolumeSpike(int index, int window)
+    private decimal? VolumeSpike(int index, int window, int count)
     {
-        if (window < MinutesPerHour || _firstHourMinute < 0)
+        if (window < count || _firstHourMinute < 0)
         {
             return null;
         }
 
-        // The baseline is the hours that end by the start of the last 60 minutes.
-        int baselineLast = index - 2 * MinutesPerHour + 1 - _firstHourMinute is var offset and >= 0 ? offset / MinutesPerHour : -1;
+        // The baseline is the hours that end by the start of the last count minutes.
+        int baselineLast = index - count - MinutesPerHour + 1 - _firstHourMinute is var offset and >= 0 ? offset / MinutesPerHour : -1;
 
         if (baselineLast < 0 || _spikeMedians[baselineLast] is not { } median)
         {
             return null;
         }
 
-        return Turnover(index, window, MinutesPerHour) / median;
+        return Turnover(index, window, count) * (MinutesPerHour / count) / median;
+    }
+
+    /// <summary>
+    ///     Whether the window holds the four hours of minutes before the last fifteen.
+    /// </summary>
+    private static bool RangeBefore(int window)
+    {
+        return window >= RangeMinutes + ImpulseMinutes;
     }
 
     private decimal WeekHigh(int index, int lastHour)
