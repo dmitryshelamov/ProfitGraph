@@ -10,7 +10,8 @@ import {
 import { DateTime } from '@/shared/ui/DateTime';
 
 import { botPositionQuery } from '../api/botsApi';
-import { atPlaces, type BotDisplay, withAsset } from '../model/botDisplay';
+import { atPlaces, type BotDisplay, exactAmount, withAsset } from '../model/botDisplay';
+import { remainderReason, unsellableRemainder } from '../model/positionRemainder';
 import type { LivePrice } from '../model/types';
 import { followLivePrice } from '../realtime/followLivePrice';
 
@@ -116,10 +117,12 @@ export function BotPositionCard({ botId, display }: { botId: string; display: Bo
   const unrealizedPnl = fromLive
     ? subtractDecimals(multiplyDecimals(data.baseTotal, live.price) ?? '', data.costBasis)
     : data.unrealizedPnl;
-  const isOpen = sign(data.baseTotal) > 0;
+  const remainder = unsellableRemainder(data.baseTotal, display, price);
+  const isOpen = sign(data.baseTotal) > 0 && remainder === null;
   const hasSold = sign(data.realizedPnl) !== 0 || data.cycles.some((cycle) => cycle.closedAt);
   const { baseAsset, quoteAsset } = display;
-  const base = (value: string) => withAsset(atPlaces(value, display.basePlaces), baseAsset);
+  // A quantity is never rounded up: a remainder rounded to the step would look sellable.
+  const base = (value: string) => withAsset(exactAmount(value), baseAsset);
   const quote = (value: string) => withAsset(atPlaces(value, display.quotePlaces), quoteAsset);
   const priceText = (value: string) => withAsset(atPlaces(value, display.pricePlaces), quoteAsset);
   const profit = (value: string) => signed(quote(value), value);
@@ -142,6 +145,11 @@ export function BotPositionCard({ botId, display }: { botId: string; display: Bo
               </span>
             )}
           </>
+        ) : remainder ? (
+          <span className="text-muted">
+            Позиции нет · остаток {base(data.baseTotal)} —{' '}
+            {remainderReason(remainder, baseAsset, quoteAsset)}
+          </span>
         ) : (
           <span className="text-muted">Позиции нет</span>
         )}
@@ -154,7 +162,7 @@ export function BotPositionCard({ botId, display }: { botId: string; display: Bo
         />
         <Metric
           label="Средняя цена покупки"
-          value={data.averageCost === null ? '—' : priceText(data.averageCost)}
+          value={!isOpen || data.averageCost === null ? '—' : priceText(data.averageCost)}
         />
         <Metric
           label="Текущая цена"
@@ -171,8 +179,8 @@ export function BotPositionCard({ botId, display }: { botId: string; display: Bo
         <Metric
           label="Нереализованная прибыль"
           valueLabel="Нереализованная прибыль"
-          value={unrealizedPnl === null ? '—' : profit(unrealizedPnl)}
-          valueClass={unrealizedPnl === null ? '' : toneClass(unrealizedPnl)}
+          value={!isOpen || unrealizedPnl === null ? '—' : profit(unrealizedPnl)}
+          valueClass={!isOpen || unrealizedPnl === null ? '' : toneClass(unrealizedPnl)}
           caption={unrealizedPercent ? `${unrealizedPercent} к себестоимости` : undefined}
         />
         <Metric

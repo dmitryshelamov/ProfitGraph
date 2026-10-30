@@ -7,13 +7,19 @@ import {
 
 import type { Bot } from './types';
 
-/** How a bot's amounts are shown: the venue's own decimal places and the traded assets' names. */
+/**
+ * How a bot's amounts are shown: the venue's own decimal places, the traded assets' names and the instrument's order
+ * minimums, which tell a position from a remainder that cannot be sold.
+ */
 export interface BotDisplay {
   readonly basePlaces: number | null;
   readonly quotePlaces: number | null;
   readonly pricePlaces: number | null;
   readonly baseAsset: string | null;
   readonly quoteAsset: string | null;
+  readonly quantityStep?: string | null;
+  readonly minQuantity?: string | null;
+  readonly minNotional?: string | null;
 }
 
 export const unknownBotDisplay: BotDisplay = {
@@ -22,7 +28,15 @@ export const unknownBotDisplay: BotDisplay = {
   pricePlaces: null,
   baseAsset: null,
   quoteAsset: null,
+  quantityStep: null,
+  minQuantity: null,
+  minNotional: null,
 };
+
+/** An amount exactly as the server holds it, without trailing zeros: "0.00574000" → "0.00574". */
+export function exactAmount(value: string): string {
+  return /^-?\d+\.\d+$/.test(value) ? value.replace(/\.?0+$/, '') : value;
+}
 
 /** Decimal places of a step or tick: "0.01" → 2, "1" → 0, "0.00010" → 4. */
 export function stepPlaces(step: string): number | null {

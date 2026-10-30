@@ -230,6 +230,66 @@ describe('bot reports', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows a remainder below the quantity step as no position, exactly and without rounding it up', async () => {
+    fakeApi(
+      routes({
+        'GET /api/market-data/instrument-rules': () =>
+          json({
+            quantityStep: '0.01',
+            priceTick: '0.0001',
+            minQuantity: '0.1',
+            minNotional: '1',
+            basePrecision: 2,
+            quotePrecision: 6,
+          }),
+        'GET /api/market-data/instruments': () =>
+          json([
+            {
+              venue: 'bybit',
+              symbol: 'BTCUSDT',
+              baseAsset: 'TRX',
+              quoteAsset: 'USDT',
+              appearance: null,
+            },
+          ]),
+        [`GET ${botPath}/position?cycles=20`]: () =>
+          json({
+            ...flatPosition,
+            baseTotal: '0.00574',
+            quoteTotal: '100.049353',
+            costBasis: '0.002045',
+            averageCost: '0.3563',
+            realizedPnl: '0.049353',
+            markPrice: '0.356',
+            markPriceObservedAt: '2026-10-24T10:00:00Z',
+            markPriceSource: 'Close',
+            unrealizedPnl: '0.00000044',
+            cycles: [
+              {
+                id: 'c1',
+                openedAt: '2026-10-24T03:00:00Z',
+                closedAt: '2026-10-24T04:08:00Z',
+                realizedPnl: '0.049353',
+              },
+            ],
+          }),
+      }),
+    );
+    renderApp(`/bots/${bot.id}`);
+
+    expect(
+      await screen.findByText(
+        'Позиции нет · остаток 0.00574 TRX — меньше шага 0.01 TRX, продать нельзя',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Позиция открыта')).not.toBeInTheDocument();
+    const volume = screen.getByText('Объём').closest('div') as HTMLElement;
+    expect(within(volume).getByText('0.00574 TRX')).toBeInTheDocument();
+    expect(screen.queryByText(/0\.01 TRX$/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Нереализованная прибыль')).toHaveTextContent('—');
+    expect(screen.getByLabelText('Реализованная прибыль')).toHaveTextContent('+0.049353 USDT');
+  });
+
   it('keeps the stored price when a live ticker is older', async () => {
     fakeApi(routes({ [`GET ${botPath}/position?cycles=20`]: () => json(openPosition) }));
     renderApp(`/bots/${bot.id}`);
