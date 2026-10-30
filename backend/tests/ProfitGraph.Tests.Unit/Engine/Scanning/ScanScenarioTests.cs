@@ -155,12 +155,51 @@ public sealed class ScanScenarioTests
     }
 
     [Test]
+    public void AShortBeyondTheFourHoursPeakStopsAboveItsHighestHigh()
+    {
+        // The four hours up to the signal at minute 239 peaked at 110; a range of 2 puts the stop at 110.5, the target two risks below
+        // the next open of 100 at 79, and minute 300 falls to 78.
+        List<ScanCandle> minutes = Flat(count: 400, price: 100m);
+        minutes[10] = minutes[10] with { High = 110m };
+        minutes[300] = minutes[300] with { Low = 78m };
+
+        ScanTrade peak = ScanStudy.Trades(minutes, index: 239, new ScanMetrics(), shorts: true, averageRange: 2m)
+            .Single(trade => trade.Scenario == ScanScenario.Extreme);
+
+        (peak.Direction, peak.Entry, peak.Stop, peak.Target).ShouldBe((PositionDirection.Short, 100m, 110.5m, 79m));
+        (peak.EnteredAt, peak.Exit, peak.Reason).ShouldBe((Start.AddMinutes(240), 79m, ScanTradeExit.Target));
+        peak.ResultR.ShouldBe((100m - 79m - 179m * 0.001m) / 10.5m);
+    }
+
+    [Test]
+    public void ALongBeyondTheFourHoursLowNeedsTheWholeWindowAndAStopBeyondTheRange()
+    {
+        // The low of 95 lies within the four hours up to minute 239, not before them; minute 350 dips to 94.
+        List<ScanCandle> minutes = Flat(count: 1700, price: 100m);
+        minutes[5] = minutes[5] with { Low = 95m };
+        minutes[350] = minutes[350] with { Low = 94m };
+
+        ScanTrade bottom = ScanStudy.Trades(minutes, index: 239, new ScanMetrics()).Single();
+
+        (bottom.Scenario, bottom.Direction, bottom.Stop, bottom.Target, bottom.Reason).ShouldBe(
+            (ScanScenario.Extreme, PositionDirection.Long, 95m, 110m, ScanTradeExit.Stop));
+        ScanStudy.Trades(minutes, index: 245, new ScanMetrics()).ShouldBeEmpty();
+        ScanStudy.Trades(minutes, index: 238, new ScanMetrics()).ShouldBeEmpty();
+
+        // A range of 6 puts the stop at 93.5, 6.5 points away, more than one range, and the dip does not reach it; with a range of 8 the
+        // stop at 93 is nearer than one range.
+        ScanTrade wider = ScanStudy.Trades(minutes, index: 239, new ScanMetrics(), averageRange: 6m).Single();
+        (wider.Stop, wider.Reason).ShouldBe((93.5m, ScanTradeExit.Time));
+        ScanStudy.Trades(minutes, index: 239, new ScanMetrics(), averageRange: 8m).ShouldBeEmpty();
+    }
+
+    [Test]
     public void TheSummaryListsShortScenariosOnlyWhereShortsAreAllowed()
     {
         ScanSignal[] signals = [Signal(Start, resultR: 1m)];
 
         ScanStudy.Summarize(signals).Scenarios!.ShouldAllBe(item => item.Direction == PositionDirection.Long);
-        ScanStudy.Summarize(signals, shorts: true).Scenarios!.Count(item => item.Direction == PositionDirection.Short).ShouldBe(4);
+        ScanStudy.Summarize(signals, shorts: true).Scenarios!.Count(item => item.Direction == PositionDirection.Short).ShouldBe(5);
     }
 
     [Test]

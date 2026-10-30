@@ -23,5 +23,11 @@ public enum ScanScenario
     /// <summary>
     ///     A limit at half of the last hour's rise, valid for 4 hours; stop at the hour's lowest low, target two risks above the entry.
     /// </summary>
-    Pullback
+    Pullback,
+
+    /// <summary>
+    ///     Entry at the next minute's open, stop beyond the extreme of the last four hours (the lowest low for a long, the highest high
+    ///     for a short), target two risks away (ADR 0072).
+    /// </summary>
+    Extreme
 }

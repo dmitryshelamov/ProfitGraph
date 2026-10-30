@@ -24,6 +24,25 @@ public sealed class ScanTradeIdeasTests
     }
 
     [Test]
+    public void TradesBeyondTheFourHoursExtremesEnterAtThePriceWithTheBufferedStop()
+    {
+        // A range of 2 puts the long stop half a point below the low of 90 and the short stop half a point above the high of 120.
+        IReadOnlyList<ScanTradeIdea> ideas =
+            ScanTradeIdeas.Of(price: 100m, support: null, resistance: null, lastHourLow: null, shorts: true, averageRange: 2m, extremeLow: 90m, extremeHigh: 120m);
+
+        ideas.ShouldBe(
+        [
+            new ScanTradeIdea(ScanScenario.Extreme, Entry: 100m, Stop: 89.5m, Target: 121m, RewardRisk: 2m, ScanTradeIdeas.MarketEntryWait),
+            new ScanTradeIdea(ScanScenario.Extreme, Entry: 100m, Stop: 120.5m, Target: 59m, RewardRisk: 2m, ScanTradeIdeas.MarketEntryWait, PositionDirection.Short)
+        ]);
+
+        // A peak too far for two risks above zero, or one nearer than one range, proposes no short; a spot venue proposes none.
+        ScanTradeIdeas.Of(price: 100m, support: null, resistance: null, lastHourLow: null, shorts: true, extremeHigh: 160m).ShouldBeEmpty();
+        ScanTradeIdeas.Of(price: 100m, support: null, resistance: null, lastHourLow: null, shorts: true, averageRange: 2m, extremeHigh: 101m).ShouldBeEmpty();
+        ScanTradeIdeas.Of(price: 100m, support: null, resistance: null, lastHourLow: null, extremeHigh: 120m).ShouldBeEmpty();
+    }
+
+    [Test]
     public void LevelsNeedAResistanceAboveAndASupportBelow()
     {
         ScanTradeIdeas.Of(price: 100m, support: 95m, resistance: null, lastHourLow: null).Select(idea => idea.Scenario).ShouldBe([ScanScenario.Target2R]);
@@ -55,7 +74,7 @@ public sealed class ScanTradeIdeasTests
     {
         // Levels are means with endless thirds: 99.99966… below and 113.33… above. The stop rounds down, away from the entry, and the target
         // down, towards it, so a stored trade (18 decimals) keeps the card's prices.
-        ScanTradeIdea levels = ScanTradeIdeas.Of(price: 105m, support: 299.999m / 3m, resistance: 340m / 3m, lastHourLow: null)[0];
+        ScanTradeIdea levels = ScanTradeIdeas.Of(price: 105m, 299.999m / 3m, 340m / 3m, lastHourLow: null)[0];
 
         (levels.Stop, levels.Target).ShouldBe((99.999666m, 113.33333m));
     }

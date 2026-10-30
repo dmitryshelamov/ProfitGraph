@@ -172,6 +172,7 @@ internal sealed class CreateScanTradeCommandHandler(
         {
             ScanScenario.Levels or ScanScenario.LevelsRewardRisk2 => $"уровни {command.Timeframe}",
             ScanScenario.Target2R => $"цель 2R от поддержки {command.Timeframe}",
+            ScanScenario.Extreme => command.Direction == PositionDirection.Short ? "стоп за пиком 4h" : "стоп за дном 4h",
             _ => "откат"
         };
 

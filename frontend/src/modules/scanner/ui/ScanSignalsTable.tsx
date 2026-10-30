@@ -11,6 +11,7 @@ const scenarioShort = {
   LevelsRewardRisk2: 'R:R≥2',
   Target2R: '2R',
   Pullback: 'откат',
+  Extreme: '4h',
 } as const;
 
 function percent(value: string | null): string {

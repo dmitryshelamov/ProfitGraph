@@ -9,6 +9,7 @@ export const tradeScenarioLabels: Record<string, string> = {
   LevelsRewardRisk2: 'Уровни',
   Target2R: 'Цель 2R',
   Pullback: 'Откат',
+  Extreme: 'За экстремумом',
 };
 
 /** What each card proposes, under its name. */
@@ -17,6 +18,7 @@ export const tradeScenarioHints: Record<string, string> = {
   Target2R: 'Вход по текущей цене, стоп на поддержке, цель — два риска выше.',
   Pullback:
     'Лимитка на середине последнего часа роста, стоп на минимуме часа, цель — два риска выше.',
+  Extreme: 'Вход по текущей цене, стоп за минимумом последних 4 часов, цель — два риска выше.',
 };
 
 /** What each short card proposes (ADR 0061): it sells at the entry. */
@@ -25,6 +27,8 @@ export const shortScenarioHints: Record<string, string> = {
   Target2R: 'Продажа по текущей цене, стоп над сопротивлением, цель — два риска ниже.',
   Pullback:
     'Лимитка на середине последнего часа падения, стоп на максимуме часа, цель — два риска ниже.',
+  Extreme:
+    'Продажа по текущей цене, стоп над максимумом последних 4 часов (пиком роста), цель — два риска ниже.',
 };
 
 /** The hint of a card in its direction. */
