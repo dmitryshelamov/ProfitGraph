@@ -33,14 +33,29 @@ public sealed record ScanCardChance(decimal Chance, decimal FillShare, decimal M
         ScanCardOdds? like = odds.FirstOrDefault(item => item.Timeframe == timeframe && item.Scenario == idea.Scenario && item.Direction == idea.Direction &&
             item.ChanceBand == chanceBand && item.StopBand == stopBand);
 
-        if (like is null || like.Filled < minimumTrades || like.Chance() is not { } chance || like.FillShare() is not { } fill)
+        if (like is null || like.Filled < minimumTrades)
+        {
+            return null;
+        }
+
+        return From(like, ScanCardFollow.ResultR(idea, idea.Target, ScanTradeExit.Target, costs));
+    }
+
+    /// <summary>
+    ///     The odds of a card whose target pays <paramref name="targetR" /> from the cards like it, whatever their count; null without a
+    ///     closed trade.
+    /// </summary>
+    public static ScanCardChance? From(ScanCardOdds like, decimal targetR)
+    {
+        ArgumentNullException.ThrowIfNull(like);
+
+        if (like.Chance() is not { } chance || like.FillShare() is not { } fill)
         {
             return null;
         }
 
         decimal missed = like.MissedMeanR ?? -1m;
-        decimal win = ScanCardFollow.ResultR(idea, idea.Target, ScanTradeExit.Target, costs);
 
-        return new ScanCardChance(chance, fill, missed, fill * (chance * win + (1m - chance) * missed), like.Filled);
+        return new ScanCardChance(chance, fill, missed, fill * (chance * targetR + (1m - chance) * missed), like.Filled);
     }
 }

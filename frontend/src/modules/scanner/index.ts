@@ -39,6 +39,7 @@ export type {
 export { useScanSnapshotUpdates } from './realtime/useScanSnapshotUpdates';
 export { PresetAlerts } from './ui/PresetAlerts';
 export { PresetEditor } from './ui/PresetEditor';
+export { ScanAutoTrades } from './ui/ScanAutoTrades';
 export { ScanBacktestList } from './ui/ScanBacktestList';
 export { ScanBacktestSignals } from './ui/ScanBacktestSignals';
 export { ScanBacktestSummary } from './ui/ScanBacktestSummary';

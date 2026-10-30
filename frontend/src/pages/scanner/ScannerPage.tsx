@@ -14,6 +14,7 @@ import {
   type PresetDraft,
   PresetEditor,
   presetTradeSide,
+  ScanAutoTrades,
   ScanBacktestList,
   scannerKeys,
   ScannerTable,
@@ -229,6 +230,17 @@ export function ScannerPage() {
                 )}
               />
             </div>
+            <section aria-label="Автосделки" className="space-y-2 border-t border-line pt-3">
+              <h3 className="text-sm font-medium">Автосделки</h3>
+              <ScanAutoTrades
+                preset={presets.data?.find(
+                  (preset) => preset.id !== null && preset.id === view.presetId,
+                )}
+                supportsShort={
+                  venues.data?.find((item) => item.venue === current)?.supportsShort ?? false
+                }
+              />
+            </section>
             {save.isError && (
               <ApiErrorMessage error={save.error} fallback="Не удалось сохранить пресет." />
             )}

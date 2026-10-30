@@ -1,0 +1,3 @@
+namespace ProfitGraph.Infrastructure.Scanner.Repositories.Contracts;
+
+internal sealed record ScanAutoTradeProofDb(ScanAutoTradeEvidenceDb Backtest, ScanAutoTradeEvidenceDb OtherRegime);

@@ -6,11 +6,13 @@ using Microsoft.Extensions.Options;
 using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.Scanner;
 using ProfitGraph.Application.Scanner.Alerts;
+using ProfitGraph.Application.Scanner.AutoTrades;
 using ProfitGraph.Application.Scanner.Contracts;
 using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Application.Scanner.RunScanBacktest;
 using ProfitGraph.Application.Scanner.Trades;
 using ProfitGraph.Domain.Scanner;
+using ProfitGraph.Domain.Scanner.AutoTrades;
 using ProfitGraph.Domain.Scanner.Trades;
 using ProfitGraph.Infrastructure.Common;
 using ProfitGraph.Infrastructure.Jobs;
@@ -32,7 +34,18 @@ public static class ScannerRegistration
         services.AddScoped<IScanSnapshotRepository, ScanSnapshotRepository>();
         services.AddScoped<IScanPresetRepository, ScanPresetRepository>();
         services.AddScoped<IScanAlertWatchRepository, ScanAlertWatchRepository>();
+        services.AddScoped<IScanAutoTradeRuleRepository, ScanAutoTradeRuleRepository>();
+        services.AddScoped<IScanAutoTradeRequestRepository, ScanAutoTradeRequestRepository>();
+        services.AddScoped<IScanPaperTradeRepository, ScanPaperTradeRepository>();
         services.AddScoped<ScanAlertQueue>();
+        services.AddScoped<ScanAutoTradeQueue>();
+        services.AddScoped<ScanAutoTradeProofReader>();
+        services.AddScoped<ScanAutoTradeRequestHandler>();
+        services.AddOptions<ScanAutoTradeOptions>()
+            .Bind(configuration.GetSection(ScanAutoTradeOptions.SectionName))
+            .Validate(options => options.IsValid(), "ScanAutoTrades needs positive thresholds, intervals and limits.")
+            .ValidateOnStart();
+        services.AddScoped(provider => provider.GetRequiredService<IOptionsMonitor<ScanAutoTradeOptions>>().CurrentValue);
         services.AddScoped<ScanBacktestRepository>();
         services.AddScoped<IScanBacktestRepository>(provider => provider.GetRequiredService<ScanBacktestRepository>());
         services.AddScoped<IScanBacktestReader>(provider => provider.GetRequiredService<ScanBacktestRepository>());
@@ -75,6 +88,7 @@ public static class ScannerRegistration
     public static IServiceCollection AddScanTradeTracking(this IServiceCollection services)
     {
         services.AddSingleton<IHostedService, ScanTradeTrackingHost>();
+        services.AddSingleton<IHostedService, ScanAutoTradeHost>();
 
         return services;
     }

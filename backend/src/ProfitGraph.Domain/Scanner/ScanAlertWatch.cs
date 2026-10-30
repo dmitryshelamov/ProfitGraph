@@ -13,7 +13,7 @@ public sealed class ScanAlertWatch : AggregateRoot
 {
     public static readonly TimeSpan Cooldown = TimeSpan.FromHours(1);
 
-    private Dictionary<string, ScanAlertPair> _pairs;
+    private readonly ScanEntryTracker _entries;
 
     public ScanPresetId PresetId { get; }
     public UserId OwnerId { get; }
@@ -22,9 +22,9 @@ public sealed class ScanAlertWatch : AggregateRoot
     /// <summary>
     ///     The computation time of the last snapshot checked; null before the first check.
     /// </summary>
-    public DateTimeOffset? CheckedAt { get; private set; }
+    public DateTimeOffset? CheckedAt => _entries.CheckedAt;
 
-    public IReadOnlyDictionary<string, ScanAlertPair> Pairs => _pairs;
+    public IReadOnlyDictionary<string, ScanAlertPair> Pairs => _entries.Pairs;
 
     private ScanAlertWatch(
         ScanPresetId presetId,
@@ -36,8 +36,7 @@ public sealed class ScanAlertWatch : AggregateRoot
         PresetId = presetId;
         OwnerId = ownerId;
         EnabledAt = enabledAt;
-        CheckedAt = checkedAt;
-        _pairs = new Dictionary<string, ScanAlertPair>(pairs, StringComparer.Ordinal);
+        _entries = new ScanEntryTracker(checkedAt, pairs);
     }
 
     public static ScanAlertWatch Start(ScanPresetId presetId, UserId ownerId, DateTimeOffset now)
@@ -61,48 +60,7 @@ public sealed class ScanAlertWatch : AggregateRoot
     /// </summary>
     public IReadOnlyList<string> Check(IReadOnlyCollection<string> result, DateTimeOffset computedAt)
     {
-        ArgumentNullException.ThrowIfNull(result);
-
-        if (CheckedAt is { } last && computedAt <= last)
-        {
-            return [];
-        }
-
-        bool recordOnly = CheckedAt is null;
-        var next = new Dictionary<string, ScanAlertPair>(StringComparer.Ordinal);
-        List<string> entered = [];
-
-        foreach (string symbol in result.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
-        {
-            ScanAlertPair? known = _pairs.GetValueOrDefault(symbol);
-
-            if (known is { InResult: true })
-            {
-                next[symbol] = known;
-            }
-            else if (!recordOnly && Cooled(known, computedAt))
-            {
-                entered.Add(symbol);
-                next[symbol] = new ScanAlertPair(InResult: true, computedAt);
-            }
-            else
-            {
-                next[symbol] = new ScanAlertPair(InResult: true, known?.AlertedAt);
-            }
-        }
-
-        foreach ((string symbol, ScanAlertPair pair) in _pairs)
-        {
-            if (!next.ContainsKey(symbol) && !Cooled(pair, computedAt))
-            {
-                next[symbol] = pair with { InResult = false };
-            }
-        }
-
-        _pairs = next;
-        CheckedAt = computedAt;
-
-        return entered;
+        return _entries.Check(result, computedAt);
     }
 
     /// <summary>
@@ -110,11 +68,6 @@ public sealed class ScanAlertWatch : AggregateRoot
     /// </summary>
     public void Restart()
     {
-        CheckedAt = null;
-    }
-
-    private static bool Cooled(ScanAlertPair? pair, DateTimeOffset now)
-    {
-        return pair?.AlertedAt is not { } alertedAt || now - alertedAt >= Cooldown;
+        _entries.Restart();
     }
 }
