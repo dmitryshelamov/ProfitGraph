@@ -109,9 +109,10 @@ services:
       <<: [ *backend-env, *runtime-env ]
       Live__Trading__Enabled: ${LIVE_TRADING_ENABLED:-false}
       Worker__Roles: "jobs,live"
-      # A scanner backtest (ADR 0059) reads about 22,000 pages of Bybit minutes; 25 requests a second takes about 15 minutes and,
-      # with the scanner's 10, stays far below Bybit's 600 requests per 5 seconds for the server's IP.
-      Venues__Bybit__ScannerRequestsPerSecond: "25"
+      # A scanner backtest (ADR 0059) reads about 22,000 pages of Bybit minutes per 388 pairs. At 25 requests a second Bybit banned
+      # the server's IP after 16–20 minutes on 2026-10-31, twice, though 125 requests per 5 seconds stay far below its documented
+      # 600; at 10 a backtest takes about 40 minutes per 388 pairs.
+      Venues__Bybit__ScannerRequestsPerSecond: "10"
     depends_on:
       postgres:
         condition: service_healthy
