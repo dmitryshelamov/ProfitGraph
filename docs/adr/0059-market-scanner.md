@@ -177,8 +177,9 @@ to BTC and cross-venue gaps are out of scope.
    both are deterministic.
 5. **Job.** `POST /api/scanner/{venue}/backtests` stores a `scan_backtests` row with a copy of the conditions and queues a
    `scan_backtest` job (ADR 0011). The Worker reads each pair's minutes of the period and the eight days before it (the longest
-   window) through the scanner's REST budget, eight pairs at a time, replays them and keeps nothing else: about 22,000 requests, 15
-   minutes at the Worker's 25 requests a second in production. History is not cached, so each backtest reads it again. A pair
+   window) through the scanner's REST budget, eight pairs at a time, replays them and keeps nothing else: about 22,000 requests, about
+   40 minutes at the Worker's 10 requests a second in production (amended 2026-10-31: at 25 a second Bybit banned the server's IP
+   after 16–20 minutes, twice, below its documented limit). History is not cached, so each backtest reads it again. A pair
    whose history cannot be read is listed as failed; a REST pause after a ban fails the job.
 
 ### 8. Levels and trade scenarios (step 5a)
