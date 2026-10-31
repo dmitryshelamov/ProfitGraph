@@ -23,14 +23,14 @@ internal static class ScanBacktestQueries
                                  LIMIT @Limit
                                  """;
 
-    internal const string LatestCardOdds = """
-                                           SELECT id AS Id, preset_name AS PresetName, period_from AS PeriodFrom, period_to AS PeriodTo,
-                                               completed_at AS CompletedAt, card_odds::text AS CardOddsJson
-                                           FROM scan_backtests
-                                           WHERE owner_id = @OwnerId AND venue = @Venue AND completed_at IS NOT NULL AND card_odds IS NOT NULL
-                                           ORDER BY completed_at DESC, id
-                                           LIMIT 1
-                                           """;
+    internal const string CardOddsSources = """
+                                            SELECT id AS Id, preset_name AS PresetName, period_from AS PeriodFrom, period_to AS PeriodTo,
+                                                completed_at AS CompletedAt, card_odds::text AS CardOddsJson
+                                            FROM scan_backtests
+                                            WHERE owner_id = @OwnerId AND venue = @Venue AND completed_at IS NOT NULL AND card_odds IS NOT NULL
+                                            ORDER BY completed_at DESC, id
+                                            LIMIT @Limit
+                                            """;
 
     internal const string Evidence = """
                                      SELECT id AS Id, preset_name AS PresetName, filter::text AS FilterJson, period_from AS PeriodFrom, period_to AS PeriodTo,
@@ -45,15 +45,18 @@ internal static class ScanBacktestQueries
                                        SELECT timeframe AS Timeframe, scenario AS Scenario, direction AS Direction, third AS Third, count(*)::int AS Trades,
                                            avg(result_r) AS MeanR
                                        FROM scan_backtest_cards
-                                       WHERE backtest_id = @BacktestId AND expected_r >= @MinExpectedR AND (@MinChance::numeric IS NULL OR chance >= @MinChance)
+                                       WHERE backtest_id = @BacktestId AND COALESCE(expected_r_low, expected_r) >= @MinExpectedR
+                                           AND (@MinChance::numeric IS NULL OR COALESCE(chance_low, chance) >= @MinChance)
                                        GROUP BY timeframe, scenario, direction, third
                                        ORDER BY timeframe, scenario, direction, third
                                        """;
 
     internal const string AddCards = """
-                                     INSERT INTO scan_backtest_cards (backtest_id, timeframe, scenario, direction, signal_at, third, result_r, chance, expected_r)
+                                     INSERT INTO scan_backtest_cards (backtest_id, timeframe, scenario, direction, signal_at, third, result_r, chance, expected_r,
+                                         chance_low, expected_r_low)
                                      SELECT @BacktestId, card.*
-                                     FROM unnest(@Timeframes, @Scenarios, @Directions, @SignalAts, @Thirds, @Results, @Chances, @ExpectedRs) AS card
+                                     FROM unnest(@Timeframes, @Scenarios, @Directions, @SignalAts, @Thirds, @Results, @Chances, @ExpectedRs, @ChanceLows,
+                                         @ExpectedRLows) AS card
                                      """;
 
     internal const string Add = """

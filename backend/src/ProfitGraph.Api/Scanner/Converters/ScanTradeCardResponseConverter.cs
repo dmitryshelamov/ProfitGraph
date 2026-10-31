@@ -32,9 +32,11 @@ internal static class ScanTradeCardResponseConverter
                     idea.Odds is { } odds
                         ? new ScanCardChanceResponse(
                             Rounded(odds.Chance),
+                            Rounded(odds.ChanceLow),
                             Rounded(odds.FillShare),
                             Rounded(odds.MissedR),
                             Rounded(odds.ExpectedR),
+                            Rounded(odds.ExpectedRLow),
                             odds.Trades)
                         : null))
             ],
@@ -45,9 +47,15 @@ internal static class ScanTradeCardResponseConverter
                 ideas.Costs.FeesFromVenue,
                 ideas.Costs.SpreadKnown),
             ideas.TightStops,
-            ideas.OddsSource is { } source
-                ? new ScanCardOddsSourceResponse(source.BacktestId, source.PresetName, source.From, source.To, source.CompletedAt)
-                : null);
+            [
+                .. (ideas.OddsSources ?? []).Select(source => new ScanCardOddsSourceResponse(
+                    source.BacktestId,
+                    source.PresetName,
+                    source.From,
+                    source.To,
+                    source.CompletedAt,
+                    Rounded(source.Weight)))
+            ]);
     }
 
     private static string Rounded(decimal value)

@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { type FormEvent, useEffect, useState } from 'react';
 
 import { ApiError } from '@/shared/api/client';
+import { fractionToPercent } from '@/shared/lib/decimal';
 import { ApiErrorMessage } from '@/shared/ui/ApiErrorMessage';
 import { Button } from '@/shared/ui/Button';
 import { DateTime } from '@/shared/ui/DateTime';
@@ -231,12 +232,12 @@ function RuleForm({
         </select>
       </label>
       <Field
-        label="Ожид. R не ниже"
+        label="Осторожный ожид. R не ниже"
         value={draft.minExpectedR}
         onChange={(value) => set('minExpectedR', value)}
       />
       <Field
-        label="Шанс не ниже (0–1)"
+        label="Осторожный шанс не ниже (0–1)"
         value={draft.minChance}
         onChange={(value) => set('minChance', value)}
       />
@@ -311,8 +312,8 @@ function Evidence({ data, rule }: { data: ScanAutoTrade; rule: ScanAutoTradeRule
       )}
       {!data.latest.candidates.some((candidate) => candidate.qualifies) && (
         <p role="status" className="text-xs text-warning-text">
-          Ни одна карточка не заработала в каждой трети последней проверки при ожид. R не ниже{' '}
-          {formatMetric(data.minExpectedR, 2)} — включать нечего.
+          Ни одна карточка не заработала в каждой трети последней проверки при осторожном ожид. R не
+          ниже {formatMetric(data.minExpectedR, 2)} — включать нечего.
         </p>
       )}
     </div>
@@ -402,6 +403,9 @@ function Activity({ data }: { data: ScanAutoTrade }) {
       <p className="text-text-secondary">
         Бумажные сделки: закрыто {data.paperClosed}
         {data.paperMeanR !== null && `, средний R ${signed(data.paperMeanR)}`}.
+        {data.paperChance !== null &&
+          data.paperTargetShare !== null &&
+          ` Из ${data.paperChanceTrades} с шансом цель ожидали в ${percentOf(data.paperChance)}, дошли до неё ${percentOf(data.paperTargetShare)}.`}
       </p>
       {data.paperTrades.length > 0 && (
         <ul className="space-y-1">
@@ -487,6 +491,10 @@ function thirdText(third: ScanAutoTradeThird): string {
   return third.trades === 0 || third.meanR === null
     ? '—'
     : `${signed(third.meanR)} R · ${third.trades}`;
+}
+
+function percentOf(fraction: string): string {
+  return `${formatMetric(fractionToPercent(fraction), 0)}%`;
 }
 
 function signed(value: string): string {

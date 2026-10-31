@@ -9,7 +9,7 @@ namespace ProfitGraph.Application.Scanner.TakeScanAutoTradeCard;
 
 /// <summary>
 ///     The gate is checked again, since other requests of the rule may have traded meanwhile. On paper the card becomes a paper trade
-///     sized by the owner's settings with the cards' costs.
+///     sized by the owner's settings with the cards' costs. A card qualifies by its cautious expected R and chance (ADR 0073).
 /// </summary>
 internal sealed class TakeScanAutoTradeCardCommandHandler(
     IScanAutoTradeRequestRepository requests,
@@ -50,7 +50,7 @@ internal sealed class TakeScanAutoTradeCardCommandHandler(
     {
         ScanTradeIdeaInternal? card = ideas.Ideas.FirstOrDefault(idea =>
             idea.Timeframe == rule.Card.Timeframe && idea.Scenario == rule.Card.Scenario && idea.Direction == rule.Card.Direction && !idea.Taken &&
-            idea is { Amount: not null, Risk: not null, Odds: { } odds } && rule.Card.Accepts(odds.ExpectedR, odds.Chance));
+            idea is { Amount: not null, Risk: not null, Odds: { } odds } && rule.Card.Accepts(odds.ExpectedRLow, odds.ChanceLow));
 
         if (card is not { Amount: { } amount, Risk: { } risk, Odds: { } chosen })
         {
@@ -70,6 +70,7 @@ internal sealed class TakeScanAutoTradeCardCommandHandler(
             risk,
             ideas.Costs.Costs,
             chosen.ExpectedR,
+            chosen.Chance,
             request.SnapshotAt,
             now);
         await paperTrades.Add(paper, cancellationToken);

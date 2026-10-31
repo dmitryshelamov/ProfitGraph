@@ -3,7 +3,8 @@ namespace ProfitGraph.Engine.Scanning;
 /// <summary>
 ///     What the price did after a preset's signals: each horizon's change, the largest rise and drop within 24 hours, and how each
 ///     trade scenario did; and how the cards like those of the pair's page ended, by kind and band (ADR 0071, section 1), empty in a
-///     backtest stored before them.
+///     backtest stored before them; and how well the odds of other backtests predicted these cards (ADR 0073), empty without such
+///     backtests.
 /// </summary>
 public sealed record ScanStudySummary(
     int Signals,
@@ -14,4 +15,5 @@ public sealed record ScanStudySummary(
     ScanOutcomeSummary MaxRise24h,
     ScanOutcomeSummary MaxDrop24h,
     IReadOnlyList<ScanScenarioSummary>? Scenarios,
-    IReadOnlyList<ScanCardOdds>? Cards = null);
+    IReadOnlyList<ScanCardOdds>? Cards = null,
+    ScanCardCalibration? Calibration = null);

@@ -20,6 +20,7 @@ internal sealed class ScanPaperTradeDb
     public decimal MarketFeeRate { get; init; }
     public decimal Spread { get; init; }
     public decimal ExpectedR { get; init; }
+    public decimal? Chance { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset LastMinute { get; init; }
     public int Waited { get; init; }

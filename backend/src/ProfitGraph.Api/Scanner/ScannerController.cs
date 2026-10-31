@@ -165,12 +165,18 @@ public sealed class ScannerController(ISender sender) : ControllerBase
 
     /// <summary>
     ///     The pair's trade cards now (ADR 0060): the preset backtest's scenarios on the levels of every timeframe, sized by the owner's
-    ///     settings.
+    ///     settings, with odds from the backtests of <paramref name="preset" /> when it has any (ADR 0073).
     /// </summary>
     [HttpGet("{venue}/trade-ideas")]
-    public async Task<ActionResult<ScanTradeIdeasResponse>> GetTradeIdeas(string venue, [FromQuery] string? symbol, CancellationToken cancellationToken)
+    public async Task<ActionResult<ScanTradeIdeasResponse>> GetTradeIdeas(
+        string venue,
+        [FromQuery] string? symbol,
+        [FromQuery] string? preset,
+        CancellationToken cancellationToken)
     {
-        ScanTradeIdeasInternal ideas = await sender.Send(new GetScanTradeIdeasQuery(UserId(), venue, symbol ?? string.Empty), cancellationToken);
+        ScanTradeIdeasInternal ideas = await sender.Send(
+            new GetScanTradeIdeasQuery(UserId(), venue, symbol ?? string.Empty, string.IsNullOrWhiteSpace(preset) ? null : preset),
+            cancellationToken);
 
         return ideas.ToResponse();
     }

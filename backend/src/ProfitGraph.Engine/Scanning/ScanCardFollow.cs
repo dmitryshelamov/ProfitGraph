@@ -106,6 +106,6 @@ public static class ScanCardFollow
 
     private static ScanCardOutcome Outcome(ScanTradeIdea idea, DateTimeOffset entered, ScanCandle minute, decimal exit, ScanTradeExit reason, ScanTradeCosts costs)
     {
-        return new ScanCardOutcome(Filled: true, reason, ResultR(idea, exit, reason, costs), entered, minute.OpenTime + Minute);
+        return new ScanCardOutcome(Filled: true, reason, ResultR(idea, exit, reason, costs), entered, minute.OpenTime + Minute, exit);
     }
 }

@@ -12,9 +12,11 @@ const selectClass =
 export function ScanBacktestSignals({
   venue,
   signals,
+  preset,
 }: {
   venue: string;
   signals: readonly ScanSignal[];
+  preset?: string;
 }) {
   const [pair, setPair] = useState('');
   const pairs = useMemo(
@@ -56,7 +58,7 @@ export function ScanBacktestSignals({
           ))}
         </ul>
       )}
-      <ScanSignalsTable venue={venue} signals={shown} />
+      <ScanSignalsTable venue={venue} signals={shown} preset={preset} />
     </div>
   );
 }

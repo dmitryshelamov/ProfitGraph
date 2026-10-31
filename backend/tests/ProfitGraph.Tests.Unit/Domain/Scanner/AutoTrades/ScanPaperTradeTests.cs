@@ -23,6 +23,7 @@ public sealed class ScanPaperTradeTests
     {
         ScanPaperTrade trade = Trade();
         List<ScanCandle> minutes = Flat(Minute.AddMinutes(-2), count: 8);
+        (trade.ExpectedR, trade.Chance).ShouldBe((0.12m, 0.4m));
 
         // The two minutes before the snapshot's are not stepped; the entry fills in the snapshot's minute and the target four minutes on.
         minutes[2] = minutes[2] with { Low = 99.9m };
@@ -97,6 +98,7 @@ public sealed class ScanPaperTradeTests
             risk: 5m,
             Costs,
             expectedR: 0.12m,
+            chance: 0.4m,
             Snapshot,
             Snapshot.AddSeconds(2));
     }

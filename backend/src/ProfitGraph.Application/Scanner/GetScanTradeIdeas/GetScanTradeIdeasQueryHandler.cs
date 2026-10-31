@@ -1,5 +1,6 @@
 using MediatR;
 
+using ProfitGraph.Application.Scanner.CardOdds;
 using ProfitGraph.Application.Scanner.Contracts;
 using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Domain.Accounts;
@@ -13,8 +14,8 @@ namespace ProfitGraph.Application.Scanner.GetScanTradeIdeas;
 
 /// <summary>
 ///     Sizes every proposal with the costs of the pair's trades (ADR 0065) and leaves out those whose stop is nearer the entry than what
-///     a stopped trade pays, counting them. Each proposal takes its odds from the owner's latest preset backtest on the venue that
-///     followed cards (ADR 0071, section 1), banded by the pair's NATR in the snapshot.
+///     a stopped trade pays, counting them. Each proposal takes its odds from the owner's preset backtests on the venue that followed
+///     cards (ADR 0071, section 1; ADR 0073), banded by the pair's NATR and the market's trend in the snapshot.
 /// </summary>
 internal sealed class GetScanTradeIdeasQueryHandler(
     IEnumerable<IMarketScanSource> sources,
@@ -23,8 +24,9 @@ internal sealed class GetScanTradeIdeasQueryHandler(
     IScanSnapshotRepository snapshots,
     IScanTradeSettingsRepository settings,
     IScanTradeRepository trades,
-    IScanBacktestReader backtests,
-    ScanTradeOptions options) : IRequestHandler<GetScanTradeIdeasQuery, ScanTradeIdeasInternal>
+    ScanCardOddsReader odds,
+    ScanTradeOptions options,
+    TimeProvider clock) : IRequestHandler<GetScanTradeIdeasQuery, ScanTradeIdeasInternal>
 {
     public async Task<ScanTradeIdeasInternal> Handle(GetScanTradeIdeasQuery query, CancellationToken cancellationToken)
     {
@@ -39,7 +41,7 @@ internal sealed class GetScanTradeIdeasQueryHandler(
         ScanTradeCostsInternal paid = await costs.Read(sizing, query.Venue, query.Symbol, spread, cancellationToken);
         ScanTrade[] live = [.. (await trades.List(owner, venue, query.Symbol, options.ListLimit, cancellationToken)).Where(trade => trade.IsLive)];
         (string Timeframe, ScanTradeIdea Idea)[] kept = [.. ideas.Where(item => !paid.Costs.TooTight(item.Idea.Entry, item.Idea.Stop))];
-        ScanCardOddsSourceInternal? source = await backtests.LatestCardOdds(query.OwnerId, query.Venue, cancellationToken);
+        ScanCardOddsBasisInternal? basis = await odds.Read(query.OwnerId, query.Venue, query.PresetName, clock.GetUtcNow(), apart: null, cancellationToken);
 
         return new ScanTradeIdeasInternal(
             query.Venue,
@@ -65,13 +67,11 @@ internal sealed class GetScanTradeIdeasQueryHandler(
                         live.Any(trade => trade.Takes(idea.Scenario, idea.Entry, idea.Stop, idea.Target)),
                         idea.Direction,
                         size is { } sized ? paid.Costs.Profit(sized.Amount, idea.Entry, idea.Target) : null,
-                        source is null
-                            ? null
-                            : ScanCardChance.Of(source.Odds, item.Timeframe, idea, row?.Metrics.Natr24h, paid.Costs, options.MinOddsTrades));
+                        basis?.Model.Of(item.Timeframe, idea, row?.Metrics.Natr24h, row?.Metrics.MarketTrend, paid.Costs));
                 })
             ],
             paid,
             ideas.Count - kept.Length,
-            source);
+            basis?.Sources ?? []);
     }
 }

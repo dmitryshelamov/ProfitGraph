@@ -7,6 +7,7 @@ import {
   scanBacktestQuery,
   ScanBacktestSignals,
   ScanBacktestSummary,
+  ScanCardCalibration,
   scannerKeys,
   ScanScenarioTable,
 } from '@/modules/scanner';
@@ -104,13 +105,22 @@ export function ScanBacktestPage() {
           </div>
         </Card>
       )}
+      {current.summary?.calibration && (
+        <Card title="Точность шансов карточек">
+          <ScanCardCalibration calibration={current.summary.calibration} />
+        </Card>
+      )}
       {current.signals && current.signals.length > 0 && (
         <Card
           title={
             current.signalsTruncated ? `Последние ${current.signals.length} сигналов` : 'Сигналы'
           }
         >
-          <ScanBacktestSignals venue={current.venue} signals={current.signals} />
+          <ScanBacktestSignals
+            venue={current.venue}
+            signals={current.signals}
+            preset={current.presetName}
+          />
         </Card>
       )}
     </div>

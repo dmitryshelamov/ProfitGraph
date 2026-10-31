@@ -2,18 +2,20 @@ using MediatR;
 
 using ProfitGraph.Application.Scanner.AutoTrades;
 using ProfitGraph.Application.Scanner.Contracts;
+using ProfitGraph.Domain.Scanner;
 using ProfitGraph.Domain.Scanner.AutoTrades;
 
 namespace ProfitGraph.Application.Scanner.ClaimScanAutoTradeRequest;
 
 /// <summary>
 ///     A request a Worker claimed and did not finish within <see cref="ScanAutoTradeOptions.RequestLifetime" /> is taken up again and
-///     expires.
+///     expires. A claimed request names its rule's preset, whose backtests give the cards' odds (ADR 0073).
 /// </summary>
 internal sealed class ClaimScanAutoTradeRequestCommandHandler(
     IScanAutoTradeRequestRepository requests,
     IScanAutoTradeRuleRepository rules,
     IScanPaperTradeRepository paperTrades,
+    IScanPresetRepository presets,
     ScanAutoTradeOptions options,
     TimeProvider clock) : IRequestHandler<ClaimScanAutoTradeRequestCommand, ScanAutoTradeClaimInternal?>
 {
@@ -47,7 +49,16 @@ internal sealed class ClaimScanAutoTradeRequestCommandHandler(
         }
 
         await requests.Update(request, cancellationToken);
+        ScanPreset? preset = skip is null && rule is not null
+            ? (await presets.List(rule.OwnerId, rule.Venue, cancellationToken)).FirstOrDefault(item => item.Id == rule.PresetId)
+            : null;
 
-        return new ScanAutoTradeClaimInternal(request.Id.Value, rule?.OwnerId.Value ?? Guid.Empty, rule?.Venue.Value ?? string.Empty, request.Symbol, skip is null);
+        return new ScanAutoTradeClaimInternal(
+            request.Id.Value,
+            rule?.OwnerId.Value ?? Guid.Empty,
+            rule?.Venue.Value ?? string.Empty,
+            request.Symbol,
+            skip is null,
+            preset?.Name.Value);
     }
 }

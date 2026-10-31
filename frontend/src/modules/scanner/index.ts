@@ -43,6 +43,7 @@ export { ScanAutoTrades } from './ui/ScanAutoTrades';
 export { ScanBacktestList } from './ui/ScanBacktestList';
 export { ScanBacktestSignals } from './ui/ScanBacktestSignals';
 export { ScanBacktestSummary } from './ui/ScanBacktestSummary';
+export { ScanCardCalibration } from './ui/ScanCardCalibration';
 export { ScannerTable } from './ui/ScannerTable';
 export { ScanPairChart } from './ui/ScanPairChart';
 export { ScanPairSummary } from './ui/ScanPairSummary';

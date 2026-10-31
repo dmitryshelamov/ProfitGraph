@@ -5,7 +5,10 @@ import type { ScanBacktest, ScanOutcomeSummary } from '../model/types';
 
 type Summary = NonNullable<ScanBacktest['summary']>;
 
-const rows: readonly { key: keyof Omit<Summary, 'signals' | 'scenarios'>; label: string }[] = [
+const rows: readonly {
+  key: keyof Omit<Summary, 'signals' | 'scenarios' | 'calibration'>;
+  label: string;
+}[] = [
   { key: 'change15m', label: 'Через 15 мин' },
   { key: 'change1h', label: 'Через 1 ч' },
   { key: 'change4h', label: 'Через 4 ч' },

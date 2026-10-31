@@ -29,7 +29,8 @@ export const scannerKeys = {
     ['scanner', venue, 'levels', symbol, timeframe] as const,
   backtests: (venue: string) => ['scanner', venue, 'backtests'] as const,
   backtest: (id: string) => ['scanner', 'backtests', id] as const,
-  tradeIdeas: (venue: string, symbol: string) => ['scanner', venue, 'trade-ideas', symbol] as const,
+  tradeIdeas: (venue: string, symbol: string, preset?: string) =>
+    ['scanner', venue, 'trade-ideas', symbol, preset ?? ''] as const,
   tradeSettings: (venue: string) => ['scanner', venue, 'trade-settings'] as const,
   trades: (venue: string) => ['scanner', venue, 'trades'] as const,
   pairTrades: (venue: string, symbol: string) => ['scanner', venue, 'trades', symbol] as const,
@@ -240,14 +241,17 @@ export function scanBacktestQuery(backtestId: string) {
   });
 }
 
-/** The pair's trade cards on the levels of every timeframe (ADR 0060), read again every minute. */
-export function scanTradeIdeasQuery(venue: string, symbol: string) {
+/**
+ * The pair's trade cards on the levels of every timeframe (ADR 0060), read again every minute; their odds come from the backtests of
+ * the preset the pair was found by when it has any (ADR 0073).
+ */
+export function scanTradeIdeasQuery(venue: string, symbol: string, preset?: string) {
   return queryOptions({
-    queryKey: scannerKeys.tradeIdeas(venue, symbol),
+    queryKey: scannerKeys.tradeIdeas(venue, symbol, preset),
     queryFn: async () =>
       unwrap(
         await api.GET('/api/scanner/{venue}/trade-ideas', {
-          params: { path: { venue }, query: { symbol } },
+          params: { path: { venue }, query: { symbol, ...(preset ? { preset } : {}) } },
         }),
       ),
     refetchInterval: 60_000,

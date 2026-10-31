@@ -15,6 +15,7 @@ export function ScannerTable({
   sortDescending,
   onSort,
   trades,
+  preset,
 }: {
   venue: string;
   rows: readonly ScanRow[];
@@ -23,6 +24,8 @@ export function ScannerTable({
   onSort: (metric: ScanMetric) => void;
   /** The side a pair's trade cards open on, from the preset that shows the table. */
   trades?: ScanTradeSide;
+  /** The name of the preset that shows the table, whose backtests give the pair's cards their odds (ADR 0073). */
+  preset?: string;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -62,7 +65,7 @@ export function ScannerTable({
                 <Link
                   to="/scanner/$venue/$symbol"
                   params={{ venue, symbol: row.symbol }}
-                  search={trades ? { trades } : {}}
+                  search={{ ...(trades ? { trades } : {}), ...(preset ? { preset } : {}) }}
                   className="font-medium hover:underline"
                 >
                   {row.symbol}

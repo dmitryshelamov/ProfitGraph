@@ -26,7 +26,7 @@ public sealed class ScanAutoTradeRequestHandler(ISender sender)
 
         if (claim.Claimed)
         {
-            ScanTradeIdeasInternal ideas = await sender.Send(new GetScanTradeIdeasQuery(claim.OwnerId, claim.Venue, claim.Symbol), cancellationToken);
+            ScanTradeIdeasInternal ideas = await sender.Send(new GetScanTradeIdeasQuery(claim.OwnerId, claim.Venue, claim.Symbol, claim.PresetName), cancellationToken);
             await sender.Send(new TakeScanAutoTradeCardCommand(claim.RequestId, ideas), cancellationToken);
         }
 

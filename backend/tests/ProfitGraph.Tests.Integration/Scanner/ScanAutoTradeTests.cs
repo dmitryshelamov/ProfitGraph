@@ -160,8 +160,8 @@ public sealed class ScanAutoTradeTests
 
     private static ScanCardOdds Odds(ScanTradeIdea proposal)
     {
-        // 300 of 320 cards like the level card filled, 150 reached the target and the others lost half a risk on average, so the card
-        // expects about 0.2 R; a NATR of 4 % bands its stop.
+        // 300 of 320 cards like the level card filled, 180 reached the target and the others lost half a risk on average, so even the
+        // cautious end of the card's odds expects more than 0.1 R (ADR 0073); a NATR of 4 % bands its stop.
         return new ScanCardOdds(
             "1h",
             ScanScenario.Levels,
@@ -170,8 +170,8 @@ public sealed class ScanAutoTradeTests
             ScanCardBands.Stop(proposal, natrPercent: 4m)!.Value,
             Cards: 320,
             Filled: 300,
-            Targets: 150,
-            Stops: 150,
+            Targets: 180,
+            Stops: 120,
             MeanR: 0.2m,
             MissedMeanR: -0.5m);
     }

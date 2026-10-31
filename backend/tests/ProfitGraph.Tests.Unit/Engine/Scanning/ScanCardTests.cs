@@ -28,7 +28,7 @@ public sealed class ScanCardTests
 
         ScanCardOutcome outcome = ScanCardFollow.Follow(minutes, index: 0, Long, Costs)!;
 
-        outcome.ShouldBe(new ScanCardOutcome(Filled: true, ScanTradeExit.Target, (0.04m - 0.002m) / Risk, Start.AddMinutes(1), Start.AddMinutes(4)));
+        outcome.ShouldBe(new ScanCardOutcome(Filled: true, ScanTradeExit.Target, (0.04m - 0.002m) / Risk, Start.AddMinutes(1), Start.AddMinutes(4), ExitPrice: 104m));
     }
 
     [Test]
@@ -112,24 +112,11 @@ public sealed class ScanCardTests
         // A 2 % stop is one NATR of 2 % (the edge of the third band) and two NATRs of 1 %.
         (ScanCardBands.Stop(Long, natrPercent: 2m), ScanCardBands.Stop(Long, natrPercent: 1m), ScanCardBands.Stop(Long, natrPercent: 0.1m)).ShouldBe((2, 4, 5));
         ScanCardBands.Stop(Long, natrPercent: null).ShouldBeNull();
-    }
 
-    [Test]
-    public void ACardsChanceAndExpectedResultComeFromCardsLikeIt()
-    {
-        // 150 of 200 cards filled, 60 reached the target, the 90 others lost 1.2 R on average.
-        ScanCardOdds[] odds = [Odds("15m", ScanCardBands.Chance(2m), stopBand: 2, cards: 200, filled: 150, targets: 60, missedMeanR: -1.2m)];
-        decimal win = (0.04m - 0.002m) / Risk;
-
-        ScanCardChance chance = ScanCardChance.Of(odds, "15m", Long, natrPercent: 2m, Costs, minimumTrades: 100)!;
-
-        chance.ShouldBe(new ScanCardChance(Chance: 0.4m, FillShare: 0.75m, MissedR: -1.2m, 0.75m * (0.4m * win + 0.6m * -1.2m), Trades: 150));
-
-        // Too few trades, another timeframe or band, or no NATR give no odds.
-        ScanCardChance.Of(odds, "15m", Long, natrPercent: 2m, Costs, minimumTrades: 151).ShouldBeNull();
-        ScanCardChance.Of(odds, "1h", Long, natrPercent: 2m, Costs, minimumTrades: 100).ShouldBeNull();
-        ScanCardChance.Of(odds, "15m", Long, natrPercent: 1m, Costs, minimumTrades: 100).ShouldBeNull();
-        ScanCardChance.Of(odds, "15m", Long, natrPercent: null, Costs, minimumTrades: 100).ShouldBeNull();
+        // The random walk's chance itself, the stop in NATRs and the market band (ADR 0073).
+        (ScanCardBands.Geometry(4m), ScanCardBands.Geometry(1m), ScanCardBands.Geometry(-1m)).ShouldBe((0.2m, 0.5m, 1m));
+        (ScanCardBands.StopNatr(Long, natrPercent: 4m), ScanCardBands.StopNatr(Long, natrPercent: 0m)).ShouldBe((0.5m, null));
+        (ScanCardBands.Market(0.3m), ScanCardBands.Market(0m), ScanCardBands.Market(-2m), ScanCardBands.Market(null)).ShouldBe((1, 0, 0, null));
     }
 
     [Test]
@@ -203,24 +190,14 @@ public sealed class ScanCardTests
         odds.Sum(item => item.Filled).ShouldBe(cards.Count(card => card.Outcome.Filled));
         ScanStudy.Odds(cards.Reverse()).ShouldBe(odds);
 
+        // Each card carries what its odds need, and a trade that left at its stop how far beyond it, in NATRs (ADR 0073).
+        cards.ShouldAllBe(card => card.Geometry > 0m && card.Geometry <= 1m && card.StopNatr > 0m && card.CostNatr > 0m);
+        cards.Where(card => card.Outcome.Exit == ScanTradeExit.Stop).ShouldAllBe(card => card.Slip >= 0m && card.Outcome.ExitPrice != null);
+        cards.Where(card => card.Outcome.Exit != ScanTradeExit.Stop).ShouldAllBe(card => card.Slip == null);
+        odds.ShouldAllBe(item => item.Geometry > 0m && item.EffectiveTrades <= item.Filled);
+
         // Costs above any stop's distance leave no card.
         ScanStudy.Cards("X", replay, signals, setup, new ScanTradeCosts(limitFeeRate: 0.05m, marketFeeRate: 0.05m, spread: 0.1m)).ShouldBeEmpty();
-    }
-
-    private static ScanCardOdds Odds(string timeframe, int chanceBand, int stopBand, int cards, int filled, int targets, decimal missedMeanR)
-    {
-        return new ScanCardOdds(
-            timeframe,
-            ScanScenario.Target2R,
-            PositionDirection.Long,
-            chanceBand,
-            stopBand,
-            cards,
-            filled,
-            targets,
-            filled - targets,
-            MeanR: 0m,
-            missedMeanR);
     }
 
     private static ScanSignal Signal(IReadOnlyList<ScanCandle> minutes, int index)
