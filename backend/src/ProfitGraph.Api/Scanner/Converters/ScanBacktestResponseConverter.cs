@@ -47,7 +47,28 @@ internal static class ScanBacktestResponseConverter
             ToResponse(summary.Change24h),
             ToResponse(summary.MaxRise24h),
             ToResponse(summary.MaxDrop24h),
-            [.. (summary.Scenarios ?? []).Select(ToResponse)]);
+            [.. (summary.Scenarios ?? []).Select(ToResponse)],
+            summary.Calibration is { } calibration ? ToResponse(calibration) : null);
+    }
+
+    private static ScanCardCalibrationResponse ToResponse(ScanCardCalibration calibration)
+    {
+        return new ScanCardCalibrationResponse(
+            calibration.Sources,
+            calibration.Cards,
+            ExactGraphNumberParser.Format(calibration.Observed),
+            ExactGraphNumberParser.Format(calibration.Predicted),
+            ExactGraphNumberParser.Format(calibration.Brier),
+            ExactGraphNumberParser.Format(calibration.GeometryBrier),
+            ExactGraphNumberParser.Format(calibration.BandsBrier),
+            [
+                .. calibration.Bins.Select(bin => new ScanCalibrationBinResponse(
+                    ExactGraphNumberParser.Format(bin.Lower),
+                    ExactGraphNumberParser.Format(bin.Upper),
+                    bin.Cards,
+                    ExactGraphNumberParser.Format(bin.Predicted),
+                    ExactGraphNumberParser.Format(bin.Observed)))
+            ]);
     }
 
     private static ScanScenarioSummaryResponse ToResponse(ScanScenarioSummary scenario)

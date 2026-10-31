@@ -25,10 +25,25 @@ public sealed class ScanTradeOptions
     public decimal FeeRate { get; init; } = 0.001m;
 
     /// <summary>
-    ///     The fewest closed trades of the latest preset backtest's cards like a card that give it a chance and an expected result
-    ///     (ADR 0071, section 1).
+    ///     The fewest closed trades of the source backtests' cards of a card's kind (its timeframe, scenario and direction) that give it a
+    ///     chance and an expected result (ADR 0071, section 1; ADR 0073).
     /// </summary>
     public int MinOddsTrades { get; init; } = 100;
+
+    /// <summary>
+    ///     How many imagined trades of what the level above predicts a level of a card's odds is shrunk towards (ADR 0073).
+    /// </summary>
+    public decimal OddsPriorTrades { get; init; } = 50m;
+
+    /// <summary>
+    ///     The most backtests a card's odds are pooled from (ADR 0073).
+    /// </summary>
+    public int OddsSources { get; init; } = 6;
+
+    /// <summary>
+    ///     How long after its period's end a backtest's counts weigh half as much in a card's odds (ADR 0073).
+    /// </summary>
+    public TimeSpan OddsHalfLife { get; init; } = TimeSpan.FromDays(30);
 
     /// <summary>
     ///     How long the venue's fee rates of a credential and a pair are reused before the cards read them again.
@@ -77,7 +92,7 @@ public sealed class ScanTradeOptions
     public bool IsValid()
     {
         return IsTimeframe(Timeframe) && LevelTimeframes.Length > 0 && LevelTimeframes.All(IsTimeframe) && FeeRate is >= 0m and < 0.1m &&
-            FeeRatesLifetime > TimeSpan.Zero && MinOddsTrades > 0 &&
+            FeeRatesLifetime > TimeSpan.Zero && MinOddsTrades > 0 && OddsPriorTrades > 0m && OddsSources > 0 && OddsHalfLife > TimeSpan.Zero &&
             MaxEntryDeviation is > 0m and < 1m && EntryPriceMaxAge > TimeSpan.Zero && TrackInterval > TimeSpan.Zero && TrackBatchSize > 0 &&
             ListLimit > 0;
     }

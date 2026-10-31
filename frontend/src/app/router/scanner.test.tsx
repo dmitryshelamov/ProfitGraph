@@ -214,10 +214,19 @@ describe('scanner page', () => {
 
     renderApp('/scanner');
 
-    // «Импульс» trades long, so the pair's page opens its trade cards on the long side (ADR 0069).
+    // «Импульс» trades long, so the pair's page opens its trade cards on the long side (ADR 0069), with the odds of the preset's
+    // backtests (ADR 0073).
+    const preset = new URLSearchParams({ preset: 'Импульс (копия)' }).toString();
     const pair = await screen.findByRole('link', { name: 'SOLUSDT' });
-    expect(pair).toHaveAttribute('href', '/scanner/bybit/SOLUSDT?trades=Long');
+    expect(pair).toHaveAttribute('href', `/scanner/bybit/SOLUSDT?trades=Long&${preset}`);
     await userEvent.click(pair);
+    await waitFor(() =>
+      expect(
+        requests
+          .filter((request) => new URL(request.url).pathname === '/api/scanner/bybit/trade-ideas')
+          .map((request) => new URL(request.url).searchParams.get('preset')),
+      ).toContain('Импульс (копия)'),
+    );
 
     expect(await screen.findByRole('heading', { name: 'SOLUSDT' })).toBeInTheDocument();
     expect(
@@ -242,7 +251,7 @@ describe('scanner page', () => {
     expect(screen.getByRole('link', { name: '1h' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: '1h' })).toHaveAttribute(
       'href',
-      '/scanner/bybit/SOLUSDT?timeframe=1h&trades=Long',
+      `/scanner/bybit/SOLUSDT?timeframe=1h&trades=Long&${preset}`,
     );
   });
 
@@ -315,13 +324,24 @@ describe('scanner page', () => {
             spreadKnown: true,
           },
           tightStops: 2,
-          oddsSource: {
-            backtestId: 'backtest-1',
-            presetName: 'Импульс',
-            from: '2026-10-01T00:00:00Z',
-            to: '2026-10-31T00:00:00Z',
-            completedAt: '2026-10-31T00:20:00Z',
-          },
+          oddsSources: [
+            {
+              backtestId: 'backtest-1',
+              presetName: 'Импульс',
+              from: '2026-10-01T00:00:00Z',
+              to: '2026-10-31T00:00:00Z',
+              completedAt: '2026-10-31T00:20:00Z',
+              weight: '1',
+            },
+            {
+              backtestId: 'backtest-0',
+              presetName: 'Импульс',
+              from: '2026-09-01T00:00:00Z',
+              to: '2026-10-01T00:00:00Z',
+              completedAt: '2026-10-01T00:20:00Z',
+              weight: '0.5',
+            },
+          ],
           ideas: [
             {
               timeframe: '4h',
@@ -337,9 +357,11 @@ describe('scanner page', () => {
               taken: false,
               odds: {
                 chance: '0.33',
+                chanceLow: '0.29',
                 fillShare: '0.97',
                 missedR: '-1.3',
                 expectedR: '-0.1234',
+                expectedRLow: '-0.2',
                 trades: 180,
               },
             },
@@ -357,9 +379,11 @@ describe('scanner page', () => {
               taken: trades.length > 0,
               odds: {
                 chance: '0.4123',
+                chanceLow: '0.35',
                 fillShare: '0.95',
                 missedR: '-1.25',
                 expectedR: '0.0821',
+                expectedRLow: '0.0123',
                 trades: 240,
               },
             },
@@ -397,19 +421,22 @@ describe('scanner page', () => {
     expect(within(levels).getByText('2.27')).toBeInTheDocument();
     expect(within(levels).getByText('без ком. 2.4')).toBeInTheDocument();
     expect(within(levels).getByText('41%')).toBeInTheDocument();
-    expect(within(levels).getByText('240 сд.')).toBeInTheDocument();
+    expect(within(levels).getByText('≥ 35% · 240 сд.')).toBeInTheDocument();
     expect(within(levels).getByText('+0.08')).toBeInTheDocument();
+    expect(within(levels).getByText('+0.01')).toBeInTheDocument();
     expect(
       within(screen.getByRole('row', { name: 'Идея: Лонг Цель 2R 4h' })).getByText('-0.12'),
     ).toBeInTheDocument();
-    // Sorted by the expected result, the idea without odds last.
+    // Sorted by the cautious expected result, the idea without odds last.
     expect(
       screen.getAllByRole('row', { name: /^Идея:/ }).map((row) => row.getAttribute('aria-label')),
     ).toEqual(['Идея: Лонг Уровни 15m', 'Идея: Лонг Цель 2R 4h', 'Идея: Лонг Откат 1h']);
-    expect(screen.getByRole('link', { name: 'Импульс' })).toHaveAttribute(
-      'href',
+    const sources = screen.getAllByRole('link', { name: 'Импульс' });
+    expect(sources.map((link) => link.getAttribute('href'))).toEqual([
       '/scanner/backtests/backtest-1',
-    );
+      '/scanner/backtests/backtest-0',
+    ]);
+    expect(screen.getByText(/вес 0.5/)).toBeInTheDocument();
     expect(
       screen.getByText(
         'Комиссии бота: вход и цель лимиткой 0.1%, стоп по рынку 0.18%, спред 0.02%. Стоп теряет сверх движения цены 0.3%. Не показано 2 идеи со стопом ближе этих 0.3%.',
@@ -494,6 +521,7 @@ describe('scanner page', () => {
             spreadKnown: true,
           },
           tightStops: 0,
+          oddsSources: [],
           ideas: [
             {
               timeframe: '1d',
@@ -573,6 +601,7 @@ describe('scanner page', () => {
             spreadKnown: true,
           },
           tightStops: 0,
+          oddsSources: [],
           ideas: [
             {
               timeframe: '15m',
@@ -723,6 +752,7 @@ describe('scanner page', () => {
             spreadKnown: true,
           },
           tightStops: 0,
+          oddsSources: [],
           ideas: [],
         }),
       'GET /api/scanner/bybit-linear/trades': () => json([]),
@@ -863,6 +893,9 @@ describe('scanner page', () => {
           paperTrades: [],
           paperClosed: 0,
           paperMeanR: null,
+          paperChanceTrades: 0,
+          paperChance: null,
+          paperTargetShare: null,
         }),
       'PUT /api/scanner/presets/p1/auto-trades/mode': () =>
         json(
@@ -930,6 +963,16 @@ describe('scanner page', () => {
             meanMinutes: '95',
           },
         ],
+        calibration: {
+          sources: ['b0'],
+          cards: 120,
+          observed: '0.41',
+          predicted: '0.39',
+          brier: '0.2301',
+          geometryBrier: '0.2412',
+          bandsBrier: '0.2455',
+          bins: [{ lower: '0.3', upper: '0.4', cards: 120, predicted: '0.39', observed: '0.41' }],
+        },
       },
       signals: [
         {
@@ -1007,6 +1050,16 @@ describe('scanner page', () => {
     const levels = screen.getByRole('row', { name: /Уровни: стоп поддержка/ });
     expect(within(levels).getByText('0.9')).toBeInTheDocument();
     expect(within(levels).getByText('50%')).toBeInTheDocument();
+
+    // The odds of another period scored on this backtest's cards (ADR 0073).
+    expect(screen.getByText(/ожидали цель в 39%, дошли до неё 41%/)).toBeInTheDocument();
+    expect(screen.getByText(/Шансы предсказали лучше случайного блуждания/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'проверке 1' })).toHaveAttribute(
+      'href',
+      '/scanner/backtests/b0',
+    );
+    const bins = screen.getByRole('table', { name: 'Калибровка шансов' });
+    expect(within(bins).getByRole('row', { name: /30%–40%/ })).toBeInTheDocument();
 
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Пара' }), 'HYPEUSDT');
 

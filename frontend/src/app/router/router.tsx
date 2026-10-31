@@ -239,11 +239,19 @@ const scanPairRoute = createRoute({
   path: '/scanner/$venue/$symbol',
   validateSearch: (
     search: Record<string, unknown>,
-  ): { timeframe?: string; trades?: ScanTradeSide } => {
+  ): { timeframe?: string; trades?: ScanTradeSide; preset?: string } => {
     const timeframe = scanChartTimeframe(search.timeframe);
     const trades = scanTradeSide(search.trades);
+    const preset =
+      typeof search.preset === 'string' && search.preset.trim() !== ''
+        ? search.preset.trim().slice(0, 100)
+        : undefined;
 
-    return { ...(timeframe ? { timeframe } : {}), ...(trades ? { trades } : {}) };
+    return {
+      ...(timeframe ? { timeframe } : {}),
+      ...(trades ? { trades } : {}),
+      ...(preset ? { preset } : {}),
+    };
   },
   component: lazyRouteComponent(() => import('@/pages/scanner/ScanPairPage'), 'ScanPairPage'),
 });

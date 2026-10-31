@@ -44,7 +44,8 @@ const filterButton =
  * ticks the wanted ones and «Создать выбранные» creates a bot with real orders for each; on futures short ideas (ADR 0061) sell at
  * the entry. The fees are the bot's and the spread the snapshot's (ADR 0065); ideas whose stop is nearer than those costs never
  * reach the table, and a note counts them. Each idea shows how often cards like it reached their target before their stop in the
- * owner's latest preset backtest and the result expected after costs (ADR 0071, section 1); the table opens sorted by that result.
+ * owner's preset backtests, shrunk towards the random walk's chance, with its cautious end, and the result expected after costs
+ * (ADR 0071, section 1; ADR 0073); the table opens sorted by the cautious expected result.
  * Hovering a row, or ticking it, shows the idea on the chart through `onPreview`. «Скрыть» hides an idea until the ideas change; an
  * idea a live trade already took cannot be ticked.
  */
@@ -129,7 +130,9 @@ export function ScanTradeIdeasTable({
 
     setSelected([]);
     setCreating(false);
-    await queryClient.invalidateQueries({ queryKey: scannerKeys.tradeIdeas(venue, ideas.symbol) });
+    await queryClient.invalidateQueries({
+      queryKey: ['scanner', venue, 'trade-ideas', ideas.symbol],
+    });
     await queryClient.invalidateQueries({ queryKey: scannerKeys.trades(venue) });
   }
 
@@ -214,13 +217,13 @@ export function ScanTradeIdeasTable({
               />
               <th
                 className="px-2 py-2 font-normal"
-                title="Как часто похожие карточки бэктеста дошли до цели раньше стопа"
+                title="Как часто похожие карточки бэктестов дошли до цели раньше стопа; снизу — осторожная оценка (10-й перцентиль)"
               >
                 Шанс
               </th>
               <SortHeader
                 label="Ожид. R"
-                title="Ожидаемый результат после комиссий: шанс цели, её R и средний R промахнувшихся похожих карточек"
+                title="Ожидаемый результат после комиссий: шанс цели, её R и R промаха; снизу — с осторожным шансом, по нему сортировка"
                 active={sort === 'expectedR'}
                 onSort={() => sortBy('expectedR')}
               />
@@ -305,9 +308,9 @@ export function ScanTradeIdeasTable({
 
 /** Where the ideas' chances come from, or how to get them. */
 function OddsNote({ ideas }: { ideas: ScanTradeIdeas }) {
-  const source = ideas.oddsSource;
+  const sources = ideas.oddsSources;
 
-  if (!source) {
+  if (sources.length === 0) {
     return (
       <p className="text-xs text-muted">
         Шанса нет: он считается по проверке пресета на истории. Запустите её на этой бирже — она
@@ -318,18 +321,26 @@ function OddsNote({ ideas }: { ideas: ScanTradeIdeas }) {
 
   return (
     <p className="text-xs text-muted">
-      Шанс — по проверке на истории «
-      <Link
-        to="/scanner/backtests/$backtestId"
-        params={{ backtestId: source.backtestId }}
-        className="text-link hover:underline"
-      >
-        {source.presetName}
-      </Link>
-      » за <DateTime value={source.from} dateOnly />–<DateTime value={source.to} dateOnly />: как
-      часто карточки того же сценария, таймфрейма, отношения цели к стопу и расстояния до стопа
-      доходили до цели раньше стопа. Это измерено на прошлом, а не прогноз. Прочерк — меньше похожих
-      сделок, чем нужно.
+      Шанс — по проверкам на истории{' '}
+      {sources.map((source, index) => (
+        <span key={source.backtestId}>
+          {index > 0 && ', '}«
+          <Link
+            to="/scanner/backtests/$backtestId"
+            params={{ backtestId: source.backtestId }}
+            className="text-link hover:underline"
+          >
+            {source.presetName}
+          </Link>
+          » за <DateTime value={source.from} dateOnly />–<DateTime value={source.to} dateOnly />
+          {sources.length > 1 && ` (вес ${formatMetric(source.weight, 2)})`}
+        </span>
+      ))}
+      . Отправная точка — шанс случайного блуждания 1 / (1 + R); его сдвигает то, как часто карточки
+      того же сценария, таймфрейма, отношения цели к стопу, расстояния до стопа и тренда рынка
+      доходили до цели раньше стопа. Где похожих сделок мало, шанс ближе к отправной точке. Снизу —
+      осторожная оценка. Это измерено на прошлом, а не прогноз. Прочерк — мало сделок такого
+      сценария.
     </p>
   );
 }
@@ -530,12 +541,15 @@ function IdeaRow({
   );
 }
 
-/** The idea's chance of the target first and its expected result after costs, from cards like it. */
+/** The idea's chance of the target first and its expected result after costs, from cards like it, each with its cautious end. */
 function OddsCells({ odds }: { odds: ScanCardChance | null }) {
   if (!odds) {
     return (
       <>
-        <td className="px-2 py-2 font-mono text-muted" title="Мало похожих карточек в проверке">
+        <td
+          className="px-2 py-2 font-mono text-muted"
+          title="Мало сделок такого сценария в проверках"
+        >
           —
         </td>
         <td className="px-2 py-2 font-mono text-muted">—</td>
@@ -549,13 +563,14 @@ function OddsCells({ odds }: { odds: ScanCardChance | null }) {
     <>
       <td
         className="px-2 py-2 font-mono"
-        title={`Вход исполнился у ${share(odds.fillShare)} похожих, промахнувшиеся дали ${formatMetric(odds.missedR, 2)} R`}
+        title={`Вход исполнился у ${share(odds.fillShare)} похожих, промах даёт ${formatMetric(odds.missedR, 2)} R; похожих сделок ${odds.trades}`}
       >
         {share(odds.chance)}
-        <Sub>{`${odds.trades} сд.`}</Sub>
+        <Sub title="Осторожная оценка: 10-й перцентиль">{`≥ ${share(odds.chanceLow)} · ${odds.trades} сд.`}</Sub>
       </td>
       <td className="px-2 py-2 font-mono">
         <span className={positive ? 'text-up' : 'text-down'}>{signed(odds.expectedR, 2)}</span>
+        <Sub title="С осторожным шансом">{signed(odds.expectedRLow, 2)}</Sub>
       </td>
     </>
   );
@@ -579,7 +594,7 @@ function sorted(rows: Row[], sort: Sort): Row[] {
   }
 
   const value = (row: Row) =>
-    sort === 'expectedR' ? (row.idea.odds?.expectedR ?? null) : row.outcome[sort];
+    sort === 'expectedR' ? (row.idea.odds?.expectedRLow ?? null) : row.outcome[sort];
 
   return [...rows].sort((left, right) => {
     const a = value(left);

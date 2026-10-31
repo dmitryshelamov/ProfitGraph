@@ -6,12 +6,12 @@ using ProfitGraph.Application.Common.Exceptions;
 using ProfitGraph.Application.Common.Transactions;
 using ProfitGraph.Application.Jobs.Ports;
 using ProfitGraph.Application.MarketData;
+using ProfitGraph.Application.Scanner.CardOdds;
 using ProfitGraph.Application.Scanner.Contracts;
 using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Domain.MarketData;
 using ProfitGraph.Domain.Scanner;
 using ProfitGraph.Domain.Scanner.Trades;
-using ProfitGraph.Engine.Accounting;
 using ProfitGraph.Engine.Market;
 using ProfitGraph.Engine.Scanning;
 
@@ -26,7 +26,8 @@ namespace ProfitGraph.Application.Scanner.RunScanBacktest;
 ///     not checked, since history has no quotes. On a venue that allows shorts the short scenarios run too (ADR 0061). At every
 ///     signal the cards of the pair's page are followed by the bot's rules and summed up by kind and band (ADR 0071, section 2): their
 ///     fees are the owner's for the venue as the cards read them, once per backtest, and their spread the pair's in the current
-///     snapshot, or the snapshot's median spread without one.
+///     snapshot, or the snapshot's median spread without one. Each closed card gets the odds this backtest's cards give it, and the odds
+///     of the owner's other backtests over periods apart from this one are scored on them (ADR 0073).
 /// </summary>
 internal sealed class RunScanBacktestCommandHandler(
     IEnumerable<IMarketScanSource> sources,
@@ -35,6 +36,7 @@ internal sealed class RunScanBacktestCommandHandler(
     IScanTradeSettingsRepository settings,
     IScanSnapshotRepository snapshots,
     ScanTradeCostsReader costs,
+    ScanCardOddsReader oddsReader,
     ScanTradeOptions options,
     ITransactionExecutor transactions,
     IBackgroundJobProgress progress,
@@ -99,14 +101,18 @@ internal sealed class RunScanBacktestCommandHandler(
 
         ScanSignal[] all = [.. signals.OrderByDescending(signal => signal.At).ThenBy(signal => signal.Symbol, StringComparer.Ordinal)];
         IReadOnlyList<ScanCardOdds> odds = ScanStudy.Odds(cards);
+        ScanCardCalibration? calibration = await Calibration(backtest, cards, cancellationToken);
         var result = new ScanBacktestResult(
             universe.Count,
             [.. failed.Order(StringComparer.Ordinal)],
-            ScanStudy.Summarize(all, shorts, odds),
+            ScanStudy.Summarize(all, shorts, odds) with { Calibration = calibration },
             [.. all.Take(ScanBacktest.MaxStoredSignals)],
             all.Length > ScanBacktest.MaxStoredSignals,
             marketChange);
-        IReadOnlyList<ScanBacktestCard> closed = Closed(backtest, cards, odds);
+        IReadOnlyList<ScanBacktestCard> closed = Closed(
+            backtest,
+            cards,
+            new ScanCardOddsModel([new ScanWeightedOdds(odds, Weight: 1m)], options.OddsPriorTrades, options.MinOddsTrades));
 
         await transactions.ExecuteAsync(
             async () =>
@@ -128,13 +134,28 @@ internal sealed class RunScanBacktestCommandHandler(
     }
 
     /// <summary>
-    ///     The cards' closed trades with the chance and expected R their kind and bands give them in this backtest (ADR 0071, section 5),
-    ///     each in its third of the period.
+    ///     How well the odds of the owner's other backtests of the venue, over periods apart from this one, predict this backtest's cards
+    ///     (ADR 0073); they are picked and weighted as the pair's page picks them on the backtest's last day. Null without such backtests.
     /// </summary>
-    private IReadOnlyList<ScanBacktestCard> Closed(ScanBacktest backtest, IEnumerable<ScanCardTrade> cards, IReadOnlyList<ScanCardOdds> odds)
+    private async Task<ScanCardCalibration?> Calibration(ScanBacktest backtest, IEnumerable<ScanCardTrade> cards, CancellationToken cancellationToken)
     {
-        Dictionary<(string, ScanScenario, PositionDirection, int, int), ScanCardOdds> bands = odds.ToDictionary(item =>
-            (item.Timeframe, item.Scenario, item.Direction, item.ChanceBand, item.StopBand));
+        ScanCardOddsBasisInternal? other = await oddsReader.Read(
+            backtest.OwnerId.Value,
+            backtest.Venue.Value,
+            backtest.PresetName.Value,
+            backtest.To,
+            (backtest.From, backtest.To),
+            cancellationToken);
+
+        return other is null ? null : ScanCardCalibration.Of([.. other.Sources.Select(source => source.BacktestId)], other.Model, cards);
+    }
+
+    /// <summary>
+    ///     The cards' closed trades with the odds this backtest's cards give them (ADR 0071, section 5; ADR 0073), each in its third of
+    ///     the period.
+    /// </summary>
+    private static IReadOnlyList<ScanBacktestCard> Closed(ScanBacktest backtest, IEnumerable<ScanCardTrade> cards, ScanCardOddsModel model)
+    {
         long period = (backtest.To - backtest.From).Ticks;
 
         return
@@ -145,10 +166,7 @@ internal sealed class RunScanBacktestCommandHandler(
                 .ThenBy(card => card.Symbol, StringComparer.Ordinal)
                 .Select(card =>
                 {
-                    ScanCardOdds? like = card.StopBand is { } stop
-                        ? bands.GetValueOrDefault((card.Timeframe, card.Scenario, card.Direction, card.ChanceBand, stop))
-                        : null;
-                    ScanCardChance? chance = like is { } band && band.Filled >= options.MinOddsTrades ? ScanCardChance.From(band, card.TargetR) : null;
+                    ScanCardChance? chance = model.Of(card);
                     var third = (int)Math.Clamp(3 * (card.SignalAt - backtest.From).Ticks / period, min: 0, max: 2);
 
                     return new ScanBacktestCard(
@@ -159,7 +177,9 @@ internal sealed class RunScanBacktestCommandHandler(
                         third,
                         card.Outcome.ResultR!.Value,
                         chance?.Chance,
-                        chance?.ExpectedR);
+                        chance?.ExpectedR,
+                        chance?.ChanceLow,
+                        chance?.ExpectedRLow);
                 })
         ];
     }

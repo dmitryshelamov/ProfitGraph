@@ -188,6 +188,7 @@ export function ScannerPage() {
               sortMetric={view.sortMetric}
               sortDescending={view.sortDescending}
               trades={presetTradeSide(view.tradeDirection)}
+              preset={view.name.trim() || undefined}
               onSort={(metric) =>
                 setDraft({
                   ...view,

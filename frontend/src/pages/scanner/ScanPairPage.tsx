@@ -35,12 +35,12 @@ const route = getRouteApi('/_authenticated/_shell/scanner/$venue/$symbol');
  */
 export function ScanPairPage() {
   const { venue, symbol } = route.useParams();
-  const { timeframe = defaultScanChartTimeframe, trades } = route.useSearch();
+  const { timeframe = defaultScanChartTimeframe, trades, preset } = route.useSearch();
   const venues = useQuery(scanVenuesQuery());
   const snapshot = useQuery(scanSnapshotQuery(venue));
   const row = snapshot.data?.rows.find((item) => item.symbol === symbol);
   const levels = useQuery(scanLevelsQuery(venue, symbol, timeframe));
-  const ideas = useQuery(scanTradeIdeasQuery(venue, symbol));
+  const ideas = useQuery(scanTradeIdeasQuery(venue, symbol, preset));
   const [preview, setPreview] = useState<readonly ScanTradeIdea[]>([]);
   const chartLevels = useMemo(
     () => [...timeframeLevels(levels.data), ...preview.flatMap(ideaLevels)],
@@ -91,7 +91,11 @@ export function ScanPairPage() {
                     key={item}
                     to="/scanner/$venue/$symbol"
                     params={{ venue, symbol }}
-                    search={trades ? { timeframe: item, trades } : { timeframe: item }}
+                    search={{
+                      timeframe: item,
+                      ...(trades ? { trades } : {}),
+                      ...(preset ? { preset } : {}),
+                    }}
                     className={
                       item === timeframe
                         ? 'rounded-md border border-link px-2.5 py-1 text-sm text-link'

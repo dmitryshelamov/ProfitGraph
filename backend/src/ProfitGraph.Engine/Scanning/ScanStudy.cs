@@ -23,6 +23,7 @@ public static class ScanStudy
     private const decimal FeeRate = 0.001m;
     private const decimal MinimumRewardRisk = 2m;
     private const int ExtremeMinutes = 240;
+    private const int OddsDecimals = 6;
 
     /// <summary>
     ///     The timeframe whose average range buffers a stop beyond the four hours' extreme, as on the pair's page.
@@ -124,12 +125,16 @@ public static class ScanStudy
                 hourRange,
                 setup.Shorts);
 
+            decimal? natr = signal.Metrics.Natr24h is > 0m ? signal.Metrics.Natr24h : null;
+
             foreach ((string timeframe, ScanTradeIdea idea) in ideas)
             {
                 if (costs.TooTight(idea.Entry, idea.Stop) || ScanCardFollow.Follow(minutes, index, idea, costs) is not { } outcome)
                 {
                     continue;
                 }
+
+                decimal? stopNatr = ScanCardBands.StopNatr(idea, natr);
 
                 cards.Add(
                     new ScanCardTrade(
@@ -139,9 +144,14 @@ public static class ScanStudy
                         idea.Scenario,
                         idea.Direction,
                         ScanCardBands.Chance(idea.RewardRisk),
-                        ScanCardBands.Stop(idea, signal.Metrics.Natr24h),
+                        stopNatr is { } distance ? ScanCardBands.Stop(distance) : null,
                         ScanCardFollow.ResultR(idea, idea.Target, ScanTradeExit.Target, costs),
-                        outcome));
+                        outcome,
+                        ScanCardBands.Geometry(idea.RewardRisk),
+                        ScanCardBands.Market(signal.Metrics.MarketTrend),
+                        stopNatr,
+                        natr is { } range ? costs.AtStop * Percent / range : null,
+                        Slip(idea, outcome, natr)));
             }
         }
 
@@ -149,8 +159,9 @@ public static class ScanStudy
     }
 
     /// <summary>
-    ///     How the cards ended by timeframe, scenario, direction and bands (ADR 0071, section 1); cards without a stop band are left out.
-    ///     The cards are taken in pair, signal and kind order, so the result does not depend on the order they come in.
+    ///     How the cards ended by timeframe, scenario, direction, bands and market band (ADR 0071, section 1; ADR 0073); cards without a
+    ///     stop band are left out. The cards are taken in pair, signal and kind order, so the result does not depend on the order they
+    ///     come in.
     /// </summary>
     public static IReadOnlyList<ScanCardOdds> Odds(IEnumerable<ScanCardTrade> cards)
     {
@@ -165,12 +176,15 @@ public static class ScanStudy
                 .ThenBy(card => card.Timeframe, StringComparer.Ordinal)
                 .ThenBy(card => card.Scenario)
                 .ThenBy(card => card.Direction)
-                .GroupBy(card => (card.Timeframe, card.Scenario, card.Direction, card.ChanceBand, StopBand: card.StopBand!.Value))
+                .GroupBy(card => (card.Timeframe, card.Scenario, card.Direction, card.ChanceBand, StopBand: card.StopBand!.Value, card.MarketBand))
                 .Select(group =>
                 {
-                    ScanCardOutcome[] closed = [.. group.Select(card => card.Outcome).Where(outcome => outcome.Filled)];
-                    decimal[] results = [.. closed.Select(outcome => outcome.ResultR ?? 0m)];
-                    decimal[] missed = [.. closed.Where(outcome => outcome.Exit != ScanTradeExit.Target).Select(outcome => outcome.ResultR ?? 0m)];
+                    ScanCardTrade[] closed = [.. group.Where(card => card.Outcome.Filled)];
+                    decimal[] results = [.. closed.Select(card => card.Outcome.ResultR ?? 0m)];
+                    decimal[] missed = [.. closed.Where(card => card.Outcome.Exit != ScanTradeExit.Target).Select(card => card.Outcome.ResultR ?? 0m)];
+                    decimal[] slips = [.. closed.Where(card => card.Outcome.Exit == ScanTradeExit.Stop && card.Slip is not null).Select(card => card.Slip!.Value)];
+                    decimal[] held = [.. closed.Where(card => card.Outcome.Exit == ScanTradeExit.Time).Select(card => card.Outcome.ResultR ?? 0m)];
+                    ScanCardTrade[] geometries = closed.Length == 0 ? [.. group] : closed;
 
                     return new ScanCardOdds(
                         group.Key.Timeframe,
@@ -180,17 +194,72 @@ public static class ScanStudy
                         group.Key.StopBand,
                         group.Count(),
                         closed.Length,
-                        closed.Count(outcome => outcome.Exit == ScanTradeExit.Target),
-                        closed.Count(outcome => outcome.Exit == ScanTradeExit.Stop),
-                        results.Length == 0 ? null : results.Sum() / results.Length,
-                        missed.Length == 0 ? null : missed.Sum() / missed.Length);
+                        closed.Count(card => card.Outcome.Exit == ScanTradeExit.Target),
+                        closed.Count(card => card.Outcome.Exit == ScanTradeExit.Stop),
+                        Mean(results),
+                        Mean(missed),
+                        group.Key.MarketBand,
+                        Math.Round(geometries.Sum(card => card.Geometry) / geometries.Length, OddsDecimals),
+                        EffectiveTrades(closed),
+                        Mean(slips) is { } slip ? Math.Round(slip, OddsDecimals) : null,
+                        Mean(held));
                 })
                 .OrderBy(odds => odds.Timeframe, StringComparer.Ordinal)
                 .ThenBy(odds => odds.Scenario)
                 .ThenBy(odds => odds.Direction)
                 .ThenBy(odds => odds.ChanceBand)
                 .ThenBy(odds => odds.StopBand)
+                .ThenBy(odds => odds.MarketBand ?? -1)
         ];
+    }
+
+    /// <summary>
+    ///     How many independent trades <paramref name="closed" /> are worth for their share of targets: their count over the design effect
+    ///     of the hours their signals fell in, since pairs that signal in the same hour often move together. Trades of separate hours are
+    ///     worth one each.
+    /// </summary>
+    internal static decimal EffectiveTrades(IReadOnlyList<ScanCardTrade> closed)
+    {
+        int count = closed.Count;
+        int targets = closed.Count(card => card.Outcome.Exit == ScanTradeExit.Target);
+
+        if (targets == 0 || targets == count)
+        {
+            return count;
+        }
+
+        decimal share = (decimal)targets / count;
+        decimal clustered = closed
+            .GroupBy(card => card.SignalAt.UtcTicks / TimeSpan.TicksPerHour)
+            .Sum(hour =>
+            {
+                decimal deviation = hour.Sum(card => (card.Outcome.Exit == ScanTradeExit.Target ? 1m : 0m) - share);
+
+                return deviation * deviation;
+            });
+        decimal design = Math.Max(clustered / (count * share * (1m - share)), val2: 1m);
+
+        return Math.Round(count / design, OddsDecimals);
+    }
+
+    /// <summary>
+    ///     How far beyond its stop a trade that left at its stop left, in hourly NATRs; null for another exit or without the NATR.
+    /// </summary>
+    private static decimal? Slip(ScanTradeIdea idea, ScanCardOutcome outcome, decimal? natr)
+    {
+        if (outcome is not { Exit: ScanTradeExit.Stop, ExitPrice: { } exit } || natr is not { } range)
+        {
+            return null;
+        }
+
+        decimal beyond = idea.Direction == PositionDirection.Short ? exit - idea.Stop : idea.Stop - exit;
+
+        return Math.Max(beyond, val2: 0m) / idea.Entry * Percent / range;
+    }
+
+    private static decimal? Mean(decimal[] values)
+    {
+        return values.Length == 0 ? null : values.Sum() / values.Length;
     }
 
     public static ScanStudySummary Summarize(IReadOnlyList<ScanSignal> signals, bool shorts = false, IReadOnlyList<ScanCardOdds>? cards = null)

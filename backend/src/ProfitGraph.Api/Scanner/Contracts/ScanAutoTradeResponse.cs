@@ -3,7 +3,8 @@ namespace ProfitGraph.Api.Scanner.Contracts;
 /// <summary>
 ///     A preset's auto trades (ADR 0071, sections 4–7): the rule or null, today's open, created and lost, the minimums the backtests'
 ///     cards are shown at, the latest backtest of the preset's conditions and the latest one of the opposite market, the latest
-///     requests and paper trades, and the closed paper trades' count and mean R since the rule's mode began. Decimals are exact strings.
+///     requests and paper trades, and the closed paper trades' count and mean R since the rule's mode began; of those taken with a chance
+///     (ADR 0073), how many there are, their mean chance and the share that reached the target. Decimals are exact strings.
 /// </summary>
 public sealed record ScanAutoTradeResponse(
     Guid PresetId,
@@ -19,4 +20,7 @@ public sealed record ScanAutoTradeResponse(
     IReadOnlyList<ScanAutoTradeRequestResponse> Requests,
     IReadOnlyList<ScanPaperTradeResponse> PaperTrades,
     int PaperClosed,
-    string? PaperMeanR);
+    string? PaperMeanR,
+    int PaperChanceTrades,
+    string? PaperChance,
+    string? PaperTargetShare);

@@ -165,7 +165,7 @@ public sealed class ScanTradeTests
     }
 
     [Test]
-    public async Task CardsTakeTheirOddsFromTheOwnersLatestBacktestOfCardsLikeThem()
+    public async Task CardsTakeTheirOddsFromTheOwnersBacktestsOfCardsLikeThemShrunkTowardsTheRandomWalk()
     {
         // A NATR of 4 % puts the 10.34 % stop of the hours' level card in the band beyond 1.5 and up to 3 NATRs.
         BotOwner owner = await SetUp("TRADEOUSDT", natr: 4m);
@@ -195,16 +195,31 @@ public sealed class ScanTradeTests
             MissedMeanR: -1.1m);
         Guid backtestId = await StoreBacktest(owner, odds);
 
-        ScanTradeIdeasResponse after = await Ideas(owner, "TRADEOUSDT");
+        // A later backtest of another preset over the same period, in which every card like it missed the target.
+        Guid otherId = await StoreBacktest(owner, odds with { Targets = 0, Stops = 160 }, "Другой");
 
-        (before.OddsSource, levels.Odds).ShouldBe((null, null));
-        (after.OddsSource!.BacktestId, after.OddsSource.PresetName).ShouldBe((backtestId, "Шансы"));
+        ScanTradeIdeasResponse after = await Ideas(owner, "TRADEOUSDT", "Шансы");
+        ScanTradeIdeasResponse pooled = await Ideas(owner, "TRADEOUSDT");
+
+        (before.OddsSources.Count, levels.Odds).ShouldBe((0, null));
+        ScanCardOddsSourceResponse source = after.OddsSources.ShouldHaveSingleItem();
+        (source.BacktestId, source.PresetName, Number(source.Weight)).ShouldBe((backtestId, "Шансы", 1m));
+        pooled.OddsSources.Select(item => item.BacktestId).ShouldBe([otherId, backtestId]);
+
+        // The 40 % measured is shrunk towards the random walk of the band (ADR 0073), and its cautious end lies below it.
+        var model = new ScanCardOddsModel([new ScanWeightedOdds([odds], Weight: 1m)], priorTrades: 50m, minimumTrades: 100);
+        decimal expected = model.Of("1h", proposal, natrPercent: 4m, marketTrend: null, ScanTradeCosts.Flat(0.001m))!.Chance;
         ScanCardChanceResponse chance = after.Ideas.First(idea => idea is { Timeframe: "1h", Scenario: "Levels" }).Odds!;
-        (Number(chance.Chance), Number(chance.FillShare), Number(chance.MissedR), chance.Trades).ShouldBe((0.4m, 0.8m, -1.1m, 160));
+        Number(chance.Chance).ShouldBe(Math.Round(expected, decimals: 4));
+        Number(chance.ChanceLow).ShouldBeLessThan(Number(chance.Chance));
+        (Number(chance.FillShare), Number(chance.MissedR), chance.Trades).ShouldBe((0.8m, -1.1m, 160));
         decimal win = Number(after.Ideas.First(idea => idea is { Timeframe: "1h", Scenario: "Levels" }).Profit!) / 5m;
-        Number(chance.ExpectedR).ShouldBe(Math.Round(0.8m * (0.4m * win + 0.6m * -1.1m), decimals: 4), tolerance: 0.0002m);
+        Number(chance.ExpectedR).ShouldBe(0.8m * (Number(chance.Chance) * win + (1m - Number(chance.Chance)) * -1.1m), tolerance: 0.0005m);
         after.Ideas.Where(idea => idea is not { Timeframe: "1h", Scenario: "Levels" }).ShouldAllBe(idea => idea.Odds == null);
-        (await Ideas(stranger, "TRADEOUSDT")).OddsSource.ShouldBeNull();
+
+        // Without a preset every preset's backtests count, so the missed cards of the other lower the chance.
+        Number(pooled.Ideas.First(idea => idea is { Timeframe: "1h", Scenario: "Levels" }).Odds!.Chance).ShouldBeLessThan(Number(chance.Chance));
+        (await Ideas(stranger, "TRADEOUSDT")).OddsSources.ShouldBeEmpty();
     }
 
     [Test]
@@ -344,9 +359,11 @@ public sealed class ScanTradeTests
             });
     }
 
-    private static async Task<ScanTradeIdeasResponse> Ideas(BotOwner owner, string symbol)
+    private static async Task<ScanTradeIdeasResponse> Ideas(BotOwner owner, string symbol, string? preset = null)
     {
-        return (await owner.Client.GetFromJsonAsync<ScanTradeIdeasResponse>($"/api/scanner/{Venue}/trade-ideas?symbol={symbol}", WebJson))!;
+        string query = preset is null ? string.Empty : $"&preset={Uri.EscapeDataString(preset)}";
+
+        return (await owner.Client.GetFromJsonAsync<ScanTradeIdeasResponse>($"/api/scanner/{Venue}/trade-ideas?symbol={symbol}{query}", WebJson))!;
     }
 
     private static async Task<IReadOnlyList<ScanLiveTradeResponse>> Trades(BotOwner owner, string symbol)
@@ -360,9 +377,9 @@ public sealed class ScanTradeTests
     }
 
     /// <summary>
-    ///     A completed backtest of the owner on the venue whose cards ended as <paramref name="odds" />.
+    ///     A completed backtest of the owner's preset on the venue over the last 30 days whose cards ended as <paramref name="odds" />.
     /// </summary>
-    private async Task<Guid> StoreBacktest(BotOwner owner, ScanCardOdds odds)
+    private async Task<Guid> StoreBacktest(BotOwner owner, ScanCardOdds odds, string preset = "Шансы")
     {
         using IServiceScope scope = _api.Services.CreateScope();
         Guid ownerId;
@@ -376,7 +393,7 @@ public sealed class ScanTradeTests
         ScanBacktest backtest = ScanBacktest.Start(
             new UserId(ownerId),
             new VenueId(Venue),
-            new ScanPresetName("Шансы"),
+            new ScanPresetName(preset),
             new ScanFilter([], HideStale: false),
             now.AddDays(-30),
             now,

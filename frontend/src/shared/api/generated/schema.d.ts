@@ -1125,6 +1125,7 @@ export interface paths {
             parameters: {
                 query?: {
                     symbol?: string;
+                    preset?: string;
                 };
                 header?: never;
                 path: {
@@ -5443,6 +5444,10 @@ export interface components {
             /** Format: int32 */
             paperClosed: number;
             paperMeanR: null | string;
+            /** Format: int32 */
+            paperChanceTrades: number;
+            paperChance: null | string;
+            paperTargetShare: null | string;
         };
         ScanAutoTradeRuleRequest: {
             direction: string;
@@ -5527,6 +5532,14 @@ export interface components {
             signals: null | components["schemas"]["ScanSignalResponse"][];
             signalsTruncated: boolean;
         };
+        ScanCalibrationBinResponse: {
+            lower: string;
+            upper: string;
+            /** Format: int32 */
+            cards: number;
+            predicted: string;
+            observed: string;
+        };
         ScanCandlesResponse: {
             venue: string;
             symbol: string;
@@ -5541,11 +5554,24 @@ export interface components {
             errorCode: null | string;
             candles: components["schemas"]["CandleResponse"][];
         };
+        ScanCardCalibrationResponse: {
+            sources: string[];
+            /** Format: int32 */
+            cards: number;
+            observed: string;
+            predicted: string;
+            brier: string;
+            geometryBrier: string;
+            bandsBrier: string;
+            bins: components["schemas"]["ScanCalibrationBinResponse"][];
+        };
         ScanCardChanceResponse: {
             chance: string;
+            chanceLow: string;
             fillShare: string;
             missedR: string;
             expectedR: string;
+            expectedRLow: string;
             /** Format: int32 */
             trades: number;
         };
@@ -5559,6 +5585,7 @@ export interface components {
             to: string;
             /** Format: date-time */
             completedAt: string;
+            weight: string;
         };
         ScanConditionRequest: {
             metric: string;
@@ -5752,6 +5779,7 @@ export interface components {
             maxRise24h: components["schemas"]["ScanOutcomeSummaryResponse"];
             maxDrop24h: components["schemas"]["ScanOutcomeSummaryResponse"];
             scenarios: components["schemas"]["ScanScenarioSummaryResponse"][];
+            calibration: null | components["schemas"]["ScanCardCalibrationResponse"];
         };
         ScanTradeCostsResponse: {
             limitFeeRate: string;
@@ -5785,7 +5813,7 @@ export interface components {
             costs: components["schemas"]["ScanTradeCostsResponse"];
             /** Format: int32 */
             tightStops: number;
-            oddsSource: null | components["schemas"]["ScanCardOddsSourceResponse"];
+            oddsSources: components["schemas"]["ScanCardOddsSourceResponse"][];
         };
         ScanTradeResponse: {
             scenario: string;

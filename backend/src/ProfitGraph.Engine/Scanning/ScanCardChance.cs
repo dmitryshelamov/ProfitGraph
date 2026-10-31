@@ -1,61 +1,16 @@
 namespace ProfitGraph.Engine.Scanning;
 
 /// <summary>
-///     A card's odds from the backtest's cards like it (ADR 0071, section 1): the chance that its target comes before its stop, the
-///     share of such cards whose entry filled, the mean R of those that missed the target, how many closed trades the chance rests on,
-///     and the result expected after costs: <c>fill × (chance × the card's R at its target + (1 − chance) × the missed mean R)</c>.
+///     A card's odds from the backtests' cards like it (ADR 0071, section 1; ADR 0073): the chance that its target comes before its stop
+///     and its cautious end (the 10th percentile), the share of such cards whose entry filled, the R expected of a trade that misses
+///     the target, the result expected after costs, <c>fill × (chance × the card's R at its target + (1 − chance) × the missed R)</c>,
+///     and the same with the cautious chance, and how many closed trades of the card's bands the chance rests on.
 /// </summary>
-public sealed record ScanCardChance(decimal Chance, decimal FillShare, decimal MissedR, decimal ExpectedR, int Trades)
-{
-    /// <summary>
-    ///     The odds of <paramref name="idea" /> from the <paramref name="odds" /> of its timeframe, scenario, direction and bands with at
-    ///     least <paramref name="minimumTrades" /> closed trades, its R at its target with <paramref name="costs" />; null without such
-    ///     odds or without the pair's NATR.
-    /// </summary>
-    public static ScanCardChance? Of(
-        IReadOnlyList<ScanCardOdds> odds,
-        string timeframe,
-        ScanTradeIdea idea,
-        decimal? natrPercent,
-        ScanTradeCosts costs,
-        int minimumTrades)
-    {
-        ArgumentNullException.ThrowIfNull(odds);
-        ArgumentNullException.ThrowIfNull(idea);
-        ArgumentNullException.ThrowIfNull(costs);
-
-        if (ScanCardBands.Stop(idea, natrPercent) is not { } stopBand)
-        {
-            return null;
-        }
-
-        int chanceBand = ScanCardBands.Chance(idea.RewardRisk);
-        ScanCardOdds? like = odds.FirstOrDefault(item => item.Timeframe == timeframe && item.Scenario == idea.Scenario && item.Direction == idea.Direction &&
-            item.ChanceBand == chanceBand && item.StopBand == stopBand);
-
-        if (like is null || like.Filled < minimumTrades)
-        {
-            return null;
-        }
-
-        return From(like, ScanCardFollow.ResultR(idea, idea.Target, ScanTradeExit.Target, costs));
-    }
-
-    /// <summary>
-    ///     The odds of a card whose target pays <paramref name="targetR" /> from the cards like it, whatever their count; null without a
-    ///     closed trade.
-    /// </summary>
-    public static ScanCardChance? From(ScanCardOdds like, decimal targetR)
-    {
-        ArgumentNullException.ThrowIfNull(like);
-
-        if (like.Chance() is not { } chance || like.FillShare() is not { } fill)
-        {
-            return null;
-        }
-
-        decimal missed = like.MissedMeanR ?? -1m;
-
-        return new ScanCardChance(chance, fill, missed, fill * (chance * targetR + (1m - chance) * missed), like.Filled);
-    }
-}
+public sealed record ScanCardChance(
+    decimal Chance,
+    decimal ChanceLow,
+    decimal FillShare,
+    decimal MissedR,
+    decimal ExpectedR,
+    decimal ExpectedRLow,
+    int Trades);

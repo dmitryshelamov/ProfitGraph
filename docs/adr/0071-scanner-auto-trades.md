@@ -8,6 +8,9 @@ below come from that analysis; every rule is the analyst's proposal, to be revie
 ADR 0042, ADR 0059 (sections 5, 6 and 8), ADR 0060, ADR 0061, ADR 0065, ADR 0067, ADR 0069 and ADR 0070; it is the first version of
 the screener robot (roadmap, market scanner step 5).
 
+Amended 2026-11-01 by [ADR 0073](0073-scanner-card-odds-calibration.md): a card's chance is shrunk towards `1 / (1 + RR)` level by
+level and has a cautious end that sorts cards and proves and admits rules; odds pool the preset's backtests; backtests score them.
+
 Amended 2026-10-31: the owner asked to check the analysis on another period and on futures ("Да, проверь") and to add the result
 here ("Да, в PR #240"). The check is "Out-of-sample check" below; it adds the second period to section 5.
 

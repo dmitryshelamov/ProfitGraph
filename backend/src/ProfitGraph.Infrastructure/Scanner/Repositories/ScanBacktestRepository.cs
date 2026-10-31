@@ -25,12 +25,12 @@ internal sealed class ScanBacktestRepository(NpgsqlConnection connection, Postgr
         return [.. rows.Select(row => row.ToInternal())];
     }
 
-    public async Task<ScanCardOddsSourceInternal?> LatestCardOdds(Guid ownerId, string venue, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<ScanCardOddsSourceInternal>> CardOddsSources(Guid ownerId, string venue, int limit, CancellationToken cancellationToken)
     {
-        var row = await connection.QuerySingleOrDefaultAsync<ScanCardOddsSourceDb>(
-            Command(ScanBacktestQueries.LatestCardOdds, new { OwnerId = ownerId, Venue = venue }, cancellationToken));
+        IEnumerable<ScanCardOddsSourceDb> rows = await connection.QueryAsync<ScanCardOddsSourceDb>(
+            Command(ScanBacktestQueries.CardOddsSources, new { OwnerId = ownerId, Venue = venue, Limit = limit }, cancellationToken));
 
-        return row?.ToInternal();
+        return [.. rows.Select(row => row.ToInternal())];
     }
 
     public async Task<IReadOnlyList<ScanBacktestEvidenceInternal>> Evidence(Guid ownerId, string venue, int limit, CancellationToken cancellationToken)
@@ -70,7 +70,9 @@ internal sealed class ScanBacktestRepository(NpgsqlConnection connection, Postgr
                         Thirds = chunk.Select(card => (short)card.Third).ToArray(),
                         Results = chunk.Select(card => card.ResultR).ToArray(),
                         Chances = chunk.Select(card => card.Chance).ToArray(),
-                        ExpectedRs = chunk.Select(card => card.ExpectedR).ToArray()
+                        ExpectedRs = chunk.Select(card => card.ExpectedR).ToArray(),
+                        ChanceLows = chunk.Select(card => card.ChanceLow).ToArray(),
+                        ExpectedRLows = chunk.Select(card => card.ExpectedRLow).ToArray()
                     },
                     cancellationToken));
         }

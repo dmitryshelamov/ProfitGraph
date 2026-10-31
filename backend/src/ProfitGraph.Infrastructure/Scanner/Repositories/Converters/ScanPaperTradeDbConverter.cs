@@ -45,6 +45,7 @@ internal static class ScanPaperTradeDbConverter
             row.Risk,
             new ScanTradeCosts(row.LimitFeeRate, row.MarketFeeRate, row.Spread),
             row.ExpectedR,
+            row.Chance,
             row.CreatedAt,
             row.LastMinute,
             new ScanCardProgress(row.Waited, row.EnteredAt, row.Held, outcome));
@@ -74,6 +75,7 @@ internal static class ScanPaperTradeDbConverter
             trade.Costs.MarketFeeRate,
             trade.Costs.Spread,
             trade.ExpectedR,
+            trade.Chance,
             trade.CreatedAt,
             LastMinute = trade.NextMinute,
             progress.Waited,

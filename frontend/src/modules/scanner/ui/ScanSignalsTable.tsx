@@ -25,9 +25,12 @@ function percent(value: string | null): string {
 export function ScanSignalsTable({
   venue,
   signals,
+  preset,
 }: {
   venue: string;
   signals: readonly ScanSignal[];
+  /** The backtest's preset, whose backtests give the pair's cards their odds (ADR 0073). */
+  preset?: string;
 }) {
   const scenarios = shownScenarios(signals);
 
@@ -63,6 +66,7 @@ export function ScanSignalsTable({
                 <Link
                   to="/scanner/$venue/$symbol"
                   params={{ venue, symbol: signal.symbol }}
+                  search={preset ? { preset } : {}}
                   className="font-medium hover:underline"
                 >
                   {signal.symbol}

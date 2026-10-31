@@ -6,9 +6,9 @@ namespace ProfitGraph.Domain.Scanner.AutoTrades;
 
 /// <summary>
 ///     A card an auto trade rule took on paper (ADR 0071, section 7): the card's prices, the amount and risk of the owner's sizing, the
-///     costs and expected R it was taken with, and where it stands. The scanner steps it through each closed minute of its pair after
-///     the snapshot that signalled it, by the rules the preset backtest follows cards with, so a rule's paper results compare with its
-///     backtest's.
+///     costs, expected R and chance it was taken with (no chance for trades taken before ADR 0073), and where it stands. The scanner
+///     steps it through each closed minute of its pair after the snapshot that signalled it, by the rules the preset backtest follows
+///     cards with, so a rule's paper results and chances compare with its backtest's.
 /// </summary>
 public sealed class ScanPaperTrade : AggregateRoot
 {
@@ -24,6 +24,7 @@ public sealed class ScanPaperTrade : AggregateRoot
     public decimal Risk { get; }
     public ScanTradeCosts Costs { get; }
     public decimal ExpectedR { get; }
+    public decimal? Chance { get; }
     public DateTimeOffset CreatedAt { get; }
 
     /// <summary>
@@ -51,6 +52,7 @@ public sealed class ScanPaperTrade : AggregateRoot
         decimal risk,
         ScanTradeCosts costs,
         decimal expectedR,
+        decimal? chance,
         DateTimeOffset createdAt,
         DateTimeOffset nextMinute,
         ScanCardProgress progress)
@@ -70,6 +72,7 @@ public sealed class ScanPaperTrade : AggregateRoot
         Risk = risk;
         Costs = costs ?? throw new ArgumentNullException(nameof(costs));
         ExpectedR = expectedR;
+        Chance = chance;
         CreatedAt = createdAt;
         NextMinute = nextMinute;
         Progress = progress ?? throw new ArgumentNullException(nameof(progress));
@@ -89,6 +92,7 @@ public sealed class ScanPaperTrade : AggregateRoot
         decimal risk,
         ScanTradeCosts costs,
         decimal expectedR,
+        decimal? chance,
         DateTimeOffset snapshotAt,
         DateTimeOffset now)
     {
@@ -105,6 +109,7 @@ public sealed class ScanPaperTrade : AggregateRoot
             risk,
             costs,
             expectedR,
+            chance,
             now,
             nextMinute,
             ScanCardProgress.Start);
@@ -121,11 +126,12 @@ public sealed class ScanPaperTrade : AggregateRoot
         decimal risk,
         ScanTradeCosts costs,
         decimal expectedR,
+        decimal? chance,
         DateTimeOffset createdAt,
         DateTimeOffset nextMinute,
         ScanCardProgress progress)
     {
-        return new ScanPaperTrade(id, ruleId, venue, symbol, timeframe, idea, amount, risk, costs, expectedR, createdAt, nextMinute, progress);
+        return new ScanPaperTrade(id, ruleId, venue, symbol, timeframe, idea, amount, risk, costs, expectedR, chance, createdAt, nextMinute, progress);
     }
 
     /// <summary>

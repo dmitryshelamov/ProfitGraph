@@ -73,7 +73,10 @@ internal static class ScanAutoTradeResponseConverter
             [.. autoTrade.Requests.Select(request => request.ToResponse())],
             [.. autoTrade.PaperTrades.Select(trade => trade.ToResponse())],
             autoTrade.PaperClosed,
-            Text(autoTrade.PaperMeanR));
+            Text(autoTrade.PaperMeanR),
+            autoTrade.PaperChanceTrades,
+            Text(autoTrade.PaperChance),
+            Text(autoTrade.PaperTargetShare));
     }
 
     public static ScanAutoTradeRuleResponse ToResponse(this ScanAutoTradeRuleInternal rule)

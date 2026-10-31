@@ -7,11 +7,13 @@ using ProfitGraph.Application.Scanner.Converters;
 using ProfitGraph.Domain.Accounts;
 using ProfitGraph.Domain.Scanner;
 using ProfitGraph.Domain.Scanner.AutoTrades;
+using ProfitGraph.Engine.Scanning;
 
 namespace ProfitGraph.Application.Scanner.GetScanAutoTrade;
 
 /// <summary>
-///     The paper result counts the rule's paper trades since it entered its mode (ADR 0071, section 7).
+///     The paper result counts the rule's paper trades since it entered its mode (ADR 0071, section 7); their chances are compared with
+///     how often they reached the target (ADR 0073).
 /// </summary>
 internal sealed class GetScanAutoTradeQueryHandler(
     IScanPresetRepository presets,
@@ -54,11 +56,12 @@ internal sealed class GetScanAutoTradeQueryHandler(
 
         DateTimeOffset dayStart = ScanAutoTradeTally.DayStart(now);
         IReadOnlyList<ScanPaperTrade> recent = await paperTrades.ListRecent(rule.Id, rule.ModeSince < dayStart ? rule.ModeSince : dayStart, cancellationToken);
-        decimal[] closed =
+        ScanPaperTrade[] finished =
         [
             .. recent.Where(trade => trade.CreatedAt >= rule.ModeSince && trade.Progress.Outcome is { Filled: true, ResultR: not null })
-                .Select(trade => trade.Progress.Outcome!.ResultR!.Value)
         ];
+        decimal[] closed = [.. finished.Select(trade => trade.Progress.Outcome!.ResultR!.Value)];
+        ScanPaperTrade[] chanced = [.. finished.Where(trade => trade.Chance is not null)];
 
         return new ScanAutoTradeInternal(
             query.PresetId,
@@ -71,6 +74,9 @@ internal sealed class GetScanAutoTradeQueryHandler(
             [.. (await requests.List(rule.Id, options.ListLimit, cancellationToken)).Select(request => request.ToInternal())],
             [.. recent.Take(options.ListLimit).Select(trade => trade.ToInternal())],
             closed.Length,
-            closed.Length == 0 ? null : closed.Average());
+            closed.Length == 0 ? null : closed.Average(),
+            chanced.Length,
+            chanced.Length == 0 ? null : chanced.Average(trade => trade.Chance!.Value),
+            chanced.Length == 0 ? null : (decimal)chanced.Count(trade => trade.Progress.Outcome!.Exit == ScanTradeExit.Target) / chanced.Length);
     }
 }

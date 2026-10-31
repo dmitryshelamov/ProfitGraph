@@ -7,6 +7,7 @@ using ProfitGraph.Application.Bots.Ports;
 using ProfitGraph.Application.Scanner;
 using ProfitGraph.Application.Scanner.Alerts;
 using ProfitGraph.Application.Scanner.AutoTrades;
+using ProfitGraph.Application.Scanner.CardOdds;
 using ProfitGraph.Application.Scanner.Contracts;
 using ProfitGraph.Application.Scanner.Ports;
 using ProfitGraph.Application.Scanner.RunScanBacktest;
@@ -40,6 +41,7 @@ public static class ScannerRegistration
         services.AddScoped<ScanAlertQueue>();
         services.AddScoped<ScanAutoTradeQueue>();
         services.AddScoped<ScanAutoTradeProofReader>();
+        services.AddScoped<ScanCardOddsReader>();
         services.AddScoped<ScanAutoTradeRequestHandler>();
         services.AddOptions<ScanAutoTradeOptions>()
             .Bind(configuration.GetSection(ScanAutoTradeOptions.SectionName))
